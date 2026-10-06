@@ -1,0 +1,109 @@
+import type { Route } from "./+types/api.v1";
+import { getKv } from "~/.server/kv";
+import { userForBearer } from "~/.server/db/tokens";
+import { saveMedia } from "~/.server/db/media";
+import { allowAction } from "~/.server/db/misc";
+import { absoluteUrl } from "~/.server/config";
+import { ApiError, asObject, type JsonObject } from "~/.server/agent/input";
+import { findOperation, runOperation } from "~/.server/agent/operations";
+import { mediaUrl } from "~/lib/display";
+
+/**
+ * REST API for agents and scripts. Routes map onto the same operations the
+ * MCP server exposes, so behaviour and validation are identical.
+ *
+ *   GET    /api/v1/me
+ *   GET    /api/v1/categories
+ *   GET    /api/v1/today
+ *   POST   /api/v1/goal
+ *   POST   /api/v1/media                    (raw image body, or JSON { base64 })
+ *   GET    /api/v1/slops
+ *   POST   /api/v1/slops
+ *   PATCH  /api/v1/slops/:slop
+ *   POST   /api/v1/slops/:slop/updates
+ *   POST   /api/v1/slops/:slop/slopcessful
+ */
+
+interface Match {
+  operation: string;
+  slop?: string;
+}
+
+function route(method: string, path: string): Match | null {
+  const parts = path.split("/").filter(Boolean);
+  const [resource, ref, action] = parts;
+  if (method === "GET" && parts.length === 1 && resource === "me") return { operation: "whoami" };
+  if (method === "GET" && parts.length === 1 && resource === "categories") return { operation: "list_categories" };
+  if (method === "GET" && parts.length === 1 && resource === "today") return { operation: "todays_race" };
+  if (method === "POST" && parts.length === 1 && resource === "goal") return { operation: "set_goal" };
+  if (method === "POST" && parts.length === 1 && resource === "media") return { operation: "upload_screenshot" };
+  if (resource !== "slops") return null;
+  if (parts.length === 1) {
+    if (method === "GET") return { operation: "list_my_slops" };
+    if (method === "POST") return { operation: "create_slop" };
+  }
+  if (parts.length === 2 && method === "PATCH") return { operation: "update_slop", slop: ref };
+  if (parts.length === 3 && method === "POST" && action === "updates") return { operation: "post_update", slop: ref };
+  if (parts.length === 3 && method === "POST" && action === "slopcessful") {
+    return { operation: "mark_slopcessful", slop: ref };
+  }
+  return null;
+}
+
+function errorResponse(error: ApiError): Response {
+  return Response.json({ error: error.message, details: error.details ?? null }, { status: error.status });
+}
+
+async function handle(request: Request, path: string): Promise<Response> {
+  const kv = await getKv();
+  const user = await userForBearer(kv, request);
+  if (!user) {
+    return Response.json(
+      { error: `Missing or invalid API token. Create one at ${absoluteUrl("/settings/api")}` },
+      { status: 401, headers: { "www-authenticate": 'Bearer realm="slopper"' } },
+    );
+  }
+
+  const match = route(request.method, path);
+  if (!match) return errorResponse(new ApiError(404, `No endpoint for ${request.method} /api/v1/${path}`));
+
+  try {
+    if (!(await allowAction(kv, "api", user.id, 600, 3_600_000))) throw new ApiError(429, "Rate limit reached.");
+
+    // Raw image uploads skip JSON entirely: `curl --data-binary @shot.png`.
+    const contentType = request.headers.get("content-type") ?? "";
+    if (match.operation === "upload_screenshot" && contentType.startsWith("image/")) {
+      const result = await saveMedia(kv, user.id, new Uint8Array(await request.arrayBuffer()));
+      if (!result.ok) throw new ApiError(400, result.error);
+      return Response.json({ id: result.media.id, url: absoluteUrl(mediaUrl(result.media.id)) }, { status: 201 });
+    }
+
+    let input: JsonObject = {};
+    if (request.method !== "GET") {
+      const text = await request.text();
+      try {
+        input = asObject(text ? JSON.parse(text) : {}, "body");
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+        throw new ApiError(400, "Body must be JSON.");
+      }
+    }
+    if (match.slop) input = { ...input, slop: decodeURIComponent(match.slop) };
+
+    const operation = findOperation(match.operation);
+    if (!operation) throw new ApiError(404, "Unknown operation.");
+    const result = await runOperation(operation, { kv, user, now: new Date() }, input);
+    return Response.json(result, { status: request.method === "POST" ? 201 : 200 });
+  } catch (error) {
+    if (error instanceof ApiError) return errorResponse(error);
+    throw error;
+  }
+}
+
+export function loader({ request, params }: Route.LoaderArgs) {
+  return handle(request, params["*"] ?? "");
+}
+
+export function action({ request, params }: Route.ActionArgs) {
+  return handle(request, params["*"] ?? "");
+}

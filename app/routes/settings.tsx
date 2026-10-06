@@ -1,0 +1,129 @@
+import { data, Form } from "react-router";
+import type { Route } from "./+types/settings";
+import { getKv } from "~/.server/kv";
+import { requireUser, viewerContext } from "~/.server/session";
+import { normalizeUsername, updateProfile } from "~/.server/db/users";
+import { formText, parseWebUrl } from "~/.server/forms";
+import { redirectWithFlash } from "~/.server/http";
+import { invalidateFeeds } from "~/.server/memo";
+import { LIMITS } from "~/lib/model";
+import { seo } from "~/lib/seo";
+import { Field } from "~/components/SlopFields";
+import { SettingsNav } from "~/components/Shared";
+
+export function loader({ request, context }: Route.LoaderArgs) {
+  const user = requireUser(context.get(viewerContext), request);
+  return { user, timeZones: Intl.supportedValuesOf("timeZone") };
+}
+
+export async function action({ request, context }: Route.ActionArgs) {
+  const user = requireUser(context.get(viewerContext), request);
+  const form = await request.formData();
+  const websiteText = formText(form, "website");
+  const website = websiteText ? parseWebUrl(websiteText) : null;
+  if (websiteText && !website) return data({ error: "That website isn't a URL." }, { status: 422 });
+  const result = await updateProfile(await getKv(), user.id, {
+    username: normalizeUsername(formText(form, "username")),
+    displayName: formText(form, "displayName"),
+    bio: formText(form, "bio"),
+    website: website?.href ?? null,
+    timeZone: formText(form, "timeZone"),
+    showNsfw: form.get("showNsfw") === "on",
+  });
+  if (!result.ok) return data({ error: result.error }, { status: 422 });
+  invalidateFeeds();
+  return redirectWithFlash("/settings", { tone: "success", message: "Saved." });
+}
+
+export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "Settings", noindex: true });
+
+export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
+  const { user, timeZones } = loaderData;
+  return (
+    <section className="mx-auto max-w-2xl px-4 py-12">
+      <SettingsNav />
+      <h1 className="font-wide mt-6 text-4xl font-black">Settings</h1>
+      {actionData?.error && (
+        <p
+          role="alert"
+          className="mt-6 rounded-xl border-2 border-ink bg-hot px-4 py-3 text-sm font-semibold text-white"
+        >
+          {actionData.error}
+        </p>
+      )}
+      <Form method="post" className="mt-8 grid gap-6">
+        <div className="grid gap-6 sm:grid-cols-2">
+          <Field id="username" label="Username" hint="Your page lives at slopper.day/@username.">
+            <input
+              id="username"
+              name="username"
+              className="input font-mono"
+              required
+              defaultValue={user.username}
+              maxLength={30}
+            />
+          </Field>
+          <Field id="displayName" label="Display name">
+            <input
+              id="displayName"
+              name="displayName"
+              className="input"
+              defaultValue={user.displayName}
+              maxLength={60}
+            />
+          </Field>
+        </div>
+        <Field id="bio" label="Bio" hint={`Up to ${LIMITS.bioLength} characters.`}>
+          <textarea
+            id="bio"
+            name="bio"
+            className="input min-h-24"
+            maxLength={LIMITS.bioLength}
+            defaultValue={user.bio}
+          />
+        </Field>
+        <Field id="website" label="Website">
+          <input
+            id="website"
+            name="website"
+            type="url"
+            className="input"
+            defaultValue={user.website ?? ""}
+            placeholder="https://"
+          />
+        </Field>
+        <Field
+          id="timeZone"
+          label="Time zone"
+          hint="Your day ends at midnight here. It decides which day a slop counts for."
+        >
+          <select id="timeZone" name="timeZone" className="input" defaultValue={user.timeZone}>
+            {timeZones.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+            {!timeZones.includes(user.timeZone) && <option value={user.timeZone}>{user.timeZone}</option>}
+          </select>
+        </Field>
+        <label className="flex items-start gap-3 rounded-xl border-2 border-ink bg-card p-4">
+          <input
+            type="checkbox"
+            name="showNsfw"
+            defaultChecked={user.showNsfw}
+            className="mt-1 size-5 accent-[var(--hot)]"
+          />
+          <span>
+            <span className="font-bold">Show NSFW slops</span>
+            <span className="block text-sm text-muted">
+              Off by default. When on, NSFW slops show in feeds without the blur.
+            </span>
+          </span>
+        </label>
+        <button type="submit" className="btn btn-slop justify-self-start">
+          Save
+        </button>
+      </Form>
+    </section>
+  );
+}

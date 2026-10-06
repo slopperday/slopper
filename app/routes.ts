@@ -1,0 +1,36 @@
+import { index, route, type RouteConfig } from "@react-router/dev/routes";
+
+export default [
+  index("routes/home.tsx"),
+  route("today", "routes/day.tsx", { id: "today" }),
+  route("day/:date", "routes/day.tsx"),
+  route("wall", "routes/wall.tsx"),
+  route("slopcessful", "routes/slopcessful.tsx"),
+  route("streaks", "routes/streaks.tsx"),
+  route("rules", "routes/rules.tsx"),
+  route("login", "routes/login.tsx"),
+  route("new", "routes/new.tsx"),
+  route("goal", "routes/goal.tsx"),
+  route("settings", "routes/settings.tsx"),
+  route("settings/autopost", "routes/settings.autopost.tsx"),
+  route("settings/api", "routes/settings.api.tsx"),
+
+  route("auth/logout", "routes/auth.logout.ts"),
+  route("auth/dev", "routes/auth.dev.ts"),
+  route("auth/:provider", "routes/auth.start.ts"),
+  route("auth/:provider/callback", "routes/auth.callback.ts"),
+
+  route("api/v1/*", "routes/api.v1.ts"),
+  route("mcp", "routes/mcp.ts"),
+  route("llms.txt", "routes/llms.ts"),
+  route("api/media", "routes/api.media.ts"),
+  route("api/slops/:id", "routes/api.slop.ts"),
+  route("api/slops/:id/vote", "routes/api.vote.ts"),
+  route("api/slops/:id/pledge", "routes/api.pledge.ts"),
+  route("media/:id", "routes/media.ts"),
+  route("feed.xml", "routes/feed.ts"),
+
+  route(":handle", "routes/profile.tsx"),
+  route(":handle/:slug", "routes/slop.tsx"),
+  route(":handle/:slug/edit", "routes/slop.edit.tsx"),
+] satisfies RouteConfig;
