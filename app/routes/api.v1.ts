@@ -1,12 +1,9 @@
 import type { Route } from "./+types/api.v1";
-import { getKv } from "~/.server/kv";
-import { userForBearer } from "~/.server/db/tokens";
-import { saveMedia } from "~/.server/db/media";
-import { allowAction } from "~/.server/db/misc";
 import { absoluteUrl } from "~/.server/config";
+import { uploadImage } from "~/.server/media";
+import { allowAction, userForBearer } from "~/.server/tokens";
 import { ApiError, asObject, type JsonObject } from "~/.server/agent/input";
 import { findOperation, runOperation } from "~/.server/agent/operations";
-import { mediaUrl } from "~/lib/display";
 
 /**
  * REST API for agents and scripts. Routes map onto the same operations the
@@ -22,6 +19,7 @@ import { mediaUrl } from "~/lib/display";
  *   PATCH  /api/v1/slops/:slop
  *   POST   /api/v1/slops/:slop/updates
  *   POST   /api/v1/slops/:slop/slopcessful
+ *   POST   /api/v1/slops/:slop/money
  */
 
 interface Match {
@@ -47,6 +45,7 @@ function route(method: string, path: string): Match | null {
   if (parts.length === 3 && method === "POST" && action === "slopcessful") {
     return { operation: "mark_slopcessful", slop: ref };
   }
+  if (parts.length === 3 && method === "POST" && action === "money") return { operation: "log_money", slop: ref };
   return null;
 }
 
@@ -55,8 +54,7 @@ function errorResponse(error: ApiError): Response {
 }
 
 async function handle(request: Request, path: string): Promise<Response> {
-  const kv = await getKv();
-  const user = await userForBearer(kv, request);
+  const user = await userForBearer(request);
   if (!user) {
     return Response.json(
       { error: `Missing or invalid API token. Create one at ${absoluteUrl("/settings/api")}` },
@@ -68,14 +66,14 @@ async function handle(request: Request, path: string): Promise<Response> {
   if (!match) return errorResponse(new ApiError(404, `No endpoint for ${request.method} /api/v1/${path}`));
 
   try {
-    if (!(await allowAction(kv, "api", user.id, 600, 3_600_000))) throw new ApiError(429, "Rate limit reached.");
+    if (!(await allowAction(`api:${user._id}`, 600, 3_600_000))) throw new ApiError(429, "Rate limit reached.");
 
     // Raw image uploads skip JSON entirely: `curl --data-binary @shot.png`.
     const contentType = request.headers.get("content-type") ?? "";
     if (match.operation === "upload_screenshot" && contentType.startsWith("image/")) {
-      const result = await saveMedia(kv, user.id, new Uint8Array(await request.arrayBuffer()));
+      const result = await uploadImage(user._id, new Uint8Array(await request.arrayBuffer()));
       if (!result.ok) throw new ApiError(400, result.error);
-      return Response.json({ id: result.media.id, url: absoluteUrl(mediaUrl(result.media.id)) }, { status: 201 });
+      return Response.json({ id: result.id, url: result.url }, { status: 201 });
     }
 
     let input: JsonObject = {};
@@ -92,7 +90,7 @@ async function handle(request: Request, path: string): Promise<Response> {
 
     const operation = findOperation(match.operation);
     if (!operation) throw new ApiError(404, "Unknown operation.");
-    const result = await runOperation(operation, { kv, user, now: new Date() }, input);
+    const result = await runOperation(operation, { user, now: new Date() }, input);
     return Response.json(result, { status: request.method === "POST" ? 201 : 200 });
   } catch (error) {
     if (error instanceof ApiError) return errorResponse(error);

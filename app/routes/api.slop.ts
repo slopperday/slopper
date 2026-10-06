@@ -1,23 +1,22 @@
 import type { Route } from "./+types/api.slop";
-import { getKv } from "~/.server/kv";
-import { getSlop } from "~/.server/db/slops";
-import { getUser } from "~/.server/db/users";
+import { api } from "@convex/_generated/api";
+import { convex } from "~/.server/convex";
 import { absoluteUrl } from "~/.server/config";
 import { notFound } from "~/.server/http";
 import { findCategory } from "~/lib/model";
-import { mediaUrl, slopPath } from "~/lib/display";
+import { slopPath } from "~/lib/display";
 
-/** Public, read-only JSON for a slop. Promo video tooling reads this. */
+/** Public, read-only JSON for one launch. Promo video tooling reads this. */
 export async function loader({ params }: Route.LoaderArgs) {
-  const kv = await getKv();
-  const slop = await getSlop(kv, params.id);
-  if (!slop || slop.hidden) notFound();
-  const owner = await getUser(kv, slop.userId);
-  if (!owner) notFound();
+  const found = await convex.query(api.slops.publicById, { id: params.id });
+  if (!found) notFound();
+  const { slop, owner } = found;
   return Response.json(
     {
       id: slop.id,
       number: slop.number,
+      productId: slop.productId,
+      launchLabel: slop.launchLabel,
       name: slop.name,
       tagline: slop.tagline,
       description: slop.description,
@@ -25,13 +24,18 @@ export async function loader({ params }: Route.LoaderArgs) {
       nsfw: slop.nsfw,
       url: absoluteUrl(slopPath(owner.username, slop.slug)),
       links: slop.links,
-      screenshots: slop.screenshots.map((id) => absoluteUrl(mediaUrl(id))),
+      screenshots: slop.screenshots,
       madeWith: slop.madeWith,
       launchDate: slop.launchDate,
       goalDay: slop.goalDay,
       goalLength: slop.goalLength,
       upvotes: slop.upvotes,
-      slopcessful: slop.slopcessfulAt ? { at: slop.slopcessfulAt, note: slop.slopcessfulNote } : null,
+      backers: slop.backers,
+      pledgedUsdCents: slop.pledged,
+      slopOfTheDay: slop.slopOfTheDay,
+      slopcessful: slop.slopcessfulAt
+        ? { at: new Date(slop.slopcessfulAt).toISOString(), note: slop.slopcessfulNote }
+        : null,
       owner: { username: owner.username, displayName: owner.displayName, avatarUrl: owner.avatarUrl },
     },
     { headers: { "access-control-allow-origin": "*", "cache-control": "public, max-age=60" } },

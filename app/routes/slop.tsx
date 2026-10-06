@@ -1,53 +1,30 @@
 import { useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
 import type { Route } from "./+types/slop";
-import { getKv } from "~/.server/kv";
+import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
-import { resolveSlop } from "~/.server/routing";
-import {
-  addComment,
-  addUpdate,
-  deleteComment,
-  deleteUpdate,
-  getComment,
-  getUpdate,
-  listComments,
-  listSlopUpdates,
-} from "~/.server/db/activity";
-import { deleteSlop, getVote, listProductLaunches, setSlopcessful, setSlopHidden } from "~/.server/db/slops";
-import { listAccounts } from "~/.server/db/accounts";
-import {
-  addLedgerEntry,
-  deleteLedgerEntry,
-  isMoneyPublic,
-  ledgerProblem,
-  listLedger,
-  setMoneyPublic,
-} from "~/.server/db/money";
-import { getPledge } from "~/.server/db/pledges";
-import { allowAction, dismissReports, fileReport } from "~/.server/db/misc";
-import { getUsersById, voteMode } from "~/.server/feed";
-import { formText } from "~/.server/forms";
-import { badRequest, forbidden, redirectWithFlash } from "~/.server/http";
-import { renderMarkdown } from "~/.server/markdown";
-import { invalidateFeeds } from "~/.server/memo";
+import { convex, convexMessage } from "~/.server/convex";
 import { absoluteUrl } from "~/.server/config";
+import { formText } from "~/.server/forms";
+import { badRequest, forbidden, notFound, redirectWithFlash } from "~/.server/http";
 import { announce, retryFailed, summarize } from "~/.server/social/announce";
+import { modeFor } from "~/.server/social/crosspost";
 import { shareIntents } from "~/lib/compose";
 import { formatDay, localDate, timeAgo } from "~/lib/dates";
-import { moneyTotals, parseAmount } from "~/lib/money";
-import { dayLabel, launchTitle, mediaUrl, numberLabel, slopPath } from "~/lib/display";
+import { dayLabel, launchTitle, numberLabel, slopPath } from "~/lib/display";
+import { parseAmount } from "~/lib/money";
 import {
-  type CommentKind,
+  COST_CATEGORIES,
   isPostableUpdateKind,
   LIMITS,
   LINK_KINDS,
   POSTABLE_UPDATE_KINDS,
   type PostableUpdateKind,
-  publicSlop,
-  publicUser,
+  REVENUE_CATEGORIES,
   UPDATE_KINDS,
 } from "~/lib/model";
+import { CURRENCIES } from "~/lib/money";
+import { isIsoDate } from "~/lib/dates";
 import { seo } from "~/lib/seo";
 import { Avatar } from "~/components/Avatar";
 import { CrosspostReceipts } from "~/components/Autopost";
@@ -58,288 +35,298 @@ import { VoteButtons } from "~/components/VoteButtons";
 import { TakeMyMoney } from "~/components/TakeMyMoney";
 import { MoneyLedger, MoneySummary } from "~/components/Money";
 import { AgentPrompt } from "~/components/AgentPrompt";
+import { useLive } from "~/components/Live";
 import { updatePrompt } from "~/lib/prompts";
 
-export async function loader({ params, request, context }: Route.LoaderArgs) {
-  const kv = await getKv();
+function parseHandle(handle: string): string {
+  if (!handle.startsWith("@")) notFound();
+  return handle.slice(1).toLowerCase();
+}
+
+export async function loader({ params, context }: Route.LoaderArgs) {
   const viewer = context.get(viewerContext);
-  const { owner, slop } = await resolveSlop(kv, params, viewer);
-  const isOwner = viewer.user?.id === owner.id;
-  const [updates, comments, vote, accounts, launches, moneyPublic, myPledge] = await Promise.all([
-    listSlopUpdates(kv, slop.id),
-    listComments(kv, slop.id),
-    viewer.user ? getVote(kv, slop.id, viewer.user.id) : Promise.resolve(0 as const),
-    isOwner ? listAccounts(kv, owner.id) : Promise.resolve([]),
-    listProductLaunches(kv, slop.productId),
-    isMoneyPublic(kv, slop.productId),
-    viewer.user ? getPledge(kv, slop.id, viewer.user.id) : Promise.resolve(0),
-  ]);
-  const ledger = isOwner || moneyPublic ? await listLedger(kv, slop.productId) : [];
-  const commenters = await getUsersById(
-    kv,
-    comments.map((comment) => comment.userId),
-  );
-  const reveal =
-    !slop.nsfw || viewer.user?.showNsfw || isOwner || new URL(request.url).searchParams.get("reveal") === "1";
+  const username = parseHandle(params.handle);
+  const page = await convex.query(api.slops.page, {
+    username,
+    slug: params.slug,
+    asUser: viewer.user?._id,
+    isAdmin: viewer.isAdmin,
+  });
+  if (!page) notFound();
+  const { slop, owner } = page;
+
+  let autopostCount = 0;
+  if (page.isOwner && viewer.user) {
+    const [doc, accounts] = await Promise.all([
+      convex.query(api.slops.getForServer, { slopId: slop.id }),
+      convex.query(api.accounts.list, { userId: viewer.user._id }),
+    ]);
+    if (doc) autopostCount = accounts.filter((account) => modeFor(doc, account) !== "off").length;
+  }
   const url = absoluteUrl(slopPath(owner.username, slop.slug));
   const day = dayLabel(slop);
-
   return {
-    owner: publicUser(owner),
-    slop: publicSlop(slop),
-    descriptionHtml: renderMarkdown(slop.description),
-    updates: updates.map((update) => ({
-      id: update.id,
-      kind: update.kind,
-      html: renderMarkdown(update.body),
-      createdAt: update.createdAt,
-      // Where it was posted is the owner's business only.
-      crossposts: isOwner ? update.crossposts : [],
-    })),
-    comments: comments.map((comment) => {
-      const author = commenters.get(comment.userId);
-      return {
-        id: comment.id,
-        kind: comment.kind,
-        html: renderMarkdown(comment.body),
-        createdAt: comment.createdAt,
-        author: author ? publicUser(author) : null,
-        canDelete: viewer.user !== null && (viewer.user.id === comment.userId || isOwner || viewer.isAdmin),
-      };
-    }),
-    launches: launches
-      .filter((launch) => !launch.hidden || isOwner)
-      .map((launch) => ({
-        id: launch.id,
-        title: launch.launchLabel ?? "First launch",
-        number: launch.number,
-        launchDate: launch.launchDate,
-        upvotes: launch.upvotes,
-        slopOfTheDay: launch.slopOfTheDay,
-        path: slopPath(owner.username, launch.slug),
-      })),
-    money: {
-      isPublic: moneyPublic,
-      totals: moneyTotals(ledger),
-      // Line items stay with the owner; everyone else sees totals at most.
-      entries: isOwner ? ledger : [],
-      today: localDate(new Date(), owner.timeZone),
+    page,
+    username,
+    slug: params.slug,
+    extras: {
+      isAdmin: viewer.isAdmin,
+      signedIn: viewer.user !== null,
+      autopostCount,
+      today: localDate(new Date(), page.ownerTimeZone),
+      url,
+      intents: shareIntents(
+        `${launchTitle(slop)}: ${slop.tagline}${day ? ` (${day} by @${owner.username})` : ""}`,
+        url,
+      ),
     },
-    myPledge,
-    vote,
-    voteMode: voteMode(viewer.user, slop),
-    isOwner,
-    isAdmin: viewer.isAdmin,
-    signedIn: viewer.user !== null,
-    autopostCount: accounts.filter((account) => (slop.crosspost[account.id] ?? account.defaultMode) !== "off").length,
-    reveal,
-    url,
-    intents: shareIntents(`${slop.name}: ${slop.tagline}${day ? ` (${day} by @${owner.username})` : ""}`, url),
   };
+}
+
+/** Wraps a Convex business-rule error into a flash, rethrowing anything else. */
+async function attempt(here: string, run: () => Promise<Response>): Promise<Response> {
+  try {
+    return await run();
+  } catch (error) {
+    const message = convexMessage(error);
+    if (message) return redirectWithFlash(here, { tone: "error", message });
+    throw error;
+  }
 }
 
 export async function action({ params, request, context }: Route.ActionArgs) {
   const viewer = context.get(viewerContext);
   const user = requireUser(viewer, request);
-  const kv = await getKv();
-  const { owner, slop } = await resolveSlop(kv, params, viewer);
+  const username = parseHandle(params.handle);
+  const page = await convex.query(api.slops.page, {
+    username,
+    slug: params.slug,
+    asUser: user._id,
+    isAdmin: viewer.isAdmin,
+  });
+  if (!page) notFound();
+  const { slop, owner, isOwner } = page;
+  const ownerRef = { _id: owner.id, username: owner.username };
   const here = slopPath(owner.username, slop.slug);
   const form = await request.formData();
   const intent = formText(form, "intent");
-  const isOwner = user.id === owner.id;
 
-  switch (intent) {
-    case "comment": {
-      const body = formText(form, "body");
-      const kind: CommentKind = formText(form, "kind") === "kudos" ? "kudos" : "feedback";
-      if (!body || body.length > LIMITS.commentLength) {
-        return redirectWithFlash(`${here}#feedback`, {
-          tone: "error",
-          message: `Feedback is 1 to ${LIMITS.commentLength} characters.`,
+  return await attempt(here, async () => {
+    switch (intent) {
+      case "comment": {
+        const body = formText(form, "body");
+        const kind = formText(form, "kind") === "kudos" ? "kudos" : "feedback";
+        if (!body || body.length > LIMITS.commentLength) {
+          return redirectWithFlash(`${here}#feedback`, {
+            tone: "error",
+            message: `Feedback is 1 to ${LIMITS.commentLength} characters.`,
+          });
+        }
+        const commentId = await convex.mutation(api.activity.addComment, {
+          userId: user._id,
+          slopId: slop.id,
+          kind,
+          body,
+        });
+        return redirectWithFlash(`${here}#comment-${commentId}`, {
+          tone: "success",
+          message: kind === "kudos" ? "Kudos sent. 🔥" : "Feedback posted.",
         });
       }
-      if (!(await allowAction(kv, "comment", user.id, 30, 3_600_000))) {
-        return redirectWithFlash(`${here}#feedback`, {
-          tone: "error",
-          message: "That's a lot of feedback. Take a breather.",
+
+      case "delete-comment": {
+        await convex.mutation(api.activity.deleteComment, {
+          userId: user._id,
+          commentId: formText(form, "id"),
+          asAdmin: viewer.isAdmin,
+        });
+        return redirectWithFlash(`${here}#feedback`, { tone: "info", message: "Removed." });
+      }
+
+      case "update": {
+        if (!isOwner) forbidden();
+        const kind = formText(form, "kind");
+        const body = formText(form, "body");
+        if (!isPostableUpdateKind(kind)) badRequest("Unknown update kind");
+        if (!body || body.length > LIMITS.updateLength) {
+          return redirectWithFlash(`${here}#updates`, {
+            tone: "error",
+            message: `Updates are 1 to ${LIMITS.updateLength} characters.`,
+          });
+        }
+        const updateId = await convex.mutation(api.activity.addUpdate, {
+          userId: user._id,
+          slopId: slop.id,
+          kind,
+          body,
+        });
+        const autoposted = form.get("autopost") === "on" ? summarize(await announce(ownerRef, slop.id, updateId)) : "";
+        return redirectWithFlash(`${here}#update-${updateId}`, {
+          tone: "success",
+          message: `${UPDATE_KINDS[kind].label} posted.${autoposted}`,
         });
       }
-      const comment = await addComment(kv, slop.id, user.id, kind, body);
-      invalidateFeeds();
-      return redirectWithFlash(`${here}#comment-${comment.id}`, {
-        tone: "success",
-        message: kind === "kudos" ? "Kudos sent. 🔥" : "Feedback posted.",
-      });
-    }
 
-    case "delete-comment": {
-      const comment = await getComment(kv, slop.id, formText(form, "id"));
-      if (!comment) return redirectWithFlash(`${here}#feedback`);
-      if (comment.userId !== user.id && !isOwner && !viewer.isAdmin) forbidden();
-      await deleteComment(kv, comment);
-      invalidateFeeds();
-      return redirectWithFlash(`${here}#feedback`, { tone: "info", message: "Removed." });
-    }
+      case "slopcessful": {
+        if (!isOwner) forbidden();
+        const note = formText(form, "note");
+        if (!note) {
+          return redirectWithFlash(`${here}#slopcessful`, {
+            tone: "error",
+            message: "Say what happened: users, revenue, a viral post…",
+          });
+        }
+        const updateId = await convex.mutation(api.slops.setSlopcessful, { userId: user._id, slopId: slop.id, note });
+        const autoposted =
+          updateId && form.get("autopost") === "on" ? summarize(await announce(ownerRef, slop.id, updateId)) : "";
+        return redirectWithFlash(here, { tone: "success", message: `Slopcessful. Keep slopping.${autoposted}` });
+      }
 
-    case "update": {
-      if (!isOwner) forbidden();
-      const kind = formText(form, "kind");
-      const body = formText(form, "body");
-      if (!isPostableUpdateKind(kind)) badRequest("Unknown update kind");
-      if (!body || body.length > LIMITS.updateLength) {
+      case "unslopcessful": {
+        if (!isOwner) forbidden();
+        await convex.mutation(api.slops.setSlopcessful, { userId: user._id, slopId: slop.id, note: null });
+        return redirectWithFlash(here, { tone: "info", message: "Slopcessful badge removed." });
+      }
+
+      case "money-add": {
+        if (!isOwner) forbidden();
+        const amount = parseAmount(formText(form, "amount"));
+        const kind = formText(form, "kind") === "revenue" ? "revenue" : "cost";
+        const currency = formText(form, "currency") || "USD";
+        const category = formText(form, "category") || "other";
+        const note = formText(form, "note");
+        const date = formText(form, "date") || localDate(new Date(), user.timeZone);
+        const categories: readonly string[] = kind === "cost" ? COST_CATEGORIES : REVENUE_CATEGORIES;
+        const problem =
+          amount === null
+            ? "Enter an amount like 12.99."
+            : !(CURRENCIES as readonly string[]).includes(currency)
+              ? "Pick a currency from the list."
+              : !categories.includes(category)
+                ? "Pick a category from the list."
+                : !isIsoDate(date)
+                  ? "Pick a date."
+                  : note.length > LIMITS.ledgerNoteLength
+                    ? `Keep the note under ${LIMITS.ledgerNoteLength} characters.`
+                    : null;
+        if (problem || amount === null) {
+          return redirectWithFlash(`${here}#money`, { tone: "error", message: problem ?? "Enter an amount." });
+        }
+        await convex.mutation(api.money.add, {
+          userId: user._id,
+          slopId: slop.id,
+          kind,
+          amount,
+          currency,
+          category,
+          note,
+          date,
+        });
+        return redirectWithFlash(`${here}#money`, {
+          tone: "success",
+          message: kind === "cost" ? "Cost logged." : "Revenue logged. 💸",
+        });
+      }
+
+      case "money-delete": {
+        if (!isOwner) forbidden();
+        await convex.mutation(api.money.remove, { userId: user._id, entryId: formText(form, "id") });
+        return redirectWithFlash(`${here}#money`, { tone: "info", message: "Removed." });
+      }
+
+      case "money-visibility": {
+        if (!isOwner) forbidden();
+        const visible = formText(form, "public") === "on";
+        await convex.mutation(api.money.setPublic, { userId: user._id, slopId: slop.id, visible });
+        return redirectWithFlash(`${here}#money`, {
+          tone: "info",
+          message: visible ? "Your numbers are public now." : "Your numbers are private.",
+        });
+      }
+
+      case "retry-autopost": {
+        if (!isOwner) forbidden();
+        const results = await retryFailed(ownerRef, formText(form, "id"));
+        const failed = results.filter((result) => result.status === "error").length;
         return redirectWithFlash(`${here}#updates`, {
-          tone: "error",
-          message: `Updates are 1 to ${LIMITS.updateLength} characters.`,
+          tone: failed ? "error" : "success",
+          message: failed ? `${failed} account${failed === 1 ? "" : "s"} still failing.` : "Posted.",
         });
       }
-      if (!(await allowAction(kv, "update", user.id, 30, 86_400_000))) {
-        return redirectWithFlash(`${here}#updates`, { tone: "error", message: "30 updates a day is plenty." });
-      }
-      const update = await addUpdate(kv, slop.id, user.id, kind, body);
-      invalidateFeeds();
-      const autoposted = form.get("autopost") === "on" ? summarize(await announce(kv, owner, slop, update)) : "";
-      return redirectWithFlash(`${here}#update-${update.id}`, {
-        tone: "success",
-        message: `${UPDATE_KINDS[kind].label} posted.${autoposted}`,
-      });
-    }
 
-    case "slopcessful": {
-      if (!isOwner) forbidden();
-      const note = formText(form, "note").slice(0, LIMITS.slopcessfulNoteLength);
-      if (!note) {
-        return redirectWithFlash(`${here}#slopcessful`, {
-          tone: "error",
-          message: "Say what happened: users, revenue, a viral post…",
+      case "delete-update": {
+        if (!isOwner) forbidden();
+        await convex.mutation(api.activity.deleteUpdate, {
+          userId: user._id,
+          updateId: formText(form, "id"),
+        });
+        return redirectWithFlash(`${here}#updates`, { tone: "info", message: "Removed." });
+      }
+
+      case "report": {
+        await convex.mutation(api.slops.report, {
+          userId: user._id,
+          slopId: slop.id,
+          reason: formText(form, "reason"),
+        });
+        return redirectWithFlash(here, { tone: "info", message: "Thanks. A moderator will take a look." });
+      }
+
+      case "hide":
+      case "unhide": {
+        if (!viewer.isAdmin) forbidden();
+        await convex.mutation(api.slops.setHidden, { slopId: slop.id, hidden: intent === "hide" });
+        return redirectWithFlash(here, {
+          tone: "info",
+          message: intent === "hide" ? "Hidden from Slopper." : "Visible again.",
         });
       }
-      const { slop: updated, update } = await setSlopcessful(kv, slop.id, note);
-      invalidateFeeds();
-      const autoposted =
-        update && form.get("autopost") === "on" ? summarize(await announce(kv, owner, updated, update)) : "";
-      return redirectWithFlash(here, { tone: "success", message: `Slopcessful. Keep slopping.${autoposted}` });
-    }
 
-    case "unslopcessful": {
-      if (!isOwner) forbidden();
-      await setSlopcessful(kv, slop.id, null);
-      invalidateFeeds();
-      return redirectWithFlash(here, { tone: "info", message: "Slopcessful badge removed." });
-    }
-
-    case "money-add": {
-      if (!isOwner) forbidden();
-      const amount = parseAmount(formText(form, "amount"));
-      const kind = formText(form, "kind") === "revenue" ? "revenue" : "cost";
-      const entry = {
-        kind,
-        amount: amount ?? 0,
-        currency: formText(form, "currency") || "USD",
-        category: formText(form, "category") || "other",
-        note: formText(form, "note"),
-        date: formText(form, "date") || localDate(new Date(), owner.timeZone),
-      } as const;
-      const problem = amount === null ? "Enter an amount like 12.99." : ledgerProblem(entry);
-      if (problem) return redirectWithFlash(`${here}#money`, { tone: "error", message: problem });
-      await addLedgerEntry(kv, slop.productId, user.id, entry);
-      return redirectWithFlash(`${here}#money`, {
-        tone: "success",
-        message: kind === "cost" ? "Cost logged." : "Revenue logged. 💸",
-      });
-    }
-
-    case "money-delete": {
-      if (!isOwner) forbidden();
-      await deleteLedgerEntry(kv, slop.productId, formText(form, "id"));
-      return redirectWithFlash(`${here}#money`, { tone: "info", message: "Removed." });
-    }
-
-    case "money-visibility": {
-      if (!isOwner) forbidden();
-      const visible = formText(form, "public") === "on";
-      await setMoneyPublic(kv, slop.productId, visible);
-      return redirectWithFlash(`${here}#money`, {
-        tone: "info",
-        message: visible ? "Your numbers are public now." : "Your numbers are private.",
-      });
-    }
-
-    case "retry-autopost": {
-      if (!isOwner) forbidden();
-      const update = await getUpdate(kv, slop.id, formText(form, "id"));
-      if (!update) return redirectWithFlash(`${here}#updates`);
-      const results = await retryFailed(kv, owner, slop, update);
-      const failed = results.filter((result) => result.status === "error").length;
-      return redirectWithFlash(`${here}#update-${update.id}`, {
-        tone: failed ? "error" : "success",
-        message: failed ? `${failed} account${failed === 1 ? "" : "s"} still failing.` : "Posted.",
-      });
-    }
-
-    case "delete-update": {
-      if (!isOwner) forbidden();
-      const update = await getUpdate(kv, slop.id, formText(form, "id"));
-      if (update && update.kind !== "launch") {
-        await deleteUpdate(kv, update);
-        invalidateFeeds();
+      case "delete": {
+        if (!isOwner && !viewer.isAdmin) forbidden();
+        if (formText(form, "confirm") !== slop.slug) {
+          return redirectWithFlash(`${here}/edit#delete`, {
+            tone: "error",
+            message: `Type “${slop.slug}” to confirm.`,
+          });
+        }
+        await convex.mutation(api.slops.remove, { slopId: slop.id, byUserId: user._id, asAdmin: viewer.isAdmin });
+        return redirectWithFlash(`/@${owner.username}`, {
+          tone: "info",
+          message: `${launchTitle(slop)} was scraped off the wall.`,
+        });
       }
-      return redirectWithFlash(`${here}#updates`, { tone: "info", message: "Removed." });
-    }
 
-    case "report": {
-      const reason = formText(form, "reason").slice(0, 500);
-      if (!(await allowAction(kv, "report", user.id, 10, 86_400_000))) {
-        return redirectWithFlash(here, { tone: "error", message: "Too many reports today." });
-      }
-      await fileReport(kv, slop.id, user.id, reason || "No reason given");
-      return redirectWithFlash(here, { tone: "info", message: "Thanks. A moderator will take a look." });
+      default:
+        badRequest("Unknown action");
     }
-
-    case "hide":
-    case "unhide": {
-      if (!viewer.isAdmin) forbidden();
-      await setSlopHidden(kv, slop.id, intent === "hide");
-      if (intent === "hide") await dismissReports(kv, slop.id);
-      invalidateFeeds();
-      return redirectWithFlash(here, {
-        tone: "info",
-        message: intent === "hide" ? "Hidden from Slopper." : "Visible again.",
-      });
-    }
-
-    case "delete": {
-      if (!isOwner && !viewer.isAdmin) forbidden();
-      if (formText(form, "confirm") !== slop.slug) {
-        return redirectWithFlash(`${here}/edit#delete`, { tone: "error", message: `Type “${slop.slug}” to confirm.` });
-      }
-      await deleteSlop(kv, slop);
-      invalidateFeeds();
-      return redirectWithFlash(`/@${owner.username}`, {
-        tone: "info",
-        message: `${slop.name} was scraped off the wall.`,
-      });
-    }
-
-    default:
-      badRequest("Unknown action");
-  }
+  });
 }
 
 export const meta: Route.MetaFunction = ({ matches, loaderData }) =>
   loaderData
     ? seo(matches, {
-        title: `${launchTitle(loaderData.slop)} by @${loaderData.owner.username}`,
-        description: loaderData.slop.tagline,
+        title: `${launchTitle(loaderData.page.slop)} by @${loaderData.page.owner.username}`,
+        description: loaderData.page.slop.tagline,
         image:
-          loaderData.slop.screenshots[0] && !loaderData.slop.nsfw ? mediaUrl(loaderData.slop.screenshots[0]) : null,
-        path: slopPath(loaderData.owner.username, loaderData.slop.slug),
-        noindex: loaderData.slop.hidden || loaderData.slop.nsfw,
+          loaderData.page.slop.screenshots[0] && !loaderData.page.slop.nsfw
+            ? loaderData.page.slop.screenshots[0]
+            : null,
+        path: slopPath(loaderData.page.owner.username, loaderData.page.slop.slug),
+        noindex: loaderData.page.slop.hidden || loaderData.page.slop.nsfw,
       })
     : seo(matches);
 
-export default function SlopPage({ loaderData }: Route.ComponentProps) {
-  const { owner, slop, isOwner, reveal, intents } = loaderData;
+type PageData = NonNullable<Route.ComponentProps["loaderData"]["page"]>;
+type View = PageData & Route.ComponentProps["loaderData"]["extras"];
+
+export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
+  // Live: votes, pledges, updates and feedback from everyone land here as they happen.
+  const page = useLive(api.slops.page, { username: data.username, slug: data.slug }, data.page) ?? data.page;
+  const loaderData: View = { ...page, ...data.extras };
+  const { owner, slop, isOwner, intents } = loaderData;
   const [search] = useSearchParams();
+  const reveal = loaderData.reveal || search.get("reveal") === "1";
   const path = slopPath(owner.username, slop.slug);
   const day = dayLabel(slop);
   const primary = slop.links.find((link) => link.kind === "website") ?? slop.links[0];
@@ -433,16 +420,16 @@ export default function SlopPage({ loaderData }: Route.ComponentProps) {
         {slop.screenshots.length > 0 && (
           <section className="relative mt-8" aria-label="Screenshots">
             <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4">
-              {slop.screenshots.map((id, index) => (
+              {slop.screenshots.map((url, index) => (
                 <a
-                  key={id}
-                  href={reveal ? mediaUrl(id) : "?reveal=1"}
+                  key={url}
+                  href={reveal ? url : "?reveal=1"}
                   target={reveal ? "_blank" : undefined}
                   rel="noopener"
                   className="relative shrink-0 snap-start overflow-hidden rounded-xl border-2 border-ink bg-wall-deep hard-shadow-sm"
                 >
                   <img
-                    src={mediaUrl(id)}
+                    src={url}
                     alt={`${slop.name} screenshot ${index + 1}`}
                     loading={index === 0 ? "eager" : "lazy"}
                     className={`h-64 w-auto max-w-[85vw] object-contain sm:h-80 ${reveal ? "" : "scale-110 blur-2xl"}`}
@@ -483,7 +470,7 @@ export default function SlopPage({ loaderData }: Route.ComponentProps) {
   );
 }
 
-type LoaderData = Route.ComponentProps["loaderData"];
+type LoaderData = View;
 
 function LaunchHistory({ loaderData }: { loaderData: LoaderData }) {
   return (
@@ -498,7 +485,7 @@ function LaunchHistory({ loaderData }: { loaderData: LoaderData }) {
           return (
             <li key={launch.id}>
               <Link
-                to={launch.path}
+                to={slopPath(loaderData.owner.username, launch.slug)}
                 aria-current={current ? "page" : undefined}
                 className={`flex flex-wrap items-center gap-3 rounded-xl border-2 border-ink px-4 py-3 text-sm ${
                   current ? "bg-ink text-wall" : "bg-card hover:bg-wall-deep"
@@ -779,7 +766,7 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
           totals={loaderData.money.totals}
           entries={loaderData.money.entries}
           isPublic={loaderData.money.isPublic}
-          today={loaderData.money.today}
+          today={loaderData.today}
         />
       ) : (
         loaderData.money.isPublic && <MoneySummary totals={loaderData.money.totals} />
@@ -793,7 +780,7 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
           {slop.slopcessfulAt ? (
             <Form method="post" className="mt-3">
               <input type="hidden" name="intent" value="unslopcessful" />
-              <p className="text-sm">Marked {formatDay(slop.slopcessfulAt.slice(0, 10))}.</p>
+              <p className="text-sm">Marked {formatDay(new Date(slop.slopcessfulAt).toISOString().slice(0, 10))}.</p>
               <button type="submit" className="mt-2 text-xs text-muted underline">
                 Remove the badge
               </button>

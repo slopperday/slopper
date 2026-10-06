@@ -1,43 +1,35 @@
 import { Link } from "react-router";
 import type { Route } from "./+types/day";
-import { getKv } from "~/.server/kv";
+import { api } from "@convex/_generated/api";
 import { viewerContext } from "~/.server/session";
-import { dayRace, utcDate } from "~/.server/db/daily";
-import { toFeedItems } from "~/.server/feed";
+import { convex } from "~/.server/convex";
 import { notFound } from "~/.server/http";
-import { memo } from "~/.server/memo";
 import { addDays, formatDay, isIsoDate } from "~/lib/dates";
 import { seo } from "~/lib/seo";
 import { Countdown } from "~/components/Countdown";
 import { RaceList } from "~/components/RaceList";
 import { EmptyState } from "~/components/Shared";
+import { useLive } from "~/components/Live";
 
 /** One UTC day's race: `/today` live, `/day/2026-10-06` for the archive. */
 export async function loader({ params, context }: Route.LoaderArgs) {
-  const now = new Date();
-  const today = utcDate(now);
+  const today = new Date().toISOString().slice(0, 10);
   const date = params.date ?? today;
   if (!isIsoDate(date) || date > today) notFound();
-  const kv = await getKv();
-  const race = await memo(`race:${date}`, 15_000, () => dayRace(kv, date, now));
-  return {
-    date,
-    today,
-    final: race.final,
-    winnerId: race.winnerId,
-    items: await toFeedItems(kv, race.ranking, context.get(viewerContext).user),
-  };
+  const race = await convex.query(api.race.day, { date, asUser: context.get(viewerContext).user?._id });
+  return { today, race };
 }
 
 export const meta: Route.MetaFunction = ({ matches, loaderData }) =>
   seo(matches, {
-    title: loaderData && !loaderData.final ? "Today's race" : `Slop of the day · ${loaderData?.date ?? ""}`,
+    title: loaderData && !loaderData.race.final ? "Today's race" : `Slop of the day · ${loaderData?.race.date ?? ""}`,
     description: "Every day's slops, ranked by votes. The top one is slop of the day.",
-    path: loaderData ? `/day/${loaderData.date}` : undefined,
+    path: loaderData ? `/day/${loaderData.race.date}` : undefined,
   });
 
 export default function Day({ loaderData }: Route.ComponentProps) {
-  const { date, today, final } = loaderData;
+  const race = useLive(api.race.day, { date: loaderData.race.date }, loaderData.race);
+  const { date, final } = race;
   const previous = addDays(date, -1);
   const next = addDays(date, 1);
   return (
@@ -46,9 +38,9 @@ export default function Day({ loaderData }: Route.ComponentProps) {
         <Link to={`/day/${previous}`} className="hover:underline">
           ← {formatDay(previous)}
         </Link>
-        {date < today && (
-          <Link to={next === today ? "/today" : `/day/${next}`} className="hover:underline">
-            {next === today ? "Today" : formatDay(next)} →
+        {date < loaderData.today && (
+          <Link to={next === loaderData.today ? "/today" : `/day/${next}`} className="hover:underline">
+            {next === loaderData.today ? "Today" : formatDay(next)} →
           </Link>
         )}
       </div>
@@ -58,7 +50,7 @@ export default function Day({ loaderData }: Route.ComponentProps) {
       </h1>
       <div className="mt-4 flex flex-wrap items-center gap-3 text-muted">
         {final ? (
-          <p>Days run midnight to midnight UTC. Votes after the day ends don't change the winner.</p>
+          <p>Days run midnight to midnight UTC. The winner is crowned just after midnight and never changes.</p>
         ) : (
           <>
             <Countdown utc label="until it closes" />
@@ -67,11 +59,11 @@ export default function Day({ loaderData }: Route.ComponentProps) {
         )}
       </div>
       <div className="mt-10">
-        {loaderData.items.length > 0 ? (
-          <RaceList items={loaderData.items} winnerId={loaderData.winnerId} />
+        {race.items.length > 0 ? (
+          <RaceList items={race.items} winnerId={race.winnerId} />
         ) : (
           <EmptyState>
-            {final ? "Nobody slopped this day." : "Nothing launched yet today. First slop has the race to itself."}
+            {final ? "Nobody slopped this day." : "Nothing launched yet today. The first slop has the race to itself."}
             {!final && (
               <div>
                 <Link to="/new" className="btn btn-slop mt-6">

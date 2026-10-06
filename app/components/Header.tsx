@@ -1,5 +1,5 @@
 import { Form, Link, NavLink } from "react-router";
-import type { User } from "~/lib/model";
+import { NotificationsBell } from "./NotificationsBell";
 import { Avatar } from "./Avatar";
 import { Countdown } from "./Countdown";
 import { Wordmark } from "./Logo";
@@ -17,7 +17,13 @@ function navClass({ isActive }: { isActive: boolean }) {
   }`;
 }
 
-export function Header({ user, path }: { user: User | null; path: string }) {
+export interface HeaderUser {
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+}
+
+export function Header({ user, path }: { user: HeaderUser | null; path: string }) {
   return (
     <header className="sticky top-0 z-40 border-b-2 border-ink bg-wall/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:gap-6">
@@ -37,6 +43,7 @@ export function Header({ user, path }: { user: User | null; path: string }) {
           </span>
           {user ? (
             <>
+              <NotificationsBell />
               <Link to="/new" className="btn btn-slop btn-sm">
                 <span aria-hidden="true">+</span> New slop
               </Link>
@@ -71,22 +78,24 @@ export function Header({ user, path }: { user: User | null; path: string }) {
           )}
         </div>
       </div>
-      <nav
-        className="flex items-center justify-between gap-1 border-t border-line px-4 py-1.5 md:hidden"
-        aria-label="Main mobile"
-      >
-        <div className="flex gap-1">
+      <nav className="flex items-center gap-2 border-t border-line py-1.5 pr-4 md:hidden" aria-label="Main mobile">
+        {/* The links scroll sideways on narrow phones; the clock stays put. */}
+        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto px-4 [scrollbar-width:none]">
           {NAV.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              className="rounded-full px-2.5 py-1 font-mono text-[0.65rem] tracking-wider uppercase hover:bg-wall-deep"
+              className={({ isActive }) =>
+                `shrink-0 rounded-full px-2.5 py-1 font-mono text-[0.65rem] tracking-wider whitespace-nowrap uppercase ${
+                  isActive ? "bg-ink text-wall" : "hover:bg-wall-deep"
+                }`
+              }
             >
               {item.label}
             </NavLink>
           ))}
         </div>
-        <span className="sm:hidden">
+        <span className="shrink-0 sm:hidden">
           <Countdown compact />
         </span>
       </nav>

@@ -1,5 +1,9 @@
 import { useRef, useState } from "react";
-import { mediaUrl } from "~/lib/display";
+
+export interface Screenshot {
+  id: string;
+  url: string;
+}
 
 const MAX_EDGE = 1600;
 
@@ -24,15 +28,15 @@ async function shrink(file: File): Promise<Blob> {
   return jpeg;
 }
 
-export function ScreenshotPicker({ initial, max }: { initial: string[]; max: number }) {
-  const [ids, setIds] = useState<string[]>(initial);
+export function ScreenshotPicker({ initial, max }: { initial: readonly Screenshot[]; max: number }) {
+  const [shots, setShots] = useState<Screenshot[]>([...initial]);
   const [pending, setPending] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
   async function upload(files: FileList) {
     setError(null);
-    const room = max - ids.length;
+    const room = max - shots.length;
     const chosen = Array.from(files).slice(0, room);
     if (files.length > room) setError(`Up to ${max} screenshots.`);
     setPending((count) => count + chosen.length);
@@ -41,10 +45,10 @@ export function ScreenshotPicker({ initial, max }: { initial: string[]; max: num
         const body = new FormData();
         body.set("file", await shrink(file), file.name);
         const response = await fetch("/api/media", { method: "POST", body });
-        const result = (await response.json()) as { id?: string; error?: string };
-        const id = result.id;
-        if (!response.ok || !id) throw new Error(result.error ?? "Upload failed");
-        setIds((current) => [...current, id]);
+        const result = (await response.json()) as { id?: string; url?: string; error?: string };
+        const { id, url } = result;
+        if (!response.ok || !id || !url) throw new Error(result.error ?? "Upload failed");
+        setShots((current) => [...current, { id, url }]);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Upload failed");
       } finally {
@@ -56,14 +60,14 @@ export function ScreenshotPicker({ initial, max }: { initial: string[]; max: num
 
   return (
     <div>
-      {ids.map((id) => (
-        <input key={id} type="hidden" name="screenshot" value={id} />
+      {shots.map((shot) => (
+        <input key={shot.id} type="hidden" name="screenshot" value={shot.id} />
       ))}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {ids.map((id, index) => (
-          <figure key={id} className="relative overflow-hidden rounded-lg border-2 border-ink bg-wall-deep">
+        {shots.map((shot, index) => (
+          <figure key={shot.id} className="relative overflow-hidden rounded-lg border-2 border-ink bg-wall-deep">
             <img
-              src={mediaUrl(id)}
+              src={shot.url}
               alt={`Screenshot ${index + 1}`}
               className="aspect-[16/10] w-full object-cover object-top"
             />
@@ -73,7 +77,7 @@ export function ScreenshotPicker({ initial, max }: { initial: string[]; max: num
                 <button
                   type="button"
                   className="btn btn-sm min-h-0 px-2 py-1 text-xs"
-                  onClick={() => setIds((current) => [id, ...current.filter((value) => value !== id)])}
+                  onClick={() => setShots((current) => [shot, ...current.filter((value) => value.id !== shot.id)])}
                 >
                   Make cover
                 </button>
@@ -81,7 +85,7 @@ export function ScreenshotPicker({ initial, max }: { initial: string[]; max: num
               <button
                 type="button"
                 className="btn btn-sm min-h-0 px-2 py-1 text-xs"
-                onClick={() => setIds((current) => current.filter((value) => value !== id))}
+                onClick={() => setShots((current) => current.filter((value) => value.id !== shot.id))}
                 aria-label={`Remove screenshot ${index + 1}`}
               >
                 ✕
@@ -97,7 +101,7 @@ export function ScreenshotPicker({ initial, max }: { initial: string[]; max: num
             uploading…
           </div>
         ))}
-        {ids.length + pending < max && (
+        {shots.length + pending < max && (
           <label className="grid aspect-[16/10] cursor-pointer place-items-center rounded-lg border-2 border-dashed border-ink/50 text-center text-sm text-muted transition-colors hover:border-ink hover:bg-card">
             <span>
               <span className="block font-display text-3xl text-slop-deep">+</span>

@@ -1,7 +1,8 @@
-import type { Kv } from "@deno/kv";
 import type { Route } from "./+types/auth.callback";
-import { getKv } from "~/.server/kv";
-import { viewerContext } from "~/.server/session";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { startSession, viewerContext } from "~/.server/session";
+import { convex } from "~/.server/convex";
 import {
   clientCredentials,
   exchangeCode,
@@ -13,19 +14,8 @@ import {
   type TokenSet,
 } from "~/.server/auth/oauth";
 import { fetchGitHubIdentity, fetchGoogleIdentity } from "~/.server/auth/identity";
-import { createSession, upsertUserFromIdentity } from "~/.server/db/users";
-import { connectAccount } from "~/.server/db/accounts";
 import { fetchLinkedInProfile, fetchXProfile, sealCredentials } from "~/.server/social/adapters";
-import {
-  clearCookie,
-  notFound,
-  OAUTH_COOKIE,
-  readCookie,
-  redirectWithFlash,
-  SESSION_COOKIE,
-  setCookie,
-  TZ_COOKIE,
-} from "~/.server/http";
+import { clearCookie, notFound, OAUTH_COOKIE, readCookie, redirectWithFlash, TZ_COOKIE } from "~/.server/http";
 
 const EXPIRED = { tone: "error", message: "That sign-in link expired. Try again." } as const;
 
@@ -43,8 +33,7 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
   // The state must match the cookie set on this browser when the flow began.
   if (!code || !state || readCookie(request, OAUTH_COOKIE) !== state) return redirectWithFlash("/login", EXPIRED);
 
-  const kv = await getKv();
-  const pending = await takePendingAuthorization(kv, state);
+  const pending = await takePendingAuthorization(state);
   const client = clientCredentials(provider);
   if (!pending || pending.provider !== provider || !client) return redirectWithFlash("/login", EXPIRED);
   const fallback = pending.intent === "login" ? "/login" : "/settings/autopost";
@@ -54,8 +43,8 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
     const tokens = await exchangeCode(provider, client, code, pending.codeVerifier);
     response =
       pending.intent === "login"
-        ? await completeLogin(request, kv, provider, tokens, pending)
-        : await completeConnect(kv, provider, tokens, pending, context.get(viewerContext).user?.id);
+        ? await completeLogin(request, provider, tokens, pending)
+        : await completeConnect(provider, tokens, pending, context.get(viewerContext).user?._id);
   } catch (error) {
     console.error(`OAuth ${pending.intent} failed for ${provider}`, error);
     response = redirectWithFlash(fallback, {
@@ -69,7 +58,6 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
 
 async function completeLogin(
   request: Request,
-  kv: Kv,
   provider: OAuthProviderId,
   tokens: TokenSet,
   pending: PendingAuthorization,
@@ -78,25 +66,26 @@ async function completeLogin(
     provider === "github"
       ? await fetchGitHubIdentity(tokens.accessToken)
       : await fetchGoogleIdentity(tokens.accessToken);
-  const timeZone = decodeURIComponent(readCookie(request, TZ_COOKIE) ?? "UTC");
-  const { user, created } = await upsertUserFromIdentity(kv, profile, timeZone);
-  const session = await createSession(kv, user.id);
+  const { userId, created } = await convex.mutation(api.users.upsertFromIdentity, {
+    ...profile,
+    timeZone: decodeURIComponent(readCookie(request, TZ_COOKIE) ?? "UTC"),
+  });
+  const user = await convex.query(api.users.get, { userId });
   const response = created
     ? redirectWithFlash("/goal", {
         tone: "success",
-        message: `Welcome, @${user.username}. Set a goal and start slopping.`,
+        message: `Welcome, @${user?.username ?? "slopper"}. Set a goal and start slopping.`,
       })
     : redirectWithFlash(pending.returnTo);
-  setCookie(response.headers, SESSION_COOKIE, session.token, session.maxAgeSeconds);
+  await startSession(userId, response.headers);
   return response;
 }
 
 async function completeConnect(
-  kv: Kv,
   provider: OAuthProviderId,
   tokens: TokenSet,
   pending: PendingAuthorization,
-  currentUserId: string | undefined,
+  currentUserId: Id<"users"> | undefined,
 ): Promise<Response> {
   // The browser that finishes the flow must belong to whoever started it.
   if (!pending.userId || pending.userId !== currentUserId) {
@@ -105,7 +94,8 @@ async function completeConnect(
 
   if (provider === "x") {
     const profile = await fetchXProfile(tokens.accessToken);
-    const account = await connectAccount(kv, pending.userId, {
+    const account = await convex.mutation(api.accounts.connect, {
+      userId: pending.userId,
       provider: "x",
       remoteId: profile.id,
       handle: profile.username,
@@ -122,7 +112,8 @@ async function completeConnect(
   }
 
   const profile = await fetchLinkedInProfile(tokens.accessToken);
-  const account = await connectAccount(kv, pending.userId, {
+  const account = await convex.mutation(api.accounts.connect, {
+    userId: pending.userId,
     provider: "linkedin",
     remoteId: profile.sub,
     handle: profile.name ?? profile.given_name ?? "LinkedIn member",

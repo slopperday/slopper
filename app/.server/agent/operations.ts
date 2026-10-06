@@ -1,35 +1,23 @@
-import type { Kv } from "@deno/kv";
+import { api } from "@convex/_generated/api";
+import type { Doc } from "@convex/_generated/dataModel";
 import {
   CATEGORIES,
+  COST_CATEGORIES,
   isPostableUpdateKind,
   LIMITS,
   LINK_KINDS,
   POSTABLE_UPDATE_KINDS,
-  type Slop,
-  type User,
+  REVENUE_CATEGORIES,
 } from "~/lib/model";
 import { localDate } from "~/lib/dates";
-import { mediaUrl, slopPath } from "~/lib/display";
+import { slopPath } from "~/lib/display";
+import { CURRENCIES } from "~/lib/money";
 import { absoluteUrl } from "../config";
-import { addUpdate } from "../db/activity";
-import { dayRace, utcDate } from "../db/daily";
-import { createGoal, getOpenGoal } from "../db/goals";
-import { ownedMediaIds, saveMedia } from "../db/media";
-import { allowAction } from "../db/misc";
-import {
-  createSlop,
-  editSlop,
-  getSlop,
-  getSlopBySlug,
-  listUserSlops,
-  type Relaunch,
-  setSlopcessful,
-} from "../db/slops";
-import { getUsersById } from "../feed";
+import { convex, convexMessage } from "../convex";
 import { validateGoal, validateSlop } from "../forms";
-import { slopperCard } from "../leaderboard";
-import { invalidateFeeds } from "../memo";
+import { uploadImage } from "../media";
 import { announce } from "../social/announce";
+import type { User } from "../session";
 import {
   ApiError,
   asObject,
@@ -49,7 +37,6 @@ import {
  */
 
 export interface OperationContext {
-  kv: Kv;
   user: User;
   now: Date;
 }
@@ -70,12 +57,12 @@ export interface Operation {
   run(context: OperationContext, input: JsonObject): Promise<unknown>;
 }
 
-function summarizeSlop(slop: Slop, username: string) {
+function summarizeSlop(slop: Doc<"slops">, username: string) {
   return {
-    id: slop.id,
+    id: slop._id,
     number: slop.number,
     slug: slop.slug,
-    productId: slop.productId,
+    productId: slop.productId ?? slop._id,
     launchLabel: slop.launchLabel,
     name: slop.name,
     tagline: slop.tagline,
@@ -86,39 +73,36 @@ function summarizeSlop(slop: Slop, username: string) {
     updates: slop.updateCount,
     fieldTests: slop.fieldTests,
     feedback: slop.commentCount,
+    backers: slop.backers,
+    pledgedUsdCents: slop.pledged,
     slopOfTheDay: slop.slopOfTheDay,
-    slopcessful: slop.slopcessfulAt ? { at: slop.slopcessfulAt, note: slop.slopcessfulNote } : null,
+    slopcessful: slop.slopcessfulAt
+      ? { at: new Date(slop.slopcessfulAt).toISOString(), note: slop.slopcessfulNote }
+      : null,
   };
 }
 
 /** Finds one of the caller's slops by id or slug. */
-async function ownSlop(context: OperationContext, input: JsonObject): Promise<Slop> {
-  const ref = requiredString(input, "slop").trim();
-  const slop = (await getSlop(context.kv, ref)) ?? (await getSlopBySlug(context.kv, context.user.id, ref));
-  if (!slop || slop.userId !== context.user.id) throw new ApiError(404, `No slop of yours matches “${ref}”.`);
+async function ownSlop(context: OperationContext, ref: string): Promise<Doc<"slops">> {
+  const slop = await convex.query(api.slops.findForServer, { userId: context.user._id, ref: ref.trim() });
+  if (!slop) throw new ApiError(404, `No slop of yours matches “${ref}”.`);
   return slop;
 }
 
-async function rateLimit(context: OperationContext, bucket: string, limit: number, windowMs: number) {
-  if (!(await allowAction(context.kv, bucket, context.user.id, limit, windowMs))) {
-    throw new ApiError(429, "Rate limit reached. Try again later.");
-  }
+async function slopById(slopId: Doc<"slops">["_id"]): Promise<Doc<"slops">> {
+  const slop = await convex.query(api.slops.getForServer, { slopId });
+  if (!slop) throw new ApiError(404, "Slop not found.");
+  return slop;
 }
 
-const SLOP_REF = {
-  type: "string",
-  description: "The slop's id or slug (from list_my_slops or create_slop).",
-};
+const SLOP_REF = { type: "string", description: "The slop's id or slug (from list_my_slops or create_slop)." };
 
 const LINKS_SCHEMA = {
   type: "array",
   description: "Where people can try it. At least one. Store links must use their store's domain.",
   items: {
     type: "object",
-    properties: {
-      kind: { type: "string", enum: Object.keys(LINK_KINDS) },
-      url: { type: "string", description: "https URL" },
-    },
+    properties: { kind: { type: "string", enum: Object.keys(LINK_KINDS) }, url: { type: "string" } },
     required: ["kind", "url"],
   },
   maxItems: LIMITS.links,
@@ -137,27 +121,27 @@ export const OPERATIONS: Operation[] = [
       "The signed-in Slopper user: profile, time zone, the open goal with progress, and streak. Call this first.",
     inputSchema: { type: "object", properties: {} },
     readOnly: true,
-    async run({ kv, user, now }) {
-      const goal = await getOpenGoal(kv, user.id, localDate(now, user.timeZone));
-      const card = slopperCard(user, await listUserSlops(kv, user.id), goal, now);
+    async run({ user, now }) {
+      const profile = await convex.query(api.users.profile, { username: user.username, asUser: user._id });
+      const progress = profile?.progress ?? null;
       return {
         username: user.username,
         displayName: user.displayName,
         profileUrl: absoluteUrl(`/@${user.username}`),
         timeZone: user.timeZone,
         today: localDate(now, user.timeZone),
-        streak: card.streak,
-        totalSlops: card.totalShipped,
-        goal: card.progress
+        streak: profile?.streak ?? 0,
+        totalSlops: profile?.totalShipped ?? 0,
+        goal: progress
           ? {
-              title: card.progress.goal.title,
-              target: card.progress.goal.target,
-              days: card.progress.goal.days,
-              startDate: card.progress.goal.startDate,
-              endDate: card.progress.endDate,
-              shipped: card.progress.shipped,
-              currentDay: card.progress.currentDay,
-              status: card.progress.status,
+              title: progress.goal.title,
+              target: progress.goal.target,
+              days: progress.goal.days,
+              startDate: progress.goal.startDate,
+              endDate: progress.endDate,
+              shipped: progress.shipped,
+              currentDay: progress.currentDay,
+              status: progress.status,
             }
           : null,
       };
@@ -166,7 +150,7 @@ export const OPERATIONS: Operation[] = [
   {
     name: "list_categories",
     title: "List categories and link kinds",
-    description: "Valid values for a slop's category and for link kinds.",
+    description: "Valid values for a slop's category, link kinds, currencies and money categories.",
     inputSchema: { type: "object", properties: {} },
     readOnly: true,
     run() {
@@ -178,6 +162,9 @@ export const OPERATIONS: Operation[] = [
           beta: info.beta,
           hosts: "hosts" in info ? info.hosts : null,
         })),
+        currencies: CURRENCIES,
+        costCategories: COST_CATEGORIES,
+        revenueCategories: REVENUE_CATEGORIES,
       });
     },
   },
@@ -185,7 +172,7 @@ export const OPERATIONS: Operation[] = [
     name: "set_goal",
     title: "Set a goal",
     description:
-      "Start a goal such as 30 slops in 30 days. Only one goal can be open; the day boundary is midnight in the user's time zone.",
+      "Start a goal such as 30 slops in 30 days. Only one goal can be open; days end at midnight in the user's time zone.",
     inputSchema: {
       type: "object",
       properties: {
@@ -197,7 +184,7 @@ export const OPERATIONS: Operation[] = [
       required: ["target", "days"],
     },
     readOnly: false,
-    async run({ kv, user, now }, input) {
+    async run({ user, now }, input) {
       const today = localDate(now, user.timeZone);
       const parsed = validateGoal(
         {
@@ -209,10 +196,10 @@ export const OPERATIONS: Operation[] = [
         today,
       );
       if (!parsed.ok) throw new ApiError(422, "The goal needs fixing.", parsed.errors);
-      const result = await createGoal(kv, user.id, parsed.value, today);
+      const result = await convex.mutation(api.goals.create, { userId: user._id, today, ...parsed.value });
       if (!result.ok) throw new ApiError(409, result.error);
-      invalidateFeeds();
-      return { goal: result.goal, profileUrl: absoluteUrl(`/@${user.username}`) };
+      const { title, target, days, startDate, endDate } = result.goal;
+      return { goal: { title, target, days, startDate, endDate }, profileUrl: absoluteUrl(`/@${user.username}`) };
     },
   },
   {
@@ -226,26 +213,24 @@ export const OPERATIONS: Operation[] = [
       required: ["base64"],
     },
     readOnly: false,
-    async run(context, input) {
-      await rateLimit(context, "upload", 60, 3_600_000);
+    async run({ user }, input) {
       const base64 = requiredString(input, "base64").replace(/^data:[^,]+,/, "");
-      let bytes: Uint8Array;
+      let bytes: Uint8Array<ArrayBuffer>;
       try {
-        const binary = atob(base64);
-        bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+        bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
       } catch {
         throw new ApiError(400, "base64 is not valid base64.");
       }
-      const result = await saveMedia(context.kv, context.user.id, bytes);
+      const result = await uploadImage(user._id, bytes);
       if (!result.ok) throw new ApiError(400, result.error);
-      return { id: result.media.id, url: absoluteUrl(mediaUrl(result.media.id)) };
+      return { id: result.id, url: result.url };
     },
   },
   {
     name: "create_slop",
     title: "Launch a slop",
     description:
-      "Throw a new slop at the wall. It counts towards today's goal and enters today's slop of the day race.",
+      "Throw a new slop at the wall. It counts towards today's goal and enters today's slop of the day race. To launch an existing product again (new platform, new app, 2.0), pass relaunchOf and launchLabel.",
     inputSchema: {
       type: "object",
       properties: {
@@ -270,7 +255,7 @@ export const OPERATIONS: Operation[] = [
         relaunchOf: {
           type: "string",
           description:
-            "To launch an existing product again (new platform, new app, 2.0), the id or slug of an earlier launch. Features are updates, not launches.",
+            "To launch an existing product again, the id or slug of an earlier launch. Features are updates, not launches.",
         },
         launchLabel: {
           type: "string",
@@ -283,7 +268,7 @@ export const OPERATIONS: Operation[] = [
     },
     readOnly: false,
     async run(context, input) {
-      const { kv, user } = context;
+      const { user, now } = context;
       const parsed = validateSlop({
         name: optionalString(input, "name"),
         tagline: optionalString(input, "tagline"),
@@ -296,25 +281,27 @@ export const OPERATIONS: Operation[] = [
         launchNote: optionalString(input, "launchNote"),
       });
       if (!parsed.ok) throw new ApiError(422, "The slop needs fixing.", parsed.errors);
-      let relaunch: Relaunch | null = null;
-      if (optionalString(input, "relaunchOf")) {
-        const of = await ownSlop(context, { slop: optionalString(input, "relaunchOf") });
-        const label = optionalString(input, "launchLabel")?.trim() ?? "";
-        if (!label || label.length > LIMITS.launchLabelLength) {
-          throw new ApiError(
-            422,
-            `launchLabel is required with relaunchOf (1 to ${LIMITS.launchLabelLength} characters).`,
-          );
-        }
-        relaunch = { of, label };
+      const relaunchRef = optionalString(input, "relaunchOf");
+      const source = relaunchRef ? await ownSlop(context, relaunchRef) : null;
+      const label = optionalString(input, "launchLabel")?.trim() ?? "";
+      if (source && (!label || label.length > LIMITS.launchLabelLength)) {
+        throw new ApiError(
+          422,
+          `launchLabel is required with relaunchOf (1 to ${LIMITS.launchLabelLength} characters).`,
+        );
       }
-      await rateLimit(context, "ship", 20, 86_400_000);
       const { launchNote, ...fields } = parsed.value;
-      fields.screenshots = await ownedMediaIds(kv, user.id, fields.screenshots, relaunch?.of.screenshots);
-      const { slop, update } = await createSlop(kv, user, fields, launchNote || fields.tagline, context.now, relaunch);
-      invalidateFeeds();
-      const autoposts = optionalBoolean(input, "autopost") ? await announce(kv, user, slop, update) : [];
-      return { slop: summarizeSlop(slop, user.username), autoposts };
+      const created = await convex.mutation(api.slops.create, {
+        userId: user._id,
+        input: fields,
+        launchNote: launchNote || fields.tagline,
+        today: localDate(now, user.timeZone),
+        ...(source ? { relaunchOf: source._id, launchLabel: label } : {}),
+      });
+      const autoposts = optionalBoolean(input, "autopost")
+        ? await announce(user, created.slopId, created.updateId)
+        : [];
+      return { slop: summarizeSlop(await slopById(created.slopId), user.username), autoposts };
     },
   },
   {
@@ -338,7 +325,7 @@ export const OPERATIONS: Operation[] = [
     },
     readOnly: false,
     async run(context, input) {
-      const slop = await ownSlop(context, input);
+      const slop = await ownSlop(context, requiredString(input, "slop"));
       const parsed = validateSlop({
         name: optionalString(input, "name") ?? slop.name,
         tagline: optionalString(input, "tagline") ?? slop.tagline,
@@ -351,10 +338,8 @@ export const OPERATIONS: Operation[] = [
       });
       if (!parsed.ok) throw new ApiError(422, "The slop needs fixing.", parsed.errors);
       const { launchNote: _launchNote, ...fields } = parsed.value;
-      fields.screenshots = await ownedMediaIds(context.kv, context.user.id, fields.screenshots, slop.screenshots);
-      const updated = await editSlop(context.kv, slop.id, fields);
-      invalidateFeeds();
-      return { slop: summarizeSlop(updated, context.user.username) };
+      await convex.mutation(api.slops.edit, { userId: context.user._id, slopId: slop._id, input: fields });
+      return { slop: summarizeSlop(await slopById(slop._id), context.user.username) };
     },
   },
   {
@@ -374,23 +359,24 @@ export const OPERATIONS: Operation[] = [
     },
     readOnly: false,
     async run(context, input) {
-      const slop = await ownSlop(context, input);
+      const slop = await ownSlop(context, requiredString(input, "slop"));
       const kind = requiredString(input, "kind");
       if (!isPostableUpdateKind(kind))
         throw new ApiError(400, `kind must be one of ${POSTABLE_UPDATE_KINDS.join(", ")}.`);
       const body = requiredString(input, "body").trim();
       if (body.length > LIMITS.updateLength) throw new ApiError(422, `body is over ${LIMITS.updateLength} characters.`);
-      await rateLimit(context, "update", 30, 86_400_000);
-      const update = await addUpdate(context.kv, slop.id, context.user.id, kind, body);
-      invalidateFeeds();
-      const autoposts = optionalBoolean(input, "autopost")
-        ? await announce(context.kv, context.user, slop, update)
-        : [];
+      const updateId = await convex.mutation(api.activity.addUpdate, {
+        userId: context.user._id,
+        slopId: slop._id,
+        kind,
+        body,
+      });
+      const autoposts = optionalBoolean(input, "autopost") ? await announce(context.user, slop._id, updateId) : [];
       return {
         update: {
-          id: update.id,
+          id: updateId,
           kind,
-          url: `${absoluteUrl(slopPath(context.user.username, slop.slug))}#update-${update.id}`,
+          url: `${absoluteUrl(slopPath(context.user.username, slop.slug))}#update-${updateId}`,
         },
         autoposts,
       };
@@ -412,23 +398,80 @@ export const OPERATIONS: Operation[] = [
     },
     readOnly: false,
     async run(context, input) {
-      const slop = await ownSlop(context, input);
-      const note = requiredString(input, "note").trim().slice(0, LIMITS.slopcessfulNoteLength);
-      const { slop: updated, update } = await setSlopcessful(context.kv, slop.id, note);
-      invalidateFeeds();
+      const slop = await ownSlop(context, requiredString(input, "slop"));
+      const note = requiredString(input, "note").trim();
+      const updateId = await convex.mutation(api.slops.setSlopcessful, {
+        userId: context.user._id,
+        slopId: slop._id,
+        note,
+      });
       const autoposts =
-        update && optionalBoolean(input, "autopost") ? await announce(context.kv, context.user, updated, update) : [];
-      return { slop: summarizeSlop(updated, context.user.username), autoposts };
+        updateId && optionalBoolean(input, "autopost") ? await announce(context.user, slop._id, updateId) : [];
+      return { slop: summarizeSlop(await slopById(slop._id), context.user.username), autoposts };
+    },
+  },
+  {
+    name: "log_money",
+    title: "Log a cost or revenue",
+    description:
+      "Record money for a product (shared by all its launches): a cost like a domain, hosting or AI tokens, or revenue like sales or subscriptions.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slop: SLOP_REF,
+        kind: { type: "string", enum: ["cost", "revenue"] },
+        amount: { type: "number", exclusiveMinimum: 0, description: "In major units, e.g. 12.99." },
+        currency: { type: "string", enum: [...CURRENCIES], description: "Defaults to USD." },
+        category: {
+          type: "string",
+          description: `Cost: ${COST_CATEGORIES.join(", ")}. Revenue: ${REVENUE_CATEGORIES.join(", ")}.`,
+        },
+        note: { type: "string", maxLength: LIMITS.ledgerNoteLength },
+        date: { type: "string", format: "date", description: "YYYY-MM-DD. Defaults to today." },
+      },
+      required: ["slop", "kind", "amount"],
+    },
+    readOnly: false,
+    async run(context, input) {
+      const slop = await ownSlop(context, requiredString(input, "slop"));
+      const kind = requiredString(input, "kind");
+      if (kind !== "cost" && kind !== "revenue") throw new ApiError(400, "kind must be cost or revenue.");
+      const major = optionalNumber(input, "amount") ?? 0;
+      const amount = Math.round(major * 100);
+      const currency = optionalString(input, "currency") ?? "USD";
+      const categories: readonly string[] = kind === "cost" ? COST_CATEGORIES : REVENUE_CATEGORIES;
+      const category = optionalString(input, "category") ?? "other";
+      const note = (optionalString(input, "note") ?? "").trim();
+      const date = optionalString(input, "date") ?? localDate(context.now, context.user.timeZone);
+      if (amount <= 0 || amount > 1e12) throw new ApiError(422, "amount must be above zero.");
+      if (!(CURRENCIES as readonly string[]).includes(currency))
+        throw new ApiError(422, `currency is one of ${CURRENCIES.join(", ")}.`);
+      if (!categories.includes(category)) throw new ApiError(422, `category is one of ${categories.join(", ")}.`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new ApiError(422, "date must be YYYY-MM-DD.");
+      if (note.length > LIMITS.ledgerNoteLength)
+        throw new ApiError(422, `note is over ${LIMITS.ledgerNoteLength} characters.`);
+      const entryId = await convex.mutation(api.money.add, {
+        userId: context.user._id,
+        slopId: slop._id,
+        kind,
+        amount,
+        currency,
+        category,
+        note,
+        date,
+      });
+      return { entry: { id: entryId, kind, amount: major, currency, category, note, date } };
     },
   },
   {
     name: "list_my_slops",
     title: "List my slops",
-    description: "Every slop the user has launched, newest first, with votes, updates and badges.",
+    description: "Every slop the user has launched, newest first, with votes, updates, pledges and badges.",
     inputSchema: { type: "object", properties: {} },
     readOnly: true,
-    async run({ kv, user }) {
-      return { slops: (await listUserSlops(kv, user.id)).map((slop) => summarizeSlop(slop, user.username)) };
+    async run({ user }) {
+      const slops = await convex.query(api.slops.listForServer, { userId: user._id });
+      return { slops: slops.map((slop) => summarizeSlop(slop, user.username)) };
     },
   },
   {
@@ -437,20 +480,19 @@ export const OPERATIONS: Operation[] = [
     description: "Today's slops ranked by votes (UTC day). The leader at midnight UTC becomes slop of the day.",
     inputSchema: { type: "object", properties: {} },
     readOnly: true,
-    async run({ kv, now }) {
-      const race = await dayRace(kv, utcDate(now), now);
-      const owners = await getUsersById(
-        kv,
-        race.ranking.map((slop) => slop.userId),
-      );
+    async run({ now }) {
+      const race = await convex.query(api.race.day, { date: now.toISOString().slice(0, 10), limit: 20 });
       return {
         date: race.date,
-        ranking: race.ranking.slice(0, 20).flatMap((slop, index) => {
-          const owner = owners.get(slop.userId);
-          return owner && !slop.nsfw
-            ? [{ rank: index + 1, owner: owner.username, ...summarizeSlop(slop, owner.username) }]
-            : [];
-        }),
+        ranking: race.items.map((item, index) => ({
+          rank: index + 1,
+          owner: item.owner.username,
+          name: item.slop.name,
+          launchLabel: item.slop.launchLabel,
+          tagline: item.slop.tagline,
+          upvotes: item.slop.upvotes,
+          url: absoluteUrl(slopPath(item.owner.username, item.slop.slug)),
+        })),
       };
     },
   },
@@ -460,7 +502,13 @@ export function findOperation(name: string): Operation | undefined {
   return OPERATIONS.find((operation) => operation.name === name);
 }
 
-/** Runs an operation with raw, untrusted input. */
+/** Runs an operation with raw, untrusted input. Business-rule errors become ApiErrors. */
 export async function runOperation(operation: Operation, context: OperationContext, input: unknown): Promise<unknown> {
-  return await operation.run(context, asObject(input, "arguments"));
+  try {
+    return await operation.run(context, asObject(input, "arguments"));
+  } catch (error) {
+    const message = convexMessage(error);
+    if (message) throw new ApiError(409, message);
+    throw error;
+  }
 }

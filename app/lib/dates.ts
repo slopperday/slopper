@@ -66,13 +66,14 @@ export function formatDay(date: string): string {
 }
 
 /** Compact relative time: "now", "5m", "3h", "2d", then a date. */
-export function timeAgo(iso: string, now: Date = new Date()): string {
-  const seconds = Math.max(0, (now.getTime() - Date.parse(iso)) / 1000);
+export function timeAgo(at: string | number, now: Date = new Date()): string {
+  const ms = typeof at === "number" ? at : Date.parse(at);
+  const seconds = Math.max(0, (now.getTime() - ms) / 1000);
   if (seconds < 60) return "now";
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h`;
   if (seconds < 7 * 86_400) return `${Math.floor(seconds / 86_400)}d`;
-  return new Date(iso).toLocaleDateString("en-GB", {
+  return new Date(ms).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
   });

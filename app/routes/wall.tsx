@@ -1,11 +1,8 @@
 import { Link } from "react-router";
 import type { Route } from "./+types/wall";
-import { getKv } from "~/.server/kv";
+import { api } from "@convex/_generated/api";
 import { viewerContext } from "~/.server/session";
-import { listRecentSlops, listSlopsSince } from "~/.server/db/slops";
-import { toFeedItems } from "~/.server/feed";
-import { memo } from "~/.server/memo";
-import { rankHot } from "~/lib/ranking";
+import { convex } from "~/.server/convex";
 import { CATEGORIES, type CategoryId, findCategory } from "~/lib/model";
 import { seo } from "~/lib/seo";
 import { SlopGrid } from "~/components/SlopCard";
@@ -23,27 +20,19 @@ function wallHref(category: CategoryId | undefined, sort: Sort, cursor?: string)
 }
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  const kv = await getKv();
-  const viewer = context.get(viewerContext).user;
+  const asUser = context.get(viewerContext).user?._id;
   const search = new URL(request.url).searchParams;
   const category = findCategory(search.get("category") ?? "")?.id;
   const sort: Sort = search.get("sort") === "hot" ? "hot" : "new";
-  const cursor = search.get("cursor") ?? undefined;
+  const cursor = search.get("cursor");
 
   if (sort === "hot") {
-    const slops = await memo("wall:hot", 15_000, () => listSlopsSince(kv, new Date(Date.now() - 14 * 86_400_000), 400));
-    const filtered = category ? slops.filter((slop) => slop.category === category) : slops;
-    return {
-      category,
-      sort,
-      items: await toFeedItems(kv, rankHot(filtered, new Date()).slice(0, 48), viewer),
-      cursor: null,
-    };
+    const since = Math.floor(Date.now() / 3_600_000) * 3_600_000 - 14 * 86_400_000;
+    const items = await convex.query(api.slops.hot, { since, category, limit: 48, asUser });
+    return { category, sort, items, cursor: null };
   }
-  const page = await memo(`wall:new:${category ?? "all"}:${cursor ?? ""}`, 15_000, () =>
-    listRecentSlops(kv, { category, cursor, limit: 24 }),
-  );
-  return { category, sort, items: await toFeedItems(kv, page.items, viewer), cursor: page.cursor };
+  const page = await convex.query(api.slops.recent, { category, cursor, limit: 24, asUser });
+  return { category, sort, items: page.items, cursor: page.cursor };
 }
 
 export const meta: Route.MetaFunction = ({ matches, loaderData }) => {

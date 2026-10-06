@@ -1,13 +1,10 @@
 import { data, Form, Link } from "react-router";
 import type { Route } from "./+types/goal";
-import { getKv } from "~/.server/kv";
+import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
-import { abandonGoal, createGoal, getOpenGoal } from "~/.server/db/goals";
-import { listUserSlops } from "~/.server/db/slops";
+import { convex } from "~/.server/convex";
 import { formText, parseGoalForm } from "~/.server/forms";
-import { slopperCard } from "~/.server/leaderboard";
 import { redirectWithFlash } from "~/.server/http";
-import { invalidateFeeds } from "~/.server/memo";
 import { addDays, localDate } from "~/lib/dates";
 import { seo } from "~/lib/seo";
 import { GoalGrid } from "~/components/GoalGrid";
@@ -24,35 +21,33 @@ const PRESETS = [
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const user = requireUser(context.get(viewerContext), request);
-  const kv = await getKv();
-  const now = new Date();
-  const today = localDate(now, user.timeZone);
-  const goal = await getOpenGoal(kv, user.id, today);
+  const today = localDate(new Date(), user.timeZone);
+  const profile = await convex.query(api.users.profile, { username: user.username, asUser: user._id });
   return {
     today,
     timeZone: user.timeZone,
-    card: goal ? slopperCard(user, await listUserSlops(kv, user.id), goal, now) : null,
+    username: user.username,
+    // Only a running goal shows here; finished ones live on the profile.
+    progress: profile?.progress && profile.progress.status !== "ended" ? profile.progress : null,
+    streak: profile?.streak ?? 0,
   };
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
   const user = requireUser(context.get(viewerContext), request);
-  const kv = await getKv();
   const today = localDate(new Date(), user.timeZone);
   const form = await request.formData();
 
   if (formText(form, "intent") === "abandon") {
-    const goal = await getOpenGoal(kv, user.id, today);
-    if (goal) await abandonGoal(kv, user.id, goal.id);
-    invalidateFeeds();
+    const goal = await convex.query(api.goals.open, { userId: user._id, today });
+    if (goal) await convex.mutation(api.goals.abandon, { userId: user._id, goalId: goal._id });
     return redirectWithFlash("/goal", { tone: "info", message: "Goal dropped. Set a new one when you're ready." });
   }
 
   const parsed = parseGoalForm(form, today);
   if (!parsed.ok) return data({ errors: parsed.errors }, { status: 422 });
-  const result = await createGoal(kv, user.id, parsed.value, today);
+  const result = await convex.mutation(api.goals.create, { userId: user._id, today, ...parsed.value });
   if (!result.ok) return redirectWithFlash("/goal", { tone: "error", message: result.error });
-  invalidateFeeds();
   return redirectWithFlash(`/@${user.username}`, {
     tone: "success",
     message: `Goal set: ${result.goal.title}. Start throwing.`,
@@ -62,16 +57,16 @@ export async function action({ request, context }: Route.ActionArgs) {
 export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "Your goal", noindex: true });
 
 export default function GoalPage({ loaderData, actionData }: Route.ComponentProps) {
-  const { card, today } = loaderData;
+  const { progress, today } = loaderData;
   const errors: Record<string, string> = actionData?.errors ?? {};
   return (
     <section className="mx-auto max-w-4xl px-4 py-12">
       <p className="eyebrow">Accountability</p>
-      <h1 className="font-wide mt-2 text-4xl font-black sm:text-5xl">{card ? "Your goal" : "Set a goal"}</h1>
+      <h1 className="font-wide mt-2 text-4xl font-black sm:text-5xl">{progress ? "Your goal" : "Set a goal"}</h1>
 
-      {card?.progress ? (
+      {progress ? (
         <div className="mt-8 grid gap-6">
-          <GoalGrid progress={card.progress} username={card.user.username} streak={card.streak} />
+          <GoalGrid progress={progress} username={loaderData.username} streak={loaderData.streak} />
           <div className="flex flex-wrap items-center justify-between gap-4">
             <Link to="/new" className="btn btn-slop">
               Throw today's slop

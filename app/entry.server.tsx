@@ -1,7 +1,16 @@
 import { isbot } from "isbot";
-import { renderToReadableStream } from "react-dom/server";
+import { renderToReadableStream } from "react-dom/server.edge";
 import type { EntryContext, RouterContextProvider } from "react-router";
 import { ServerRouter } from "react-router";
+import { config } from "./.server/config";
+
+/** Live queries open a websocket to Convex; the policy must allow it. */
+function convexSources(): string {
+  if (!config.convexUrl) return "";
+  const url = new URL(config.convexUrl);
+  const socket = `${url.protocol === "https:" ? "wss:" : "ws:"}//${url.host}`;
+  return ` ${url.origin} ${socket}`;
+}
 
 /**
  * Web-streams rendering so the same server bundle runs on Node in
@@ -30,6 +39,7 @@ export default async function handleRequest(
   if (import.meta.env.PROD) {
     // Inline scripts stay allowed: React Router streams hydration data with
     // them. Inline styles too: cards set CSS variables for their tilt.
+    // Images come from Convex storage (https).
     responseHeaders.set(
       "content-security-policy",
       [
@@ -39,7 +49,7 @@ export default async function handleRequest(
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: blob: https:",
         "media-src 'self' blob:",
-        "connect-src 'self'",
+        `connect-src 'self'${convexSources()}`,
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",

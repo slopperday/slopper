@@ -1,5 +1,4 @@
 import type { Route } from "./+types/auth.start";
-import { getKv } from "~/.server/kv";
 import { viewerContext } from "~/.server/session";
 import {
   authorizationUrl,
@@ -37,11 +36,11 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
 
   const state = randomToken();
   const codeVerifier = randomToken(48);
-  await savePendingAuthorization(await getKv(), state, {
+  await savePendingAuthorization(state, {
     provider,
     intent,
     codeVerifier,
-    userId: viewer.user?.id ?? null,
+    userId: viewer.user?._id ?? null,
     returnTo: safeReturnTo(new URL(request.url).searchParams.get("returnTo")),
   });
 

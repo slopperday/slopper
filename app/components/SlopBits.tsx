@@ -1,6 +1,6 @@
 import { Link } from "react-router";
-import { findCategory, type PublicSlop, type SlopLink } from "~/lib/model";
-import { mediaUrl, platformBadges } from "~/lib/display";
+import { findCategory, type SlopLink } from "~/lib/model";
+import { platformBadges } from "~/lib/display";
 
 /** Small pieces shared by slop cards and the slop page. */
 
@@ -46,7 +46,7 @@ export function SlopImage({
   className = "",
   blur = false,
 }: {
-  slop: Pick<PublicSlop, "name" | "screenshots">;
+  slop: { name: string; screenshots: readonly string[] };
   className?: string;
   blur?: boolean;
 }) {
@@ -61,7 +61,7 @@ export function SlopImage({
   return (
     <div className={`overflow-hidden bg-wall-deep ${className}`}>
       <img
-        src={mediaUrl(first)}
+        src={first}
         alt={`${slop.name} screenshot`}
         loading="lazy"
         decoding="async"

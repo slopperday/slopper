@@ -1,13 +1,14 @@
 import { Link } from "react-router";
-import { type PublicSlop, type PublicUser, type SlopUpdate, UPDATE_KINDS, type UpdateKind } from "~/lib/model";
+import type { PublicUser } from "@convex/lib/shape";
+import { UPDATE_KINDS, type UpdateKind } from "~/lib/model";
 import { markdownToPlain } from "~/lib/compose";
 import { slopPath } from "~/lib/display";
 import { timeAgo } from "~/lib/dates";
 import { Avatar } from "./Avatar";
 
 export interface UpdateEntry {
-  update: Pick<SlopUpdate, "id" | "kind" | "body" | "createdAt">;
-  slop: Pick<PublicSlop, "name" | "slug">;
+  update: { id: string; kind: UpdateKind; body: string; createdAt: number };
+  slop: { name: string; slug: string };
   owner: PublicUser;
 }
 

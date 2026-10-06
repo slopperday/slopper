@@ -14,17 +14,20 @@ import { csrfMiddleware, viewerContext, viewerMiddleware } from "./.server/sessi
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { FlashBanner } from "./components/FlashBanner";
+import { LiveProvider } from "./components/Live";
 import "./app.css";
 
 export const middleware: Route.MiddlewareFunction[] = [csrfMiddleware, viewerMiddleware];
 
 export function loader({ context }: Route.LoaderArgs) {
   const viewer = context.get(viewerContext);
+  const user = viewer.user;
   return {
-    user: viewer.user,
+    user: user ? { username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl } : null,
     isAdmin: viewer.isAdmin,
     flash: viewer.flash,
     origin: config.appUrl.origin,
+    convexUrl: config.convexUrl,
   };
 }
 
@@ -54,15 +57,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body className="flex min-h-dvh flex-col">
-        <a href="#main" className="btn sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50">
-          Skip to content
-        </a>
-        <Header user={data?.user ?? null} path={location.pathname} />
-        {data?.flash && <FlashBanner key={location.key} flash={data.flash} />}
-        <main id="main" className="flex-1">
-          {children}
-        </main>
-        <Footer />
+        <LiveProvider url={data?.convexUrl ?? null} signedIn={Boolean(data?.user)}>
+          <a href="#main" className="btn sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50">
+            Skip to content
+          </a>
+          <Header user={data?.user ?? null} path={location.pathname} />
+          {data?.flash && <FlashBanner key={location.key} flash={data.flash} />}
+          <main id="main" className="flex-1">
+            {children}
+          </main>
+          <Footer />
+        </LiveProvider>
         <ScrollRestoration />
         <Scripts />
       </body>

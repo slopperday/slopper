@@ -1,104 +1,59 @@
 import { Link } from "react-router";
 import type { Route } from "./+types/home";
-import { getKv } from "~/.server/kv";
+import { api } from "@convex/_generated/api";
 import { viewerContext } from "~/.server/session";
-import { getSlops, listSlopcessful, listSlopsSince, listUserSlops } from "~/.server/db/slops";
-import { listRecentUpdates } from "~/.server/db/activity";
-import { dayRace, latestSlopOfTheDay, utcDate } from "~/.server/db/daily";
-import { getOpenGoal } from "~/.server/db/goals";
-import { getUsersById, isVisibleTo, toFeedItems } from "~/.server/feed";
-import { slopperCard, standings } from "~/.server/leaderboard";
-import { memo } from "~/.server/memo";
-import { rankHot } from "~/lib/ranking";
-import { localDate } from "~/lib/dates";
-import { goalProgress } from "~/lib/goal";
-import { publicUser, type Goal } from "~/lib/model";
+import { convex } from "~/.server/convex";
+import { goalProgress, type Goal } from "~/lib/goal";
 import { seo } from "~/lib/seo";
 import { SlopCard, SlopGrid } from "~/components/SlopCard";
 import { RaceList } from "~/components/RaceList";
 import { Countdown } from "~/components/Countdown";
 import { GoalGrid } from "~/components/GoalGrid";
 import { Ticker } from "~/components/Ticker";
-import { type UpdateEntry, UpdatesList } from "~/components/UpdatesList";
+import { UpdatesList } from "~/components/UpdatesList";
 import { StreakList } from "~/components/StreakList";
 import { Splat } from "~/components/Splat";
 import { EmptyState } from "~/components/Shared";
+import { useLive } from "~/components/Live";
 
 const DAY_MS = 86_400_000;
 
+/** A week back, rounded to the hour so the live query's arguments stay stable. */
+function weekAgo(): number {
+  return Math.floor(Date.now() / 3_600_000) * 3_600_000 - 7 * DAY_MS;
+}
+
 export async function loader({ context }: Route.LoaderArgs) {
-  const kv = await getKv();
   const viewer = context.get(viewerContext).user;
-  const now = new Date();
-
-  const today = utcDate(now);
-  const [week, race, champion, recentUpdates, cards, slopcessful] = await Promise.all([
-    memo("home:week", 15_000, () => listSlopsSince(kv, new Date(now.getTime() - 7 * DAY_MS))),
-    memo(`race:${today}`, 15_000, () => dayRace(kv, today, now)),
-    memo("home:champion", 60_000, () => latestSlopOfTheDay(kv, now)),
-    memo("home:updates", 15_000, () => listRecentUpdates(kv, 30)),
-    memo("home:standings", 30_000, () => standings(kv, now)),
-    memo("home:slopcessful", 30_000, () => listSlopcessful(kv)),
+  const asUser = viewer?._id;
+  const since = weekAgo();
+  const [feed, champion, streaks, slopcessful, profile] = await Promise.all([
+    convex.query(api.home.feed, { asUser, since }),
+    convex.query(api.race.champion, { asUser }),
+    convex.query(api.goals.standings, { limit: 6 }),
+    convex.query(api.slops.slopcessful, { limit: 3, asUser }),
+    viewer ? convex.query(api.users.profile, { username: viewer.username, asUser }) : Promise.resolve(null),
   ]);
-
-  const raceItems = await toFeedItems(kv, race.ranking.slice(0, 10), viewer);
-  // An empty race still leaves something to look at: the week's best.
-  const wall = raceItems.length > 0 ? [] : await toFeedItems(kv, rankHot(week, now).slice(0, 6), viewer);
-  const ticker = await toFeedItems(kv, week.slice(0, 14), viewer);
-  const [championItem] = champion ? await toFeedItems(kv, [champion.slop], viewer) : [];
-
-  const logUpdates = recentUpdates.filter((update) => update.kind !== "launch").slice(0, 8);
-  const logSlops = new Map(
-    (
-      await getSlops(
-        kv,
-        logUpdates.map((update) => update.slopId),
-      )
-    ).map((slop) => [slop.id, slop]),
-  );
-  const logOwners = await getUsersById(
-    kv,
-    logUpdates.map((update) => update.userId),
-  );
-  const updates: UpdateEntry[] = [];
-  for (const update of logUpdates) {
-    const slop = logSlops.get(update.slopId);
-    const owner = logOwners.get(update.userId);
-    if (slop && owner && isVisibleTo(slop, null)) {
-      updates.push({
-        update: { id: update.id, kind: update.kind, body: update.body, createdAt: update.createdAt },
-        slop: { name: slop.name, slug: slop.slug },
-        owner: publicUser(owner),
-      });
-    }
-  }
-
-  let viewerCard = null;
-  if (viewer) {
-    const goal = await getOpenGoal(kv, viewer.id, localDate(now, viewer.timeZone));
-    viewerCard = slopperCard(viewer, await listUserSlops(kv, viewer.id), goal, now);
-  }
-
-  return {
-    race: raceItems,
-    wall,
-    champion: championItem ? { date: champion!.date, item: championItem } : null,
-    ticker,
-    updates,
-    streaks: cards.slice(0, 6),
-    slopcessful: await toFeedItems(kv, slopcessful.slice(0, 3), viewer),
-    viewerCard,
-  };
+  return { since, feed, champion, streaks, slopcessful, profile, username: viewer?.username ?? null };
 }
 
 export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { path: "/" });
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { viewerCard } = loaderData;
+  const feed = useLive(api.home.feed, { since: loaderData.since }, loaderData.feed);
+  const champion = useLive(api.race.champion, {}, loaderData.champion);
+  const streaks = useLive(api.goals.standings, { limit: 6 }, loaderData.streaks);
+  const slopcessful = useLive(api.slops.slopcessful, { limit: 3 }, loaderData.slopcessful);
+  const profile = useLive(api.users.profile, { username: loaderData.username ?? "" }, loaderData.profile);
+  const signedIn = loaderData.username !== null;
   return (
     <>
-      {viewerCard ? <ViewerStrip card={viewerCard} /> : <Hero />}
-      {loaderData.ticker.length > 0 && <Ticker items={loaderData.ticker} />}
+      {signedIn && profile ? (
+        <ViewerStrip progress={profile.progress} username={profile.owner.username} streak={profile.streak} />
+      ) : (
+        <Hero />
+      )}
+      {feed.ticker.length > 0 && <Ticker items={feed.ticker} />}
 
       <section id="today" className="mx-auto grid max-w-6xl scroll-mt-24 gap-10 px-4 pt-14 lg:grid-cols-[1fr_22rem]">
         <div>
@@ -115,15 +70,15 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </div>
           </div>
           <div className="mt-8">
-            {loaderData.race.length > 0 ? (
-              <RaceList items={loaderData.race} winnerId={null} />
+            {feed.race.length > 0 ? (
+              <RaceList items={feed.race} winnerId={null} />
             ) : (
               <EmptyState>
                 <p className="font-display text-4xl text-slop-deep">Blank wall.</p>
                 <p className="mx-auto mt-3 max-w-md">
                   Nothing launched today yet. The first slop has the race to itself.
                 </p>
-                <Link to={viewerCard ? "/new" : "/login"} className="btn btn-slop mt-6">
+                <Link to={signedIn ? "/new" : "/login"} className="btn btn-slop mt-6">
                   Throw the first slop
                 </Link>
               </EmptyState>
@@ -131,17 +86,17 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </div>
         </div>
         <aside>
-          <p className="eyebrow">Yesterday's winner</p>
+          <p className="eyebrow">Latest winner</p>
           <h2 className="font-wide text-2xl font-black">🏆 Slop of the day</h2>
           <div className="mt-8">
-            {loaderData.champion ? (
+            {champion ? (
               <>
-                <SlopCard item={loaderData.champion.item} />
+                <SlopCard item={champion.item} />
                 <Link
-                  to={`/day/${loaderData.champion.date}`}
+                  to={`/day/${champion.date}`}
                   className="mt-4 inline-block font-mono text-xs tracking-wider uppercase hover:underline"
                 >
-                  See {loaderData.champion.date}'s race →
+                  See {champion.date}'s race →
                 </Link>
               </>
             ) : (
@@ -153,7 +108,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         </aside>
       </section>
 
-      {loaderData.wall.length > 0 && (
+      {feed.wall.length > 0 && (
         <section className="mx-auto mt-20 max-w-6xl px-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -165,12 +120,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </Link>
           </div>
           <div className="mt-10">
-            <SlopGrid items={loaderData.wall} />
+            <SlopGrid items={feed.wall} />
           </div>
         </section>
       )}
 
-      {loaderData.slopcessful.length > 0 && (
+      {slopcessful.length > 0 && (
         <section className="mx-auto mt-20 max-w-6xl px-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -184,7 +139,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </Link>
           </div>
           <div className="mt-10">
-            <SlopGrid items={loaderData.slopcessful} />
+            <SlopGrid items={slopcessful} />
           </div>
         </section>
       )}
@@ -193,16 +148,16 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <div>
           <p className="eyebrow">Fixes, features, re-promotes</p>
           <h2 className="font-wide text-2xl font-black">Updates</h2>
-          <UpdatesList entries={loaderData.updates} />
+          <UpdatesList entries={feed.updates} />
         </div>
         <div>
           <p className="eyebrow">Open goals</p>
           <h2 className="font-wide text-2xl font-black">Streaks</h2>
-          <StreakList rows={loaderData.streaks} />
+          <StreakList rows={streaks} />
         </div>
       </section>
 
-      {!viewerCard && <HowItWorks />}
+      {!signedIn && <HowItWorks />}
     </>
   );
 }
@@ -248,14 +203,11 @@ function Hero() {
 
 const SAMPLE_START = "2026-01-01";
 const SAMPLE_GOAL: Goal = {
-  id: "sample",
-  userId: "sample",
   title: "30 slops in 30 days",
   target: 30,
   days: 30,
   startDate: SAMPLE_START,
   abandonedAt: null,
-  createdAt: SAMPLE_START,
 };
 const SAMPLE_PROGRESS = goalProgress(
   SAMPLE_GOAL,
@@ -268,12 +220,20 @@ const SAMPLE_PROGRESS = goalProgress(
   "2026-01-12",
 );
 
-function ViewerStrip({ card }: { card: NonNullable<Route.ComponentProps["loaderData"]["viewerCard"]> }) {
+function ViewerStrip({
+  progress,
+  username,
+  streak,
+}: {
+  progress: ReturnType<typeof goalProgress> | null;
+  username: string;
+  streak: number;
+}) {
   return (
     <section className="border-b-2 border-ink bg-wall-deep">
       <div className="mx-auto max-w-6xl px-4 py-10">
-        {card.progress ? (
-          <GoalGrid progress={card.progress} username={card.user.username} streak={card.streak} />
+        {progress ? (
+          <GoalGrid progress={progress} username={username} streak={streak} />
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-6 rounded-2xl border-2 border-dashed border-ink p-6 sm:p-8">
             <div>
@@ -281,7 +241,7 @@ function ViewerStrip({ card }: { card: NonNullable<Route.ComponentProps["loaderD
               <h1 className="font-wide mt-1 text-2xl font-black sm:text-3xl">How many slops, how many days?</h1>
               <p className="mt-2 max-w-lg text-muted">
                 Pick a number and a deadline. Every day you ship leaves a splat.{" "}
-                {card.streak > 0 ? `You're on a ${card.streak} day streak already.` : ""}
+                {streak > 0 ? `You're on a ${streak} day streak already.` : ""}
               </p>
             </div>
             <Link to="/goal" className="btn btn-slop">

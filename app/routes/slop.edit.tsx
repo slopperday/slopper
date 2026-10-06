@@ -1,16 +1,14 @@
 import { data, Form, Link } from "react-router";
 import type { Route } from "./+types/slop.edit";
-import { getKv } from "~/.server/kv";
+import { api } from "@convex/_generated/api";
+import type { Doc } from "@convex/_generated/dataModel";
 import { requireUser, viewerContext } from "~/.server/session";
-import { resolveSlop } from "~/.server/routing";
-import { editSlop, setCrosspostModes } from "~/.server/db/slops";
-import { listAccounts } from "~/.server/db/accounts";
-import { ownedMediaIds } from "~/.server/db/media";
+import { convex, convexMessage } from "~/.server/convex";
 import { formText, parseSlopForm, slopFormValues } from "~/.server/forms";
-import { forbidden, redirectWithFlash } from "~/.server/http";
-import { invalidateFeeds } from "~/.server/memo";
+import { forbidden, notFound, redirectWithFlash } from "~/.server/http";
+import { screenshotsWithUrls } from "~/.server/media";
 import { modeFor } from "~/.server/social/crosspost";
-import { type CrosspostMode, NETWORK_LABELS, publicAccount, publicSlop } from "~/lib/model";
+import { type CrosspostMode, NETWORK_LABELS } from "~/lib/model";
 import { slopPath } from "~/lib/display";
 import { seo } from "~/lib/seo";
 import { SlopFields } from "~/components/SlopFields";
@@ -18,48 +16,84 @@ import { ModePicker } from "~/components/Autopost";
 import { AgentPrompt } from "~/components/AgentPrompt";
 import { editPrompt } from "~/lib/prompts";
 
-async function loadOwned(params: Route.LoaderArgs["params"], request: Request, context: Route.LoaderArgs["context"]) {
-  const viewer = context.get(viewerContext);
-  const user = requireUser(viewer, request);
-  const kv = await getKv();
-  const { owner, slop } = await resolveSlop(kv, params, viewer);
-  if (owner.id !== user.id) forbidden();
-  return { kv, owner, slop };
+/** The caller's own slop, by `/@handle/slug`, or a 403/404. */
+async function loadOwned(
+  params: Route.LoaderArgs["params"],
+  request: Request,
+  context: Route.LoaderArgs["context"],
+): Promise<{ user: Doc<"users">; slop: Doc<"slops"> }> {
+  const user = requireUser(context.get(viewerContext), request);
+  if (!params.handle.startsWith("@")) notFound();
+  if (params.handle.slice(1).toLowerCase() !== user.username) forbidden();
+  const slop = await convex.query(api.slops.findForServer, { userId: user._id, ref: params.slug });
+  if (!slop) notFound();
+  return { user, slop };
 }
 
 export async function loader({ params, request, context }: Route.LoaderArgs) {
-  const { kv, owner, slop } = await loadOwned(params, request, context);
-  const accounts = await listAccounts(kv, owner.id);
+  const { user, slop } = await loadOwned(params, request, context);
+  const accounts = await convex.query(api.accounts.list, { userId: user._id });
   return {
-    username: owner.username,
-    slop: publicSlop(slop),
-    accounts: accounts.map((account) => ({ ...publicAccount(account), mode: modeFor(slop, account) })),
+    username: user.username,
+    slop: {
+      id: slop._id,
+      slug: slop.slug,
+      name: slop.name,
+      launchLabel: slop.launchLabel,
+      values: {
+        name: slop.name,
+        tagline: slop.tagline,
+        description: slop.description,
+        category: slop.category,
+        nsfw: slop.nsfw,
+        links: slop.links,
+        screenshots: await screenshotsWithUrls(slop.screenshots),
+        madeWith: slop.madeWith,
+      },
+    },
+    accounts: accounts.map((account) => ({
+      id: account._id,
+      provider: account.provider,
+      handle: account.handle,
+      defaultMode: account.defaultMode,
+      mode: modeFor(slop, account),
+    })),
   };
 }
 
 export async function action({ params, request, context }: Route.ActionArgs) {
-  const { kv, owner, slop } = await loadOwned(params, request, context);
+  const { user, slop } = await loadOwned(params, request, context);
   const form = await request.formData();
-  const here = slopPath(owner.username, slop.slug);
+  const here = slopPath(user.username, slop.slug);
 
   if (formText(form, "intent") === "autopost") {
     const modes: Record<string, CrosspostMode> = {};
-    for (const account of await listAccounts(kv, owner.id)) {
-      const mode = formText(form, `mode-${account.id}`);
+    for (const account of await convex.query(api.accounts.list, { userId: user._id })) {
+      const mode = formText(form, `mode-${account._id}`);
       if ((mode === "post" || mode === "amplify" || mode === "off") && mode !== account.defaultMode) {
-        modes[account.id] = mode;
+        modes[account._id] = mode;
       }
     }
-    await setCrosspostModes(kv, slop.id, modes);
+    await convex.mutation(api.slops.setCrosspost, { userId: user._id, slopId: slop._id, modes });
     return redirectWithFlash(`${here}/edit#autopost`, { tone: "success", message: "Auto-post saved for this slop." });
   }
 
   const parsed = parseSlopForm(form);
-  if (!parsed.ok) return data({ errors: parsed.errors, values: slopFormValues(form) }, { status: 422 });
+  if (!parsed.ok) {
+    const values = slopFormValues(form);
+    return data(
+      { errors: parsed.errors, values: { ...values, screenshots: await screenshotsWithUrls(values.screenshots) } },
+      { status: 422 },
+    );
+  }
   const { launchNote: _launchNote, ...input } = parsed.value;
-  input.screenshots = await ownedMediaIds(kv, owner.id, input.screenshots, slop.screenshots);
-  await editSlop(kv, slop.id, input);
-  invalidateFeeds();
+  try {
+    await convex.mutation(api.slops.edit, { userId: user._id, slopId: slop._id, input });
+  } catch (error) {
+    const message = convexMessage(error);
+    if (message) return redirectWithFlash(`${here}/edit`, { tone: "error", message });
+    throw error;
+  }
   return redirectWithFlash(here, { tone: "success", message: "Saved." });
 }
 
@@ -81,7 +115,7 @@ export default function EditSlop({ loaderData, actionData }: Route.ComponentProp
       </div>
       <Form method="post" className="mt-10 grid gap-8">
         <input type="hidden" name="intent" value="details" />
-        <SlopFields values={actionData?.values ?? slop} errors={actionData?.errors ?? {}} />
+        <SlopFields values={actionData?.values ?? slop.values} errors={actionData?.errors ?? {}} />
         <button type="submit" className="btn btn-slop justify-self-start">
           Save changes
         </button>

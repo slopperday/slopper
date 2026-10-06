@@ -1,17 +1,12 @@
 import { Link } from "react-router";
-import type { PublicSlop, PublicUser } from "~/lib/model";
+import type { CardItem } from "@convex/lib/shape";
 import { dayLabel, numberLabel, slopPath, tiltFor } from "~/lib/display";
 import { timeAgo } from "~/lib/dates";
 import { Avatar } from "./Avatar";
 import { CategoryChip, PlatformChips, SlopcessfulChip, SlopImage, SlopOfTheDayChip } from "./SlopBits";
 import { VoteButtons } from "./VoteButtons";
 
-export interface CardItem {
-  slop: PublicSlop;
-  owner: PublicUser;
-  vote: 1 | -1 | 0;
-  voteMode: "vote" | "login" | "own";
-}
+export type { CardItem };
 
 /**
  * A slop, taped to the wall. The whole card is one link (stretched from the

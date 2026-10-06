@@ -1,4 +1,4 @@
-import { LINK_KINDS, type Platform, type Slop, type SlopLink } from "./model";
+import { LINK_KINDS, type Platform, type SlopLink } from "./model";
 
 /** Formatting shared by cards, pages and posts. */
 
@@ -32,22 +32,18 @@ export function platformBadges(links: readonly SlopLink[]): PlatformBadge[] {
 }
 
 /** "Day 7/30", or null when the slop is outside a goal. */
-export function dayLabel(slop: Pick<Slop, "goalDay" | "goalLength">): string | null {
+export function dayLabel(slop: { goalDay: number | null; goalLength: number | null }): string | null {
   if (!slop.goalDay || !slop.goalLength) return null;
   return `Day ${slop.goalDay}/${slop.goalLength}`;
 }
 
 /** "#0042": the slop's place in Slopper's global sequence. */
-export function numberLabel(slop: Pick<Slop, "number">): string {
+export function numberLabel(slop: { number: number }): string {
   return `#${String(slop.number).padStart(4, "0")}`;
 }
 
 export function slopPath(username: string, slug: string): string {
   return `/@${username}/${slug}`;
-}
-
-export function mediaUrl(id: string): string {
-  return `/media/${id}`;
 }
 
 /** Deterministic tilt so cards stick to the wall a little crooked. */
@@ -58,6 +54,6 @@ export function tiltFor(id: string): number {
 }
 
 /** "TiltMaze", or "TiltMaze · iOS app" for a later launch of the product. */
-export function launchTitle(slop: Pick<Slop, "name" | "launchLabel">): string {
+export function launchTitle(slop: { name: string; launchLabel: string | null }): string {
   return slop.launchLabel ? `${slop.name} · ${slop.launchLabel}` : slop.name;
 }

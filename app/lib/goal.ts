@@ -1,5 +1,12 @@
 import { addDays, daysBetween } from "./dates";
-import type { Goal } from "./model";
+/** What goal math needs from a stored goal. */
+export interface Goal {
+  title: string;
+  target: number;
+  days: number;
+  startDate: string;
+  abandonedAt: number | null;
+}
 
 /** The minimum a goal grid needs to know about a shipped slop. */
 export interface Launch {

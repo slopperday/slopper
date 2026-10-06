@@ -1,5 +1,5 @@
 import { Form } from "react-router";
-import { type CrosspostMode, NETWORK_LABELS, type SlopUpdate, type SocialProvider } from "~/lib/model";
+import { type CrosspostMode, type CrosspostResult, NETWORK_LABELS, type SocialProvider } from "~/lib/model";
 
 const MODES: { value: CrosspostMode; label: string }[] = [
   { value: "post", label: "Post" },
@@ -41,7 +41,7 @@ export function ModePicker({
 }
 
 /** Owner-only receipt of where an update was posted, with a retry. */
-export function CrosspostReceipts({ update }: { update: Pick<SlopUpdate, "id" | "crossposts"> }) {
+export function CrosspostReceipts({ update }: { update: { id: string; crossposts: readonly CrosspostResult[] } }) {
   const failed = update.crossposts.some((result) => result.status === "error");
   return (
     <div className="mt-3 rounded-lg border border-dashed border-ink/40 p-3 font-mono text-[0.68rem]">

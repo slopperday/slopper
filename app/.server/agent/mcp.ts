@@ -1,7 +1,5 @@
-import type { Kv } from "@deno/kv";
-import { userForBearer } from "../db/tokens";
-import { allowAction } from "../db/misc";
 import { absoluteUrl } from "../config";
+import { allowAction, userForBearer } from "../tokens";
 import { ApiError } from "./input";
 import { findOperation, OPERATIONS, runOperation } from "./operations";
 
@@ -15,7 +13,7 @@ const SUPPORTED_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"];
 const SERVER_INFO = { name: "slopper", title: "Slopper", version: "1.0.0" };
 
 const INSTRUCTIONS = `Slopper (slopper.day) is where people throw slop at the wall every day: they ship small apps and sites daily, track a goal like "30 slops in 30 days", and keep slopping until one is slopcessful.
-Start with whoami. To launch: upload_screenshot for each image, then create_slop with links (website, TestFlight, Play beta, source…). Use post_update for fixes and features, kind "field" for real-world tests, and mark_slopcessful when a slop breaks out. Pass autopost: true to post to the user's connected social accounts.`;
+Start with whoami. To launch: upload_screenshot for each image, then create_slop with links (website, TestFlight, Play beta, source…). A new platform or a 2.0 is a new launch: create_slop with relaunchOf and launchLabel. Use post_update for fixes and features, kind "field" for real-world tests, log_money for costs and revenue, and mark_slopcessful when a slop breaks out. Pass autopost: true to post to the user's connected social accounts.`;
 
 type JsonRpcId = string | number;
 
@@ -41,7 +39,7 @@ function unauthorized(): Response {
   );
 }
 
-export async function handleMcp(request: Request, kv: Kv): Promise<Response> {
+export async function handleMcp(request: Request): Promise<Response> {
   if (request.method !== "POST") {
     return new Response("Slopper's MCP endpoint takes JSON-RPC over POST.", {
       status: 405,
@@ -67,9 +65,9 @@ export async function handleMcp(request: Request, kv: Kv): Promise<Response> {
   if (message.id === undefined || message.id === null) return new Response(null, { status: 202 });
   const id = message.id;
 
-  const user = await userForBearer(kv, request);
+  const user = await userForBearer(request);
   if (!user) return unauthorized();
-  if (!(await allowAction(kv, "mcp", user.id, 600, 3_600_000))) {
+  if (!(await allowAction(`mcp:${user._id}`, 600, 3_600_000))) {
     return fail(id, -32000, "Rate limit reached. Try again later.", 429);
   }
 
@@ -112,7 +110,7 @@ export async function handleMcp(request: Request, kv: Kv): Promise<Response> {
       const operation = typeof params.name === "string" ? findOperation(params.name) : undefined;
       if (!operation) return fail(id, -32602, `Unknown tool: ${String(params.name)}`);
       try {
-        const result = await runOperation(operation, { kv, user, now: new Date() }, params.arguments);
+        const result = await runOperation(operation, { user, now: new Date() }, params.arguments);
         return reply(id, {
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
           structuredContent: result,
