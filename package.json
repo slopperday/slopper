@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare": "vp config --no-agent",
     "convex": "convex dev",
     "keys": "node scripts/convex-keys.ts",
     "typegen": "react-router typegen",

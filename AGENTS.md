@@ -28,8 +28,10 @@ release. Add a tool name to select part of the graph. For example, run
 
 # Slopper project notes
 
-- **Run it:** `vp run convex` (local Convex, no account), `vp run keys` once, then `vp dev`. Validate with `vp check`,
-  `vp test` and `vp build`.
+- **Run it:** `vp run convex` (local Convex, no account), `vp run keys` once, then `vp dev`. Validate with
+  `vp run ci` (typegen, check, test, build).
+- **CI is local only.** There are no GitHub Actions workflows on purpose (cost). The pre-push hook runs `vp run ci`; never
+  add remote CI without asking.
 - **ESM only.** No CommonJS in source or output. The server renders with `react-dom/server.edge` so the production
   bundle has no `require` calls.
 - **Data lives in Convex** (`convex/`). Privileged functions call `requireServer`; the app server signs ES256 JWTs with

@@ -54,7 +54,12 @@ vp check               # oxfmt, oxlint and type-aware checks
 vp test                # Vitest, including Convex functions via convex-test
 vp build               # production bundles in build/
 vp run start           # serve build/ with Deno, like production
+vp run ci              # everything CI does: typegen, check, test, build
 ```
+
+CI runs locally, not on GitHub. `vp install` sets up git hooks: pre-commit runs `vp staged` (format and lint the staged
+files) and pre-push runs `vp run ci`, so nothing broken gets pushed. If hooks aren't active in a fresh clone, run
+`vp hooks enable`.
 
 ## Deploy
 

@@ -17,10 +17,10 @@ export default defineConfig(({ command }) => ({
   },
   fmt: {
     printWidth: 120,
-    ignorePatterns: ["build/**", ".react-router/**", "deploy/**"],
+    ignorePatterns: ["build/**", ".react-router/**", "deploy/**", "convex/_generated/**"],
   },
   lint: {
-    ignorePatterns: ["build/**", ".react-router/**", "deploy/**"],
+    ignorePatterns: ["build/**", ".react-router/**", "deploy/**", "convex/_generated/**"],
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
       "vite-plus/prefer-vite-plus-imports": "error",
@@ -32,5 +32,18 @@ export default defineConfig(({ command }) => ({
   },
   test: {
     include: ["tests/**/*.test.ts"],
+  },
+  // CI runs on this machine, not on GitHub: `vp run ci`, also run by the
+  // pre-push hook (.vite-hooks/pre-push).
+  run: {
+    tasks: {
+      ci: {
+        command: ["react-router typegen", "vp check", "vp test", "vp build"],
+        cache: false,
+      },
+    },
+  },
+  staged: {
+    "*.{ts,tsx,js,json,css,md}": "vp check --fix",
   },
 }));
