@@ -1,77 +1,44 @@
 import { Link } from "react-router";
 import type { Route } from "./+types/profile";
-import { getKv } from "~/.server/kv";
+import { api } from "@convex/_generated/api";
 import { viewerContext } from "~/.server/session";
-import { resolveOwner } from "~/.server/routing";
-import { listUserSlops } from "~/.server/db/slops";
-import { listUserGoals } from "~/.server/db/goals";
-import { toFeedItems } from "~/.server/feed";
-import { slopperCard, toLaunches } from "~/.server/leaderboard";
-import { goalProgress } from "~/lib/goal";
-import { localDate } from "~/lib/dates";
+import { convex } from "~/.server/convex";
+import { notFound } from "~/.server/http";
 import { seo } from "~/lib/seo";
 import { Avatar } from "~/components/Avatar";
 import { GoalGrid } from "~/components/GoalGrid";
 import { SlopGrid } from "~/components/SlopCard";
 import { EmptyState } from "~/components/Shared";
+import { useLive } from "~/components/Live";
 
 export async function loader({ params, context }: Route.LoaderArgs) {
-  const kv = await getKv();
-  const viewer = context.get(viewerContext).user;
-  const owner = await resolveOwner(kv, params.handle);
-  const now = new Date();
-  const [slops, goals] = await Promise.all([listUserSlops(kv, owner.id), listUserGoals(kv, owner.id)]);
-  const isSelf = viewer?.id === owner.id;
-  const visible = slops.filter((slop) => !slop.hidden || isSelf);
-  const current = goals.find((goal) => !goal.abandonedAt) ?? null;
-  const card = slopperCard(owner, visible, current, now);
-  const launches = toLaunches(visible);
-  const today = localDate(now, owner.timeZone);
-
-  // "Slopcessful on slop #N": how many tries it took, counting from the first.
-  const chronological = [...visible].reverse();
-  const firstHit = chronological.findIndex((slop) => slop.slopcessfulAt);
-
-  return {
-    card,
-    isSelf,
-    items: await toFeedItems(kv, visible, viewer),
-    upvotes: visible.reduce((sum, slop) => sum + slop.upvotes, 0),
-    daysWon: visible.filter((slop) => slop.slopOfTheDay && !slop.hidden).length,
-    slopcessfulOnTry: firstHit === -1 ? null : firstHit + 1,
-    pastGoals: goals
-      .filter((goal) => goal.id !== current?.id)
-      .map((goal) => {
-        const progress = goalProgress(goal, launches, today);
-        return {
-          id: goal.id,
-          title: goal.title,
-          shipped: progress.shipped,
-          target: goal.target,
-          status: progress.status,
-        };
-      }),
-  };
+  if (!params.handle.startsWith("@")) notFound();
+  const username = params.handle.slice(1).toLowerCase();
+  const profile = await convex.query(api.users.profile, { username, asUser: context.get(viewerContext).user?._id });
+  if (!profile) notFound();
+  return { username, profile };
 }
 
 export const meta: Route.MetaFunction = ({ matches, loaderData }) => {
   if (!loaderData) return seo(matches);
-  const { user, totalShipped } = loaderData.card;
+  const { owner, totalShipped } = loaderData.profile;
   return seo(matches, {
-    title: `${user.displayName} (@${user.username})`,
-    description: user.bio || `${totalShipped} slops thrown on Slopper.`,
-    path: `/@${user.username}`,
+    title: `${owner.displayName} (@${owner.username})`,
+    description: owner.bio || `${totalShipped} slops thrown on Slopper.`,
+    path: `/@${owner.username}`,
   });
 };
 
 export default function Profile({ loaderData }: Route.ComponentProps) {
-  const { card, isSelf, items } = loaderData;
-  const user = card.user;
+  const profile =
+    useLive(api.users.profile, { username: loaderData.username }, loaderData.profile) ?? loaderData.profile;
+  const { isSelf, items, progress } = profile;
+  const user = profile.owner;
   const stats = [
-    { label: "Slops", value: String(card.totalShipped) },
-    { label: "Streak", value: card.streak > 0 ? `🔥${card.streak}` : "0" },
-    { label: "Upvotes", value: String(loaderData.upvotes) },
-    { label: "Days won", value: loaderData.daysWon > 0 ? `🏆${loaderData.daysWon}` : "0" },
+    { label: "Slops", value: String(profile.totalShipped) },
+    { label: "Streak", value: profile.streak > 0 ? `🔥${profile.streak}` : "0" },
+    { label: "Upvotes", value: String(profile.upvotes) },
+    { label: "Days won", value: profile.daysWon > 0 ? `🏆${profile.daysWon}` : "0" },
   ];
   return (
     <>
@@ -93,9 +60,9 @@ export default function Profile({ loaderData }: Route.ComponentProps) {
                   {new URL(user.website).hostname}
                 </a>
               )}
-              {loaderData.slopcessfulOnTry && (
+              {profile.slopcessfulOnTry && (
                 <p className="mt-3">
-                  <span className="chip chip-gold">★ Slopcessful on slop #{loaderData.slopcessfulOnTry}</span>
+                  <span className="chip chip-gold">★ Slopcessful on slop #{profile.slopcessfulOnTry}</span>
                 </p>
               )}
             </div>
@@ -112,9 +79,9 @@ export default function Profile({ loaderData }: Route.ComponentProps) {
       </section>
 
       <div className="mx-auto max-w-6xl px-4">
-        {card.progress ? (
+        {progress ? (
           <div className="mt-10">
-            <GoalGrid progress={card.progress} username={user.username} streak={card.streak} />
+            <GoalGrid progress={progress} username={user.username} streak={profile.streak} />
           </div>
         ) : (
           isSelf && (
@@ -127,11 +94,11 @@ export default function Profile({ loaderData }: Route.ComponentProps) {
           )
         )}
 
-        {loaderData.pastGoals.length > 0 && (
+        {profile.pastGoals.length > 0 && (
           <section className="mt-10">
             <h2 className="eyebrow">Past goals</h2>
             <ul className="mt-3 flex flex-wrap gap-2">
-              {loaderData.pastGoals.map((goal) => (
+              {profile.pastGoals.map((goal) => (
                 <li key={goal.id} className="chip px-3 py-1">
                   {goal.title}: {goal.shipped}/{goal.target}
                   {goal.status === "won" ? " ✓" : goal.status === "abandoned" ? " ✕" : ""}

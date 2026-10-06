@@ -1,5 +1,3 @@
-import type { User } from "~/lib/model";
-
 const SIZES = {
   xs: "size-6 text-[0.6rem]",
   sm: "size-8 text-xs",
@@ -12,7 +10,7 @@ export function Avatar({
   user,
   size = "sm",
 }: {
-  user: Pick<User, "username" | "displayName" | "avatarUrl">;
+  user: { username: string; displayName: string; avatarUrl: string | null };
   size?: keyof typeof SIZES;
 }) {
   const base = `${SIZES[size]} shrink-0 rounded-full border-2 border-ink object-cover`;

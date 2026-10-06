@@ -1,0 +1,10 @@
+{
+  "deploy": {
+    "install": "deno install",
+    "build": "deno run -A node_modules/@react-router/dev/dist/cli/index.js build",
+    "runtime": {
+      "type": "dynamic",
+      "entrypoint": "./deploy/main.ts"
+    }
+  }
+}

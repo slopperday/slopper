@@ -1,4 +1,9 @@
+import { existsSync } from "node:fs";
 import process from "node:process";
+
+// Local development keeps secrets and the Convex URL in `.env.local`
+// (written by `convex dev` and scripts/convex-keys.ts).
+if (process.env.DENO_DEPLOY !== "true" && existsSync(".env.local")) process.loadEnvFile(".env.local");
 
 /**
  * Runtime configuration, read once from the environment.
@@ -21,6 +26,11 @@ export interface Config {
   devLogin: boolean;
   /** Secret that derives the key encrypting third-party tokens at rest. */
   secretKey: string | null;
+  /** Convex deployment URL. */
+  convexUrl: string | null;
+  /** Issuer and private key for the JWTs Convex trusts. */
+  jwtIssuer: string;
+  jwtPrivateKey: string | null;
   /** Lower-cased usernames allowed to moderate content. */
   adminUsernames: ReadonlySet<string>;
   github: OAuthClientCredentials | null;
@@ -45,6 +55,9 @@ export function loadConfig(env: Env = process.env): Config {
     isDeployed,
     devLogin: !isDeployed && env.NODE_ENV !== "production" && env.DEV_LOGIN !== "false",
     secretKey: env.SLOPPER_SECRET_KEY?.trim() || null,
+    convexUrl: env.CONVEX_URL?.trim() || env.VITE_CONVEX_URL?.trim() || null,
+    jwtIssuer: env.SLOPPER_JWT_ISSUER?.trim() || "https://slopper.day",
+    jwtPrivateKey: env.SLOPPER_JWT_PRIVATE_KEY?.trim() || null,
     adminUsernames: new Set(
       (env.ADMIN_USERNAMES ?? "")
         .split(",")

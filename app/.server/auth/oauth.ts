@@ -1,4 +1,6 @@
-import type { Kv } from "@deno/kv";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { convex } from "../convex";
 import { encodeBase64Url } from "../encoding";
 import { absoluteUrl, config, type OAuthClientCredentials } from "../config";
 
@@ -195,22 +197,19 @@ export interface PendingAuthorization {
   provider: OAuthProviderId;
   intent: OAuthIntent;
   codeVerifier: string;
-  userId: string | null;
+  userId: Id<"users"> | null;
   returnTo: string;
 }
 
-const PENDING_TTL_MS = 10 * 60_000;
-
-export async function savePendingAuthorization(kv: Kv, state: string, pending: PendingAuthorization): Promise<void> {
-  await kv.set(["oauth", state], pending, { expireIn: PENDING_TTL_MS });
+export async function savePendingAuthorization(state: string, pending: PendingAuthorization): Promise<void> {
+  await convex.mutation(api.oauth.save, { state, ...pending });
 }
 
 /** Reads and deletes the pending authorization, so a state works once. */
-export async function takePendingAuthorization(kv: Kv, state: string): Promise<PendingAuthorization | null> {
-  const entry = await kv.get<PendingAuthorization>(["oauth", state]);
-  if (!entry.value) return null;
-  const result = await kv.atomic().check(entry).delete(entry.key).commit();
-  return result.ok ? entry.value : null;
+export async function takePendingAuthorization(state: string): Promise<PendingAuthorization | null> {
+  const pending = await convex.mutation(api.oauth.take, { state });
+  if (!pending || !isOAuthProvider(pending.provider)) return null;
+  return { ...pending, provider: pending.provider };
 }
 
 /** Only same-site relative paths are allowed as post-login destinations. */

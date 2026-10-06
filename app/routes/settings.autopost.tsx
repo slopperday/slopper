@@ -1,14 +1,14 @@
 import { Form, Link } from "react-router";
 import type { Route } from "./+types/settings.autopost";
-import { getKv } from "~/.server/kv";
+import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
-import { connectAccount, disconnectAccount, listAccounts, setDefaultMode } from "~/.server/db/accounts";
+import { convex } from "~/.server/convex";
 import { config } from "~/.server/config";
 import { formText } from "~/.server/forms";
 import { redirectWithFlash } from "~/.server/http";
 import { MissingSecretKeyError } from "~/.server/crypto";
 import { createBlueskySession, sealCredentials, SocialError } from "~/.server/social/adapters";
-import { type CrosspostMode, NETWORK_LABELS, publicAccount } from "~/lib/model";
+import { type CrosspostMode, NETWORK_LABELS } from "~/lib/model";
 import { seo } from "~/lib/seo";
 import { ModePicker } from "~/components/Autopost";
 import { SettingsNav } from "~/components/Shared";
@@ -18,7 +18,17 @@ const HERE = "/settings/autopost";
 export async function loader({ request, context }: Route.LoaderArgs) {
   const user = requireUser(context.get(viewerContext), request);
   return {
-    accounts: (await listAccounts(await getKv(), user.id)).map(publicAccount),
+    // Sealed credentials never leave the server.
+    accounts: (await convex.query(api.accounts.list, { userId: user._id })).map(
+      ({ _id, provider, handle, avatarUrl, expiresAt, defaultMode }) => ({
+        id: _id,
+        provider,
+        handle,
+        avatarUrl,
+        expiresAt,
+        defaultMode,
+      }),
+    ),
     xEnabled: config.x !== null,
     linkedinEnabled: config.linkedin !== null,
   };
@@ -30,21 +40,24 @@ function isMode(value: string): value is CrosspostMode {
 
 export async function action({ request, context }: Route.ActionArgs) {
   const user = requireUser(context.get(viewerContext), request);
-  const kv = await getKv();
   const form = await request.formData();
 
   switch (formText(form, "intent")) {
     case "modes": {
-      for (const account of await listAccounts(kv, user.id)) {
-        const mode = formText(form, `mode-${account.id}`);
-        const allowed = isMode(mode) && !(account.provider === "linkedin" && mode === "amplify");
-        if (allowed && mode !== account.defaultMode) await setDefaultMode(kv, user.id, account.id, mode);
+      for (const account of await convex.query(api.accounts.list, { userId: user._id })) {
+        const mode = formText(form, `mode-${account._id}`);
+        if (isMode(mode) && mode !== account.defaultMode) {
+          await convex.mutation(api.accounts.setDefaultMode, { userId: user._id, accountId: account._id, mode });
+        }
       }
       return redirectWithFlash(HERE, { tone: "success", message: "Defaults saved." });
     }
 
     case "disconnect": {
-      await disconnectAccount(kv, user.id, formText(form, "id"));
+      await convex.mutation(api.accounts.disconnect, {
+        userId: user._id,
+        accountId: formText(form, "id"),
+      });
       return redirectWithFlash(HERE, { tone: "info", message: "Disconnected." });
     }
 
@@ -58,7 +71,8 @@ export async function action({ request, context }: Route.ActionArgs) {
       try {
         const credentials = { service, identifier, appPassword };
         const session = await createBlueskySession(credentials);
-        const account = await connectAccount(kv, user.id, {
+        const account = await convex.mutation(api.accounts.connect, {
+          userId: user._id,
           provider: "bluesky",
           remoteId: session.did,
           handle: session.handle,

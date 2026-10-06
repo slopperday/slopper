@@ -1,5 +1,16 @@
-import { findCategory, isLinkKind, LIMITS, LINK_KINDS, type SlopLink } from "~/lib/model";
-import type { SlopInput } from "./db/slops";
+import { type CategoryId, findCategory, isLinkKind, LIMITS, LINK_KINDS, type SlopLink } from "~/lib/model";
+/** Everything a person types when shipping or editing a slop. */
+export interface SlopInput {
+  name: string;
+  tagline: string;
+  description: string;
+  category: CategoryId;
+  nsfw: boolean;
+  links: SlopLink[];
+  /** Media ids; Convex re-checks each one belongs to the uploader. */
+  screenshots: string[];
+  madeWith: string[];
+}
 import { addDays, isIsoDate } from "~/lib/dates";
 
 /** Form parsing and validation, shared by create and edit flows. */
@@ -62,7 +73,8 @@ export function parseLinks(kinds: string[], urls: string[]): { links: SlopLink[]
   return { links, error: null };
 }
 
-const MEDIA_ID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
+/** Convex document ids are short lowercase base32 strings. */
+const MEDIA_ID = /^[a-z0-9]{16,64}$/;
 
 export interface SlopForm extends SlopInput {
   launchNote: string;

@@ -18,14 +18,10 @@ export function randomToken(bytes = 32): string {
   return encodeBase64Url(crypto.getRandomValues(new Uint8Array(bytes)));
 }
 
-const HTML_ESCAPES: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#39;",
-};
+export { escapeHtml } from "~/lib/html";
 
-export function escapeHtml(text: string): string {
-  return text.replace(/[&<>"']/g, (char) => HTML_ESCAPES[char]);
+/** SHA-256 of a bearer secret (session cookie, API token), base64url. */
+export async function hashToken(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return encodeBase64Url(new Uint8Array(digest));
 }

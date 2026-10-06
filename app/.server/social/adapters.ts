@@ -1,10 +1,12 @@
-import type { Kv } from "@deno/kv";
-import type { ConnectedAccount, SocialProvider } from "~/lib/model";
+import { api } from "@convex/_generated/api";
+import type { Doc } from "@convex/_generated/dataModel";
+import type { SocialProvider } from "~/lib/model";
+import { convex } from "../convex";
 import { seal, unseal } from "../crypto";
 import { clientCredentials, refreshTokens } from "../auth/oauth";
-import { storeCredentials } from "../db/accounts";
-import { getMediaMeta, readMediaBytes } from "../db/media";
 import { composeFor, type PostContent } from "~/lib/compose";
+
+export type ConnectedAccount = Doc<"accounts">;
 
 /**
  * Network adapters. Each one turns `PostContent` into a real post and, where
@@ -80,18 +82,17 @@ async function expectOk(response: Response, network: string) {
   throw new SocialError(`${network} said ${response.status}: ${await readError(response)}`, response.status);
 }
 
+/** Fetches a screenshot for a link card, if it is small enough. */
 async function loadImage(
-  kv: Kv,
-  mediaId: string | null,
+  url: string | null,
   maxBytes: number,
 ): Promise<{ bytes: Uint8Array<ArrayBuffer>; contentType: string } | null> {
-  if (!mediaId) return null;
-  const meta = await getMediaMeta(kv, mediaId);
-  if (!meta || meta.size > maxBytes) return null;
-  return {
-    bytes: await readMediaBytes(kv, meta),
-    contentType: meta.contentType,
-  };
+  if (!url) return null;
+  const response = await fetch(url);
+  if (!response.ok) return null;
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.byteLength > maxBytes) return null;
+  return { bytes, contentType: response.headers.get("content-type") ?? "image/png" };
 }
 
 // ---------------------------------------------------------------------------
@@ -99,7 +100,7 @@ async function loadImage(
 
 const X_API = "https://api.x.com/2";
 
-export function xAdapter(kv: Kv): SocialAdapter {
+export function xAdapter(): SocialAdapter {
   async function accessToken(account: ConnectedAccount): Promise<string> {
     const credentials = await openCredentials<XCredentials>(account);
     const expiresAt = credentials.expiresAt ? Date.parse(credentials.expiresAt) : Infinity;
@@ -116,7 +117,10 @@ export function xAdapter(kv: Kv): SocialAdapter {
       refreshToken: tokens.refreshToken ?? credentials.refreshToken,
       expiresAt: tokens.expiresAt,
     };
-    await storeCredentials(kv, account, await sealCredentials(next), null);
+    await convex.mutation(api.accounts.storeCredentials, {
+      accountId: account._id,
+      sealedCredentials: await sealCredentials(next),
+    });
     return next.accessToken;
   }
 
@@ -180,7 +184,7 @@ export function escapeLittleText(text: string): string {
   return text.replace(/[\\|{}@[\]()<>#*_~]/g, (char) => `\\${char}`);
 }
 
-export function linkedinAdapter(kv: Kv): SocialAdapter {
+export function linkedinAdapter(): SocialAdapter {
   function headers(token: string): Record<string, string> {
     return {
       authorization: `Bearer ${token}`,
@@ -190,8 +194,8 @@ export function linkedinAdapter(kv: Kv): SocialAdapter {
     };
   }
 
-  async function uploadThumbnail(token: string, owner: string, mediaId: string | null): Promise<string | null> {
-    const image = await loadImage(kv, mediaId, 5 * 1024 * 1024);
+  async function uploadThumbnail(token: string, owner: string, imageUrl: string | null): Promise<string | null> {
+    const image = await loadImage(imageUrl, 5 * 1024 * 1024);
     if (!image) return null;
     const init = await fetch(`${LINKEDIN_API}/images?action=initializeUpload`, {
       method: "POST",
@@ -218,7 +222,7 @@ export function linkedinAdapter(kv: Kv): SocialAdapter {
         throw new SocialError("LinkedIn connections last 60 days. Reconnect the account.");
       }
       const token = credentials.accessToken;
-      const thumbnail = await uploadThumbnail(token, credentials.personUrn, content.imageMediaId).catch(() => null);
+      const thumbnail = await uploadThumbnail(token, credentials.personUrn, content.imageUrl).catch(() => null);
 
       const response = await fetch(`${LINKEDIN_API}/posts`, {
         method: "POST",
@@ -305,7 +309,7 @@ export function linkFacets(text: string) {
   return facets;
 }
 
-export function blueskyAdapter(kv: Kv): SocialAdapter {
+export function blueskyAdapter(): SocialAdapter {
   async function session(account: ConnectedAccount) {
     const credentials = await openCredentials<BlueskyCredentials>(account);
     return { credentials, session: await createBlueskySession(credentials) };
@@ -333,7 +337,7 @@ export function blueskyAdapter(kv: Kv): SocialAdapter {
     async publish(account, content) {
       const { credentials, session: auth } = await session(account);
       const text = composeFor("bluesky", content);
-      const image = await loadImage(kv, content.imageMediaId, 950_000);
+      const image = await loadImage(content.imageUrl, 950_000);
       let thumb: unknown = undefined;
       if (image) {
         const upload = await fetch(`${credentials.service}/xrpc/com.atproto.repo.uploadBlob`, {
@@ -381,10 +385,6 @@ export function blueskyAdapter(kv: Kv): SocialAdapter {
   };
 }
 
-export function adaptersFor(kv: Kv): Record<SocialProvider, SocialAdapter> {
-  return {
-    x: xAdapter(kv),
-    linkedin: linkedinAdapter(kv),
-    bluesky: blueskyAdapter(kv),
-  };
+export function adapters(): Record<SocialProvider, SocialAdapter> {
+  return { x: xAdapter(), linkedin: linkedinAdapter(), bluesky: blueskyAdapter() };
 }

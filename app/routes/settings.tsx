@@ -1,11 +1,11 @@
 import { data, Form } from "react-router";
 import type { Route } from "./+types/settings";
-import { getKv } from "~/.server/kv";
+import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
-import { normalizeUsername, updateProfile } from "~/.server/db/users";
+import { convex } from "~/.server/convex";
 import { formText, parseWebUrl } from "~/.server/forms";
 import { redirectWithFlash } from "~/.server/http";
-import { invalidateFeeds } from "~/.server/memo";
+import { normalizeUsername } from "~/lib/username";
 import { LIMITS } from "~/lib/model";
 import { seo } from "~/lib/seo";
 import { Field } from "~/components/SlopFields";
@@ -22,7 +22,8 @@ export async function action({ request, context }: Route.ActionArgs) {
   const websiteText = formText(form, "website");
   const website = websiteText ? parseWebUrl(websiteText) : null;
   if (websiteText && !website) return data({ error: "That website isn't a URL." }, { status: 422 });
-  const result = await updateProfile(await getKv(), user.id, {
+  const result = await convex.mutation(api.users.updateProfile, {
+    userId: user._id,
     username: normalizeUsername(formText(form, "username")),
     displayName: formText(form, "displayName"),
     bio: formText(form, "bio"),
@@ -31,7 +32,6 @@ export async function action({ request, context }: Route.ActionArgs) {
     showNsfw: form.get("showNsfw") === "on",
   });
   if (!result.ok) return data({ error: result.error }, { status: 422 });
-  invalidateFeeds();
   return redirectWithFlash("/settings", { tone: "success", message: "Saved." });
 }
 

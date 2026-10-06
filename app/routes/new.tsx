@@ -1,20 +1,16 @@
-import type { Kv } from "@deno/kv";
 import { data, Form, Link, useNavigation } from "react-router";
 import type { Route } from "./+types/new";
-import { getKv } from "~/.server/kv";
+import { api } from "@convex/_generated/api";
+import type { Doc } from "@convex/_generated/dataModel";
 import { requireUser, viewerContext } from "~/.server/session";
-import { createSlop, getSlop, type Relaunch } from "~/.server/db/slops";
-import { getOpenGoal } from "~/.server/db/goals";
-import { listAccounts } from "~/.server/db/accounts";
-import { ownedMediaIds } from "~/.server/db/media";
-import { allowAction } from "~/.server/db/misc";
+import { convex, convexMessage } from "~/.server/convex";
 import { formText, parseSlopForm, slopFormValues } from "~/.server/forms";
 import { redirectWithFlash } from "~/.server/http";
-import { invalidateFeeds } from "~/.server/memo";
+import { screenshotsWithUrls } from "~/.server/media";
 import { announce, summarize } from "~/.server/social/announce";
 import { goalDayFor } from "~/lib/goal";
 import { localDate } from "~/lib/dates";
-import { LIMITS, NETWORK_LABELS, type Slop, type User } from "~/lib/model";
+import { LIMITS, NETWORK_LABELS } from "~/lib/model";
 import { launchTitle, slopPath } from "~/lib/display";
 import { launchPrompt, relaunchPrompt } from "~/lib/prompts";
 import { seo } from "~/lib/seo";
@@ -24,27 +20,25 @@ import { AgentPrompt } from "~/components/AgentPrompt";
 const LAUNCH_LABEL_IDEAS = ["iOS app", "Android app", "iOS beta", "Android beta", "Desktop app", "2.0", "API"];
 
 /** The original launch for "launch again", if it belongs to the user. */
-async function relaunchSource(kv: Kv, user: User, id: string | null): Promise<Slop | null> {
-  if (!id) return null;
-  const slop = await getSlop(kv, id);
-  return slop && slop.userId === user.id ? slop : null;
+async function relaunchSource(user: Doc<"users">, ref: string | null): Promise<Doc<"slops"> | null> {
+  if (!ref) return null;
+  return await convex.query(api.slops.findForServer, { userId: user._id, ref });
 }
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const user = requireUser(context.get(viewerContext), request);
-  const kv = await getKv();
   const today = localDate(new Date(), user.timeZone);
   const [goal, accounts, source] = await Promise.all([
-    getOpenGoal(kv, user.id, today),
-    listAccounts(kv, user.id),
-    relaunchSource(kv, user, new URL(request.url).searchParams.get("from")),
+    convex.query(api.goals.open, { userId: user._id, today }),
+    convex.query(api.accounts.list, { userId: user._id }),
+    relaunchSource(user, new URL(request.url).searchParams.get("from")),
   ]);
   const day = goal ? goalDayFor(goal, today) : null;
   return {
     goal: goal && day ? { title: goal.title, day, days: goal.days } : null,
     relaunch: source
       ? {
-          id: source.id,
+          id: source._id,
           name: source.name,
           values: {
             name: source.name,
@@ -53,7 +47,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
             category: source.category,
             nsfw: source.nsfw,
             links: source.links,
-            screenshots: source.screenshots,
+            screenshots: await screenshotsWithUrls(source.screenshots),
             madeWith: source.madeWith,
           },
         }
@@ -61,7 +55,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     autopost: accounts
       .filter((account) => account.defaultMode !== "off")
       .map((account) => ({
-        id: account.id,
+        id: account._id,
         network: NETWORK_LABELS[account.provider],
         handle: account.handle,
         mode: account.defaultMode,
@@ -71,10 +65,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 export async function action({ request, context }: Route.ActionArgs) {
   const user = requireUser(context.get(viewerContext), request);
-  const kv = await getKv();
   const form = await request.formData();
   const parsed = parseSlopForm(form);
-  const source = await relaunchSource(kv, user, formText(form, "relaunchOf") || null);
+  const source = await relaunchSource(user, formText(form, "relaunchOf") || null);
   const label = formText(form, "launchLabel");
 
   const errors: Record<string, string> = parsed.ok ? {} : { ...parsed.errors };
@@ -83,22 +76,38 @@ export async function action({ request, context }: Route.ActionArgs) {
     errors.launchLabel = `Keep it under ${LIMITS.launchLabelLength} characters.`;
   }
   if (!parsed.ok || Object.keys(errors).length > 0) {
-    return data({ errors, values: { ...slopFormValues(form), launchLabel: label } }, { status: 422 });
+    const values = slopFormValues(form);
+    return data(
+      {
+        errors,
+        values: { ...values, screenshots: await screenshotsWithUrls(values.screenshots), launchLabel: label },
+      },
+      { status: 422 },
+    );
   }
 
-  if (!(await allowAction(kv, "ship", user.id, 20, 86_400_000))) {
-    return redirectWithFlash("/", { tone: "error", message: "20 slops in a day is the limit. Rest those hands." });
-  }
   const { launchNote, ...input } = parsed.value;
-  input.screenshots = await ownedMediaIds(kv, user.id, input.screenshots, source?.screenshots);
-  const relaunch: Relaunch | null = source ? { of: source, label } : null;
-  const { slop, update } = await createSlop(kv, user, input, launchNote || input.tagline, new Date(), relaunch);
-  invalidateFeeds();
+  let created: { slopId: Doc<"slops">["_id"]; updateId: Doc<"updates">["_id"]; slug: string };
+  try {
+    created = await convex.mutation(api.slops.create, {
+      userId: user._id,
+      input,
+      launchNote: launchNote || input.tagline,
+      today: localDate(new Date(), user.timeZone),
+      ...(source ? { relaunchOf: source._id, launchLabel: label } : {}),
+    });
+  } catch (error) {
+    const message = convexMessage(error);
+    if (message) return redirectWithFlash("/new", { tone: "error", message });
+    throw error;
+  }
 
-  const autoposted = form.get("autopost") === "on" ? summarize(await announce(kv, user, slop, update)) : "";
-  return redirectWithFlash(`${slopPath(user.username, slop.slug)}?new=1`, {
+  const autoposted =
+    form.get("autopost") === "on" ? summarize(await announce(user, created.slopId, created.updateId)) : "";
+  const title = launchTitle({ name: input.name, launchLabel: source ? label : null });
+  return redirectWithFlash(`${slopPath(user.username, created.slug)}?new=1`, {
     tone: "success",
-    message: `${launchTitle(slop)} is on the wall.${autoposted}`,
+    message: `${title} is on the wall.${autoposted}`,
   });
 }
 

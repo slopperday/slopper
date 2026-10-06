@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import type { GoalProgress } from "~/lib/goal";
-import type { PublicUser } from "~/lib/model";
+import type { PublicUser } from "@convex/lib/shape";
 import { Avatar } from "./Avatar";
 
 export interface StreakRow {

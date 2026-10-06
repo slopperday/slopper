@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { Form } from "react-router";
-import { COST_CATEGORIES, type LedgerEntry, type MoneyKind, REVENUE_CATEGORIES } from "~/lib/model";
+import { COST_CATEGORIES, type MoneyKind, REVENUE_CATEGORIES } from "~/lib/model";
+
+export interface LedgerLine {
+  id: string;
+  kind: MoneyKind;
+  amount: number;
+  currency: string;
+  category: string;
+  note: string;
+  date: string;
+}
 import { CURRENCIES, formatMoney, type MoneyTotal } from "~/lib/money";
 import { formatDay } from "~/lib/dates";
 
@@ -49,7 +59,7 @@ export function MoneyLedger({
   today,
 }: {
   totals: readonly MoneyTotal[];
-  entries: readonly LedgerEntry[];
+  entries: readonly LedgerLine[];
   isPublic: boolean;
   today: string;
 }) {

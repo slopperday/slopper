@@ -1,6 +1,6 @@
 import { CATEGORIES, LIMITS, type SlopLink } from "~/lib/model";
 import { LinkFields } from "./LinkFields";
-import { ScreenshotPicker } from "./ScreenshotPicker";
+import { type Screenshot, ScreenshotPicker } from "./ScreenshotPicker";
 
 export type FieldErrors = Record<string, string>;
 
@@ -11,7 +11,7 @@ export interface SlopFormValues {
   category: string;
   nsfw: boolean;
   links: SlopLink[];
-  screenshots: string[];
+  screenshots: Screenshot[];
   madeWith: string[];
 }
 

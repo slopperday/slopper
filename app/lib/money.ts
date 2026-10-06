@@ -1,4 +1,4 @@
-import type { LedgerEntry } from "./model";
+import type { MoneyKind } from "./model";
 
 /** Money helpers shared by the server and the slop page. */
 
@@ -34,7 +34,7 @@ export interface MoneyTotal {
   net: number;
 }
 
-export function moneyTotals(entries: readonly Pick<LedgerEntry, "kind" | "amount" | "currency">[]): MoneyTotal[] {
+export function moneyTotals(entries: readonly { kind: MoneyKind; amount: number; currency: string }[]): MoneyTotal[] {
   const byCurrency = new Map<string, MoneyTotal>();
   for (const entry of entries) {
     const total = byCurrency.get(entry.currency) ?? { currency: entry.currency, spent: 0, made: 0, net: 0 };

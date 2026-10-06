@@ -1,31 +1,35 @@
 import { data, Form } from "react-router";
 import type { Route } from "./+types/settings.api";
-import { getKv } from "~/.server/kv";
+import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
-import { createApiToken, listApiTokens, revokeApiToken } from "~/.server/db/tokens";
+import { convex, convexMessage } from "~/.server/convex";
+import { createApiToken } from "~/.server/tokens";
 import { config } from "~/.server/config";
 import { formText } from "~/.server/forms";
 import { redirectWithFlash } from "~/.server/http";
-import { formatDay } from "~/lib/dates";
+import { timeAgo } from "~/lib/dates";
 import { seo } from "~/lib/seo";
 import { CopyButton, SettingsNav } from "~/components/Shared";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const user = requireUser(context.get(viewerContext), request);
-  return { tokens: await listApiTokens(await getKv(), user.id), origin: config.appUrl.origin };
+  return { tokens: await convex.query(api.tokens.list, { userId: user._id }), origin: config.appUrl.origin };
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
   const user = requireUser(context.get(viewerContext), request);
-  const kv = await getKv();
   const form = await request.formData();
   if (formText(form, "intent") === "revoke") {
-    await revokeApiToken(kv, user.id, formText(form, "id"));
+    await convex.mutation(api.tokens.revoke, { userId: user._id, tokenId: formText(form, "id") });
     return redirectWithFlash("/settings/api", { tone: "info", message: "Token revoked." });
   }
-  const result = await createApiToken(kv, user.id, formText(form, "name"));
-  if (!result.ok) return data({ token: null, error: result.error }, { status: 422 });
-  return { token: result.token, error: null };
+  try {
+    return { token: await createApiToken(user._id, formText(form, "name")), error: null };
+  } catch (error) {
+    const message = convexMessage(error);
+    if (message) return data({ token: null, error: message }, { status: 422 });
+    throw error;
+  }
 }
 
 export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "API & MCP", noindex: true });
@@ -102,8 +106,8 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
               <span>
                 <span className="block font-bold">{item.name}</span>
                 <span className="block font-mono text-[0.68rem] text-muted">
-                  {item.preview}… · created {formatDay(item.createdAt.slice(0, 10))}
-                  {item.lastUsedAt ? ` · last used ${formatDay(item.lastUsedAt.slice(0, 10))}` : " · never used"}
+                  {item.preview}… · created {timeAgo(item.createdAt)}
+                  {item.lastUsedAt ? ` · last used ${timeAgo(item.lastUsedAt)}` : " · never used"}
                 </span>
               </span>
               <Form method="post">

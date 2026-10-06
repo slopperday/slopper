@@ -1,6 +1,7 @@
 /**
- * The Slopper domain model. Records are stored as-is in Deno KV, so every
- * field must be structured-clone friendly (no classes, no functions).
+ * Shared vocabulary for the app and the Convex functions: categories, link
+ * kinds, limits and small shared types. Stored records are Convex documents
+ * (see `convex/schema.ts`).
  */
 
 export const CATEGORIES = [
@@ -98,91 +99,9 @@ export interface SlopLink {
   url: string;
 }
 
-export interface User {
-  id: string;
-  username: string;
-  displayName: string;
-  avatarUrl: string | null;
-  bio: string;
-  website: string | null;
-  /** IANA time zone. Midnight here is when "today" ends for this person. */
-  timeZone: string;
-  showNsfw: boolean;
-  createdAt: string;
-}
-
 export type LoginProvider = "github" | "google" | "dev";
 
-/** A goal like "30 slops in 30 days". One can be open at a time. */
-export interface Goal {
-  id: string;
-  userId: string;
-  title: string;
-  /** Number of slops promised. */
-  target: number;
-  /** Length of the goal in days. */
-  days: number;
-  /** First day, as a calendar date in the owner's time zone. */
-  startDate: string;
-  abandonedAt: string | null;
-  createdAt: string;
-}
-
 export type CrosspostMode = "post" | "amplify" | "off";
-
-/**
- * One launch: an app, a site, a game, a beta. A product can launch more than
- * once (the website, then the iOS app, then 2.0); every launch is its own
- * slop with its own votes and race, linked by `productId`.
- */
-export interface Slop {
-  id: string;
-  userId: string;
-  /** Id of the product's first launch; equals `id` for a first launch. */
-  productId: string;
-  /** What this launch is, e.g. "iOS app" or "2.0". Null for the first launch. */
-  launchLabel: string | null;
-  slug: string;
-  name: string;
-  tagline: string;
-  /** Markdown. */
-  description: string;
-  category: CategoryId;
-  nsfw: boolean;
-  links: SlopLink[];
-  /** Media ids, in display order. */
-  screenshots: string[];
-  madeWith: string[];
-  /** Calendar date of the launch in the owner's time zone. */
-  launchDate: string;
-  launchedAt: string;
-  goalId: string | null;
-  goalDay: number | null;
-  /** Length of that goal, frozen at launch for "Day 7/30" labels. */
-  goalLength: number | null;
-  /** Global launch sequence: "Slop #42" is the 42nd slop on Slopper. */
-  number: number;
-  upvotes: number;
-  /** Never shown publicly; only used for ranking. */
-  downvotes: number;
-  commentCount: number;
-  updateCount: number;
-  /** Real-world tests logged: demos, conversations, people who tried it. */
-  fieldTests: number;
-  /** "Take my money" pledges: how many people, and how much in USD cents. */
-  backers: number;
-  pledged: number;
-  lastActivityAt: string;
-  /** UTC date this slop won slop of the day, if it ever did. */
-  slopOfTheDay: string | null;
-  /** Set when the owner declares a breakout: users, revenue, virality. */
-  slopcessfulAt: string | null;
-  slopcessfulNote: string | null;
-  /** Per connected account override of how updates are auto-posted. */
-  crosspost: Record<string, CrosspostMode>;
-  hidden: boolean;
-  updatedAt: string;
-}
 
 export const UPDATE_KINDS = {
   launch: { label: "Launch" },
@@ -222,69 +141,7 @@ export interface CrosspostResult {
   at: string;
 }
 
-export interface SlopUpdate {
-  id: string;
-  slopId: string;
-  userId: string;
-  kind: UpdateKind;
-  /** Markdown. */
-  body: string;
-  crossposts: CrosspostResult[];
-  createdAt: string;
-}
-
 export type CommentKind = "feedback" | "kudos";
-
-export interface Comment {
-  id: string;
-  slopId: string;
-  userId: string;
-  kind: CommentKind;
-  body: string;
-  createdAt: string;
-}
-
-export interface ConnectedAccount {
-  id: string;
-  userId: string;
-  provider: SocialProvider;
-  /** The provider's stable id for the account (X user id, LinkedIn sub, DID). */
-  remoteId: string;
-  handle: string;
-  displayName: string;
-  avatarUrl: string | null;
-  /** Encrypted JSON credentials. Never leaves the server. */
-  sealedCredentials: string;
-  /** When the credentials stop working without a reconnect. */
-  expiresAt: string | null;
-  defaultMode: CrosspostMode;
-  createdAt: string;
-}
-
-/** What the browser may see about a connected account. */
-export type PublicAccount = Omit<ConnectedAccount, "sealedCredentials">;
-
-export function publicAccount(account: ConnectedAccount): PublicAccount {
-  const { sealedCredentials: _sealed, ...rest } = account;
-  return rest;
-}
-
-export interface MediaMeta {
-  id: string;
-  ownerId: string;
-  contentType: string;
-  size: number;
-  chunkCount: number;
-  createdAt: string;
-}
-
-export interface Report {
-  id: string;
-  slopId: string;
-  reporterId: string;
-  reason: string;
-  createdAt: string;
-}
 
 export const LIMITS = {
   nameLength: 60,
@@ -305,22 +162,6 @@ export const LIMITS = {
   goalDays: 365,
 } as const;
 
-/** What anyone may see about a slop: no downvotes, no auto-post wiring. */
-export type PublicSlop = Omit<Slop, "downvotes" | "crosspost">;
-
-export function publicSlop(slop: Slop): PublicSlop {
-  const { downvotes: _downvotes, crosspost: _crosspost, ...rest } = slop;
-  return rest;
-}
-
-/** What anyone may see about a person. */
-export type PublicUser = Pick<User, "id" | "username" | "displayName" | "avatarUrl" | "bio" | "website" | "createdAt">;
-
-export function publicUser(user: User): PublicUser {
-  const { id, username, displayName, avatarUrl, bio, website, createdAt } = user;
-  return { id, username, displayName, avatarUrl, bio, website, createdAt };
-}
-
 export type FlashTone = "info" | "success" | "error";
 
 export interface Flash {
@@ -332,30 +173,5 @@ export const COST_CATEGORIES = ["domain", "hosting", "ai", "tools", "design", "m
 export const REVENUE_CATEGORIES = ["sales", "subscriptions", "ads", "sponsorship", "other"] as const;
 export type MoneyKind = "cost" | "revenue";
 
-/** One cost or revenue line for a product (shared by all its launches). */
-export interface LedgerEntry {
-  id: string;
-  productId: string;
-  userId: string;
-  kind: MoneyKind;
-  /** Minor units (cents) to keep sums exact. */
-  amount: number;
-  /** ISO 4217 code. */
-  currency: string;
-  category: string;
-  note: string;
-  /** Calendar date the money moved. */
-  date: string;
-  createdAt: string;
-}
-
-/** "Take my money": a non-binding pledge that measures how much people want it. */
-export interface Pledge {
-  slopId: string;
-  userId: string;
-  /** Minor units of USD. */
-  amount: number;
-  createdAt: string;
-}
-
+/** "Take my money" preset amounts, in USD cents. */
 export const PLEDGE_PRESETS = [500, 1000, 2500] as const;

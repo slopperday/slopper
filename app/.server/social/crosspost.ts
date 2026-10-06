@@ -1,21 +1,26 @@
-import type { ConnectedAccount, CrosspostMode, CrosspostResult, Slop, SlopUpdate, SocialProvider } from "~/lib/model";
+import type { Doc } from "@convex/_generated/dataModel";
+import type { PublicSlop } from "@convex/lib/shape";
+import type { CrosspostMode, CrosspostResult, SocialProvider, UpdateKind } from "~/lib/model";
 import { UPDATE_KINDS } from "~/lib/model";
-import { absoluteUrl } from "../config";
 import { slopPath } from "~/lib/display";
 import { markdownToPlain, type PostContent } from "~/lib/compose";
-import type { PublishedPost, SocialAdapter } from "./adapters";
+import { absoluteUrl } from "../config";
+import type { ConnectedAccount, PublishedPost, SocialAdapter } from "./adapters";
 
 export interface CrosspostPlan {
   account: ConnectedAccount;
   mode: Exclude<CrosspostMode, "off">;
 }
 
-export function modeFor(slop: Pick<Slop, "crosspost">, account: ConnectedAccount): CrosspostMode {
-  return slop.crosspost[account.id] ?? account.defaultMode;
+export function modeFor(slop: Pick<Doc<"slops">, "crosspost">, account: ConnectedAccount): CrosspostMode {
+  return slop.crosspost[account._id] ?? account.defaultMode;
 }
 
-/** Posting accounts go first so amplifiers have something to repost. */
-export function planCrossposts(slop: Pick<Slop, "crosspost">, accounts: readonly ConnectedAccount[]): CrosspostPlan[] {
+/** Posting accounts go first so reposting accounts have something to repost. */
+export function planCrossposts(
+  slop: Pick<Doc<"slops">, "crosspost">,
+  accounts: readonly ConnectedAccount[],
+): CrosspostPlan[] {
   const plans: CrosspostPlan[] = [];
   for (const account of accounts) {
     const mode = modeFor(slop, account);
@@ -24,13 +29,23 @@ export function planCrossposts(slop: Pick<Slop, "crosspost">, accounts: readonly
   return plans.sort((a, b) => (a.mode === "post" ? 0 : 1) - (b.mode === "post" ? 0 : 1));
 }
 
+type Postable = Pick<
+  PublicSlop,
+  "name" | "tagline" | "slug" | "goalDay" | "goalLength" | "launchLabel" | "screenshots"
+>;
+
 /** What the owner is announcing, in plain text, before network fitting. */
-export function buildPostContent(slop: Slop, update: SlopUpdate, username: string): PostContent {
+export function buildPostContent(
+  slop: Postable,
+  update: { kind: UpdateKind; body: string },
+  username: string,
+): PostContent {
   const note = markdownToPlain(update.body);
   let text: string;
   if (update.kind === "launch") {
     const day = slop.goalDay && slop.goalLength ? `Day ${slop.goalDay}/${slop.goalLength} · ` : "";
-    text = `${day}Just slopped ${slop.name}: ${slop.tagline}`;
+    const what = slop.launchLabel ? `${slop.name} (${slop.launchLabel})` : slop.name;
+    text = `${day}Just slopped ${what}: ${slop.tagline}`;
     if (note && note !== slop.tagline) text += `\n\n${note}`;
   } else {
     text = `${slop.name} · ${UPDATE_KINDS[update.kind].label}\n\n${note}`;
@@ -38,9 +53,9 @@ export function buildPostContent(slop: Slop, update: SlopUpdate, username: strin
   return {
     text,
     url: absoluteUrl(slopPath(username, slop.slug)),
-    title: slop.name,
+    title: slop.launchLabel ? `${slop.name} · ${slop.launchLabel}` : slop.name,
     description: slop.tagline,
-    imageMediaId: slop.screenshots[0] ?? null,
+    imageUrl: slop.screenshots[0] ?? null,
   };
 }
 
@@ -62,75 +77,32 @@ export async function runCrossposts(
   const firstPost = new Map<SocialProvider, PublishedPost>();
 
   for (const { account, mode } of plans) {
-    const base = {
-      accountId: account.id,
-      provider: account.provider,
-      handle: account.handle,
-      mode,
-    };
+    const base = { accountId: account._id, provider: account.provider, handle: account.handle, mode };
     const adapter = adapters[account.provider];
     const at = () => new Date().toISOString();
 
     if (mode === "post") {
       try {
         const post = await adapter.publish(account, content);
-        if (!firstPost.has(account.provider)) {
-          firstPost.set(account.provider, post);
-        }
-        results.push({
-          ...base,
-          status: "ok",
-          url: post.url,
-          message: null,
-          at: at(),
-        });
+        if (!firstPost.has(account.provider)) firstPost.set(account.provider, post);
+        results.push({ ...base, status: "ok", url: post.url, message: null, at: at() });
       } catch (error) {
-        results.push({
-          ...base,
-          status: "error",
-          url: null,
-          message: describeError(error),
-          at: at(),
-        });
+        results.push({ ...base, status: "error", url: null, message: describeError(error), at: at() });
       }
       continue;
     }
 
     const original = firstPost.get(account.provider);
     if (!adapter.amplify) {
-      results.push({
-        ...base,
-        status: "skipped",
-        url: null,
-        message: "This network has no repost API.",
-        at: at(),
-      });
+      results.push({ ...base, status: "skipped", url: null, message: "This network has no repost API.", at: at() });
     } else if (!original) {
-      results.push({
-        ...base,
-        status: "skipped",
-        url: null,
-        message: "No post on this network to repost.",
-        at: at(),
-      });
+      results.push({ ...base, status: "skipped", url: null, message: "No post on this network to repost.", at: at() });
     } else {
       try {
         await adapter.amplify(account, original);
-        results.push({
-          ...base,
-          status: "ok",
-          url: original.url,
-          message: null,
-          at: at(),
-        });
+        results.push({ ...base, status: "ok", url: original.url, message: null, at: at() });
       } catch (error) {
-        results.push({
-          ...base,
-          status: "error",
-          url: null,
-          message: describeError(error),
-          at: at(),
-        });
+        results.push({ ...base, status: "error", url: null, message: describeError(error), at: at() });
       }
     }
   }

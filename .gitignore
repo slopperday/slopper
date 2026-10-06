@@ -16,3 +16,6 @@ build/
 
 # Local agent tooling
 .claude/
+
+# Convex local backend
+.convex/

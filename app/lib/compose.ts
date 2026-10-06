@@ -12,8 +12,8 @@ export interface PostContent {
   /** Link card title and description. */
   title: string;
   description: string;
-  /** First screenshot, used as the link card image where supported. */
-  imageMediaId: string | null;
+  /** First screenshot URL, used as the link card image where supported. */
+  imageUrl: string | null;
 }
 
 const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" });

@@ -1,5 +1,16 @@
-import type { IdentityProfile } from "../db/users";
+import type { LoginProvider } from "~/lib/model";
 import { OAuthError } from "./oauth";
+
+/** What a login provider tells us about the person signing in. */
+export interface IdentityProfile {
+  provider: LoginProvider;
+  providerId: string;
+  preferredUsername: string;
+  displayName: string;
+  avatarUrl: string | null;
+  website?: string | null;
+  bio?: string;
+}
 
 /** Fetches the signed-in person's profile from a login provider. */
 

@@ -1,18 +1,15 @@
 import { Link } from "react-router";
 import type { Route } from "./+types/slopcessful";
-import { getKv } from "~/.server/kv";
+import { api } from "@convex/_generated/api";
 import { viewerContext } from "~/.server/session";
-import { listSlopcessful } from "~/.server/db/slops";
-import { toFeedItems } from "~/.server/feed";
-import { memo } from "~/.server/memo";
+import { convex } from "~/.server/convex";
 import { seo } from "~/lib/seo";
 import { SlopGrid } from "~/components/SlopCard";
 import { Splat } from "~/components/Splat";
+import { useLive } from "~/components/Live";
 
 export async function loader({ context }: Route.LoaderArgs) {
-  const kv = await getKv();
-  const slops = await memo("home:slopcessful", 30_000, () => listSlopcessful(kv));
-  return { items: await toFeedItems(kv, slops, context.get(viewerContext).user) };
+  return { items: await convex.query(api.slops.slopcessful, { asUser: context.get(viewerContext).user?._id }) };
 }
 
 export const meta: Route.MetaFunction = ({ matches }) =>
@@ -23,6 +20,7 @@ export const meta: Route.MetaFunction = ({ matches }) =>
   });
 
 export default function Slopcessful({ loaderData }: Route.ComponentProps) {
+  const items = useLive(api.slops.slopcessful, {}, loaderData.items);
   return (
     <section className="mx-auto max-w-6xl px-4 py-12">
       <div className="relative">
@@ -35,8 +33,8 @@ export default function Slopcessful({ loaderData }: Route.ComponentProps) {
         </p>
       </div>
       <div className="mt-12">
-        {loaderData.items.length > 0 ? (
-          <SlopGrid items={loaderData.items} />
+        {items.length > 0 ? (
+          <SlopGrid items={items} />
         ) : (
           <div className="rounded-2xl border-2 border-dashed border-ink/40 p-10 text-center">
             <p className="font-display text-4xl text-gold">Not yet.</p>

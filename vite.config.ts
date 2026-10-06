@@ -1,16 +1,20 @@
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
+import process from "node:process";
 import { defineConfig, lazyPlugins } from "vite-plus";
 
 export default defineConfig(({ command }) => ({
-  plugins: lazyPlugins(() => [tailwindcss(), reactRouter()]),
+  // React Router's plugin builds the app; tests import modules directly.
+  plugins: lazyPlugins(() => (process.env.VITEST ? [] : [tailwindcss(), reactRouter()])),
   resolve: {
     tsconfigPaths: true,
   },
-  // Production gets one self-contained server bundle, so Deno Deploy needs no
-  // node_modules. `@deno/kv` stays external: it is only loaded on Node. Dev
-  // keeps Vite's default externals, which handle CommonJS packages.
-  ssr: command === "build" ? { noExternal: true, external: ["@deno/kv"] } : undefined,
+  // Production gets one self-contained ESM server bundle (server/app.ts), so
+  // Deno Deploy needs no node_modules. Dev keeps Vite's default externals.
+  ssr: command === "build" ? { noExternal: true } : undefined,
+  environments: {
+    ssr: { build: { rollupOptions: { input: "./server/app.ts" } } },
+  },
   fmt: {
     printWidth: 120,
     ignorePatterns: ["build/**", ".react-router/**", "deploy/**"],
@@ -28,6 +32,5 @@ export default defineConfig(({ command }) => ({
   },
   test: {
     include: ["tests/**/*.test.ts"],
-    env: { KV_PATH: ":memory:" },
   },
 }));

@@ -1,19 +1,23 @@
-import { createContext, redirect, type MiddlewareFunction } from "react-router";
-import type { User } from "~/lib/model";
+import { createContext, type MiddlewareFunction, redirect } from "react-router";
+import { api } from "@convex/_generated/api";
+import type { Doc, Id } from "@convex/_generated/dataModel";
+import type { Flash } from "~/lib/model";
 import { isValidTimeZone } from "~/lib/dates";
 import { config } from "./config";
-import { getKv } from "./kv";
-import { getSessionUser } from "./db/users";
+import { convex } from "./convex";
+import { hashToken, randomToken } from "./encoding";
 import {
   clearCookie,
   FLASH_COOKIE,
-  type Flash,
   loginUrl,
   readCookie,
   readFlash,
   SESSION_COOKIE,
+  setCookie,
   TZ_COOKIE,
 } from "./http";
+
+export type User = Doc<"users">;
 
 /** Who is asking, resolved once per request by the root middleware. */
 export interface Viewer {
@@ -31,6 +35,7 @@ export const viewerContext = createContext<Viewer>({
   flash: null,
 });
 
+const SESSION_TTL_MS = 30 * 86_400_000;
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /**
@@ -38,8 +43,8 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  * fall back to `Origin`. Session cookies are also `SameSite=Lax`.
  */
 export const csrfMiddleware: MiddlewareFunction<Response> = async ({ request }, next) => {
-  // Bearer-token calls (REST, MCP) never use cookies, so they can't be forged
-  // by another site; browsers can't send that header cross-site without CORS.
+  // Bearer-token calls (REST, MCP) never use cookies, so another site can't
+  // forge them; browsers can't send that header cross-site without CORS.
   const bearer = request.headers.get("authorization")?.startsWith("Bearer ") ?? false;
   if (!SAFE_METHODS.has(request.method) && !bearer) {
     const site = request.headers.get("sec-fetch-site");
@@ -52,12 +57,8 @@ export const csrfMiddleware: MiddlewareFunction<Response> = async ({ request }, 
 };
 
 export const viewerMiddleware: MiddlewareFunction<Response> = async ({ request, context }, next) => {
-  const pathname = new URL(request.url).pathname;
-  // Images never depend on who is looking; skip the session read.
-  if (pathname.startsWith("/media/")) return await next();
-
   const token = readCookie(request, SESSION_COOKIE);
-  const user = token ? await getSessionUser(await getKv(), token) : null;
+  const user = token ? await convex.query(api.users.resolveSession, { tokenHash: await hashToken(token) }) : null;
   const browserZone = decodeURIComponent(readCookie(request, TZ_COOKIE) ?? "");
   const flash = readFlash(request);
   context.set(viewerContext, {
@@ -78,4 +79,21 @@ export function requireUser(viewer: Viewer, request: Request): User {
   if (viewer.user) return viewer.user;
   const url = new URL(request.url);
   throw redirect(loginUrl(url.pathname + url.search));
+}
+
+/** Starts a session and sets its cookie on `headers`. */
+export async function startSession(userId: Id<"users">, headers: Headers): Promise<void> {
+  const token = randomToken();
+  await convex.mutation(api.users.createSession, {
+    userId,
+    tokenHash: await hashToken(token),
+    expiresAt: Date.now() + SESSION_TTL_MS,
+  });
+  setCookie(headers, SESSION_COOKIE, token, SESSION_TTL_MS / 1000);
+}
+
+export async function endSession(request: Request, headers: Headers): Promise<void> {
+  const token = readCookie(request, SESSION_COOKIE);
+  if (token) await convex.mutation(api.users.deleteSession, { tokenHash: await hashToken(token) });
+  clearCookie(headers, SESSION_COOKIE);
 }

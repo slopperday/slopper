@@ -1,12 +1,13 @@
 import type { Route } from "./+types/auth.dev";
+import { api } from "@convex/_generated/api";
 import { config } from "~/.server/config";
-import { getKv } from "~/.server/kv";
-import { createSession, upsertUserFromIdentity } from "~/.server/db/users";
+import { convex } from "~/.server/convex";
+import { startSession } from "~/.server/session";
 import { safeReturnTo } from "~/.server/auth/oauth";
 import { formText } from "~/.server/forms";
-import { notFound, readCookie, redirectWithFlash, SESSION_COOKIE, setCookie, TZ_COOKIE } from "~/.server/http";
+import { notFound, readCookie, redirectWithFlash, TZ_COOKIE } from "~/.server/http";
 
-/** Password-less sign in for local development. 404s on Deno Deploy. */
+/** Password-less sign in for local development. 404s in production. */
 export async function action({ request }: Route.ActionArgs) {
   if (!config.devLogin) notFound();
   const form = await request.formData();
@@ -14,14 +15,15 @@ export async function action({ request }: Route.ActionArgs) {
   if (!/^[a-z0-9_-]{1,30}$/.test(username)) {
     return redirectWithFlash("/login", { tone: "error", message: "Use letters, numbers, - or _." });
   }
-  const kv = await getKv();
-  const { user } = await upsertUserFromIdentity(
-    kv,
-    { provider: "dev", providerId: username, preferredUsername: username, displayName: username, avatarUrl: null },
-    decodeURIComponent(readCookie(request, TZ_COOKIE) ?? "UTC"),
-  );
-  const session = await createSession(kv, user.id);
+  const { userId } = await convex.mutation(api.users.upsertFromIdentity, {
+    provider: "dev",
+    providerId: username,
+    preferredUsername: username,
+    displayName: username,
+    avatarUrl: null,
+    timeZone: decodeURIComponent(readCookie(request, TZ_COOKIE) ?? "UTC"),
+  });
   const response = redirectWithFlash(safeReturnTo(formText(form, "returnTo")));
-  setCookie(response.headers, SESSION_COOKIE, session.token, session.maxAgeSeconds);
+  await startSession(userId, response.headers);
   return response;
 }

@@ -14,6 +14,7 @@ export default [
   route("settings", "routes/settings.tsx"),
   route("settings/autopost", "routes/settings.autopost.tsx"),
   route("settings/api", "routes/settings.api.tsx"),
+  route("notifications", "routes/notifications.tsx"),
 
   route("auth/logout", "routes/auth.logout.ts"),
   route("auth/dev", "routes/auth.dev.ts"),
@@ -24,10 +25,10 @@ export default [
   route("mcp", "routes/mcp.ts"),
   route("llms.txt", "routes/llms.ts"),
   route("api/media", "routes/api.media.ts"),
+  route("api/convex-token", "routes/api.convex-token.ts"),
   route("api/slops/:id", "routes/api.slop.ts"),
   route("api/slops/:id/vote", "routes/api.vote.ts"),
   route("api/slops/:id/pledge", "routes/api.pledge.ts"),
-  route("media/:id", "routes/media.ts"),
   route("feed.xml", "routes/feed.ts"),
 
   route(":handle", "routes/profile.tsx"),
