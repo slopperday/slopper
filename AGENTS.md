@@ -29,7 +29,10 @@ release. Add a tool name to select part of the graph. For example, run
 # Slopper project notes
 
 - **Run it:** `vp run convex` (local Convex, no account), `vp run keys` once, then `vp dev`. Validate with
-  `vp run ci` (typegen, check, test, build).
+  `vp run ci` (typegen, check, test, build, Playwright).
+- **E2E:** `e2e/stack.ts` runs the production build against a throwaway Convex backend and a fake content check. Tests
+  seed people and slops through Convex as the server (`e2e/fixtures.ts`) unless the journey is about that step. Assert
+  only on data the test created: the database is shared by parallel workers.
 - **CI is local only.** There are no GitHub Actions workflows on purpose (cost). The pre-push hook runs `vp run ci`; never
   add remote CI without asking.
 - **ESM only.** No CommonJS in source or output. The server renders with `react-dom/server.edge` so the production
@@ -42,4 +45,7 @@ release. Add a tool name to select part of the graph. For example, run
 - **Ids from forms or URLs** reach Convex as strings and are checked with `ctx.db.normalizeId`, never cast.
 - **Agents:** every agent capability is an operation in `app/.server/agent/operations.ts`, served by both MCP (`/mcp`)
   and REST (`/api/v1`). Add new ones there.
+- **Safety:** nothing auto-posts unless the slop passed the content check (`app/.server/moderation.ts`) and has no
+  open flags. Makers can't mark their own slops NSFW; the check, flags and moderators do. Keep the policy prompt
+  stable: it's the cached prefix of every DeepSeek call.
 - **Voice:** throw slop at the wall, keep slopping until it's slopcessful. Plain words; no restaurant metaphors.
