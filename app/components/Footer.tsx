@@ -38,6 +38,12 @@ export function Footer() {
           <Link to="/rules" className="hover:underline">
             Rules
           </Link>
+          <Link to="/terms" className="hover:underline">
+            Terms
+          </Link>
+          <Link to="/privacy" className="hover:underline">
+            Privacy
+          </Link>
         </div>
       </div>
       <div className="border-t border-wall/15">

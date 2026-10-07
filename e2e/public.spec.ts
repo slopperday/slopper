@@ -30,6 +30,18 @@ test.describe("visitors", () => {
     await expect(page.getByText("Flag as inappropriate")).toBeVisible();
   });
 
+  test("can read the terms and privacy policy from every page", async ({ page }) => {
+    await page.goto("/");
+    const footer = page.getByRole("contentinfo");
+    await footer.getByRole("link", { name: "Privacy" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Privacy");
+    await expect(page.getByRole("heading", { name: "Who else sees it" })).toBeVisible();
+    await page.getByRole("contentinfo").getByRole("link", { name: "Terms" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Terms");
+    await page.goto("/login");
+    await expect(page.getByRole("link", { name: "what we keep" })).toHaveAttribute("href", "/privacy");
+  });
+
   test("are sent to sign in, and back, from pages that need an account", async ({ page }) => {
     for (const path of ["/new", "/goal", "/settings", "/notifications"]) {
       await page.goto(path);

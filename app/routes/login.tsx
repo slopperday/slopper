@@ -73,8 +73,16 @@ export default function Login({ loaderData }: Route.ComponentProps) {
         )}
         <p className="mt-8 text-center text-xs text-muted">
           By signing in you agree to the{" "}
+          <a href="/terms" className="underline">
+            terms
+          </a>{" "}
+          and{" "}
           <a href="/rules" className="underline">
             rules
+          </a>
+          . Here's{" "}
+          <a href="/privacy" className="underline">
+            what we keep
           </a>
           .
         </p>
