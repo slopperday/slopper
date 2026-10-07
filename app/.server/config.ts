@@ -29,7 +29,10 @@ export interface Config {
   appUrl: URL;
   /** True when running on Deno Deploy (`DENO_DEPLOY=true`). */
   isDeployed: boolean;
-  /** Password-less local login for development. Never enabled on Deploy. */
+  /**
+   * Password-less local login. Only the Vite dev server can turn it on: a
+   * production bundle compiles it out, whatever its environment says.
+   */
   devLogin: boolean;
   /** Secret that derives the key encrypting third-party tokens at rest. */
   secretKey: string | null;
@@ -62,7 +65,7 @@ export function loadConfig(env: Env = process.env): Config {
   return {
     appUrl: new URL(env.APP_URL ?? "http://localhost:5173"),
     isDeployed,
-    devLogin: !isDeployed && env.NODE_ENV !== "production" && env.DEV_LOGIN !== "false",
+    devLogin: import.meta.env.DEV && !isDeployed && env.DEV_LOGIN !== "false",
     secretKey: env.SLOPPER_SECRET_KEY?.trim() || null,
     convexUrl: env.CONVEX_URL?.trim() || env.VITE_CONVEX_URL?.trim() || null,
     jwtIssuer: env.SLOPPER_JWT_ISSUER?.trim() || "https://slopper.day",

@@ -56,7 +56,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       {feed.ticker.length > 0 && <Ticker items={feed.ticker} />}
 
       <section id="today" className="mx-auto grid max-w-6xl scroll-mt-24 gap-10 px-4 pt-14 lg:grid-cols-[1fr_22rem]">
-        <div>
+        {/* min-w-0: long names truncate instead of widening the page on phones. */}
+        <div className="min-w-0">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="eyebrow">Live · closes at midnight UTC</p>

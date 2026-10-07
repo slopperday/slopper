@@ -16,7 +16,7 @@ export function RaceList({ items, winnerId }: { items: CardItem[]; winnerId: str
         return (
           <li
             key={slop.id}
-            className={`relative flex items-center gap-3 rounded-2xl border-2 border-ink p-3 transition-transform hover:-translate-y-0.5 sm:gap-4 sm:p-4 ${
+            className={`relative flex min-w-0 items-center gap-3 rounded-2xl border-2 border-ink p-3 transition-transform hover:-translate-y-0.5 sm:gap-4 sm:p-4 ${
               winner ? "bg-gold text-[#151513]" : "bg-card"
             }`}
           >
