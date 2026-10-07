@@ -1,0 +1,468 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-07T18:50:33.816Z",
+  "title": "Design System: Slopper",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Platform White",
+        "dark": "#121410",
+        "canonical": "#f4f5f0",
+        "oklch": "oklch(96.8% 0.007 115.7)",
+        "tonalRamp": ["#0b0c08", "#242421", "#3f403c", "#5d5e5a", "#80817c", "#a4a5a0", "#cacbc6", "#eeefea"]
+      },
+      "sunk": {
+        "role": "neutral",
+        "displayName": "Sunk",
+        "dark": "#1b1e18",
+        "canonical": "#e9ebe3",
+        "oklch": "oklch(93.6% 0.011 118.0)",
+        "tonalRamp": ["#0b0c07", "#23251f", "#3f413a", "#5d5e58", "#7f817a", "#a4a69e", "#caccc4", "#eef0e8"]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Raised",
+        "dark": "#1f231c",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": ["#0b0b0b", "#242424", "#404040", "#5d5d5d", "#808080", "#a4a4a4", "#cacaca", "#eeeeee"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Green-Black Ink",
+        "dark": "#eceee6",
+        "canonical": "#161a13",
+        "oklch": "oklch(21.1% 0.015 131.9)",
+        "tonalRamp": ["#090c06", "#21261e", "#3d4139", "#5b5f57", "#7d8279", "#a1a79d", "#c7cdc3", "#ebf1e7"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "dark": "#a2a897",
+        "canonical": "#575d50",
+        "oklch": "oklch(46.9% 0.022 127.5)",
+        "tonalRamp": ["#090d04", "#21261b", "#3c4236", "#5a6053", "#7c8375", "#a1a799", "#c6cdbe", "#eaf2e2"]
+      },
+      "faint": {
+        "role": "neutral",
+        "displayName": "Faint",
+        "dark": "#7d8374",
+        "canonical": "#7a8072",
+        "oklch": "oklch(59.1% 0.022 126.1)",
+        "tonalRamp": ["#090d04", "#21261a", "#3d4235", "#5a6053", "#7d8375", "#a1a799", "#c7cdbe", "#ebf1e2"]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "dark": "rgb(236 238 230 / 0.1)",
+        "canonical": "rgb(22 26 19 / 0.12)"
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Hairline",
+        "dark": "rgb(236 238 230 / 0.22)",
+        "canonical": "rgb(22 26 19 / 0.26)"
+      },
+      "board": {
+        "role": "neutral",
+        "displayName": "Board",
+        "dark": "#1c2019",
+        "canonical": "#161a13",
+        "oklch": "oklch(21.1% 0.015 131.9)",
+        "tonalRamp": ["#090c06", "#21261e", "#3d4139", "#5b5f57", "#7d8279", "#a1a79d", "#c7cdc3", "#ebf1e7"]
+      },
+      "board-ink": {
+        "role": "neutral",
+        "displayName": "Board Ink",
+        "dark": "#eceee6",
+        "canonical": "#eef0e8",
+        "oklch": "oklch(95.1% 0.011 118.0)",
+        "tonalRamp": ["#0b0c07", "#23251f", "#3f413a", "#5d5e58", "#7f817a", "#a4a69e", "#caccc4", "#eef0e8"]
+      },
+      "board-muted": {
+        "role": "neutral",
+        "displayName": "Board Muted",
+        "dark": "#9aa18f",
+        "canonical": "#9aa18f",
+        "oklch": "oklch(69.8% 0.027 124.4)",
+        "tonalRamp": ["#090d03", "#212618", "#3d4233", "#5a6050", "#7d8372", "#a1a896", "#c6cebb", "#eaf2df"]
+      },
+      "tile": {
+        "role": "neutral",
+        "displayName": "Tile",
+        "dark": "#2a2f25",
+        "canonical": "#262b22",
+        "oklch": "oklch(28.1% 0.018 131.2)",
+        "tonalRamp": ["#090d06", "#21261d", "#3c4238", "#5a6056", "#7c8378", "#a1a79c", "#c6cdc1", "#eaf1e5"]
+      },
+      "tile-top": {
+        "role": "neutral",
+        "displayName": "Tile Top",
+        "dark": "#31372c",
+        "canonical": "#2e3429",
+        "oklch": "oklch(31.6% 0.021 130.9)",
+        "tonalRamp": ["#080d05", "#20261c", "#3c4237", "#596054", "#7c8376", "#a0a79a", "#c6cec0", "#eaf2e3"]
+      },
+      "slop": {
+        "role": "primary",
+        "displayName": "Shipping Lime",
+        "dark": "#b4f23c",
+        "canonical": "#9be22d",
+        "oklch": "oklch(83.5% 0.210 129.7)",
+        "tonalRamp": ["#040f00", "#182a00", "#2e4900", "#456b00", "#609202", "#7cba03", "#9de430", "#d4ffa8"]
+      },
+      "slop-hover": {
+        "role": "primary",
+        "displayName": "Lime Hover",
+        "dark": "#c3f760",
+        "canonical": "#8bd11f",
+        "oklch": "oklch(78.4% 0.204 130.3)",
+        "tonalRamp": ["#040f00", "#172a00", "#2d4a00", "#446b00", "#5e9201", "#7abb03", "#9ce43c", "#d4ffaa"]
+      },
+      "slop-deep": {
+        "role": "primary",
+        "displayName": "Wet Edge",
+        "dark": "#6fb10f",
+        "canonical": "#5f9a12",
+        "oklch": "oklch(62.2% 0.167 131.9)",
+        "tonalRamp": ["#031000", "#152b00", "#2a4a00", "#3f6c00", "#599300", "#7cb93e", "#a1e167", "#d3ffb0"]
+      },
+      "slop-ink": {
+        "role": "primary",
+        "displayName": "Lime Ink",
+        "dark": "#10140b",
+        "canonical": "#10140b",
+        "oklch": "oklch(18.4% 0.019 127.6)",
+        "tonalRamp": ["#090d05", "#21261c", "#3d4237", "#5b6055", "#7d8277", "#a1a79b", "#c7cdc0", "#ebf1e4"]
+      },
+      "slop-text": {
+        "role": "primary",
+        "displayName": "Lime Text",
+        "dark": "#b4f23c",
+        "canonical": "#3b6608",
+        "oklch": "oklch(46.1% 0.125 132.8)",
+        "tonalRamp": ["#021000", "#142b00", "#284a00", "#406c12", "#62903b", "#86b560", "#abdc86", "#d2ffb1"]
+      },
+      "slop-tint": {
+        "role": "primary",
+        "displayName": "Lime Tint",
+        "dark": "rgb(180 242 60 / 0.14)",
+        "canonical": "rgb(155 226 45 / 0.24)"
+      },
+      "gold": {
+        "role": "secondary",
+        "displayName": "Win Gold",
+        "dark": "#ffcf3f",
+        "canonical": "#ffc21a",
+        "oklch": "oklch(84.6% 0.169 84.9)",
+        "tonalRamp": ["#140900", "#312100", "#523c00", "#775800", "#a27900", "#cf9c01", "#fdc014", "#ffedc8"]
+      },
+      "gold-text": {
+        "role": "secondary",
+        "displayName": "Gold Text",
+        "dark": "#ffcf3f",
+        "canonical": "#8a5f00",
+        "oklch": "oklch(51.8% 0.108 77.9)",
+        "tonalRamp": ["#150800", "#332000", "#563900", "#7c5500", "#a37729", "#ca9c51", "#f1c277", "#feecd0"]
+      },
+      "gold-tint": {
+        "role": "secondary",
+        "displayName": "Gold Tint",
+        "dark": "rgb(255 207 63 / 0.14)",
+        "canonical": "rgb(255 194 26 / 0.24)"
+      },
+      "hot": {
+        "role": "tertiary",
+        "displayName": "Signal Red",
+        "dark": "#ff6a4d",
+        "canonical": "#c4371b",
+        "oklch": "oklch(54.7% 0.182 33.0)",
+        "tonalRamp": ["#230000", "#4a0300", "#791100", "#ab2000", "#d74a2e", "#fe7459", "#ffb6a6", "#fee9e4"]
+      },
+      "hot-ink": {
+        "role": "tertiary",
+        "displayName": "Hot Ink",
+        "dark": "#10140b",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": ["#0b0b0b", "#242424", "#404040", "#5d5d5d", "#808080", "#a4a4a4", "#cacaca", "#eeeeee"]
+      },
+      "hot-tint": {
+        "role": "tertiary",
+        "displayName": "Red Tint",
+        "dark": "rgb(255 106 77 / 0.14)",
+        "canonical": "rgb(196 55 27 / 0.1)"
+      },
+      "focus": {
+        "role": "neutral",
+        "displayName": "Focus",
+        "dark": "#b4f23c",
+        "canonical": "#3b6608",
+        "oklch": "oklch(46.1% 0.125 132.8)",
+        "tonalRamp": ["#021000", "#142b00", "#284a00", "#406c12", "#62903b", "#86b560", "#abdc86", "#d2ffb1"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The hero headline and one closing statement per page at most."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles and error titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section heads, each with one plain muted line under it."
+      },
+      "name": {
+        "displayName": "Name",
+        "purpose": "Slop names in rows; the leading row sets 1.9rem to 2.25rem."
+      },
+      "numeral": {
+        "displayName": "Numeral",
+        "purpose": "Ranks, counts, votes, goal totals and every tile glyph, tabular."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase board captions and column headings, in muted."
+      },
+      "lede": {
+        "displayName": "Lede",
+        "purpose": "The one paragraph under a page title, max 36rem, muted."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Everything read up close."
+      },
+      "action": {
+        "displayName": "Action",
+        "purpose": "Buttons, nav links, menu items and inline links."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Bylines, times, counts in rows, hints."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Code, API tokens, slugs, URL fields and launch numbers only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "popover",
+        "value": "0 18px 40px -16px rgb(0 0 0 / 0.45)",
+        "purpose": "The account menu, the only element that floats over the page."
+      },
+      {
+        "name": "input-focus-ring",
+        "value": "0 0 0 3px var(--slop-tint)",
+        "purpose": "Focus indicator on inputs, paired with a focus-coloured border. Not elevation."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "140ms ease",
+        "purpose": "Colour, border and press transitions on buttons, inputs and links."
+      },
+      {
+        "name": "flap",
+        "value": "340ms cubic-bezier(0.2, 0.7, 0.2, 1)",
+        "purpose": "A tile glyph dropping into place (rotateX -90deg to 0) once the page is live; never in server markup."
+      },
+      {
+        "name": "flap-stagger",
+        "value": "45ms",
+        "purpose": "Delay per tile index, so a row of tiles flips left to right."
+      },
+      {
+        "name": "now-pulse",
+        "value": "2.4s ease-in-out infinite",
+        "purpose": "The lime now bar on today's tile; the only looping motion. Opacity 1 to 0.35."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "1ms, one iteration",
+        "purpose": "prefers-reduced-motion collapses every animation and transition."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "xs",
+        "value": "360px",
+        "purpose": "Below this the New slop label hides behind its icon."
+      },
+      {
+        "name": "nav-roomy",
+        "value": "430px",
+        "purpose": "Mobile nav links gain padding and size."
+      },
+      {
+        "name": "sm",
+        "value": "40rem"
+      },
+      {
+        "name": "md",
+        "value": "48rem",
+        "purpose": "Nav moves into the header row."
+      },
+      {
+        "name": "lg",
+        "value": "64rem",
+        "purpose": "Two-column views, header clock, hero split."
+      },
+      {
+        "name": "board-10",
+        "value": "30rem (container)",
+        "purpose": "Goal board goes from 6 to 10 columns."
+      },
+      {
+        "name": "board-15",
+        "value": "56rem (container)",
+        "purpose": "Goal board goes to 15 columns."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one shipping action on a view: lime fill, near-black lime ink, no outline or shadow.",
+      "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"ds-btn-icon\"><path d=\"M12 5v14M5 12h14\"/></svg>New slop</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 2.75rem; padding: 0.5rem 1.15rem; border: 0; border-radius: 0.75rem; font-family: \"Schibsted Grotesk\", ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 1rem; line-height: 1.1; white-space: nowrap; cursor: pointer; transition: background-color 140ms ease, color 140ms ease, transform 140ms ease; background: var(--slop, #9be22d); color: var(--slop-ink, #10140b); } .ds-btn-primary:hover { background: var(--slop-hover, #8bd11f); } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:focus-visible { outline: 2px solid var(--focus, #3b6608); outline-offset: 3px; } .ds-btn-icon { width: 1rem; height: 1rem; flex-shrink: 0; }"
+    },
+    {
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Secondary actions and see-more links on a sunk fill.",
+      "html": "<a href=\"#\" class=\"ds-btn\">Full race <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"ds-btn-icon\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></a>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 2.75rem; padding: 0.5rem 1.15rem; border: 0; border-radius: 0.75rem; font-family: \"Schibsted Grotesk\", ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 1rem; line-height: 1.1; white-space: nowrap; cursor: pointer; transition: background-color 140ms ease, color 140ms ease, transform 140ms ease; padding-inline: 0.9rem; font-size: 0.9375rem; text-decoration: none; background: var(--sunk, #e9ebe3); color: var(--ink, #161a13); } .ds-btn:hover { background: color-mix(in oklab, var(--sunk, #e9ebe3), var(--ink, #161a13) 9%); } .ds-btn:active { transform: translateY(1px); } .ds-btn:focus-visible { outline: 2px solid var(--focus, #3b6608); outline-offset: 3px; } .ds-btn-icon { width: 1rem; height: 1rem; flex-shrink: 0; }"
+    },
+    {
+      "name": "Ink Button",
+      "kind": "button",
+      "refersTo": "button-ink",
+      "description": "Strong actions that are not shipping: sign in, post feedback, pledge, connect.",
+      "html": "<button class=\"ds-btn-ink\">Sign in with GitHub</button>",
+      "css": ".ds-btn-ink { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 2.75rem; padding: 0.5rem 1.15rem; border: 0; border-radius: 0.75rem; font-family: \"Schibsted Grotesk\", ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 1rem; line-height: 1.1; white-space: nowrap; cursor: pointer; transition: background-color 140ms ease, color 140ms ease, transform 140ms ease; background: var(--ink, #161a13); color: var(--ground, #f4f5f0); } .ds-btn-ink:hover { background: color-mix(in oklab, var(--ink, #161a13), var(--ground, #f4f5f0) 16%); } .ds-btn-ink:active { transform: translateY(1px); } .ds-btn-ink:focus-visible { outline: 2px solid var(--focus, #3b6608); outline-offset: 3px; }"
+    },
+    {
+      "name": "Tags",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "Tinted inline labels, never outlined: lime for launches, gold for wins, red for NSFW.",
+      "html": "<p class=\"ds-tag-row\"><span class=\"ds-tag ds-tag-slop\">iOS beta</span><span class=\"ds-tag ds-tag-gold\">Slop of the day</span><span class=\"ds-tag ds-tag-gold\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"ds-tag-star\"><path d=\"m12 3.6 2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8Z\"/></svg>Slopcessful</span><span class=\"ds-tag ds-tag-hot\">NSFW</span><span class=\"ds-tag\">You're here</span></p>",
+      "css": ".ds-tag-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0; } .ds-tag { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.125rem 0.5rem; border-radius: 0.375rem; background: var(--sunk, #e9ebe3); color: var(--ink, #161a13); font-family: \"Schibsted Grotesk\", ui-sans-serif, system-ui, sans-serif; font-size: 0.8125rem; font-weight: 700; line-height: 1.45; white-space: nowrap; } .ds-tag-slop { background: var(--slop-tint, rgb(155 226 45 / 0.24)); } .ds-tag-gold { background: var(--gold-tint, rgb(255 194 26 / 0.24)); } .ds-tag-hot { background: var(--hot, #c4371b); color: var(--hot-ink, #ffffff); } .ds-tag-star { width: 0.875rem; height: 0.875rem; fill: currentColor; color: var(--gold-text, #8a5f00); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Raised field with a strong hairline; focus turns the border green with a lime-tint ring.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Name</span><input class=\"ds-input\" placeholder=\"What did you ship?\" /><span class=\"ds-field-hint\">Plain words. You can change it later.</span></label>",
+      "css": ".ds-field { display: block; font-family: \"Schibsted Grotesk\", ui-sans-serif, system-ui, sans-serif; color: var(--ink, #161a13); } .ds-field-label { display: block; margin-bottom: 0.4rem; font-weight: 700; font-size: 0.9375rem; } .ds-input { box-sizing: border-box; width: 100%; min-height: 2.75rem; padding: 0.6rem 0.85rem; border: 1px solid var(--line-strong, rgb(22 26 19 / 0.26)); border-radius: 0.75rem; background: var(--raised, #ffffff); color: var(--ink, #161a13); font: inherit; font-size: 1rem; transition: border-color 140ms ease, box-shadow 140ms ease; } .ds-input::placeholder { color: var(--faint, #7a8072); } .ds-input:hover { border-color: color-mix(in oklab, var(--line-strong, rgb(22 26 19 / 0.26)), var(--ink, #161a13) 20%); } .ds-input:focus { outline: none; border-color: var(--focus, #3b6608); box-shadow: 0 0 0 3px var(--slop-tint, rgb(155 226 45 / 0.24)); } .ds-field-hint { display: block; margin-top: 0.4rem; font-size: 0.875rem; color: var(--muted, #575d50); }"
+    },
+    {
+      "name": "Header Navigation",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "The slopper! lockup, plain bold links, and a 3px lime bar under the current page flush with the header edge.",
+      "html": "<header class=\"ds-header\"><a href=\"#\" class=\"ds-wordmark\">slopper<svg viewBox=\"18.5 1.5 29.5 61\" aria-hidden=\"true\" class=\"ds-wordmark-bang\"><g fill=\"var(--slop-deep, #5f9a12)\" transform=\"translate(1.4 1.4)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g><g fill=\"var(--slop, #9be22d)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g></svg></a><nav class=\"ds-nav\"><a href=\"#\" class=\"ds-nav-link\" aria-current=\"page\">Today</a><a href=\"#\" class=\"ds-nav-link\">The wall</a><a href=\"#\" class=\"ds-nav-link\">Slopcessful</a><a href=\"#\" class=\"ds-nav-link\">Streaks</a></nav></header>",
+      "css": ".ds-header { display: flex; align-items: stretch; gap: 1.5rem; height: 4rem; padding-inline: 1rem; border-bottom: 1px solid var(--line, rgb(22 26 19 / 0.12)); background: color-mix(in oklab, var(--ground, #f4f5f0) 90%, transparent); backdrop-filter: blur(12px); } .ds-wordmark { align-self: center; font-family: \"Big Shoulders\", \"Arial Narrow\", ui-sans-serif, sans-serif; font-weight: 900; font-size: 1.9rem; line-height: 1; letter-spacing: -0.01em; color: var(--ink, #161a13); text-decoration: none; white-space: nowrap; } .ds-wordmark-bang { display: inline-block; height: 0.84em; width: auto; margin-left: 0.03em; vertical-align: baseline; } .ds-nav { display: flex; align-items: stretch; } .ds-nav-link { position: relative; display: flex; align-items: center; padding-inline: 0.75rem; font-family: \"Schibsted Grotesk\", ui-sans-serif, system-ui, sans-serif; font-size: 0.9375rem; font-weight: 700; color: var(--muted, #575d50); text-decoration: none; white-space: nowrap; transition: color 140ms ease; } .ds-nav-link:hover { color: var(--ink, #161a13); } .ds-nav-link:focus-visible { outline: 2px solid var(--focus, #3b6608); outline-offset: 3px; } .ds-nav-link[aria-current=\"page\"] { color: var(--ink, #161a13); } .ds-nav-link[aria-current=\"page\"]::after { content: \"\"; position: absolute; inset-inline: 0.75rem; bottom: 0; height: 3px; border-radius: 9999px 9999px 0 0; background: var(--slop, #9be22d); }"
+    },
+    {
+      "name": "Board Clock",
+      "kind": "custom",
+      "refersTo": "tile",
+      "description": "Time left to midnight on split-flap tiles, always labelled with its zone; the last hour turns the tiles red.",
+      "html": "<p class=\"ds-clocks\"><span class=\"ds-clock\"><span class=\"ds-tiles \" aria-hidden=\"true\"><span class=\"ds-tile\"><span>1</span></span><span class=\"ds-tile\"><span>4</span></span><span class=\"ds-tile-sep\">:</span><span class=\"ds-tile\"><span>3</span></span><span class=\"ds-tile\"><span>2</span></span></span><span class=\"ds-clock-label\">left in your day</span></span><span class=\"ds-clock\"><span class=\"ds-tiles ds-tiles-urgent\" aria-hidden=\"true\"><span class=\"ds-tile\"><span>4</span></span><span class=\"ds-tile\"><span>2</span></span><span class=\"ds-tile-sep\">:</span><span class=\"ds-tile\"><span>0</span></span><span class=\"ds-tile\"><span>7</span></span></span><span class=\"ds-clock-label\">to midnight UTC</span></span></p>",
+      "css": ".ds-tiles { display: inline-flex; align-items: center; gap: 0.12em; font-family: \"Big Shoulders\", \"Arial Narrow\", ui-sans-serif, sans-serif; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; } .ds-tile { position: relative; display: inline-grid; place-items: center; width: 0.78em; height: 1.18em; border-radius: 0.14em; background: linear-gradient(to bottom, var(--tile-top, #2e3429) 50%, var(--tile, #262b22) 50%); color: var(--board-ink, #eef0e8); } .ds-tile::after { content: \"\"; position: absolute; inset-inline: 0; top: 50%; height: 1px; background: rgb(0 0 0 / 0.5); } .ds-tile > * { position: relative; z-index: 1; } .ds-clocks { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 0; } .ds-clock { display: inline-flex; align-items: center; gap: 0.5rem; } .ds-clock .ds-tiles { font-size: 1.6rem; } .ds-tile-sep { width: 0.3em; text-align: center; opacity: 0.6; } .ds-tiles-urgent .ds-tile { background: linear-gradient(to bottom, color-mix(in oklab, var(--hot, #c4371b), #fff 6%) 50%, var(--hot, #c4371b) 50%); color: var(--hot-ink, #ffffff); } .ds-clock-label { font-family: \"Schibsted Grotesk\", ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 700; line-height: 1.25; color: var(--muted, #575d50); }"
+    },
+    {
+      "name": "Goal Board",
+      "kind": "custom",
+      "refersTo": "board",
+      "description": "The signature: a goal as a dark board of days. Shipped days flip to the drip bang, today waits on the pulsing lime now bar.",
+      "html": "<section class=\"ds-board\"><header class=\"ds-board-head\"><div><h2 class=\"ds-board-title\">30 slops in 30 days</h2><p class=\"ds-board-sub\">@you · Slopping · Day 12 of 30</p></div><p class=\"ds-board-count\"><span class=\"ds-board-big\">10</span><span class=\"ds-board-of\">/30</span><span class=\"ds-board-caps\">slopped</span></p></header><ol class=\"ds-days\"><li class=\"ds-cell ds-tile\"><svg viewBox=\"18.5 1.5 29.5 61\" aria-hidden=\"true\" class=\"ds-cell-bang\"><g fill=\"var(--slop-deep, #5f9a12)\" transform=\"translate(1.4 1.4)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g><g fill=\"var(--slop, #9be22d)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g></svg></li><li class=\"ds-cell ds-tile\"><svg viewBox=\"18.5 1.5 29.5 61\" aria-hidden=\"true\" class=\"ds-cell-bang\"><g fill=\"var(--slop-deep, #5f9a12)\" transform=\"translate(1.4 1.4)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g><g fill=\"var(--slop, #9be22d)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g></svg></li><li class=\"ds-cell ds-tile\"><svg viewBox=\"18.5 1.5 29.5 61\" aria-hidden=\"true\" class=\"ds-cell-bang\"><g fill=\"var(--slop-deep, #5f9a12)\" transform=\"translate(1.4 1.4)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g><g fill=\"var(--slop, #9be22d)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g></svg></li><li class=\"ds-cell ds-tile\"><svg viewBox=\"18.5 1.5 29.5 61\" aria-hidden=\"true\" class=\"ds-cell-bang\"><g fill=\"var(--slop-deep, #5f9a12)\" transform=\"translate(1.4 1.4)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g><g fill=\"var(--slop, #9be22d)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g></svg></li><li class=\"ds-cell ds-missed\"><span class=\"ds-dot\"></span></li><li class=\"ds-cell ds-tile\"><svg viewBox=\"18.5 1.5 29.5 61\" aria-hidden=\"true\" class=\"ds-cell-bang\"><g fill=\"var(--slop-deep, #5f9a12)\" transform=\"translate(1.4 1.4)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g><g fill=\"var(--slop, #9be22d)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g></svg></li><li class=\"ds-cell ds-tile\"><svg viewBox=\"18.5 1.5 29.5 61\" aria-hidden=\"true\" class=\"ds-cell-bang\"><g fill=\"var(--slop-deep, #5f9a12)\" transform=\"translate(1.4 1.4)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g><g fill=\"var(--slop, #9be22d)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g></svg></li><li class=\"ds-cell ds-tile\"><svg viewBox=\"18.5 1.5 29.5 61\" aria-hidden=\"true\" class=\"ds-cell-bang\"><g fill=\"var(--slop-deep, #5f9a12)\" transform=\"translate(1.4 1.4)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g><g fill=\"var(--slop, #9be22d)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g></svg></li><li class=\"ds-cell ds-tile\"><svg viewBox=\"18.5 1.5 29.5 61\" aria-hidden=\"true\" class=\"ds-cell-bang\"><g fill=\"var(--slop-deep, #5f9a12)\" transform=\"translate(1.4 1.4)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g><g fill=\"var(--slop, #9be22d)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g></svg></li><li class=\"ds-cell ds-tile\"><svg viewBox=\"18.5 1.5 29.5 61\" aria-hidden=\"true\" class=\"ds-cell-bang\"><g fill=\"var(--slop-deep, #5f9a12)\" transform=\"translate(1.4 1.4)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g><g fill=\"var(--slop, #9be22d)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g></svg></li><li class=\"ds-cell ds-tile\"><svg viewBox=\"18.5 1.5 29.5 61\" aria-hidden=\"true\" class=\"ds-cell-bang\"><g fill=\"var(--slop-deep, #5f9a12)\" transform=\"translate(1.4 1.4)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g><g fill=\"var(--slop, #9be22d)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g></svg></li><li class=\"ds-cell ds-tile\"><span>12</span><span class=\"ds-now\"></span></li><li class=\"ds-cell ds-upcoming\">13</li><li class=\"ds-cell ds-upcoming\">14</li><li class=\"ds-cell ds-upcoming\">15</li><li class=\"ds-cell ds-upcoming\">16</li><li class=\"ds-cell ds-upcoming\">17</li><li class=\"ds-cell ds-upcoming\">18</li></ol><footer class=\"ds-board-foot\"><span>6-day streak</span><span>Ends Jan 30</span></footer></section>",
+      "css": ".ds-tiles { display: inline-flex; align-items: center; gap: 0.12em; font-family: \"Big Shoulders\", \"Arial Narrow\", ui-sans-serif, sans-serif; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; } .ds-tile { position: relative; display: inline-grid; place-items: center; width: 0.78em; height: 1.18em; border-radius: 0.14em; background: linear-gradient(to bottom, var(--tile-top, #2e3429) 50%, var(--tile, #262b22) 50%); color: var(--board-ink, #eef0e8); } .ds-tile::after { content: \"\"; position: absolute; inset-inline: 0; top: 50%; height: 1px; background: rgb(0 0 0 / 0.5); } .ds-tile > * { position: relative; z-index: 1; } .ds-board { padding: 1.25rem; border-radius: 1.25rem; background: var(--board, #161a13); color: var(--board-ink, #eef0e8); font-family: \"Schibsted Grotesk\", ui-sans-serif, system-ui, sans-serif; } .ds-board-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; } .ds-board-title { margin: 0; font-family: \"Big Shoulders\", \"Arial Narrow\", ui-sans-serif, sans-serif; font-size: 1.75rem; font-weight: 800; line-height: 1; } .ds-board-sub { margin: 0.5rem 0 0; font-size: 0.9375rem; color: var(--board-muted, #9aa18f); } .ds-board-count { margin: 0; text-align: right; font-family: \"Big Shoulders\", \"Arial Narrow\", ui-sans-serif, sans-serif; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; } .ds-board-big { font-size: 2.75rem; } .ds-board-of { font-size: 1.4rem; color: var(--board-muted, #9aa18f); } .ds-board-caps { display: block; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--board-muted, #9aa18f); } .ds-days { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.375rem; margin: 1.5rem 0 0; padding: 0; list-style: none; } .ds-cell { position: relative; display: grid; place-items: center; width: 100%; height: auto; aspect-ratio: 4 / 5; border-radius: 0.375rem; font-family: \"Big Shoulders\", \"Arial Narrow\", ui-sans-serif, sans-serif; font-size: 1.15rem; font-weight: 800; box-sizing: border-box; } .ds-cell.ds-tile { width: 100%; height: auto; border-radius: 0.375rem; transition: transform 140ms ease; } .ds-cell-bang { position: relative; z-index: 1; height: 62%; width: auto; } .ds-missed { background: color-mix(in oklab, var(--tile, #262b22) 50%, transparent); } .ds-dot { width: 0.375rem; height: 0.375rem; border-radius: 9999px; background: var(--board-muted, #9aa18f); } .ds-upcoming { border: 1px solid color-mix(in oklab, var(--board-ink, #eef0e8) 15%, transparent); color: var(--board-muted, #9aa18f); } .ds-now { position: absolute; z-index: 1; inset-inline: 0.375rem; bottom: 0.25rem; height: 3px; border-radius: 9999px; background: var(--slop, #9be22d); animation: ds-now 2.4s ease-in-out infinite; } @keyframes ds-now { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } } @media (prefers-reduced-motion: reduce) { .ds-now { animation: none; } } .ds-board-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; margin-top: 1.25rem; color: var(--board-muted, #9aa18f); }"
+    },
+    {
+      "name": "Slop Row",
+      "kind": "custom",
+      "refersTo": "vote-pill",
+      "description": "One launch as a ranked row between hairlines: rank, cover tile, name, tags, line, meta and the vote pill.",
+      "html": "<ol class=\"ds-rows\"><li class=\"ds-row\"><span class=\"ds-rank\">1</span><span class=\"ds-cover ds-tile\"><svg viewBox=\"18.5 1.5 29.5 61\" aria-hidden=\"true\" class=\"ds-cover-bang\"><g fill=\"var(--slop-deep, #5f9a12)\" transform=\"translate(1.4 1.4)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g><g fill=\"var(--slop, #9be22d)\"><path d=\"M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z\"/><path d=\"M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z\"/></g></svg></span><div class=\"ds-row-body\"><p class=\"ds-row-title\"><a href=\"#\" class=\"ds-row-name\">Tide Clock</a><span class=\"ds-tag-mini\">iOS beta</span></p><p class=\"ds-row-line\">A clock that only tells you when the tide turns.</p><p class=\"ds-row-meta\"><a href=\"#\">@maya</a><span>Day 12 of 30</span><span>2h ago</span><span>3 feedback</span></p></div><form class=\"ds-votes\"><button type=\"button\" class=\"ds-vote ds-vote-on\" aria-label=\"Upvote\" aria-pressed=\"true\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"ds-icon\"><path d=\"M12 19V5M5.5 11.5 12 5l6.5 6.5\"/></svg></button><span class=\"ds-vote-count\">42</span><button type=\"button\" class=\"ds-vote ds-vote-down\" aria-label=\"Downvote (private)\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" class=\"ds-icon\"><path d=\"M12 5v14M5.5 12.5 12 19l6.5-6.5\"/></svg></button></form></li></ol>",
+      "css": ".ds-tiles { display: inline-flex; align-items: center; gap: 0.12em; font-family: \"Big Shoulders\", \"Arial Narrow\", ui-sans-serif, sans-serif; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; } .ds-tile { position: relative; display: inline-grid; place-items: center; width: 0.78em; height: 1.18em; border-radius: 0.14em; background: linear-gradient(to bottom, var(--tile-top, #2e3429) 50%, var(--tile, #262b22) 50%); color: var(--board-ink, #eef0e8); } .ds-tile::after { content: \"\"; position: absolute; inset-inline: 0; top: 50%; height: 1px; background: rgb(0 0 0 / 0.5); } .ds-tile > * { position: relative; z-index: 1; } .ds-rows { margin: 0; padding: 0; list-style: none; border-block: 1px solid var(--line, rgb(22 26 19 / 0.12)); font-family: \"Schibsted Grotesk\", ui-sans-serif, system-ui, sans-serif; color: var(--ink, #161a13); } .ds-row { position: relative; display: flex; align-items: center; gap: 1.25rem; padding-block: 1.25rem; } .ds-rank { width: 2.25rem; flex-shrink: 0; text-align: center; font-family: \"Big Shoulders\", \"Arial Narrow\", ui-sans-serif, sans-serif; font-size: 2.5rem; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; } .ds-cover.ds-tile { width: 4rem; height: 4rem; flex-shrink: 0; align-self: flex-start; border-radius: 0.75rem; } .ds-cover-bang { position: relative; z-index: 1; height: 60%; width: auto; } .ds-row-body { min-width: 0; flex: 1; } .ds-row-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.625rem; margin: 0; } .ds-row-name { font-family: \"Big Shoulders\", \"Arial Narrow\", ui-sans-serif, sans-serif; font-size: 1.9rem; font-weight: 800; line-height: 1.05; color: inherit; text-decoration: none; } .ds-row-name::after { content: \"\"; position: absolute; inset: 0; } .ds-row:hover .ds-row-name { text-decoration: underline; text-decoration-thickness: 2px; } .ds-tag-mini { padding: 0.125rem 0.5rem; border-radius: 0.375rem; background: var(--slop-tint, rgb(155 226 45 / 0.24)); font-size: 0.8125rem; font-weight: 700; } .ds-row-line { margin: 0; color: var(--muted, #575d50); } .ds-row-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--muted, #575d50); } .ds-row-meta a { position: relative; z-index: 1; font-weight: 700; color: inherit; text-decoration: none; } .ds-votes { position: relative; z-index: 1; display: inline-flex; flex-shrink: 0; align-items: center; margin: 0; border-radius: 9999px; background: var(--sunk, #e9ebe3); font-family: \"Big Shoulders\", \"Arial Narrow\", ui-sans-serif, sans-serif; font-size: 1.3rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; } .ds-vote { display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; border: 0; border-radius: 9999px; background: transparent; color: inherit; cursor: pointer; transition: background-color 140ms ease, color 140ms ease; } .ds-vote:hover { background: var(--line, rgb(22 26 19 / 0.12)); } .ds-vote:focus-visible { outline: 2px solid var(--focus, #3b6608); outline-offset: 3px; } .ds-vote-on, .ds-vote-on:hover { background: var(--ink, #161a13); color: var(--ground, #f4f5f0); } .ds-vote-down { color: var(--muted, #575d50); } .ds-vote-count { min-width: 1.75rem; padding-inline: 0.125rem; text-align: center; } .ds-icon { width: 1.25rem; height: 1.25rem; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Departures Board",
+    "overview": "Slopper is set like the board in a station hall: today's slops are listed, ranked and timed against midnight, and every day a maker ships flips a tile to the drip bang \"!\" from the logo. The page itself is plain platform-white ground and confident condensed signage; the one dark, physical object on it is the board, a panel of split-flap tiles that carries time and days. Everything else stays out of its way.\n\nDensity is a list, not a gallery. Launches are rows divided by hairline rules, with a big tabular rank on the left and the votes on the right, the way departures are read top to bottom. Colour is rationed by meaning: lime is spent only on shipping, gold only on wins, red only on urgency and danger. Surfaces are flat; tint is the only elevation.\n\nThe system refuses the launch-site card grid and the old taped-cards-on-plaster costume. No tilted cards, no drop shadows, no outlined buttons.",
+    "keyCharacteristics": [
+      "Cool platform-white ground (light) or green-black ground (dark); one deep green-black ink.",
+      "Big Shoulders signage for anything read from across the room; Schibsted Grotesk for anything read up close.",
+      "The board: dark split-flap tiles for clocks and goal days, dark in both themes.",
+      "Lime means shipped, gold means won, red means hurry or danger.",
+      "Rows and hairlines instead of cards; flat tinted panels instead of shadows.",
+      "The drip bang \"!\" is the shipped glyph everywhere: logo, goal days, empty covers, favicon."
+    ],
+    "rules": [
+      {
+        "name": "The Shipping Lime Rule",
+        "body": "Lime is spent only on shipping: shipped days, the primary action, \"now\" and the current place in navigation. It never decorates a heading, a border or a background panel.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gold Means Won Rule",
+        "body": "Gold appears only for a win (slop of the day, slopcessful). A surface with no winner on it has no gold.",
+        "section": "colors"
+      },
+      {
+        "name": "The Board Stays Dark Rule",
+        "body": "The board and its tiles are dark in both themes, like the real thing. They never invert with the page.",
+        "section": "colors"
+      },
+      {
+        "name": "The Token Not Hex Rule",
+        "body": "Components use the custom properties, never literal hexes, so dark mode is a token swap. The one exception is the gold button's text, which stays #161a13 in both themes because gold stays bright.",
+        "section": "colors"
+      },
+      {
+        "name": "The Signage Rule",
+        "body": "Big Shoulders sets anything read from across the room (headings, names, ranks, counts, tiles, captions). Schibsted Grotesk sets everything read up close. Mono is only for code and data codes, never for labels or headings.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Every number that can change (ranks, votes, clocks, goal counts) uses tabular figures so the board never shifts as it updates.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tint Is Elevation Rule",
+        "body": "A grouped area is a flat `sunk` panel. If it needs to stand out more, it becomes the board or takes a tint (gold, red), never a shadow. The popover is the single exception.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do spend lime only on shipping: shipped days, the one primary action, \"now\" and the active nav bar.",
+      "Do keep gold for wins and red for the last hour, NSFW, errors and destructive zones.",
+      "Do put clocks, goal days and short codes on board tiles, label every clock with its zone, and give screen readers the value as text.",
+      "Do set lists as rows divided by `line` hairlines, with tabular ranks and counts in Big Shoulders.",
+      "Do use a flat `sunk` panel to group controls, and `slop-text` (not raw lime) when lime has to be text on the ground.",
+      "Do keep every target at least 2.75rem (44px) and respect reduced motion."
+    ],
+    "donts": [
+      "Don't lay launches out as a card grid or as taped, tilted cards on a textured wall.",
+      "Don't add drop shadows; the account menu popover is the only one.",
+      "Don't outline buttons or tags; they are solid fills or tints.",
+      "Don't invert the board or its tiles to light in the light theme.",
+      "Don't use Atkinson Hyperlegible Mono for labels, headings or numbers that are not code or data codes.",
+      "Don't use emoji as icons or decoration; the drawn icon set and the drip bang carry every glyph.",
+      "Don't use kitchen, cooking, restaurant or food imagery anywhere."
+    ]
+  }
+}

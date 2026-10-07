@@ -1,56 +1,60 @@
 import { Link } from "react-router";
-import { LogoMark } from "./Logo";
+import { Wordmark } from "./Logo";
+
+const COLUMNS = [
+  {
+    title: "Look around",
+    links: [
+      { to: "/wall", label: "The wall" },
+      { to: "/slopcessful", label: "Slopcessful" },
+      { to: "/streaks", label: "Streaks" },
+      { to: "/feed.xml", label: "RSS", document: true },
+    ],
+  },
+  {
+    title: "Slop",
+    links: [
+      { to: "/goal", label: "Set a goal" },
+      { to: "/rules", label: "Rules" },
+      { to: "/terms", label: "Terms" },
+      { to: "/privacy", label: "Privacy" },
+    ],
+  },
+];
 
 export function Footer() {
   return (
-    <footer className="mt-24 border-t-2 border-ink bg-ink text-wall">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-[1.4fr_1fr_1fr]">
-        <div>
-          <div className="flex items-center gap-2">
-            <LogoMark size={28} />
-            <span className="font-display text-2xl">slopper</span>
-          </div>
-          <p className="mt-3 max-w-sm text-sm text-wall/70">
+    <footer className="mt-32 border-t border-line">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-10 px-4 pt-14 pb-10 sm:grid-cols-[1.6fr_1fr_1fr]">
+        <div className="col-span-2 sm:col-span-1">
+          <Wordmark className="text-[2.75rem]" />
+          <p className="mt-5 max-w-sm text-muted">
             Everyone says slop is bad. Everything starts as slop. Throw it at the wall every day until one of them
             sticks.
           </p>
         </div>
-        <div className="grid content-start gap-2 text-sm">
-          <p className="font-mono text-[0.65rem] tracking-widest text-wall/50 uppercase">Look around</p>
-          <Link to="/wall" className="hover:underline">
-            The wall
-          </Link>
-          <Link to="/slopcessful" className="hover:underline">
-            Slopcessful
-          </Link>
-          <Link to="/streaks" className="hover:underline">
-            Streaks
-          </Link>
-          <a href="/feed.xml" className="hover:underline">
-            RSS
-          </a>
-        </div>
-        <div className="grid content-start gap-2 text-sm">
-          <p className="font-mono text-[0.65rem] tracking-widest text-wall/50 uppercase">Slop</p>
-          <Link to="/goal" className="hover:underline">
-            Set a goal
-          </Link>
-          <Link to="/rules" className="hover:underline">
-            Rules
-          </Link>
-          <Link to="/terms" className="hover:underline">
-            Terms
-          </Link>
-          <Link to="/privacy" className="hover:underline">
-            Privacy
-          </Link>
-        </div>
+        {COLUMNS.map((column) => (
+          <div key={column.title}>
+            <p className="caps">{column.title}</p>
+            <ul className="mt-2 grid">
+              {column.links.map((link) => (
+                <li key={link.to}>
+                  {link.document ? (
+                    <a href={link.to} className="inline-flex min-h-11 items-center font-bold hover:text-slop-text">
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link to={link.to} className="inline-flex min-h-11 items-center font-bold hover:text-slop-text">
+                      {link.label}
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
-      <div className="border-t border-wall/15">
-        <p className="mx-auto max-w-6xl px-4 py-4 font-mono text-[0.65rem] tracking-widest text-wall/50 uppercase">
-          slopper.day · keep slopping
-        </p>
-      </div>
+      <p className="mx-auto max-w-6xl px-4 pb-10 text-sm text-muted">slopper.day · keep slopping</p>
     </footer>
   );
 }

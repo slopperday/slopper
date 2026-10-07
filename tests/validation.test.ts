@@ -6,7 +6,6 @@ import { sniffImageType } from "~/.server/media";
 import { renderMarkdown } from "~/lib/markdown";
 import { formatMoney, moneyTotals, parseAmount } from "~/lib/money";
 import { normalizeUsername, slugify, usernameProblem } from "~/lib/username";
-import { splatShape } from "~/lib/splat";
 
 function form(entries: [string, string][]): FormData {
   const data = new FormData();
@@ -142,16 +141,11 @@ describe("money", () => {
   });
 });
 
-describe("names and shapes", () => {
+describe("names", () => {
   it("normalises usernames and slugs", () => {
     expect(normalizeUsername("@Ifiok Jr!")).toBe("ifiok-jr");
     expect(usernameProblem("today")).toBe("That name is reserved.");
     expect(usernameProblem("ok_name")).toBeNull();
     expect(slugify("Tîlt Maze: 2.0!")).toBe("tilt-maze-2-0");
-  });
-
-  it("draws the same splat for the same seed", () => {
-    expect(splatShape(42)).toEqual(splatShape(42));
-    expect(splatShape(42).path).not.toBe(splatShape(43).path);
   });
 });

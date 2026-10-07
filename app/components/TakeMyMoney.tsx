@@ -37,31 +37,37 @@ export function TakeMyMoney({
   const pending = fetcher.state !== "idle";
 
   return (
-    <section className="rounded-2xl border-2 border-ink bg-card p-5">
-      <h2 className="eyebrow">Take my money</h2>
-      <p className="mt-2">
-        <span className="font-wide text-3xl font-black tabular-nums">{formatMoney(state.pledged, "USD")}</span>{" "}
-        <span className="text-sm text-muted">
+    <section aria-labelledby="money-title">
+      <h2 id="money-title" className="sr-only">
+        Take my money
+      </h2>
+      <p className="flex flex-wrap items-baseline gap-x-2">
+        <span className="font-display text-[2.75rem] leading-none font-black tabular-nums">
+          {formatMoney(state.pledged, "USD")}
+        </span>
+        <span className="text-muted">
           pledged by {state.backers} {state.backers === 1 ? "person" : "people"}
         </span>
       </p>
       {mode === "own" ? (
-        <p className="mt-2 text-sm text-muted">How much people say they'd pay for this. Share it to find out.</p>
+        <p className="mt-2 text-[0.9375rem] text-muted">
+          How much people say they'd pay for this. Share it to find out.
+        </p>
       ) : mode === "login" ? (
-        <Link to={loginHref} className="btn btn-gold mt-4 w-full">
+        <Link to={loginHref} className="btn btn-ink mt-4 w-full">
           💸 Take my money
         </Link>
       ) : (
         <>
           {state.amount > 0 && !open ? (
-            <p className="mt-3 text-sm">
+            <p className="mt-3">
               You pledged <strong>{formatMoney(state.amount, "USD")}</strong>.{" "}
-              <button type="button" className="underline" onClick={() => setOpen(true)}>
+              <button type="button" className="link" onClick={() => setOpen(true)}>
                 Change
               </button>
             </p>
           ) : !open ? (
-            <button type="button" className="btn btn-gold mt-4 w-full" onClick={() => setOpen(true)}>
+            <button type="button" className="btn btn-ink mt-4 w-full" onClick={() => setOpen(true)}>
               💸 Take my money
             </button>
           ) : null}
@@ -97,7 +103,7 @@ export function TakeMyMoney({
                   className="input"
                   placeholder="Other amount, $"
                 />
-                <button type="submit" className="btn btn-gold" disabled={pending}>
+                <button type="submit" className="btn btn-ink" disabled={pending}>
                   Pledge
                 </button>
               </div>
@@ -106,7 +112,7 @@ export function TakeMyMoney({
                   type="submit"
                   name="amount"
                   value="0"
-                  className="justify-self-start text-xs text-muted underline"
+                  className="min-h-11 justify-self-start text-sm text-muted underline hover:text-ink"
                 >
                   Withdraw my pledge
                 </button>
@@ -120,7 +126,7 @@ export function TakeMyMoney({
           )}
         </>
       )}
-      <p className="mt-3 text-xs text-muted">Pledges are non-binding for now. No money moves yet.</p>
+      <p className="mt-3 text-sm text-muted">Pledges are non-binding for now. No money moves yet.</p>
     </section>
   );
 }

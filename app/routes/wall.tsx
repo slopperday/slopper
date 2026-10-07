@@ -5,8 +5,9 @@ import { viewerContext } from "~/.server/session";
 import { convex } from "~/.server/convex";
 import { CATEGORIES, type CategoryId, findCategory } from "~/lib/model";
 import { seo } from "~/lib/seo";
-import { SlopGrid } from "~/components/SlopCard";
+import { SlopList } from "~/components/SlopList";
 import { EmptyState } from "~/components/Shared";
+import { Icon } from "~/components/Icon";
 
 type Sort = "new" | "hot";
 
@@ -47,56 +48,57 @@ export const meta: Route.MetaFunction = ({ matches, loaderData }) => {
 export default function Wall({ loaderData }: Route.ComponentProps) {
   const current = loaderData.category ? findCategory(loaderData.category) : undefined;
   return (
-    <section className="mx-auto max-w-6xl px-4 py-12">
-      <p className="eyebrow">Everything that's been thrown</p>
-      <h1 className="font-wide mt-2 text-4xl font-black sm:text-5xl">
-        {current ? `${current.emoji} ${current.label}` : "The wall"}
-      </h1>
-      <div className="mt-8 flex flex-wrap items-center gap-2">
-        <Link
-          to={wallHref(undefined, loaderData.sort)}
-          className={`chip px-3 py-1.5 ${current ? "hover:bg-wall-deep" : "bg-ink text-wall"}`}
-        >
-          All
-        </Link>
-        {CATEGORIES.map((category) => (
-          <Link
-            key={category.id}
-            to={wallHref(category.id, loaderData.sort)}
-            className={`chip px-3 py-1.5 ${current?.id === category.id ? "bg-ink text-wall" : "hover:bg-wall-deep"}`}
-          >
-            <span aria-hidden="true">{category.emoji}</span> {category.label}
-          </Link>
-        ))}
+    <section className="mx-auto max-w-6xl px-4 pt-14">
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-6">
+        <div>
+          <h1 className="title-1">{current ? current.label : "The wall"}</h1>
+          <p className="lede mt-4">
+            {current ? `Slops filed under ${current.label}.` : "Everything that's been thrown."}
+          </p>
+        </div>
+        <nav aria-label="Sort" className="flex rounded-xl bg-sunk p-1">
+          {(["new", "hot"] as const).map((sort) => (
+            <Link
+              key={sort}
+              to={wallHref(loaderData.category, sort)}
+              aria-current={loaderData.sort === sort ? "true" : undefined}
+              className={`flex min-h-10 items-center rounded-lg px-4 font-bold ${
+                loaderData.sort === sort ? "bg-ink text-ground" : "text-muted hover:text-ink"
+              }`}
+            >
+              {sort === "new" ? "Freshest" : "Sticking"}
+            </Link>
+          ))}
+        </nav>
       </div>
-      <div className="mt-4 flex gap-3 font-mono text-xs tracking-wider uppercase">
-        <span className="text-muted">Sort:</span>
-        {(["new", "hot"] as const).map((sort) => (
-          <Link
-            key={sort}
-            to={wallHref(loaderData.category, sort)}
-            aria-current={loaderData.sort === sort ? "true" : undefined}
-            className={
-              loaderData.sort === sort
-                ? "font-bold underline decoration-slop-deep decoration-2"
-                : "text-muted hover:text-ink"
-            }
-          >
-            {sort === "new" ? "Freshest" : "Sticking"}
-          </Link>
-        ))}
-      </div>
+      <nav aria-label="Categories" className="scrollbar-none mt-10 flex overflow-x-auto border-b border-line">
+        {[{ id: undefined, label: "All" }, ...CATEGORIES].map((category) => {
+          const active = current?.id === category.id;
+          return (
+            <Link
+              key={category.label}
+              to={wallHref(category.id, loaderData.sort)}
+              aria-current={active ? "page" : undefined}
+              className={`relative flex min-h-11 shrink-0 items-center px-3 font-bold whitespace-nowrap first:pl-0 after:absolute after:right-3 after:bottom-0 after:left-3 after:h-[3px] after:rounded-t-full first:after:left-0 ${
+                active ? "text-ink after:bg-slop" : "text-muted hover:text-ink"
+              }`}
+            >
+              {category.label}
+            </Link>
+          );
+        })}
+      </nav>
       <div className="mt-12">
         {loaderData.items.length > 0 ? (
-          <SlopGrid items={loaderData.items} />
+          <SlopList items={loaderData.items} />
         ) : (
           <EmptyState>Nothing on this part of the wall yet.</EmptyState>
         )}
       </div>
       {loaderData.cursor && (
-        <div className="mt-12 text-center">
-          <Link to={wallHref(loaderData.category, loaderData.sort, loaderData.cursor)} className="btn">
-            Older slop →
+        <div className="mt-16 text-center">
+          <Link to={wallHref(loaderData.category, loaderData.sort, loaderData.cursor)} className="btn btn-lg">
+            Older slop <Icon name="right" className="size-4" />
           </Link>
         </div>
       )}

@@ -41,5 +41,5 @@ const SECTIONS: readonly LegalSection[] = [
 export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "Privacy", path: "/privacy" });
 
 export default function Privacy() {
-  return <LegalPage eyebrow="Plain words" title="Privacy" updated="2026-10-07" sections={SECTIONS} />;
+  return <LegalPage intro="In plain words." title="Privacy" updated="2026-10-07" sections={SECTIONS} />;
 }

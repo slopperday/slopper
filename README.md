@@ -6,7 +6,7 @@ Everyone says slop is bad. Everything good started as slop, and now you can make
 goal (30 slops in 30 days), ship something every day, show it to people, and keep slopping until one of them is
 **slopcessful**.
 
-- **Goals with a splat grid.** Every day you ship leaves a splat. Days end at midnight in your time zone.
+- **Goals on a board of days.** Every day you ship flips its tile to a "!". Days end at midnight in your time zone.
 - **Slop of the day.** Each UTC day is a race on votes; a cron crowns the winner after midnight.
 - **Launches, not just products.** The website, then the iOS beta, then 2.0: each launch is its own entry and its own
   shot at slop of the day, linked to the product.

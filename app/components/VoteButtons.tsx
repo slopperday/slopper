@@ -1,4 +1,5 @@
 import { Link, useFetcher } from "react-router";
+import { Icon } from "./Icon";
 
 type Vote = 1 | -1 | 0;
 
@@ -33,21 +34,21 @@ export function VoteButtons({ slopId, upvotes, vote, mode, loginHref, size = "sm
     shownVote = next;
   }
 
-  const button = `inline-flex items-center justify-center rounded-full transition-colors ${
-    large ? "size-11 text-lg" : "size-8 text-sm"
+  const button = `inline-flex items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+    large ? "size-12" : "size-11"
   }`;
+  const icon = large ? "size-6" : "size-5";
+  const count = large ? "text-[1.75rem]" : "text-[1.3rem]";
 
   if (mode === "login") {
     return (
       <Link
         to={loginHref}
-        className={`relative z-10 inline-flex items-center gap-1 rounded-full border-2 border-ink bg-card pr-3 font-mono font-bold tabular-nums hover:bg-slop ${
-          large ? "text-base" : "text-xs"
-        }`}
+        className={`relative z-10 inline-flex items-center rounded-full bg-sunk pr-4 font-display leading-none font-extrabold tabular-nums transition-colors hover:bg-line ${count}`}
         title="Sign in to vote"
       >
         <span className={button} aria-hidden="true">
-          ▲
+          <Icon name="up" className={icon} />
         </span>
         {shownUpvotes}
       </Link>
@@ -60,36 +61,34 @@ export function VoteButtons({ slopId, upvotes, vote, mode, loginHref, size = "sm
     <fetcher.Form
       method="post"
       action={`/api/slops/${slopId}/vote`}
-      className={`relative z-10 inline-flex items-center rounded-full border-2 border-ink bg-card font-mono font-bold tabular-nums ${
-        large ? "text-base" : "text-xs"
-      }`}
+      className={`relative z-10 inline-flex shrink-0 items-center rounded-full bg-sunk font-display leading-none font-extrabold tabular-nums ${count}`}
     >
       <button
         type="submit"
         name="vote"
         value={upActive ? "0" : "1"}
-        className={`${button} ${upActive ? "bg-slop text-slop-ink" : "hover:bg-slop/40"}`}
+        className={`${button} ${upActive ? "bg-ink text-ground" : "enabled:hover:bg-line"}`}
         aria-pressed={upActive}
         aria-label="Upvote"
         title={mode === "own" ? "Your own slop" : "This sticks"}
         disabled={mode === "own"}
       >
-        ▲
+        <Icon name="up" className={icon} />
       </button>
-      <span className="min-w-6 px-1 text-center" aria-live="polite">
+      <span className="min-w-7 px-0.5 text-center" aria-live="polite">
         {shownUpvotes}
       </span>
       <button
         type="submit"
         name="vote"
         value={downActive ? "0" : "-1"}
-        className={`${button} opacity-70 ${downActive ? "bg-ink text-wall" : "hover:bg-wall-deep"}`}
+        className={`${button} ${downActive ? "bg-muted text-ground" : "text-muted enabled:hover:bg-line"}`}
         aria-pressed={downActive}
         aria-label="Downvote (private)"
         title="Not for me. Downvotes are private"
         disabled={mode === "own"}
       >
-        ▼
+        <Icon name="down" className={icon} />
       </button>
     </fetcher.Form>
   );

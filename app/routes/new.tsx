@@ -133,40 +133,44 @@ export default function NewSlop({ loaderData, actionData }: Route.ComponentProps
   const errors: Record<string, string> = actionData?.errors ?? {};
   const values = actionData?.values ?? relaunch?.values ?? {};
   return (
-    <section className="mx-auto max-w-3xl px-4 py-12">
-      <p className="eyebrow">{goal ? `${goal.title} · Day ${goal.day} of ${goal.days}` : "No goal running"}</p>
-      <h1 className="font-wide mt-2 text-4xl font-black sm:text-5xl">
-        {relaunch ? `Launch ${relaunch.name} again` : "What are you throwing today?"}
-      </h1>
-      <p className="mt-3 max-w-xl text-muted">
+    <section className="mx-auto max-w-3xl px-4 pt-14">
+      <h1 className="title-1">{relaunch ? `Launch ${relaunch.name} again` : "What are you throwing today?"}</h1>
+      <p className="mt-4 font-bold">
+        {goal ? (
+          <span className="inline-flex items-center gap-2">
+            <span aria-hidden="true" className="now-pulse size-2 rounded-full bg-slop" />
+            {`${goal.title} · Day ${goal.day} of ${goal.days}`}
+          </span>
+        ) : (
+          "No goal running"
+        )}
+      </p>
+      <p className="lede mt-2">
         {relaunch
           ? "A new platform, a new app, a 2.0: every real launch is its own slop with its own shot at slop of the day. Features belong in updates."
           : "It doesn't need to be good. It needs to be live."}
         {!goal && (
           <>
             {" "}
-            <Link to="/goal" className="font-bold text-ink underline">
+            <Link to="/goal" className="link text-ink">
               Set a goal
             </Link>{" "}
             so this one counts.
           </>
         )}
       </p>
-      <div className="mt-8">
+      <div className="mt-10">
         <AgentPrompt prompt={relaunch ? (origin) => relaunchPrompt(origin, relaunch.name) : launchPrompt} />
       </div>
       {Object.keys(errors).length > 0 && (
-        <p
-          role="alert"
-          className="mt-6 rounded-xl border-2 border-ink bg-hot px-4 py-3 text-sm font-semibold text-white"
-        >
+        <p role="alert" className="mt-6 rounded-xl bg-hot px-4 py-3 font-bold text-hot-ink">
           A couple of things need fixing.
         </p>
       )}
 
-      <Form method="post" className="mt-10 grid gap-8">
+      <Form method="post" className="mt-12 grid gap-8">
         {relaunch && (
-          <div className="stuck grid gap-2 p-5">
+          <div className="panel grid gap-2">
             <input type="hidden" name="relaunchOf" value={relaunch.id} />
             <Field
               id="launchLabel"
@@ -194,7 +198,7 @@ export default function NewSlop({ loaderData, actionData }: Route.ComponentProps
         )}
         <SlopFields values={values} errors={errors} />
 
-        <div className="stuck grid gap-5 p-5 sm:p-6">
+        <div className="grid gap-6 border-t border-line pt-8">
           <Field
             id="launchNote"
             label="Launch note"
@@ -212,10 +216,10 @@ export default function NewSlop({ loaderData, actionData }: Route.ComponentProps
           </Field>
           {autopost.length > 0 ? (
             <label className="flex items-start gap-3">
-              <input type="checkbox" name="autopost" defaultChecked className="mt-1 size-5 accent-[var(--slop-deep)]" />
+              <input type="checkbox" name="autopost" defaultChecked className="mt-1 size-5" />
               <span>
                 <span className="font-bold">Auto-post it</span>
-                <span className="block text-sm text-muted">
+                <span className="block text-[0.9375rem] text-muted">
                   {autopost
                     .map(
                       (account) =>
@@ -226,15 +230,15 @@ export default function NewSlop({ loaderData, actionData }: Route.ComponentProps
               </span>
             </label>
           ) : (
-            <p className="text-sm text-muted">
+            <p className="text-muted">
               Want this posted to X, LinkedIn or Bluesky automatically?{" "}
-              <Link to="/settings/autopost" className="font-bold text-ink underline">
+              <Link to="/settings/autopost" className="link text-ink">
                 Connect accounts
               </Link>
               .
             </p>
           )}
-          <button type="submit" className="btn btn-slop w-full text-lg" disabled={submitting}>
+          <button type="submit" className="btn btn-slop btn-lg w-full text-[1.125rem]" disabled={submitting}>
             {submitting ? "Throwing…" : "Throw it at the wall"}
           </button>
         </div>

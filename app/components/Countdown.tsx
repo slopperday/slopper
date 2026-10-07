@@ -1,4 +1,9 @@
 import { useEffect, useState } from "react";
+import { Tiles } from "./Tiles";
+
+const HOUR = 3_600_000;
+
+export const RACE_CLOCK_LABEL = "to midnight UTC";
 
 function untilMidnight(now: Date, utc: boolean): number {
   const midnight = new Date(now);
@@ -7,28 +12,29 @@ function untilMidnight(now: Date, utc: boolean): number {
   return midnight.getTime() - now.getTime();
 }
 
-function format(ms: number): string {
+function parts(ms: number): [string, string, string] {
   const total = Math.max(0, Math.floor(ms / 1000));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const seconds = total % 60;
-  return [hours, minutes, seconds].map((n) => String(n).padStart(2, "0")).join(":");
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return [pad(Math.floor(total / 3600)), pad(Math.floor((total % 3600) / 60)), pad(total % 60)];
 }
 
 /**
- * Time left until midnight: in the visitor's own zone (their goal day), or in
- * UTC (the slop of the day race). The local clock also tells the server the
- * visitor's zone through a cookie, so "today" means the same on both sides
- * before anyone signs in.
+ * Time left until midnight, on board tiles, always with a visible label that
+ * names its zone: the visitor's own day (their goal day), or UTC (the slop of
+ * the day race). Hours and minutes most of the day; in the last hour the board
+ * switches to minutes and seconds and turns red. The local clock also tells
+ * the server the visitor's zone through a cookie, so "today" means the same on
+ * both sides before anyone signs in.
  */
 export function Countdown({
-  compact = false,
   utc = false,
-  label = "left today",
+  label = "left in your day",
+  className = "text-[1.05rem]",
 }: {
-  compact?: boolean;
   utc?: boolean;
   label?: string;
+  /** Sizes the tiles. */
+  className?: string;
 }) {
   const [remaining, setRemaining] = useState<number | null>(null);
 
@@ -43,18 +49,21 @@ export function Countdown({
     return () => clearInterval(timer);
   }, [utc]);
 
-  const urgent = remaining !== null && remaining < 3_600_000;
+  const urgent = remaining !== null && remaining < HOUR;
+  const [hours, minutes, seconds] = remaining === null ? ["--", "--", "--"] : parts(remaining);
+  const shown = urgent ? `${minutes}:${seconds}` : `${hours}:${minutes}`;
   return (
     <span
-      className={`inline-flex items-center gap-2 rounded-full border-2 border-ink px-3 py-1 font-mono text-[0.7rem] tabular-nums ${
-        urgent ? "bg-hot text-white" : "bg-card"
-      }`}
+      className="inline-flex items-center gap-2"
       title={utc ? "Time left in today's race (midnight UTC)" : "Time left to ship today, in your time zone"}
     >
-      <span aria-hidden="true" className={`size-2 rounded-full ${urgent ? "animate-pulse bg-white" : "bg-slop"}`} />
-      <span className="sr-only">{utc ? "Time left in today's race:" : "Time left today:"}</span>
-      <span suppressHydrationWarning>{remaining === null ? "--:--:--" : format(remaining)}</span>
-      {!compact && <span className="hidden uppercase sm:inline">{label}</span>}
+      <span className="sr-only" suppressHydrationWarning>
+        {utc ? "Time left in today's race:" : "Time left today:"} {hours}:{minutes}:{seconds}
+      </span>
+      <Tiles value={shown} className={`${className} ${urgent ? "tiles-urgent" : ""}`} />
+      <span className="text-sm leading-tight font-bold text-muted" aria-hidden="true">
+        {label}
+      </span>
     </span>
   );
 }

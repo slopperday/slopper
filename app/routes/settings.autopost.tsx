@@ -103,40 +103,32 @@ export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "
 export default function Autopost({ loaderData }: Route.ComponentProps) {
   const { accounts } = loaderData;
   return (
-    <section className="mx-auto max-w-3xl px-4 py-12">
+    <section className="mx-auto max-w-3xl px-4 pt-10">
       <SettingsNav />
-      <h1 className="font-wide mt-6 text-4xl font-black">Auto-post</h1>
-      <p className="mt-3 max-w-2xl text-muted">
+      <h1 className="title-1 mt-10">Auto-post</h1>
+      <p className="lede mt-4 max-w-2xl">
         Connected accounts post your launches and updates for you. Connect as many X accounts as you like: give each app
         its own account to <strong className="text-ink">post</strong>, and let your personal account{" "}
         <strong className="text-ink">repost</strong>. Each slop can override these defaults.
       </p>
 
       {accounts.length > 0 && (
-        <Form method="post" className="mt-8 grid gap-3">
+        <Form method="post" className="mt-10 grid gap-3">
           <input type="hidden" name="intent" value="modes" />
           {accounts.map((account) => {
             const expired = account.expiresAt !== null && Date.parse(account.expiresAt) < Date.now();
             return (
-              <div
-                key={account.id}
-                className="flex flex-wrap items-center gap-4 rounded-xl border-2 border-ink bg-card p-4"
-              >
+              <div key={account.id} className="panel flex flex-wrap items-center gap-4 p-4">
                 {account.avatarUrl ? (
-                  <img
-                    src={account.avatarUrl}
-                    alt=""
-                    className="size-10 rounded-full border-2 border-ink"
-                    referrerPolicy="no-referrer"
-                  />
+                  <img src={account.avatarUrl} alt="" className="size-10 rounded-full" referrerPolicy="no-referrer" />
                 ) : (
-                  <span className="grid size-10 place-items-center rounded-full border-2 border-ink bg-wall-deep font-display">
+                  <span className="grid size-10 place-items-center rounded-full bg-raised font-display text-lg font-extrabold">
                     {NETWORK_LABELS[account.provider].slice(0, 1)}
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold">{account.handle}</p>
-                  <p className="font-mono text-[0.68rem] tracking-wider text-muted uppercase">
+                  <p className="text-sm text-muted">
                     {NETWORK_LABELS[account.provider]}
                     {account.expiresAt && (
                       <span className={expired ? "text-hot" : ""}>
@@ -152,7 +144,7 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
               </div>
             );
           })}
-          <button type="submit" className="btn btn-slop justify-self-start">
+          <button type="submit" className="btn btn-slop mt-2 justify-self-start">
             Save defaults
           </button>
         </Form>
@@ -164,7 +156,7 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
         </Form>
       ))}
 
-      <h2 className="font-wide mt-14 text-2xl font-black">Connect</h2>
+      <h2 className="title-2 mt-16">Connect</h2>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <ConnectCard
           title="X"
@@ -178,10 +170,10 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
         />
       </div>
 
-      <Form method="post" className="mt-4 rounded-2xl border-2 border-ink bg-card p-5">
+      <Form method="post" className="panel mt-4">
         <input type="hidden" name="intent" value="bluesky" />
-        <h3 className="font-black">Bluesky</h3>
-        <p className="mt-1 text-sm text-muted">
+        <h3 className="font-display text-[1.6rem] leading-none font-extrabold">Bluesky</h3>
+        <p className="mt-2 text-[0.9375rem] text-muted">
           Use an{" "}
           <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener" className="underline">
             app password
@@ -209,8 +201,8 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
             Connect
           </button>
         </div>
-        <details className="mt-3 text-sm text-muted">
-          <summary className="cursor-pointer">Self-hosted PDS?</summary>
+        <details className="mt-3 text-[0.9375rem] text-muted">
+          <summary className="flex min-h-11 items-center hover:text-ink">Self-hosted PDS?</summary>
           <input
             name="service"
             type="url"
@@ -221,10 +213,10 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
         </details>
       </Form>
 
-      <p className="mt-10 rounded-xl border-2 border-dashed border-ink/40 p-4 text-sm text-muted">
+      <p className="mt-10 max-w-2xl text-muted">
         TikTok, Instagram, Threads and YouTube Shorts are next. They need app reviews before they'll post publicly.
         Until then every slop page has one-tap share buttons.{" "}
-        <Link to="/rules" className="underline">
+        <Link to="/rules" className="link">
           Rules
         </Link>{" "}
         apply to anything posted for you.
@@ -235,15 +227,15 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
 
 function ConnectCard({ title, body, href }: { title: string; body: string; href: string | null }) {
   return (
-    <div className="flex flex-col rounded-2xl border-2 border-ink bg-card p-5">
-      <h3 className="font-black">{title}</h3>
-      <p className="mt-1 flex-1 text-sm text-muted">{body}</p>
+    <div className="panel flex flex-col">
+      <h3 className="font-display text-[1.6rem] leading-none font-extrabold">{title}</h3>
+      <p className="mt-2 flex-1 text-[0.9375rem] text-muted">{body}</p>
       {href ? (
-        <a href={href} className="btn btn-sm mt-4 self-start">
+        <a href={href} className="btn btn-ink btn-sm mt-4 self-start">
           Connect {title}
         </a>
       ) : (
-        <p className="mt-4 font-mono text-[0.68rem] tracking-wider text-muted uppercase">Not set up on this server</p>
+        <p className="mt-4 text-sm font-bold text-muted">Not set up on this server</p>
       )}
     </div>
   );

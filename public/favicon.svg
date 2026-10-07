@@ -1,9 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <path
-    d="M6.5 15c0-4.6 3.1-8 6.6-8 1.9 0 2.9 1.1 3.9 1.1 1.2 0 2.1-2.3 5-2.3 3.3 0 4.5 3.4 4.5 6.1V15z"
-    fill="#e2321a"
-  />
-  <circle cx="12" cy="10.5" r="1.4" fill="#f2b705" />
-  <path d="M3 14.5h26c0 7.2-5.8 13-13 13s-13-5.8-13-13z" fill="#1c1712" />
-  <path d="M20.5 14.5h4.2v5.2a2.1 2.1 0 1 1-4.2 0z" fill="#e2321a" />
+  <title>Slopper</title>
+  <style>
+    .tile { fill: #161a13; }
+    .bang { fill: #9be22d; }
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: #b4f23c; }
+      .bang { fill: #161a13; }
+    }
+  </style>
+  <rect class="tile" width="32" height="32" rx="7" />
+  <g class="bang" transform="translate(1.05 1.75) scale(0.46)">
+    <path d="M44.1 12.1Q43.1 9.8 42.3 7Q41.4 4.2 38.6 4Q35.8 3.8 33 3.1Q30.3 2.4 28.1 4.1Q26 5.9 23.2 7.4Q20.4 8.9 20.6 11.7Q20.8 14.5 22.1 17.1Q23.4 19.8 25.5 22Q27.6 24.2 33 24.2Q38.4 24.2 40.5 22Q42.6 19.8 43.8 17.1Q45 14.5 44.1 12.1ZM22.8 16.4L23.8 40.2A4.2 4.2 0 0 0 31.8 41.8L42.2 20.5A10.2 10.2 0 1 0 22.8 16.4Z" />
+    <path d="M19.8 54a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z" />
+  </g>
 </svg>

@@ -11,7 +11,7 @@ import { announce, retryFailed, summarize } from "~/.server/social/announce";
 import { modeFor } from "~/.server/social/crosspost";
 import { shareIntents } from "~/lib/compose";
 import { formatDay, localDate, timeAgo } from "~/lib/dates";
-import { dayLabel, launchTitle, numberLabel, slopPath } from "~/lib/display";
+import { dayLabel, launchTitle, numberLabel, plural, slopPath } from "~/lib/display";
 import { parseAmount } from "~/lib/money";
 import {
   COST_CATEGORIES,
@@ -30,8 +30,16 @@ import { seo } from "~/lib/seo";
 import { Avatar } from "~/components/Avatar";
 import { CrosspostReceipts } from "~/components/Autopost";
 import { Markdown, ShareBox } from "~/components/Shared";
-import { CategoryChip, PlatformChips, SlopcessfulChip, SlopOfTheDayChip } from "~/components/SlopBits";
-import { UPDATE_KIND_STYLES } from "~/components/UpdatesList";
+import {
+  CategoryLink,
+  LaunchLabelTag,
+  NsfwTag,
+  Platforms,
+  SlopcessfulTag,
+  SlopOfTheDayTag,
+} from "~/components/SlopBits";
+import { UPDATE_KIND_TONES } from "~/components/UpdatesList";
+import { Icon } from "~/components/Icon";
 import { VoteButtons } from "~/components/VoteButtons";
 import { TakeMyMoney } from "~/components/TakeMyMoney";
 import { MoneyLedger, MoneySummary } from "~/components/Money";
@@ -341,19 +349,27 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
   return (
     <>
       {slop.hidden && (
-        <p className="bg-hot px-4 py-2 text-center font-mono text-xs tracking-wider text-white uppercase">
+        <p className="bg-hot px-4 py-2.5 text-center font-bold text-hot-ink">
           {loaderData.heldForReview ? "Held for review" : "Hidden by a moderator"}. Only you
           {loaderData.isAdmin ? " and mods" : ""} can see this.
         </p>
       )}
 
       {search.get("new") === "1" && isOwner && (
-        <section className="border-b-2 border-ink bg-slop text-slop-ink">
+        <section className="bg-slop text-slop-ink">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-5">
-            <p className="font-bold">It's on the wall. Now tell people. Anything not auto-posted is one tap away:</p>
+            <p className="text-[1.125rem] font-bold">
+              It's on the wall. Now tell people. Anything not auto-posted is one tap away:
+            </p>
             <div className="flex flex-wrap gap-2">
               {(["x", "linkedin", "bluesky", "threads"] as const).map((network) => (
-                <a key={network} className="btn btn-sm" href={intents[network]} target="_blank" rel="noopener">
+                <a
+                  key={network}
+                  className="btn btn-sm bg-slop-ink text-slop hover:bg-slop-ink/85"
+                  href={intents[network]}
+                  target="_blank"
+                  rel="noopener"
+                >
                   {network === "x" ? "Post on X" : network[0].toUpperCase() + network.slice(1)}
                 </a>
               ))}
@@ -363,44 +379,26 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
       )}
 
       <article className="mx-auto max-w-6xl px-4 pt-10">
-        <nav className="eyebrow" aria-label="Breadcrumb">
-          <Link to={`/@${owner.username}`} className="hover:text-ink">
+        <nav className="text-muted" aria-label="Breadcrumb">
+          <Link to={`/@${owner.username}`} className="-my-3 inline-block py-3 font-bold hover:text-ink">
             @{owner.username}
           </Link>{" "}
           / {slop.slug}
         </nav>
 
-        <header className="stuck mt-6 px-5 pt-5 pb-6 sm:px-8">
-          <div className="tape" aria-hidden="true" />
-          <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[0.68rem] tracking-wider uppercase">
-            <span className="font-bold">Slop {numberLabel(slop)}</span>
-            <span className="text-muted">
-              {day ? `${day} · ` : ""}Launched {formatDay(slop.launchDate)}
-            </span>
-          </div>
-          <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div>
-              <h1 className="font-wide text-[clamp(2.2rem,6vw,4.2rem)] leading-[0.95] font-black tracking-tight">
-                {slop.name}
-                {slop.launchLabel && (
-                  <span className="ml-3 inline-block -translate-y-2 align-middle text-base">
-                    <span className="chip chip-beta px-3 py-1 text-xs">🚀 {slop.launchLabel}</span>
-                  </span>
-                )}
-              </h1>
-              <p className="mt-3 max-w-2xl text-lg text-muted sm:text-xl">{slop.tagline}</p>
-              <div className="mt-4 flex flex-wrap gap-1.5">
-                {slop.slopcessfulAt && <SlopcessfulChip />}
-                {slop.slopOfTheDay && <SlopOfTheDayChip date={slop.slopOfTheDay} />}
-                <PlatformChips links={slop.links} />
-                {slop.nsfw && <span className="chip chip-nsfw">NSFW</span>}
-                <CategoryChip category={slop.category} />
-                {slop.madeWith.map((tag) => (
-                  <span key={tag} className="chip border-line text-muted">
-                    {tag}
-                  </span>
-                ))}
-              </div>
+        <header className="mt-8">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div className="min-w-0">
+              <h1 className="display break-words">{slop.name}</h1>
+              <p className="mt-4 max-w-2xl text-[1.3rem] leading-snug text-muted sm:text-[1.5rem]">{slop.tagline}</p>
+              {(slop.launchLabel || slop.slopcessfulAt || slop.slopOfTheDay || slop.nsfw) && (
+                <p className="mt-5 flex flex-wrap gap-1.5">
+                  {slop.launchLabel && <LaunchLabelTag label={slop.launchLabel} />}
+                  {slop.slopOfTheDay && <SlopOfTheDayTag date={slop.slopOfTheDay} />}
+                  {slop.slopcessfulAt && <SlopcessfulTag />}
+                  {slop.nsfw && <NsfwTag />}
+                </p>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-3 lg:justify-end">
               <VoteButtons
@@ -412,42 +410,57 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
                 size="lg"
               />
               {primary && (
-                <a href={primary.url} target="_blank" rel="noopener" className="btn btn-slop">
-                  {LINK_KINDS[primary.kind].beta ? "Join the beta" : "Try it"} ↗
+                <a href={primary.url} target="_blank" rel="noopener" className="btn btn-slop btn-lg">
+                  {LINK_KINDS[primary.kind].beta ? "Join the beta" : "Try it"}
+                  <Icon name="out" className="size-5" />
                 </a>
               )}
             </div>
           </div>
           {slop.slopcessfulAt && slop.slopcessfulNote && (
-            <p className="mt-6 rounded-xl border-2 border-ink bg-gold px-4 py-3 font-bold text-[#151513]">
+            <p className="mt-8 rounded-2xl bg-gold-tint px-5 py-4 text-[1.125rem] font-bold">
               ★ Slopcessful: {slop.slopcessfulNote}
             </p>
           )}
+          <dl className="mt-8 flex flex-wrap gap-x-8 gap-y-3 border-y border-line py-4 text-[0.9375rem]">
+            <Fact label={`Slop ${numberLabel(slop)}`}>
+              {day ? `${day} · ` : ""}Launched {formatDay(slop.launchDate)}
+            </Fact>
+            <Fact label="Category">
+              <CategoryLink category={slop.category} />
+            </Fact>
+            {slop.links.length > 0 && (
+              <Fact label="Try it on">
+                <Platforms links={slop.links} />
+              </Fact>
+            )}
+            {slop.madeWith.length > 0 && <Fact label="Made with">{slop.madeWith.join(", ")}</Fact>}
+          </dl>
         </header>
 
         {slop.screenshots.length > 0 && (
-          <section className="relative mt-8" aria-label="Screenshots">
-            <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4">
+          <section className="relative mt-10" aria-label="Screenshots">
+            <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2">
               {slop.screenshots.map((url, index) => (
                 <a
                   key={url}
                   href={reveal ? url : "?reveal=1"}
                   target={reveal ? "_blank" : undefined}
                   rel="noopener"
-                  className="relative shrink-0 snap-start overflow-hidden rounded-xl border-2 border-ink bg-wall-deep hard-shadow-sm"
+                  className="relative shrink-0 snap-start overflow-hidden rounded-2xl bg-sunk"
                 >
                   <img
                     src={url}
                     alt={`${slop.name} screenshot ${index + 1}`}
                     loading={index === 0 ? "eager" : "lazy"}
-                    className={`h-64 w-auto max-w-[85vw] object-contain sm:h-80 ${reveal ? "" : "scale-110 blur-2xl"}`}
+                    className={`h-64 w-auto max-w-[85vw] object-contain sm:h-96 ${reveal ? "" : "scale-110 blur-2xl"}`}
                   />
                 </a>
               ))}
             </div>
             {!reveal && (
               <div className="absolute inset-0 grid place-items-center">
-                <a href="?reveal=1" className="btn btn-slop">
+                <a href="?reveal=1" className="btn btn-ink btn-lg">
                   NSFW · show anyway
                 </a>
               </div>
@@ -455,14 +468,14 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
           </section>
         )}
 
-        <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="mt-14 grid gap-x-16 gap-y-16 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0">
             {slop.description && (
               <section aria-labelledby="about">
-                <h2 id="about" className="eyebrow">
+                <h2 id="about" className="title-2">
                   About
                 </h2>
-                <Markdown html={loaderData.descriptionHtml} className="mt-3 text-[1.05rem]" />
+                <Markdown html={loaderData.descriptionHtml} className="mt-5 max-w-[68ch] text-[1.125rem]" />
               </section>
             )}
 
@@ -478,16 +491,25 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
   );
 }
 
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <dt className="text-muted">{label}</dt>
+      <dd className="font-bold">{children}</dd>
+    </div>
+  );
+}
+
 type LoaderData = View;
 
 function LaunchHistory({ loaderData }: { loaderData: LoaderData }) {
   return (
-    <section className="mt-12" aria-labelledby="launches-title">
-      <h2 id="launches-title" className="font-wide text-2xl font-black">
+    <section className="mt-16" aria-labelledby="launches-title">
+      <h2 id="launches-title" className="title-2">
         Launches
       </h2>
-      <p className="mt-1 text-sm text-muted">Every launch of {loaderData.slop.name} races on its own day.</p>
-      <ol className="mt-5 grid gap-2">
+      <p className="mt-2 text-muted">Every launch of {loaderData.slop.name} races on its own day.</p>
+      <ol className="mt-6 divide-y divide-line border-y border-line">
         {loaderData.launches.map((launch) => {
           const current = launch.id === loaderData.slop.id;
           return (
@@ -495,15 +517,17 @@ function LaunchHistory({ loaderData }: { loaderData: LoaderData }) {
               <Link
                 to={slopPath(loaderData.owner.username, launch.slug)}
                 aria-current={current ? "page" : undefined}
-                className={`flex flex-wrap items-center gap-3 rounded-xl border-2 border-ink px-4 py-3 text-sm ${
-                  current ? "bg-ink text-wall" : "bg-card hover:bg-wall-deep"
-                }`}
+                className="group flex min-h-14 flex-wrap items-center gap-x-4 gap-y-1 py-3"
               >
-                <span className="font-mono text-xs opacity-70">#{String(launch.number).padStart(4, "0")}</span>
-                <span className="font-black">{launch.title}</span>
-                <span className="opacity-70">{formatDay(launch.launchDate)}</span>
-                {launch.slopOfTheDay && <span>🏆</span>}
-                <span className="ml-auto font-mono text-xs">▲ {launch.upvotes}</span>
+                <span className="font-mono text-sm text-muted">#{String(launch.number).padStart(4, "0")}</span>
+                <span className={`font-bold group-hover:underline ${current ? "text-ink" : ""}`}>{launch.title}</span>
+                {current && <span className="tag">You're here</span>}
+                <span className="text-muted">{formatDay(launch.launchDate)}</span>
+                {launch.slopOfTheDay && <span className="tag tag-gold">Slop of the day</span>}
+                <span className="ml-auto inline-flex items-center gap-1 font-display text-[1.25rem] font-extrabold tabular-nums">
+                  <Icon name="up" className="size-4 text-muted" />
+                  {launch.upvotes}
+                </span>
               </Link>
             </li>
           );
@@ -516,37 +540,43 @@ function LaunchHistory({ loaderData }: { loaderData: LoaderData }) {
 function Updates({ loaderData }: { loaderData: LoaderData }) {
   const { updates, isOwner } = loaderData;
   return (
-    <section id="updates" className="mt-12 scroll-mt-24" aria-labelledby="updates-title">
-      <div className="flex items-end justify-between">
-        <h2 id="updates-title" className="font-wide text-2xl font-black">
+    <section id="updates" className="mt-16 scroll-mt-24" aria-labelledby="updates-title">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 id="updates-title" className="title-2">
           Updates
         </h2>
-        <span className="font-mono text-xs text-muted">{updates.length}</span>
+        <span className="text-muted">{plural(updates.length, "update", "updates")}</span>
       </div>
       {isOwner && (
-        <div className="mt-5 grid gap-3">
+        <div className="mt-6 grid gap-3">
           <AgentPrompt prompt={(origin) => updatePrompt(origin, loaderData.slop.slug)} />
           <UpdateComposer autopostCount={loaderData.autopostCount} />
         </div>
       )}
-      <ol className="mt-6 border-l-2 border-dashed border-ink/30 pl-6">
+      <ol className="mt-8 grid gap-0">
         {updates.map((update) => (
-          <li key={update.id} id={`update-${update.id}`} className="relative mb-8 scroll-mt-24">
+          <li
+            key={update.id}
+            id={`update-${update.id}`}
+            className="relative scroll-mt-24 border-l border-line-strong pb-9 pl-6 last:pb-2"
+          >
             <span
               aria-hidden="true"
-              className={`absolute top-1 -left-[33px] size-4 rounded-full border-2 border-ink ${UPDATE_KIND_STYLES[update.kind]}`}
+              className={`absolute top-[0.45rem] -left-[5px] size-[9px] rounded-full ${
+                update.kind === "launch" ? "bg-slop" : update.kind === "slopcessful" ? "bg-gold" : "bg-ink"
+              }`}
             />
-            <p className="flex flex-wrap items-center gap-2 font-mono text-[0.68rem] tracking-wider uppercase">
-              <span className="font-bold">{UPDATE_KINDS[update.kind].label}</span>
-              <span className="text-muted">· {timeAgo(update.createdAt)}</span>
+            <p className="flex flex-wrap items-baseline gap-x-2.5">
+              <span className={`caps ${UPDATE_KIND_TONES[update.kind]}`}>{UPDATE_KINDS[update.kind].label}</span>
+              <span className="text-sm text-muted">{timeAgo(update.createdAt)}</span>
             </p>
-            {update.html && <Markdown html={update.html} className="mt-2" />}
+            {update.html && <Markdown html={update.html} className="mt-2 max-w-[68ch]" />}
             {isOwner && update.crossposts.length > 0 && <CrosspostReceipts update={update} />}
             {isOwner && update.kind !== "launch" && (
-              <Form method="post" className="mt-2">
+              <Form method="post" className="mt-1">
                 <input type="hidden" name="intent" value="delete-update" />
                 <input type="hidden" name="id" value={update.id} />
-                <button type="submit" className="text-xs text-muted underline hover:text-hot">
+                <button type="submit" className="min-h-11 text-sm text-muted underline hover:text-hot">
                   Delete
                 </button>
               </Form>
@@ -570,9 +600,9 @@ function UpdateComposer({ autopostCount }: { autopostCount: number }) {
   const initial = search.get("kind");
   const [kind, setKind] = useState<PostableUpdateKind>(initial && isPostableUpdateKind(initial) ? initial : "update");
   return (
-    <Form method="post" className="mt-5 rounded-2xl border-2 border-ink bg-card p-4 sm:p-5">
+    <Form method="post" className="panel">
       <input type="hidden" name="intent" value="update" />
-      <fieldset className="flex flex-wrap gap-2">
+      <fieldset className="flex flex-wrap gap-1.5">
         <legend className="sr-only">Kind of update</legend>
         {POSTABLE_UPDATE_KINDS.map((option) => (
           <label key={option} className="cursor-pointer">
@@ -584,14 +614,14 @@ function UpdateComposer({ autopostCount }: { autopostCount: number }) {
               onChange={() => setKind(option)}
               className="peer sr-only"
             />
-            <span className="chip px-3 py-1 peer-checked:bg-ink peer-checked:text-wall peer-focus-visible:outline-2">
+            <span className="flex min-h-10 items-center rounded-lg px-3 font-bold text-muted transition-colors peer-checked:bg-ink peer-checked:text-ground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--focus) hover:text-ink">
               {UPDATE_KINDS[option].label}
             </span>
           </label>
         ))}
       </fieldset>
       {kind === "field" && (
-        <p className="mt-3 text-sm text-muted">
+        <p className="mt-3 text-[0.9375rem] text-muted">
           Who tried it in real life, and what did they say? Field tests count extra in the rankings.
         </p>
       )}
@@ -608,16 +638,19 @@ function UpdateComposer({ autopostCount }: { autopostCount: number }) {
       />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         {autopostCount > 0 ? (
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="autopost" defaultChecked className="size-4 accent-[var(--slop-deep)]" />
+          <label className="flex min-h-11 items-center gap-2">
+            <input type="checkbox" name="autopost" defaultChecked className="size-4" />
             Auto-post ({autopostCount} account{autopostCount === 1 ? "" : "s"})
           </label>
         ) : (
-          <Link to="/settings/autopost" className="text-sm text-muted underline">
+          <Link
+            to="/settings/autopost"
+            className="inline-flex min-h-11 items-center text-muted underline hover:text-ink"
+          >
             Connect X, LinkedIn or Bluesky
           </Link>
         )}
-        <button type="submit" className="btn btn-slop btn-sm">
+        <button type="submit" className="btn btn-slop">
           Post update
         </button>
       </div>
@@ -634,10 +667,12 @@ const OUTSIDE_IDEAS = [
 
 function GoOutside({ path }: { path: string }) {
   return (
-    <section className="rounded-2xl border-2 border-ink bg-[#5ec8ff] p-5 text-[#151513]">
-      <h2 className="font-mono text-[0.6875rem] tracking-[0.08em] uppercase">Go outside</h2>
-      <p className="mt-2 font-black">Slop gets better when real people touch it. Today, try one:</p>
-      <ul className="mt-3 grid list-disc gap-1.5 pl-5 text-sm">
+    <section aria-labelledby="outside-title">
+      <h2 id="outside-title" className="font-display text-[1.75rem] leading-none font-extrabold">
+        Go outside
+      </h2>
+      <p className="mt-2">Slop gets better when real people touch it. Today, try one:</p>
+      <ul className="mt-3 grid list-disc gap-1.5 pl-5 text-[0.9375rem] marker:text-muted">
         {OUTSIDE_IDEAS.map((idea) => (
           <li key={idea}>{idea}</li>
         ))}
@@ -652,42 +687,36 @@ function GoOutside({ path }: { path: string }) {
 function Feedback({ loaderData, path }: { loaderData: LoaderData; path: string }) {
   const { comments } = loaderData;
   return (
-    <section id="feedback" className="mt-6 scroll-mt-24" aria-labelledby="feedback-title">
-      <h2 id="feedback-title" className="font-wide text-2xl font-black">
+    <section id="feedback" className="mt-16 scroll-mt-24" aria-labelledby="feedback-title">
+      <h2 id="feedback-title" className="title-2">
         Feedback
       </h2>
-      <ol className="mt-5 grid gap-3">
+      <ol className="mt-6 grid gap-3">
         {comments.length === 0 && (
-          <li className="rounded-xl border-2 border-dashed border-ink/40 p-5 text-sm text-muted">
+          <li className="rounded-2xl bg-sunk p-5 text-muted">
             Nothing yet. Tried it? Say what worked, what broke, or just tell them it's good.
           </li>
         )}
         {comments.map((comment) => (
-          <li
-            key={comment.id}
-            id={`comment-${comment.id}`}
-            className={`scroll-mt-24 rounded-xl border-2 border-ink p-4 ${
-              comment.kind === "kudos" ? "bg-slop text-slop-ink" : "bg-card"
-            }`}
-          >
-            <div className="flex items-center gap-2 text-sm">
+          <li key={comment.id} id={`comment-${comment.id}`} className="scroll-mt-24 rounded-2xl bg-sunk p-4 sm:p-5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               {comment.author && <Avatar user={comment.author} size="xs" />}
               {comment.author ? (
-                <Link to={`/@${comment.author.username}`} className="font-bold hover:underline">
+                <Link to={`/@${comment.author.username}`} className="-my-2.5 py-2.5 font-bold hover:underline">
                   @{comment.author.username}
                 </Link>
               ) : (
                 <span className="font-bold">Deleted account</span>
               )}
-              {comment.kind === "kudos" && <span className="chip border-slop-ink">🔥 This is good</span>}
-              <span className="ml-auto font-mono text-[0.65rem] opacity-70">{timeAgo(comment.createdAt)}</span>
+              {comment.kind === "kudos" && <span className="tag bg-ink text-ground">This is good</span>}
+              <span className="ml-auto text-sm text-muted">{timeAgo(comment.createdAt)}</span>
             </div>
-            <Markdown html={comment.html} className="mt-2 text-sm" />
+            <Markdown html={comment.html} className="mt-2" />
             {comment.canDelete && (
-              <Form method="post" className="mt-1 text-right">
+              <Form method="post" className="text-right">
                 <input type="hidden" name="intent" value="delete-comment" />
                 <input type="hidden" name="id" value={comment.id} />
-                <button type="submit" className="text-xs underline opacity-70 hover:opacity-100">
+                <button type="submit" className="min-h-11 text-sm text-muted underline hover:text-ink">
                   Delete
                 </button>
               </Form>
@@ -696,9 +725,9 @@ function Feedback({ loaderData, path }: { loaderData: LoaderData; path: string }
         ))}
       </ol>
       {loaderData.signedIn ? (
-        <Form method="post" className="mt-5 rounded-2xl border-2 border-ink bg-card p-4">
+        <Form method="post" className="mt-6">
           <input type="hidden" name="intent" value="comment" />
-          <label htmlFor="comment-body" className="sr-only">
+          <label htmlFor="comment-body" className="field-label">
             Your feedback
           </label>
           <textarea
@@ -706,20 +735,20 @@ function Feedback({ loaderData, path }: { loaderData: LoaderData; path: string }
             name="body"
             required
             maxLength={LIMITS.commentLength}
-            className="input min-h-24"
+            className="input min-h-28"
             placeholder="What worked? What broke? What should it do next?"
           />
           <div className="mt-3 flex flex-wrap justify-end gap-2">
-            <button type="submit" name="kind" value="kudos" className="btn btn-sm">
+            <button type="submit" name="kind" value="kudos" className="btn">
               🔥 This is good
             </button>
-            <button type="submit" name="kind" value="feedback" className="btn btn-slop btn-sm">
+            <button type="submit" name="kind" value="feedback" className="btn btn-ink">
               Leave feedback
             </button>
           </div>
         </Form>
       ) : (
-        <Link to={`/login?returnTo=${encodeURIComponent(`${path}#feedback`)}`} className="btn mt-5">
+        <Link to={`/login?returnTo=${encodeURIComponent(`${path}#feedback`)}`} className="btn btn-lg mt-6">
           Sign in to leave feedback
         </Link>
       )}
@@ -730,32 +759,38 @@ function Feedback({ loaderData, path }: { loaderData: LoaderData; path: string }
 function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string }) {
   const { owner, slop, isOwner, signedIn } = loaderData;
   return (
-    <aside className="grid content-start gap-6 lg:sticky lg:top-24 lg:self-start">
-      <section className="rounded-2xl border-2 border-ink bg-card p-5">
-        <h2 className="eyebrow">Made by</h2>
-        <Link to={`/@${owner.username}`} className="mt-3 flex items-center gap-3 hover:underline">
+    <aside className="grid content-start gap-10 lg:sticky lg:top-24 lg:self-start">
+      <section aria-labelledby="maker-title">
+        <h2 id="maker-title" className="caps">
+          Made by
+        </h2>
+        <Link to={`/@${owner.username}`} className="group mt-3 flex items-center gap-3">
           <Avatar user={owner} size="md" />
-          <span>
-            <span className="block font-black">{owner.displayName}</span>
-            <span className="block font-mono text-xs text-muted">@{owner.username}</span>
+          <span className="min-w-0">
+            <span className="block truncate font-bold group-hover:underline">{owner.displayName}</span>
+            <span className="block truncate text-muted">@{owner.username}</span>
           </span>
         </Link>
-        <div className="mt-4 grid gap-2">
-          {slop.links.map((link) => (
-            <a
-              key={link.url}
-              href={link.url}
-              target="_blank"
-              rel="noopener"
-              className="flex items-center justify-between gap-3 rounded-lg border-2 border-ink px-3 py-2 text-sm font-bold hover:bg-wall-deep"
-            >
-              <span>{LINK_KINDS[link.kind].label}</span>
-              <span className="truncate font-mono text-[0.65rem] font-normal text-muted">
-                {new URL(link.url).hostname}
-              </span>
-            </a>
-          ))}
-        </div>
+        {slop.links.length > 0 && (
+          <ul className="mt-5 divide-y divide-line border-y border-line">
+            {slop.links.map((link) => (
+              <li key={link.url}>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener"
+                  className="group flex min-h-12 items-center justify-between gap-3"
+                >
+                  <span className="font-bold group-hover:underline">{LINK_KINDS[link.kind].label}</span>
+                  <span className="flex min-w-0 items-center gap-1 text-sm text-muted">
+                    <span className="truncate">{new URL(link.url).hostname}</span>
+                    <Icon name="out" className="size-4" />
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <TakeMyMoney
@@ -783,35 +818,39 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
       {isOwner && <GoOutside path={path} />}
 
       {isOwner && (
-        <section id="slopcessful" className="scroll-mt-24 rounded-2xl border-2 border-ink bg-card p-5">
-          <h2 className="eyebrow">Slopcessful?</h2>
+        <section id="slopcessful" className="scroll-mt-24" aria-labelledby="slopcessful-title">
+          <h2 id="slopcessful-title" className="caps">
+            Slopcessful?
+          </h2>
           {slop.slopcessfulAt ? (
-            <Form method="post" className="mt-3">
+            <Form method="post" className="mt-2">
               <input type="hidden" name="intent" value="unslopcessful" />
-              <p className="text-sm">Marked {formatDay(new Date(slop.slopcessfulAt).toISOString().slice(0, 10))}.</p>
-              <button type="submit" className="mt-2 text-xs text-muted underline">
+              <p>Marked {formatDay(new Date(slop.slopcessfulAt).toISOString().slice(0, 10))}.</p>
+              <button type="submit" className="min-h-11 text-sm text-muted underline hover:text-ink">
                 Remove the badge
               </button>
             </Form>
           ) : (
-            <Form method="post" className="mt-3 grid gap-2">
+            <Form method="post" className="mt-2 grid gap-2.5">
               <input type="hidden" name="intent" value="slopcessful" />
-              <p className="text-sm text-muted">Did this one break out? Users, revenue, a post that blew up?</p>
+              <p className="text-[0.9375rem] text-muted">
+                Did this one break out? Users, revenue, a post that blew up?
+              </p>
               <input
                 name="note"
-                className="input text-sm"
+                className="input"
                 required
                 maxLength={LIMITS.slopcessfulNoteLength}
                 placeholder="10k users in a week"
                 aria-label="What happened"
               />
               {loaderData.autopostCount > 0 && (
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="autopost" defaultChecked className="size-4 accent-[var(--slop-deep)]" />
+                <label className="flex min-h-11 items-center gap-2">
+                  <input type="checkbox" name="autopost" defaultChecked className="size-4" />
                   Auto-post it
                 </label>
               )}
-              <button type="submit" className="btn btn-gold btn-sm">
+              <button type="submit" className="btn btn-gold">
                 ★ Mark slopcessful
               </button>
             </Form>
@@ -820,19 +859,21 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
       )}
 
       {isOwner && (
-        <section className="rounded-2xl border-2 border-ink bg-card p-5">
-          <h2 className="eyebrow">Your slop</h2>
+        <section aria-labelledby="yours-title">
+          <h2 id="yours-title" className="caps">
+            Your slop
+          </h2>
           <div className="mt-3 grid gap-2">
-            <Link to={`/new?from=${slop.id}`} className="btn btn-slop btn-sm">
+            <Link to={`/new?from=${slop.id}`} className="btn btn-slop">
               🚀 Launch again
             </Link>
-            <Link to={`${path}/edit`} className="btn btn-sm">
+            <Link to={`${path}/edit`} className="btn">
               Edit details
             </Link>
-            <Link to={`${path}/edit#autopost`} className="btn btn-sm">
+            <Link to={`${path}/edit#autopost`} className="btn">
               Auto-post for this slop
             </Link>
-            <a href={`/api/slops/${slop.id}`} className="btn btn-quiet btn-sm">
+            <a href={`/api/slops/${slop.id}`} className="btn btn-quiet">
               JSON
             </a>
           </div>
@@ -840,14 +881,16 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
       )}
 
       {loaderData.isAdmin && (
-        <Form method="post" className="rounded-2xl border-2 border-hot p-5">
-          <h2 className="eyebrow text-hot">Moderation</h2>
+        <Form method="post" className="rounded-2xl bg-hot-tint p-5" aria-labelledby="moderation-title">
+          <h2 id="moderation-title" className="caps text-ink">
+            Moderation
+          </h2>
           <input type="hidden" name="intent" value={slop.hidden ? "unhide" : "hide"} />
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <button type="submit" className="btn btn-sm">
+            <button type="submit" className="btn btn-sm bg-raised">
               {slop.hidden ? "Unhide" : "Hide from Slopper"}
             </button>
-            <Link to="/mod" className="text-sm underline">
+            <Link to="/mod" className="link inline-flex min-h-11 items-center">
               Flag queue
             </Link>
           </div>
@@ -861,21 +904,19 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
 
 function FlagForm({ flagged }: { flagged: boolean }) {
   if (flagged) {
-    return (
-      <p className="rounded-2xl border-2 border-dashed border-ink/40 p-4 text-sm text-muted">
-        You flagged this. A moderator will look at it.
-      </p>
-    );
+    return <p className="text-[0.9375rem] text-muted">You flagged this. A moderator will look at it.</p>;
   }
   return (
-    <details className="rounded-2xl border-2 border-dashed border-ink/40 p-4 text-sm">
-      <summary className="cursor-pointer font-bold">Flag as inappropriate</summary>
-      <Form method="post" className="mt-3 grid gap-3">
+    <details className="border-t border-line pt-3 text-[0.9375rem]">
+      <summary className="flex min-h-11 items-center font-bold text-muted hover:text-ink">
+        Flag as inappropriate
+      </summary>
+      <Form method="post" className="mt-2 grid gap-3">
         <input type="hidden" name="intent" value="flag" />
-        <fieldset className="grid gap-1.5">
+        <fieldset className="grid gap-1">
           <legend className="sr-only">What's wrong with it?</legend>
           {FLAG_REASONS.map((reason, index) => (
-            <label key={reason} className="flex items-center gap-2">
+            <label key={reason} className="flex min-h-9 items-center gap-2">
               <input type="radio" name="reason" value={reason} required defaultChecked={index === 0} />
               {reason}
             </label>
@@ -887,11 +928,11 @@ function FlagForm({ flagged }: { flagged: boolean }) {
         <textarea
           id="flag-details"
           name="details"
-          className="input min-h-16 text-sm"
+          className="input min-h-20"
           maxLength={400}
           placeholder="Anything a moderator should know (optional)"
         />
-        <button type="submit" className="btn btn-sm">
+        <button type="submit" className="btn btn-sm justify-self-start">
           Flag it
         </button>
       </Form>

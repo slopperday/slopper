@@ -36,8 +36,10 @@ export function ShareBox({ intents, url }: { intents: ReturnType<typeof shareInt
     { href: intents.threads, label: "Threads" },
   ];
   return (
-    <section className="rounded-2xl border-2 border-ink bg-card p-5">
-      <h2 className="eyebrow">Share it</h2>
+    <section aria-labelledby="share-title">
+      <h2 id="share-title" className="caps">
+        Share it
+      </h2>
       <div className="mt-3 grid grid-cols-2 gap-2">
         {targets.map((target) => (
           <a key={target.label} href={target.href} target="_blank" rel="noopener" className="btn btn-sm">
@@ -59,15 +61,15 @@ export function SettingsNav() {
     { to: "/settings/api", label: "API & MCP" },
   ];
   return (
-    <nav className="flex gap-2" aria-label="Settings">
+    <nav className="scrollbar-none flex overflow-x-auto border-b border-line" aria-label="Settings">
       {tabs.map((tab) => (
         <NavLink
           key={tab.to}
           to={tab.to}
           end
           className={({ isActive }) =>
-            `rounded-full border-2 border-ink px-4 py-1.5 font-mono text-xs tracking-wider uppercase ${
-              isActive ? "bg-ink text-wall" : "bg-card hover:bg-wall-deep"
+            `relative flex min-h-11 shrink-0 items-center px-3 font-bold whitespace-nowrap first:pl-0 after:absolute after:right-3 after:bottom-0 after:left-3 after:h-[3px] after:rounded-t-full first:after:left-0 ${
+              isActive ? "text-ink after:bg-slop" : "text-muted hover:text-ink"
             }`
           }
         >
@@ -79,5 +81,5 @@ export function SettingsNav() {
 }
 
 export function EmptyState({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-2xl border-2 border-dashed border-ink/40 p-10 text-center text-muted">{children}</div>;
+  return <div className="rounded-2xl bg-sunk px-6 py-12 text-center text-muted">{children}</div>;
 }

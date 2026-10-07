@@ -5,6 +5,7 @@ import { markdownToPlain } from "~/lib/compose";
 import { slopPath } from "~/lib/display";
 import { timeAgo } from "~/lib/dates";
 import { Avatar } from "./Avatar";
+import { EmptyState } from "./Shared";
 
 export interface UpdateEntry {
   update: { id: string; kind: UpdateKind; body: string; createdAt: number };
@@ -12,45 +13,42 @@ export interface UpdateEntry {
   owner: PublicUser;
 }
 
-export const UPDATE_KIND_STYLES: Record<UpdateKind, string> = {
-  launch: "bg-ink text-wall",
-  update: "bg-card",
-  feature: "bg-slop text-slop-ink",
-  field: "bg-[#5ec8ff] text-[#151513]",
-  repromote: "bg-card",
-  slopcessful: "bg-gold text-[#151513]",
+/** Launches and slopcessful moments get their colour; everything else stays ink. */
+export const UPDATE_KIND_TONES: Record<UpdateKind, string> = {
+  launch: "text-slop-text",
+  update: "text-muted",
+  feature: "text-muted",
+  field: "text-muted",
+  repromote: "text-muted",
+  slopcessful: "text-gold-text",
 };
 
 /** Recent updates across every slop. */
 export function UpdatesList({ entries }: { entries: UpdateEntry[] }) {
   if (entries.length === 0) {
-    return (
-      <p className="mt-5 rounded-xl border-2 border-dashed border-ink/40 p-6 text-sm text-muted">
-        No updates yet. New features, fixes and re-promotes show up here.
-      </p>
-    );
+    return <EmptyState>No updates yet. New features, fixes and re-promotes show up here.</EmptyState>;
   }
   return (
-    <ol className="mt-5 grid gap-3">
+    <ol className="divide-y divide-line border-y border-line">
       {entries.map(({ update, slop, owner }) => (
-        <li
-          key={update.id}
-          className="relative flex gap-3 rounded-xl border-2 border-ink bg-card p-4 transition-transform hover:-translate-y-0.5"
-        >
+        <li key={update.id} className="group relative flex gap-3 py-4">
           <Avatar user={owner} size="sm" />
           <div className="min-w-0 flex-1">
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-              <span className="font-bold">@{owner.username}</span>
-              <span className={`chip ${UPDATE_KIND_STYLES[update.kind]}`}>{UPDATE_KINDS[update.kind].label}</span>
+            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <Link
                 to={`${slopPath(owner.username, slop.slug)}#update-${update.id}`}
-                className="font-black after:absolute after:inset-0 after:content-['']"
+                className="font-bold after:absolute after:inset-0 after:content-[''] group-hover:underline"
               >
                 {slop.name}
               </Link>
-              <span className="ml-auto font-mono text-[0.65rem] text-muted">{timeAgo(update.createdAt)}</span>
+              <span className={`caps text-[0.85rem] ${UPDATE_KIND_TONES[update.kind]}`}>
+                {UPDATE_KINDS[update.kind].label}
+              </span>
+              <span className="ml-auto text-sm text-muted">{timeAgo(update.createdAt)}</span>
             </p>
-            <p className="mt-1.5 line-clamp-2 text-sm text-muted">{markdownToPlain(update.body)}</p>
+            <p className="mt-0.5 line-clamp-2 text-muted">
+              <span className="font-bold text-ink">@{owner.username}</span> {markdownToPlain(update.body)}
+            </p>
           </div>
         </li>
       ))}

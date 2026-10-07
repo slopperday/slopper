@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Icon } from "./Icon";
 
 export interface Screenshot {
   id: string;
@@ -65,18 +66,18 @@ export function ScreenshotPicker({ initial, max }: { initial: readonly Screensho
       ))}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {shots.map((shot, index) => (
-          <figure key={shot.id} className="relative overflow-hidden rounded-lg border-2 border-ink bg-wall-deep">
+          <figure key={shot.id} className="relative overflow-hidden rounded-xl bg-sunk">
             <img
               src={shot.url}
               alt={`Screenshot ${index + 1}`}
               className="aspect-[16/10] w-full object-cover object-top"
             />
-            {index === 0 && <span className="chip chip-beta absolute top-2 left-2">Cover</span>}
-            <figcaption className="absolute inset-x-0 bottom-0 flex justify-end gap-1 bg-gradient-to-t from-black/60 p-2">
+            {index === 0 && <span className="tag absolute top-2 left-2 bg-ink text-ground">Cover</span>}
+            <figcaption className="absolute inset-x-0 bottom-0 flex justify-end gap-1 bg-gradient-to-t from-black/55 p-2">
               {index > 0 && (
                 <button
                   type="button"
-                  className="btn btn-sm min-h-0 px-2 py-1 text-xs"
+                  className="btn btn-sm min-h-9 bg-raised px-2.5 text-sm"
                   onClick={() => setShots((current) => [shot, ...current.filter((value) => value.id !== shot.id)])}
                 >
                   Make cover
@@ -84,11 +85,11 @@ export function ScreenshotPicker({ initial, max }: { initial: readonly Screensho
               )}
               <button
                 type="button"
-                className="btn btn-sm min-h-0 px-2 py-1 text-xs"
+                className="btn btn-sm min-h-9 bg-raised px-2.5"
                 onClick={() => setShots((current) => current.filter((value) => value.id !== shot.id))}
                 aria-label={`Remove screenshot ${index + 1}`}
               >
-                ✕
+                <Icon name="close" className="size-4" />
               </button>
             </figcaption>
           </figure>
@@ -96,15 +97,15 @@ export function ScreenshotPicker({ initial, max }: { initial: readonly Screensho
         {Array.from({ length: pending }, (_, index) => (
           <div
             key={`pending-${index}`}
-            className="grid aspect-[16/10] animate-pulse place-items-center rounded-lg border-2 border-dashed border-ink/50 font-mono text-xs text-muted"
+            className="grid aspect-[16/10] animate-pulse place-items-center rounded-xl bg-sunk text-sm text-muted"
           >
             uploading…
           </div>
         ))}
         {shots.length + pending < max && (
-          <label className="grid aspect-[16/10] cursor-pointer place-items-center rounded-lg border-2 border-dashed border-ink/50 text-center text-sm text-muted transition-colors hover:border-ink hover:bg-card">
-            <span>
-              <span className="block font-display text-3xl text-slop-deep">+</span>
+          <label className="grid aspect-[16/10] cursor-pointer place-items-center rounded-xl border border-dashed border-line-strong text-center font-bold text-muted transition-colors focus-within:border-(--focus) hover:border-ink hover:text-ink">
+            <span className="grid justify-items-center gap-1">
+              <Icon name="plus" className="size-6" />
               Add screenshots
             </span>
             <input

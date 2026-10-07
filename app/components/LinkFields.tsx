@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { LINK_KINDS, type SlopLink } from "~/lib/model";
+import { Icon } from "./Icon";
 
 interface Row {
   key: number;
@@ -68,14 +69,14 @@ export function LinkFields({ initial, max }: { initial: readonly SlopLink[]; max
               disabled={rows.length === 1}
               onClick={() => setRows((current) => current.filter((other) => other.key !== row.key))}
             >
-              ✕
+              <Icon name="close" className="size-4" />
             </button>
           </div>
         );
       })}
       {rows.length < max && (
         <button type="button" className="btn btn-sm justify-self-start" onClick={add}>
-          + Add a link
+          <Icon name="plus" className="size-4" /> Add a link
         </button>
       )}
     </div>

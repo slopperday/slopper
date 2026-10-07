@@ -2,6 +2,7 @@ import { Form, Link, NavLink } from "react-router";
 import { NotificationsBell } from "./NotificationsBell";
 import { Avatar } from "./Avatar";
 import { Countdown } from "./Countdown";
+import { Icon } from "./Icon";
 import { Wordmark } from "./Logo";
 
 const NAV = [
@@ -11,9 +12,10 @@ const NAV = [
   { to: "/streaks", label: "Streaks" },
 ];
 
+/** Full-height links; the active one sits on a lime bar along the header's edge. */
 function navClass({ isActive }: { isActive: boolean }) {
-  return `rounded-full px-3 py-1.5 font-mono text-xs uppercase tracking-wider ${
-    isActive ? "bg-ink text-wall" : "hover:bg-wall-deep"
+  return `relative flex h-full shrink-0 items-center px-1.5 text-[0.875rem] font-bold whitespace-nowrap transition-colors after:absolute after:inset-x-1.5 after:bottom-0 after:h-[3px] after:rounded-t-full min-[430px]:px-2.5 min-[430px]:text-[0.9375rem] min-[430px]:after:inset-x-2.5 md:px-3 md:after:inset-x-3 ${
+    isActive ? "text-ink after:bg-slop" : "text-muted hover:text-ink"
   }`;
 }
 
@@ -25,46 +27,45 @@ export interface HeaderUser {
 
 export function Header({ user, isAdmin, path }: { user: HeaderUser | null; isAdmin: boolean; path: string }) {
   return (
-    <header className="sticky top-0 z-40 border-b-2 border-ink bg-wall/90 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-line bg-ground/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:gap-6">
-        <Link to="/" className="shrink-0" aria-label="Slopper home">
+        <Link to="/" className="-my-1 shrink-0 py-1" aria-label="Slopper home">
           <Wordmark />
         </Link>
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
+        <nav className="hidden h-full items-stretch md:flex" aria-label="Main">
           {NAV.map((item) => (
             <NavLink key={item.to} to={item.to} className={navClass}>
               {item.label}
             </NavLink>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <span className="hidden sm:inline-flex">
-            <Countdown />
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
+          {/* Mounted at every width: it also tells the server the visitor's time zone. */}
+          <span className="hidden lg:inline-flex">
+            <Countdown className="text-[1.15rem]" />
           </span>
           {user ? (
             <>
               <NotificationsBell />
               <Link to="/new" className="btn btn-slop btn-sm">
-                <span aria-hidden="true">+</span> New slop
+                <Icon name="plus" className="size-4" />
+                <span className="max-[359px]:sr-only">New slop</span>
               </Link>
               <details className="relative" key={path}>
-                <summary
-                  className="cursor-pointer list-none rounded-full [&::-webkit-details-marker]:hidden"
-                  aria-label="Account menu"
-                >
-                  <Avatar user={user} />
+                <summary className="list-none rounded-full p-1" aria-label="Account menu">
+                  <Avatar user={user} size="md" />
                 </summary>
-                <div className="absolute right-0 mt-2 w-56 rounded-xl border-2 border-ink bg-card p-1.5 hard-shadow">
-                  <p className="eyebrow px-3 pt-2 pb-1">@{user.username}</p>
+                <div className="absolute right-0 mt-2 w-60 rounded-2xl bg-raised p-2 shadow-[0_18px_40px_-16px_rgb(0_0_0/0.45)]">
+                  <p className="px-3 pt-2 pb-1 text-sm text-muted">Signed in as @{user.username}</p>
                   <MenuLink to={`/@${user.username}`}>Your slops</MenuLink>
                   <MenuLink to="/goal">Your goal</MenuLink>
                   <MenuLink to="/settings/autopost">Auto-post</MenuLink>
                   <MenuLink to="/settings">Settings</MenuLink>
                   {isAdmin && <MenuLink to="/mod">Flag queue</MenuLink>}
-                  <Form method="post" action="/auth/logout">
+                  <Form method="post" action="/auth/logout" className="mt-1 border-t border-line pt-1">
                     <button
                       type="submit"
-                      className="block w-full rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-wall-deep"
+                      className="flex min-h-11 w-full items-center rounded-xl px-3 text-left font-bold hover:bg-sunk"
                     >
                       Sign out
                     </button>
@@ -79,26 +80,15 @@ export function Header({ user, isAdmin, path }: { user: HeaderUser | null; isAdm
           )}
         </div>
       </div>
-      <nav className="flex items-center gap-2 border-t border-line py-1.5 pr-4 md:hidden" aria-label="Main mobile">
-        {/* The links scroll sideways on narrow phones; the clock stays put. */}
-        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto px-4 [scrollbar-width:none]">
+      <nav className="flex h-11 items-stretch border-t border-line md:hidden" aria-label="Main mobile">
+        {/* The links scroll sideways on the narrowest phones. */}
+        <div className="scrollbar-none flex min-w-0 flex-1 overflow-x-auto px-2">
           {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `shrink-0 rounded-full px-2.5 py-1 font-mono text-[0.65rem] tracking-wider whitespace-nowrap uppercase ${
-                  isActive ? "bg-ink text-wall" : "hover:bg-wall-deep"
-                }`
-              }
-            >
+            <NavLink key={item.to} to={item.to} className={navClass}>
               {item.label}
             </NavLink>
           ))}
         </div>
-        <span className="shrink-0 sm:hidden">
-          <Countdown compact />
-        </span>
       </nav>
     </header>
   );
@@ -106,7 +96,7 @@ export function Header({ user, isAdmin, path }: { user: HeaderUser | null; isAdm
 
 function MenuLink({ to, children }: { to: string; children: string }) {
   return (
-    <Link to={to} className="block rounded-lg px-3 py-2 text-sm font-semibold hover:bg-wall-deep">
+    <Link to={to} className="flex min-h-11 items-center rounded-xl px-3 font-bold hover:bg-sunk">
       {children}
     </Link>
   );

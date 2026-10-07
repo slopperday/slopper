@@ -15,6 +15,7 @@ import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { FlashBanner } from "./components/FlashBanner";
 import { LiveProvider } from "./components/Live";
+import { Tiles } from "./components/Tiles";
 import "./app.css";
 
 export const middleware: Route.MiddlewareFunction[] = [csrfMiddleware, viewerMiddleware];
@@ -37,7 +38,7 @@ export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
   {
     rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Bagel+Fat+One&family=Martian+Mono:wdth,wght@75..112.5,300..800&display=swap",
+    href: "https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400..700&family=Big+Shoulders:opsz,wght@10..72,600..900&family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&display=swap",
   },
   { rel: "alternate", type: "application/rss+xml", title: "Slopper: fresh slop", href: "/feed.xml" },
 ];
@@ -51,14 +52,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="color-scheme" content="light dark" />
-        <meta name="theme-color" content="#eeebe3" media="(prefers-color-scheme: light)" />
-        <meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)" />
+        <meta name="theme-color" content="#f4f5f0" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#121410" media="(prefers-color-scheme: dark)" />
         <Meta />
         <Links />
       </head>
       <body className="flex min-h-dvh flex-col">
         <LiveProvider url={data?.convexUrl ?? null} signedIn={Boolean(data?.user)}>
-          <a href="#main" className="btn sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50">
+          <a
+            href="#main"
+            className="btn btn-ink sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50"
+          >
             Skip to content
           </a>
           <Header user={data?.user ?? null} isAdmin={data?.isAdmin ?? false} path={location.pathname} />
@@ -93,16 +97,17 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   };
   const stack = import.meta.env.DEV && error instanceof Error ? error.stack : undefined;
   return (
-    <section className="mx-auto grid max-w-xl place-items-center px-4 py-24 text-center">
+    <section className="mx-auto grid max-w-xl justify-items-center px-4 py-20 text-center">
       <title>{`${copy.title} · Slopper`}</title>
-      <p className="chip">Error {status}</p>
-      <h1 className="font-wide mt-6 text-5xl font-black">{copy.title}</h1>
-      <p className="mt-4 text-lg text-muted">{copy.body}</p>
-      <a href="/" className="btn btn-slop mt-8">
+      <Tiles value={String(status)} className="text-[3.5rem]" />
+      <p className="sr-only">Error {status}</p>
+      <h1 className="title-1 mt-8">{copy.title}</h1>
+      <p className="lede mt-4">{copy.body}</p>
+      <a href="/" className="btn btn-slop btn-lg mt-8">
         Back to the wall
       </a>
       {stack && (
-        <pre className="mt-10 w-full overflow-x-auto rounded-lg bg-wall-deep p-4 text-left text-xs">
+        <pre className="mt-10 w-full overflow-x-auto rounded-xl bg-sunk p-4 text-left font-mono text-xs">
           <code>{stack}</code>
         </pre>
       )}
