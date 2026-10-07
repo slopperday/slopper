@@ -162,6 +162,9 @@ export const LIMITS = {
   goalDays: 365,
 } as const;
 
+/** Where people reach a human: privacy requests, account deletion, appeals. */
+export const CONTACT_EMAIL = "hello@slopper.day";
+
 export type FlashTone = "info" | "success" | "error";
 
 export interface Flash {
