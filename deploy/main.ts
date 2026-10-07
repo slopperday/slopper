@@ -9,7 +9,10 @@ import { handler } from "../build/server/index.js";
 
 const CLIENT_ROOT = new URL("../build/client", import.meta.url).pathname;
 
-Deno.serve(async (request) => {
+// Deno Deploy picks the port itself; PORT is for local runs (the e2e tests use it).
+const port = Number(Deno.env.get("PORT") ?? 8000);
+
+Deno.serve({ port }, async (request) => {
   const { pathname } = new URL(request.url);
   // Only paths that look like files are tried on disk; routes like
   // /feed.xml fall through to the app when no file matches.

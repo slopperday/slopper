@@ -12,19 +12,14 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";
-import { exportJWK, generateKeyPair } from "jose";
+import { generateServerKeys } from "./server-keys.ts";
 
 const args = new Set(process.argv.slice(2));
 const prod = args.has("--prod");
 const print = args.has("--print");
 const issuer = process.env.APP_URL ?? (prod ? "https://slopper.day" : "http://localhost:5173");
 
-const { privateKey, publicKey } = await generateKeyPair("ES256", { extractable: true });
-const kid = `slopper-${new Date().toISOString().slice(0, 10)}`;
-const privateJwk = { ...(await exportJWK(privateKey)), kid, alg: "ES256" };
-const publicJwk = { ...(await exportJWK(publicKey)), kid, alg: "ES256", use: "sig" };
-const jwks = `data:text/plain;charset=utf-8;base64,${Buffer.from(JSON.stringify({ keys: [publicJwk] })).toString("base64")}`;
-const privateEnv = Buffer.from(JSON.stringify(privateJwk)).toString("base64");
+const { privateKey: privateEnv, jwks, kid } = await generateServerKeys();
 
 const convex = (name: string, value: string) =>
   execFileSync("node_modules/.bin/convex", ["env", "set", ...(prod ? ["--prod"] : []), name, value], {

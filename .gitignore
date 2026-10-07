@@ -19,3 +19,6 @@ build/
 
 # Convex local backend
 .convex/
+.e2e/
+test-results/
+playwright-report/

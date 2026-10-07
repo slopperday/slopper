@@ -15,6 +15,8 @@
     },
     "verbatimModuleSyntax": true,
     "noEmit": true,
+    // Scripts run straight under Node, which needs the real file extension.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
