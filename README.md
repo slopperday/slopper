@@ -78,7 +78,9 @@ first time. Your dev data on :3210 is never touched.
    `APP_URL=https://slopper.day node scripts/convex-keys.ts --prod --print` to give Convex the public key and print the
    private key for the app.
 2. **Deno Deploy.** Create an app at [console.deno.com](https://console.deno.com) from this repository. Build settings
-   come from `deno.json` (install with `deno install`, build with React Router, run `deploy/main.ts`). Set the
+   live in the app, not in a `deno.json`: a `deploy` section there caps the build at 1 GB, which the build outgrows on
+   Deno Deploy. Install `deno install`; build `deno run -A node_modules/@react-router/dev/dist/cli/index.js build`;
+   dynamic runtime with entrypoint `deploy/main.ts`; build memory 2048 MB; region US, next to Convex. Set the
    environment variables from `.env.example`: `APP_URL=https://slopper.day`, `CONVEX_URL` (your `*.convex.cloud` URL),
    `SLOPPER_JWT_ISSUER`, `SLOPPER_JWT_PRIVATE_KEY`, `SLOPPER_SECRET_KEY`, `ADMIN_USERNAMES` (the moderators),
    `DEEPSEEK_API_KEY` (the content check; without it nothing is ever auto-posted) and the OAuth keys.
