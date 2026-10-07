@@ -3,6 +3,16 @@ import tailwindcss from "@tailwindcss/vite";
 import process from "node:process";
 import { defineConfig, lazyPlugins } from "vite-plus";
 
+const IGNORED = [
+  "build/**",
+  ".react-router/**",
+  "deploy/**",
+  "convex/_generated/**",
+  ".e2e/**",
+  "playwright-report/**",
+  "test-results/**",
+];
+
 export default defineConfig(({ command }) => ({
   // React Router's plugin builds the app; tests import modules directly.
   plugins: lazyPlugins(() => (process.env.VITEST ? [] : [tailwindcss(), reactRouter()])),
@@ -17,10 +27,10 @@ export default defineConfig(({ command }) => ({
   },
   fmt: {
     printWidth: 120,
-    ignorePatterns: ["build/**", ".react-router/**", "deploy/**", "convex/_generated/**"],
+    ignorePatterns: IGNORED,
   },
   lint: {
-    ignorePatterns: ["build/**", ".react-router/**", "deploy/**", "convex/_generated/**"],
+    ignorePatterns: IGNORED,
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
       "vite-plus/prefer-vite-plus-imports": "error",
@@ -30,6 +40,7 @@ export default defineConfig(({ command }) => ({
       typeCheck: true,
     },
   },
+  // Vitest runs tests/; Playwright runs e2e/ against the production build.
   test: {
     include: ["tests/**/*.test.ts"],
   },
@@ -38,7 +49,11 @@ export default defineConfig(({ command }) => ({
   run: {
     tasks: {
       ci: {
-        command: ["react-router typegen", "vp check", "vp test", "vp build"],
+        command: ["react-router typegen", "vp check", "vp test", "vp build", "playwright test"],
+        cache: false,
+      },
+      e2e: {
+        command: ["vp build", "playwright test"],
         cache: false,
       },
     },

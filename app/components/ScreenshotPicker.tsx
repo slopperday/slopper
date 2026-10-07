@@ -7,7 +7,7 @@ export interface Screenshot {
 
 const MAX_EDGE = 1600;
 
-/** Downscales in the browser so uploads stay small and KV stays cheap. */
+/** Downscales in the browser so uploads stay small. */
 async function shrink(file: File): Promise<Blob> {
   if (file.type === "image/gif") return file; // keep the animation
   const bitmap = await createImageBitmap(file);
