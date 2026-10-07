@@ -23,7 +23,7 @@ export function loader() {
 - Slop of the day: every UTC day, slops launched that day race on votes. The leader at midnight UTC wins.
 - Updates: update, feature, field (a real-world test: who tried it, what they said), repromote.
 - Slopcessful: the owner declares a breakout (users, revenue, virality).
-- Auto-post: updates can be posted to the user's connected X, LinkedIn and Bluesky accounts (autopost: true).
+- Auto-post: updates can be posted to the user's connected X, LinkedIn and Bluesky accounts (autopost: true). Every launch and posted update goes through an automated content check first; anything that fails it, or that someone has flagged, is never auto-posted.
 
 ## Auth
 Personal API token, created by the user at ${origin}/settings/api. Send it as: Authorization: Bearer slp_...
@@ -42,7 +42,7 @@ ${tools}
 - POST   ${origin}/api/v1/goal               { target, days, startDate?, title? }
 - POST   ${origin}/api/v1/media              raw image body (Content-Type: image/png…) or { base64 }
 - GET    ${origin}/api/v1/slops
-- POST   ${origin}/api/v1/slops              { name, tagline, category, links, description?, screenshots?, madeWith?, nsfw?, launchNote?, autopost? }
+- POST   ${origin}/api/v1/slops              { name, tagline, category, links, description?, screenshots?, madeWith?, launchNote?, autopost? }
 - PATCH  ${origin}/api/v1/slops/{slop}       any create_slop field
 - POST   ${origin}/api/v1/slops/{slop}/updates      { kind, body, autopost? }
 - POST   ${origin}/api/v1/slops/{slop}/slopcessful  { note, autopost? }

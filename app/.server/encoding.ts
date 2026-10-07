@@ -1,9 +1,14 @@
 /** Base64url helpers that work the same on Node and Deno. */
 
-export function encodeBase64Url(bytes: Uint8Array): string {
+export function encodeBase64(bytes: Uint8Array): string {
   let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  // Chunked: one call per byte is slow for images, one call for all of them overflows the stack.
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+export function encodeBase64Url(bytes: Uint8Array): string {
+  return encodeBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 export function decodeBase64Url(text: string): Uint8Array<ArrayBuffer> {

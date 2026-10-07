@@ -61,7 +61,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <a href="#main" className="btn sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50">
             Skip to content
           </a>
-          <Header user={data?.user ?? null} path={location.pathname} />
+          <Header user={data?.user ?? null} isAdmin={data?.isAdmin ?? false} path={location.pathname} />
           {data?.flash && <FlashBanner key={location.key} flash={data.flash} />}
           <main id="main" className="flex-1">
             {children}

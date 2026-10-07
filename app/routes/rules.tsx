@@ -7,8 +7,8 @@ const RULES = [
     body: "A slop is a working thing someone can try today: a website, a TestFlight or Android beta, a published app, a repo with a demo. Ideas and waitlists don't count.",
   },
   {
-    title: "Tag NSFW, or don't post it",
-    body: "Adult themes, gore and strong language need the NSFW tag. Those slops are blurred and kept out of feeds unless people opt in. Pornography, sexual content involving minors, and anything illegal are never allowed and get removed.",
+    title: "Keep it safe for work",
+    body: "Slopper is for things you'd show anyone. Every launch, screenshot and auto-posted update gets an automated content check. Anything sexual, hateful or illegal is held for a moderator and never auto-posted.",
   },
   {
     title: "No spam, malware or scams",
@@ -43,7 +43,8 @@ export default function Rules() {
         ))}
       </ol>
       <p className="mt-10 text-sm text-muted">
-        See something that breaks these? Use “Report this slop” on its page. Moderators can hide anything.
+        See something that breaks these? Use “Flag as inappropriate” on its page. Flagged slops stop auto-posting
+        straight away, and moderators can hide anything.
       </p>
     </section>
   );

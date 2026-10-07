@@ -43,14 +43,12 @@ describe("slop validation", () => {
       links: [{ kind: "website", url: "https://tiltmaze.app" }],
       screenshots: ["md74hc9mbbvqr2v5z7hq53s03x8fsgxx", "../../etc/passwd"],
       madeWith: ["Claude Code", "Flutter", "", "Claude Code"],
-      nsfw: true,
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.name).toBe("TiltMaze");
     expect(result.value.screenshots).toEqual(["md74hc9mbbvqr2v5z7hq53s03x8fsgxx"]);
     expect(result.value.madeWith).toEqual(["Claude Code", "Flutter"]);
-    expect(result.value.nsfw).toBe(true);
   });
 
   it("falls back to the goal preset and guards start dates", () => {

@@ -18,7 +18,6 @@ const slopInput = v.object({
   tagline: v.string(),
   description: v.string(),
   category: v.string(),
-  nsfw: v.boolean(),
   links: v.array(linkValidator),
   /** Media ids as typed or sent by an agent; checked against ownership. */
   screenshots: v.array(v.string()),
@@ -90,6 +89,8 @@ export const create = mutation({
       launchLabel: source ? (launchLabel ?? "").trim().slice(0, LIMITS.launchLabelLength) : null,
       slug,
       ...input,
+      // Set by the content check, flags or moderators; never by the maker.
+      nsfw: false,
       screenshots: await ownedMedia(ctx, userId, input.screenshots, source?.screenshots),
       launchDate: today,
       raceDate: new Date(now).toISOString().slice(0, 10),
@@ -311,15 +312,6 @@ export const pledge = mutation({
   },
 });
 
-export const report = mutation({
-  args: { userId: v.id("users"), slopId: v.id("slops"), reason: v.string() },
-  handler: async (ctx, { userId, slopId, reason }) => {
-    await requireServer(ctx);
-    await consume(ctx, `report:${userId}`, 10, 86_400_000);
-    await ctx.db.insert("reports", { slopId, reporterId: userId, reason: reason.slice(0, 500) || "No reason given" });
-  },
-});
-
 /** Public JSON for one launch (promo video tooling reads this). */
 export const publicById = query({
   args: { id: v.string() },
@@ -413,6 +405,12 @@ export const page = query({
             .order("desc")
             .collect()
         : [];
+    const flaggedByMe =
+      reader !== null &&
+      (await ctx.db
+        .query("reports")
+        .withIndex("by_slop_reporter", (q) => q.eq("slopId", slop._id).eq("reporterId", reader._id))
+        .first()) !== null;
     const myPledge = reader
       ? ((
           await ctx.db
@@ -481,6 +479,9 @@ export const page = query({
       vote: reader ? await voteOf(ctx, slop._id, reader._id) : 0,
       voteMode: !reader ? ("login" as const) : isOwner ? ("own" as const) : ("vote" as const),
       myPledge,
+      flaggedByMe,
+      // Only the owner and moderators ever load a hidden slop.
+      heldForReview: slop.hidden && slop.check?.verdict === "blocked",
       isOwner,
       reveal: !slop.nsfw || isOwner || reader?.showNsfw === true,
     };

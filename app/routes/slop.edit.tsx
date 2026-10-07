@@ -7,6 +7,7 @@ import { convex, convexMessage } from "~/.server/convex";
 import { formText, parseSlopForm, slopFormValues } from "~/.server/forms";
 import { forbidden, notFound, redirectWithFlash } from "~/.server/http";
 import { screenshotsWithUrls } from "~/.server/media";
+import { checkedContent, checkSlop } from "~/.server/moderation";
 import { modeFor } from "~/.server/social/crosspost";
 import { type CrosspostMode, NETWORK_LABELS } from "~/lib/model";
 import { slopPath } from "~/lib/display";
@@ -45,7 +46,6 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
         tagline: slop.tagline,
         description: slop.description,
         category: slop.category,
-        nsfw: slop.nsfw,
         links: slop.links,
         screenshots: await screenshotsWithUrls(slop.screenshots),
         madeWith: slop.madeWith,
@@ -94,7 +94,18 @@ export async function action({ params, request, context }: Route.ActionArgs) {
     if (message) return redirectWithFlash(`${here}/edit`, { tone: "error", message });
     throw error;
   }
-  return redirectWithFlash(here, { tone: "success", message: "Saved." });
+  const saved = await convex.query(api.slops.getForServer, { slopId: slop._id });
+  const check = saved && checkedContent(saved) !== checkedContent(slop) ? await checkSlop(slop._id) : null;
+  if (check?.verdict === "blocked") {
+    return redirectWithFlash(here, {
+      tone: "error",
+      message: "Saved, and held for review. A moderator will look at it.",
+    });
+  }
+  return redirectWithFlash(here, {
+    tone: "success",
+    message: check?.verdict === "mature" ? "Saved. It's marked NSFW now, so it's blurred." : "Saved.",
+  });
 }
 
 export const meta: Route.MetaFunction = ({ matches, loaderData }) =>

@@ -18,6 +18,7 @@ import type * as lib_rate from "../lib/rate.js";
 import type * as lib_shape from "../lib/shape.js";
 import type * as limits from "../limits.js";
 import type * as media from "../media.js";
+import type * as moderation from "../moderation.js";
 import type * as money from "../money.js";
 import type * as notifications from "../notifications.js";
 import type * as oauth from "../oauth.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   "lib/shape": typeof lib_shape;
   limits: typeof limits;
   media: typeof media;
+  moderation: typeof moderation;
   money: typeof money;
   notifications: typeof notifications;
   oauth: typeof oauth;

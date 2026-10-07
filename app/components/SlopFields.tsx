@@ -9,7 +9,6 @@ export interface SlopFormValues {
   tagline: string;
   description: string;
   category: string;
-  nsfw: boolean;
   links: SlopLink[];
   screenshots: Screenshot[];
   madeWith: string[];
@@ -131,22 +130,6 @@ export function SlopFields({ values, errors }: { values: Partial<SlopFormValues>
           defaultValue={values.description ?? ""}
         />
       </Field>
-
-      <label className="flex items-start gap-3 rounded-xl border-2 border-ink bg-card p-4">
-        <input
-          type="checkbox"
-          name="nsfw"
-          defaultChecked={values.nsfw ?? false}
-          className="mt-1 size-5 accent-[var(--hot)]"
-        />
-        <span>
-          <span className="font-bold">Not safe for work</span>
-          <span className="block text-sm text-muted">
-            Adult themes, gore, strong language. NSFW slops are blurred and kept out of feeds unless people opt in. Porn
-            and illegal content aren't allowed at all.
-          </span>
-        </span>
-      </label>
     </div>
   );
 }

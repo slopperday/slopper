@@ -42,6 +42,9 @@ export const updateKindValidator = v.union(
   v.literal("slopcessful"),
 );
 
+/** Outcome of the automated content check (see app/.server/moderation.ts). */
+export const checkVerdictValidator = v.union(v.literal("ok"), v.literal("mature"), v.literal("blocked"));
+
 export default defineSchema({
   users: defineTable({
     username: v.string(),
@@ -140,6 +143,8 @@ export default defineSchema({
     /** On a product's first launch: show its money publicly. */
     moneyPublic: v.boolean(),
     hidden: v.boolean(),
+    /** The latest automated content check; absent until one has run. */
+    check: v.optional(v.object({ verdict: checkVerdictValidator, reason: v.string(), checkedAt: v.number() })),
   })
     .index("by_user", ["userId"])
     .index("by_user_slug", ["userId", "slug"])
@@ -233,11 +238,15 @@ export default defineSchema({
     readAt: v.union(v.number(), v.null()),
   }).index("by_user_read", ["userId", "readAt"]),
 
+  /** Open flags on a slop, cleared when a moderator decides. */
   reports: defineTable({
     slopId: v.id("slops"),
-    reporterId: v.id("users"),
+    /** Null when the automated content check raised it. */
+    reporterId: v.union(v.id("users"), v.null()),
     reason: v.string(),
-  }).index("by_slop", ["slopId"]),
+  })
+    .index("by_slop", ["slopId"])
+    .index("by_slop_reporter", ["slopId", "reporterId"]),
 
   rateLimits: defineTable({
     key: v.string(),
