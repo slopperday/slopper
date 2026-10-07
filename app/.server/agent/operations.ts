@@ -16,6 +16,7 @@ import { absoluteUrl } from "../config";
 import { convex, convexMessage } from "../convex";
 import { validateGoal, validateSlop } from "../forms";
 import { uploadImage } from "../media";
+import { checkedContent, checkSlop } from "../moderation";
 import { announce } from "../social/announce";
 import type { User } from "../session";
 import {
@@ -110,7 +111,8 @@ const LINKS_SCHEMA = {
 
 const AUTOPOST = {
   type: "boolean",
-  description: "Post it to the user's connected X, LinkedIn and Bluesky accounts. Defaults to false.",
+  description:
+    "Post it to the user's connected X, LinkedIn and Bluesky accounts. Defaults to false. Held (with the reason) unless the slop passed the content check and nobody has flagged it.",
 };
 
 export const OPERATIONS: Operation[] = [
@@ -246,7 +248,6 @@ export const OPERATIONS: Operation[] = [
           description: "Ids from upload_screenshot; the first is the cover.",
         },
         madeWith: { type: "array", items: { type: "string" }, maxItems: LIMITS.madeWith },
-        nsfw: { type: "boolean", description: "Adult themes, gore or strong language." },
         launchNote: {
           type: "string",
           maxLength: LIMITS.updateLength,
@@ -277,7 +278,6 @@ export const OPERATIONS: Operation[] = [
         links: optionalLinks(input, "links"),
         screenshots: optionalStrings(input, "screenshots"),
         madeWith: optionalStrings(input, "madeWith"),
-        nsfw: optionalBoolean(input, "nsfw"),
         launchNote: optionalString(input, "launchNote"),
       });
       if (!parsed.ok) throw new ApiError(422, "The slop needs fixing.", parsed.errors);
@@ -298,10 +298,16 @@ export const OPERATIONS: Operation[] = [
         today: localDate(now, user.timeZone),
         ...(source ? { relaunchOf: source._id, launchLabel: label } : {}),
       });
-      const autoposts = optionalBoolean(input, "autopost")
-        ? await announce(user, created.slopId, created.updateId)
-        : [];
-      return { slop: summarizeSlop(await slopById(created.slopId), user.username), autoposts };
+      const check = await checkSlop(created.slopId, launchNote);
+      const autopost =
+        optionalBoolean(input, "autopost") && check?.verdict !== "blocked"
+          ? await announce(user, created.slopId, created.updateId)
+          : null;
+      return {
+        slop: summarizeSlop(await slopById(created.slopId), user.username),
+        contentCheck: check?.verdict ?? "unchecked",
+        autopost,
+      };
     },
   },
   {
@@ -319,7 +325,6 @@ export const OPERATIONS: Operation[] = [
         links: LINKS_SCHEMA,
         screenshots: { type: "array", items: { type: "string" } },
         madeWith: { type: "array", items: { type: "string" } },
-        nsfw: { type: "boolean" },
       },
       required: ["slop"],
     },
@@ -334,12 +339,16 @@ export const OPERATIONS: Operation[] = [
         links: optionalLinks(input, "links") ?? slop.links,
         screenshots: optionalStrings(input, "screenshots") ?? slop.screenshots,
         madeWith: optionalStrings(input, "madeWith") ?? slop.madeWith,
-        nsfw: optionalBoolean(input, "nsfw") ?? slop.nsfw,
       });
       if (!parsed.ok) throw new ApiError(422, "The slop needs fixing.", parsed.errors);
       const { launchNote: _launchNote, ...fields } = parsed.value;
       await convex.mutation(api.slops.edit, { userId: context.user._id, slopId: slop._id, input: fields });
-      return { slop: summarizeSlop(await slopById(slop._id), context.user.username) };
+      const saved = await slopById(slop._id);
+      const check = checkedContent(saved) !== checkedContent(slop) ? await checkSlop(slop._id) : null;
+      return {
+        slop: summarizeSlop(await slopById(slop._id), context.user.username),
+        ...(check ? { contentCheck: check.verdict } : {}),
+      };
     },
   },
   {
@@ -371,14 +380,14 @@ export const OPERATIONS: Operation[] = [
         kind,
         body,
       });
-      const autoposts = optionalBoolean(input, "autopost") ? await announce(context.user, slop._id, updateId) : [];
+      const autopost = optionalBoolean(input, "autopost") ? await announce(context.user, slop._id, updateId) : null;
       return {
         update: {
           id: updateId,
           kind,
           url: `${absoluteUrl(slopPath(context.user.username, slop.slug))}#update-${updateId}`,
         },
-        autoposts,
+        autopost,
       };
     },
   },
@@ -405,9 +414,9 @@ export const OPERATIONS: Operation[] = [
         slopId: slop._id,
         note,
       });
-      const autoposts =
-        updateId && optionalBoolean(input, "autopost") ? await announce(context.user, slop._id, updateId) : [];
-      return { slop: summarizeSlop(await slopById(slop._id), context.user.username), autoposts };
+      const autopost =
+        updateId && optionalBoolean(input, "autopost") ? await announce(context.user, slop._id, updateId) : null;
+      return { slop: summarizeSlop(await slopById(slop._id), context.user.username), autopost };
     },
   },
   {

@@ -23,7 +23,7 @@ export interface HeaderUser {
   avatarUrl: string | null;
 }
 
-export function Header({ user, path }: { user: HeaderUser | null; path: string }) {
+export function Header({ user, isAdmin, path }: { user: HeaderUser | null; isAdmin: boolean; path: string }) {
   return (
     <header className="sticky top-0 z-40 border-b-2 border-ink bg-wall/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:gap-6">
@@ -60,6 +60,7 @@ export function Header({ user, path }: { user: HeaderUser | null; path: string }
                   <MenuLink to="/goal">Your goal</MenuLink>
                   <MenuLink to="/settings/autopost">Auto-post</MenuLink>
                   <MenuLink to="/settings">Settings</MenuLink>
+                  {isAdmin && <MenuLink to="/mod">Flag queue</MenuLink>}
                   <Form method="post" action="/auth/logout">
                     <button
                       type="submit"

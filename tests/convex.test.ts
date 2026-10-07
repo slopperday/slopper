@@ -31,7 +31,6 @@ const input = {
   tagline: "Tilt to play",
   description: "**Bold** <script>alert(1)</script>",
   category: "games",
-  nsfw: false,
   links: [{ kind: "website" as const, url: "https://tiltmaze.app/" }],
   screenshots: [],
   madeWith: [],

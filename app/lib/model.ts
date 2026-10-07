@@ -175,3 +175,15 @@ export type MoneyKind = "cost" | "revenue";
 
 /** "Take my money" preset amounts, in USD cents. */
 export const PLEDGE_PRESETS = [500, 1000, 2500] as const;
+
+/** Flags from this many different people blur a slop until a moderator looks. */
+export const FLAGS_TO_BLUR = 3;
+
+/** Why someone flags a slop. The label is stored with the flag. */
+export const FLAG_REASONS = [
+  "Sexual or adult content",
+  "Gore or violence",
+  "Hate or harassment",
+  "Spam, scam or malware",
+  "Something else",
+] as const;

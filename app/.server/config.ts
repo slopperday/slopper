@@ -17,6 +17,13 @@ export interface OAuthClientCredentials {
   clientSecret: string;
 }
 
+export interface ContentCheckConfig {
+  apiKey: string;
+  /** OpenAI-compatible endpoint; DeepSeek by default. */
+  baseUrl: string;
+  model: string;
+}
+
 export interface Config {
   /** Public origin used for OAuth redirects and absolute links. */
   appUrl: URL;
@@ -37,6 +44,8 @@ export interface Config {
   google: OAuthClientCredentials | null;
   x: OAuthClientCredentials | null;
   linkedin: OAuthClientCredentials | null;
+  /** Automated content check. Without it, nothing is ever auto-posted. */
+  contentCheck: ContentCheckConfig | null;
 }
 
 type Env = Record<string, string | undefined>;
@@ -68,6 +77,13 @@ export function loadConfig(env: Env = process.env): Config {
     google: credentials(env, "GOOGLE"),
     x: credentials(env, "X"),
     linkedin: credentials(env, "LINKEDIN"),
+    contentCheck: env.DEEPSEEK_API_KEY?.trim()
+      ? {
+          apiKey: env.DEEPSEEK_API_KEY.trim(),
+          baseUrl: env.DEEPSEEK_BASE_URL?.trim() || "https://api.deepseek.com",
+          model: env.DEEPSEEK_MODEL?.trim() || "deepseek-flash",
+        }
+      : null,
   };
 }
 

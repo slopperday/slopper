@@ -7,6 +7,7 @@ import { convex, convexMessage } from "~/.server/convex";
 import { formText, parseSlopForm, slopFormValues } from "~/.server/forms";
 import { redirectWithFlash } from "~/.server/http";
 import { screenshotsWithUrls } from "~/.server/media";
+import { checkSlop } from "~/.server/moderation";
 import { announce, summarize } from "~/.server/social/announce";
 import { goalDayFor } from "~/lib/goal";
 import { localDate } from "~/lib/dates";
@@ -45,7 +46,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
             tagline: source.tagline,
             description: source.description,
             category: source.category,
-            nsfw: source.nsfw,
             links: source.links,
             screenshots: await screenshotsWithUrls(source.screenshots),
             madeWith: source.madeWith,
@@ -102,12 +102,21 @@ export async function action({ request, context }: Route.ActionArgs) {
     throw error;
   }
 
+  const check = await checkSlop(created.slopId, launchNote);
+  const title = launchTitle({ name: input.name, launchLabel: source ? label : null });
+  const here = slopPath(user.username, created.slug);
+  if (check?.verdict === "blocked") {
+    return redirectWithFlash(here, {
+      tone: "error",
+      message: `${title} is held for review. A moderator will look at it.`,
+    });
+  }
   const autoposted =
     form.get("autopost") === "on" ? summarize(await announce(user, created.slopId, created.updateId)) : "";
-  const title = launchTitle({ name: input.name, launchLabel: source ? label : null });
-  return redirectWithFlash(`${slopPath(user.username, created.slug)}?new=1`, {
+  const blurred = check?.verdict === "mature" ? " It's marked NSFW, so it's blurred." : "";
+  return redirectWithFlash(`${here}?new=1`, {
     tone: "success",
-    message: `${title} is on the wall.${autoposted}`,
+    message: `${title} is on the wall.${blurred}${autoposted}`,
   });
 }
 

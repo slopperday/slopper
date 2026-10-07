@@ -80,7 +80,8 @@ export const crown = internalMutation({
       .withIndex("by_date", (q) => q.eq("date", target))
       .unique();
     if (existing) return;
-    const [leader] = await rankDay(ctx, target);
+    // NSFW slops race, but the badge (and its promotion) goes to a safe one.
+    const [leader] = (await rankDay(ctx, target)).filter((slop) => !slop.nsfw);
     const winner = leader && net(leader) > 0 ? leader : null;
     await ctx.db.insert("dailyWinners", { date: target, slopId: winner?._id ?? null });
     if (!winner) return;

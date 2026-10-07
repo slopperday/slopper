@@ -15,6 +15,7 @@ import { dayLabel, launchTitle, numberLabel, slopPath } from "~/lib/display";
 import { parseAmount } from "~/lib/money";
 import {
   COST_CATEGORIES,
+  FLAG_REASONS,
   isPostableUpdateKind,
   LIMITS,
   LINK_KINDS,
@@ -246,8 +247,11 @@ export async function action({ params, request, context }: Route.ActionArgs) {
 
       case "retry-autopost": {
         if (!isOwner) forbidden();
-        const results = await retryFailed(ownerRef, formText(form, "id"));
-        const failed = results.filter((result) => result.status === "error").length;
+        const outcome = await retryFailed(ownerRef, formText(form, "id"));
+        if (outcome.status === "held") {
+          return redirectWithFlash(`${here}#updates`, { tone: "error", message: `Not posted: ${outcome.reason}.` });
+        }
+        const failed = outcome.results.filter((result) => result.status === "error").length;
         return redirectWithFlash(`${here}#updates`, {
           tone: failed ? "error" : "success",
           message: failed ? `${failed} account${failed === 1 ? "" : "s"} still failing.` : "Posted.",
@@ -263,13 +267,16 @@ export async function action({ params, request, context }: Route.ActionArgs) {
         return redirectWithFlash(`${here}#updates`, { tone: "info", message: "Removed." });
       }
 
-      case "report": {
-        await convex.mutation(api.slops.report, {
+      case "flag": {
+        const reason = formText(form, "reason");
+        if (!(FLAG_REASONS as readonly string[]).includes(reason)) badRequest("Pick a reason");
+        const details = formText(form, "details").slice(0, 400);
+        await convex.mutation(api.moderation.flag, {
           userId: user._id,
           slopId: slop.id,
-          reason: formText(form, "reason"),
+          reason: details ? `${reason}: ${details}` : reason,
         });
-        return redirectWithFlash(here, { tone: "info", message: "Thanks. A moderator will take a look." });
+        return redirectWithFlash(here, { tone: "info", message: "Flagged. Thanks, a moderator will look at it." });
       }
 
       case "hide":
@@ -335,7 +342,8 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
     <>
       {slop.hidden && (
         <p className="bg-hot px-4 py-2 text-center font-mono text-xs tracking-wider text-white uppercase">
-          Hidden by a moderator. Only you{loaderData.isAdmin ? " and mods" : ""} can see this.
+          {loaderData.heldForReview ? "Held for review" : "Hidden by a moderator"}. Only you
+          {loaderData.isAdmin ? " and mods" : ""} can see this.
         </p>
       )}
 
@@ -835,30 +843,58 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
         <Form method="post" className="rounded-2xl border-2 border-hot p-5">
           <h2 className="eyebrow text-hot">Moderation</h2>
           <input type="hidden" name="intent" value={slop.hidden ? "unhide" : "hide"} />
-          <button type="submit" className="btn btn-sm mt-3">
-            {slop.hidden ? "Unhide" : "Hide from Slopper"}
-          </button>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button type="submit" className="btn btn-sm">
+              {slop.hidden ? "Unhide" : "Hide from Slopper"}
+            </button>
+            <Link to="/mod" className="text-sm underline">
+              Flag queue
+            </Link>
+          </div>
         </Form>
       )}
 
-      {signedIn && !isOwner && (
-        <details className="rounded-2xl border-2 border-dashed border-ink/40 p-4 text-sm">
-          <summary className="cursor-pointer font-bold">Report this slop</summary>
-          <Form method="post" className="mt-3 grid gap-2">
-            <input type="hidden" name="intent" value="report" />
-            <textarea
-              name="reason"
-              className="input min-h-20 text-sm"
-              maxLength={500}
-              placeholder="Untagged adult content, spam, something illegal…"
-              required
-            />
-            <button type="submit" className="btn btn-sm">
-              Send report
-            </button>
-          </Form>
-        </details>
-      )}
+      {signedIn && !isOwner && <FlagForm flagged={loaderData.flaggedByMe} />}
     </aside>
+  );
+}
+
+function FlagForm({ flagged }: { flagged: boolean }) {
+  if (flagged) {
+    return (
+      <p className="rounded-2xl border-2 border-dashed border-ink/40 p-4 text-sm text-muted">
+        You flagged this. A moderator will look at it.
+      </p>
+    );
+  }
+  return (
+    <details className="rounded-2xl border-2 border-dashed border-ink/40 p-4 text-sm">
+      <summary className="cursor-pointer font-bold">Flag as inappropriate</summary>
+      <Form method="post" className="mt-3 grid gap-3">
+        <input type="hidden" name="intent" value="flag" />
+        <fieldset className="grid gap-1.5">
+          <legend className="sr-only">What's wrong with it?</legend>
+          {FLAG_REASONS.map((reason, index) => (
+            <label key={reason} className="flex items-center gap-2">
+              <input type="radio" name="reason" value={reason} required defaultChecked={index === 0} />
+              {reason}
+            </label>
+          ))}
+        </fieldset>
+        <label htmlFor="flag-details" className="sr-only">
+          Details
+        </label>
+        <textarea
+          id="flag-details"
+          name="details"
+          className="input min-h-16 text-sm"
+          maxLength={400}
+          placeholder="Anything a moderator should know (optional)"
+        />
+        <button type="submit" className="btn btn-sm">
+          Flag it
+        </button>
+      </Form>
+    </details>
   );
 }

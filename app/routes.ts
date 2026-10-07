@@ -15,6 +15,7 @@ export default [
   route("settings/autopost", "routes/settings.autopost.tsx"),
   route("settings/api", "routes/settings.api.tsx"),
   route("notifications", "routes/notifications.tsx"),
+  route("mod", "routes/mod.tsx"),
 
   route("auth/logout", "routes/auth.logout.ts"),
   route("auth/dev", "routes/auth.dev.ts"),

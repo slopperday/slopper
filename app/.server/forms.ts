@@ -5,7 +5,6 @@ export interface SlopInput {
   tagline: string;
   description: string;
   category: CategoryId;
-  nsfw: boolean;
   links: SlopLink[];
   /** Media ids; Convex re-checks each one belongs to the uploader. */
   screenshots: string[];
@@ -86,7 +85,6 @@ export interface SlopDraft {
   tagline?: string;
   description?: string;
   category?: string;
-  nsfw?: boolean;
   links?: readonly { kind?: string; url?: string }[];
   screenshots?: readonly string[];
   madeWith?: readonly string[];
@@ -100,7 +98,6 @@ export function slopDraftFromForm(form: FormData): SlopDraft {
     tagline: text(form, "tagline"),
     description: text(form, "description"),
     category: text(form, "category"),
-    nsfw: form.get("nsfw") === "on",
     links: all(form, "linkUrl").map((url, index) => ({ kind: kinds[index] ?? "website", url })),
     screenshots: all(form, "screenshot"),
     madeWith: text(form, "madeWith").split(","),
@@ -150,7 +147,6 @@ export function validateSlop(draft: SlopDraft): Parsed<SlopForm> {
       tagline,
       description,
       category: category.id,
-      nsfw: draft.nsfw === true,
       links,
       screenshots,
       madeWith,
@@ -225,7 +221,6 @@ export function slopFormValues(form: FormData) {
     tagline: draft.tagline ?? "",
     description: draft.description ?? "",
     category: draft.category ?? "",
-    nsfw: draft.nsfw === true,
     links: (draft.links ?? []).map((link): SlopLink => {
       const kind = link.kind ?? "";
       return { kind: isLinkKind(kind) ? kind : "website", url: link.url ?? "" };
