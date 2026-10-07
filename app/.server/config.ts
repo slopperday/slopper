@@ -1,9 +1,17 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import process from "node:process";
+import { parseEnv } from "node:util";
 
 // Local development keeps secrets and the Convex URL in `.env.local`
-// (written by `convex dev` and scripts/convex-keys.ts).
-if (process.env.DENO_DEPLOY !== "true" && existsSync(".env.local")) process.loadEnvFile(".env.local");
+// (written by `convex dev` and scripts/convex-keys.ts). Variables already in
+// the environment win, as with Node's `--env-file`. Deno's
+// `process.loadEnvFile` overwrites them instead, which let a checkout's
+// `.env.local` replace the keys the e2e stack gives its production server.
+if (process.env.DENO_DEPLOY !== "true" && existsSync(".env.local")) {
+  for (const [key, value] of Object.entries(parseEnv(readFileSync(".env.local", "utf8")))) {
+    process.env[key] ??= value;
+  }
+}
 
 /**
  * Runtime configuration, read once from the environment.
