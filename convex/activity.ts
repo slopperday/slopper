@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireServer } from "./lib/auth";
+import { notify } from "./lib/notify";
 import { consume } from "./lib/rate";
 import { crosspostResultValidator } from "./schema";
 
@@ -79,14 +80,7 @@ export const addComment = mutation({
     await ctx.db.patch(slopId, { commentCount: slop.commentCount + 1 });
     const commentId = await ctx.db.insert("comments", { slopId, userId, kind, body });
     if (slop.userId !== userId) {
-      await ctx.db.insert("notifications", {
-        userId: slop.userId,
-        kind,
-        slopId,
-        actorId: userId,
-        amount: null,
-        readAt: null,
-      });
+      await notify(ctx, { userId: slop.userId, kind, slopId, actorId: userId, amount: null });
     }
     return commentId;
   },

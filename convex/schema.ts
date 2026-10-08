@@ -274,6 +274,17 @@ export default defineSchema({
     readAt: v.union(v.number(), v.null()),
   }).index("by_user_read", ["userId", "readAt"]),
 
+  /** Browsers that asked for notifications: one Web Push subscription each. */
+  pushSubscriptions: defineTable({
+    userId: v.id("users"),
+    endpoint: v.string(),
+    /** The browser's keys, base64url, to encrypt each message for it. */
+    p256dh: v.string(),
+    auth: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_endpoint", ["endpoint"]),
+
   /** Open flags on a slop, cleared when a moderator decides. */
   reports: defineTable({
     slopId: v.id("slops"),

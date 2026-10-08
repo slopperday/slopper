@@ -5,8 +5,8 @@ import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
 import { queryAsUser } from "~/.server/convex";
 import { timeAgo } from "~/lib/dates";
-import { launchTitle, slopPath } from "~/lib/display";
-import { formatMoney } from "~/lib/money";
+import { slopPath } from "~/lib/display";
+import { notificationText } from "~/lib/notifications";
 import { seo } from "~/lib/seo";
 import { Avatar } from "~/components/Avatar";
 import { useLive, useLiveClient } from "~/components/Live";
@@ -23,20 +23,12 @@ export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "
 type Item = Route.ComponentProps["loaderData"]["items"][number];
 
 function describe(item: Item): string {
-  const title = launchTitle(item.slop);
-  const who = item.actor ? `@${item.actor.username}` : "Someone";
-  switch (item.kind) {
-    case "upvote":
-      return `${who} upvoted ${title}`;
-    case "feedback":
-      return `${who} left feedback on ${title}`;
-    case "kudos":
-      return `${who} says ${title} is good 🔥`;
-    case "pledge":
-      return `${who} pledged ${formatMoney(item.amount ?? 0, "USD")} to ${title}`;
-    case "slop_of_the_day":
-      return `🏆 ${title} won slop of the day`;
-  }
+  return notificationText({
+    kind: item.kind,
+    actorUsername: item.actor?.username ?? null,
+    slop: item.slop,
+    amount: item.amount,
+  });
 }
 
 export default function Notifications({ loaderData }: Route.ComponentProps) {

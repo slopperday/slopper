@@ -29,6 +29,7 @@ export default [
   route("llms.txt", "routes/llms.ts"),
   route("api/media", "routes/api.media.ts"),
   route("api/convex-token", "routes/api.convex-token.ts"),
+  route("api/push", "routes/api.push.ts"),
   route("api/slops/:id", "routes/api.slop.ts"),
   route("api/slops/:id/vote", "routes/api.vote.ts"),
   route("api/slops/:id/pledge", "routes/api.pledge.ts"),

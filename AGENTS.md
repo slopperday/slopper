@@ -49,6 +49,9 @@ release. Add a tool name to select part of the graph. For example, run
   are), then written to B2 (`app/.server/storage.ts`) or, without the B2 variables, Convex storage. Image URLs are
   built in Convex from `MEDIA_PUBLIC_URL` (a Convex env var). Mutations that drop screenshots return `orphaned`; call
   `deleteOrphanedMedia` when it's above 0.
+- **Notifications:** create them with `notify()` (`convex/lib/notify.ts`), never a bare insert: it also schedules the
+  browser push (`convex/pushSend.ts`) for people who turned it on. Push text comes from `app/lib/notifications.ts`,
+  shared with the notifications page.
 - **Safety:** nothing auto-posts unless the slop passed the content check (`app/.server/moderation.ts`) and has no
   open flags. Makers can't mark their own slops NSFW; the check, flags and moderators do. Keep the policy prompt
   stable: it's the cached prefix of every call. The check goes through OpenRouter (`OPENROUTER_MODEL`, DeepSeek V4.1

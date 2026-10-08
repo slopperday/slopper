@@ -12,6 +12,7 @@ import { seo } from "~/lib/seo";
 import { Field } from "~/components/SlopFields";
 import { SettingsNav } from "~/components/Shared";
 import { ProviderIcon } from "~/components/ProviderIcon";
+import { BrowserNotifications } from "~/components/BrowserNotifications";
 
 const HERE = "/settings";
 
@@ -36,6 +37,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     methods,
     // Every identity counts, the local dev login included: the last one stays.
     canUnlink: identities.length > 1,
+    vapidPublicKey: config.vapidPublicKey,
   };
 }
 
@@ -86,7 +88,7 @@ async function unlink(user: User, provider: string): Promise<Response> {
 export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "Settings", noindex: true });
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
-  const { user, timeZones, methods, canUnlink } = loaderData;
+  const { user, timeZones, methods, canUnlink, vapidPublicKey } = loaderData;
   return (
     <section className="mx-auto max-w-2xl px-4 pt-10">
       <SettingsNav />
@@ -165,6 +167,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
           Save
         </button>
       </Form>
+      {vapidPublicKey && <BrowserNotifications vapidPublicKey={vapidPublicKey} />}
       {methods.length > 0 && <SignInMethods methods={methods} canUnlink={canUnlink} />}
     </section>
   );

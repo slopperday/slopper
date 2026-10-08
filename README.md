@@ -51,6 +51,7 @@ Needs Node 24+, pnpm (or just `vp`), and Deno 2 for the production server.
 vp install
 vp run convex          # local Convex backend; no account needed. Leave it running.
 vp run keys            # once: signing keys in .env.local, public key in Convex
+vp run vapid           # optional: browser notifications (both halves in Convex, public in .env.local)
 vp dev                 # http://localhost:5173
 ```
 
@@ -111,6 +112,17 @@ straight from the bucket's public URL. Without these variables, screenshots go t
    `npx convex env set --prod MEDIA_PUBLIC_URL https://f004.backblazeb2.com/file/slopper-media` (the "Friendly URL" of
    any file in the bucket, minus the file name). Put a CDN in front later by changing only this; uploads are refused
    until it's set.
+
+### Browser notifications
+
+Upvotes, pledges, feedback and slop of the day reach people's browsers through Web Push, which costs nothing: each
+browser's own push service (Google's, Mozilla's, Apple's, Microsoft's) delivers them. People turn it on per browser in
+Settings; on iPhone, Slopper has to be added to the Home Screen first.
+
+Run `node scripts/vapid-keys.ts --prod --print` once. It sets `VAPID_PUBLIC_KEY` and
+`VAPID_PRIVATE_KEY` on Convex, which signs and sends every push from a Node action (`convex/pushSend.ts`), and prints
+`VAPID_PUBLIC_KEY` for Deno Deploy, where browsers subscribe with it. New keys cut off every browser subscribed with the
+old ones. `VAPID_SUBJECT` (Convex) defaults to `mailto:hello@slopper.day`.
 
 Objects get random keys under `screenshots/` and `Cache-Control: public, max-age=31536000, immutable`. When a deleted
 or edited slop leaves a screenshot unused, Convex marks it orphaned and the app server deletes the object, then its

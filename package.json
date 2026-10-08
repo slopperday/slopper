@@ -6,10 +6,12 @@
     "prepare": "vp config --no-agent",
     "convex": "convex dev",
     "keys": "node scripts/convex-keys.ts",
+    "vapid": "node scripts/vapid-keys.ts",
     "typegen": "react-router typegen",
     "start": "deno run -A deploy/main.ts"
   },
   "dependencies": {
+    "@block65/webcrypto-web-push": "^2.0.0",
     "@react-router/node": "^8.4.0",
     "aws4fetch": "^1.0.20",
     "convex": "^1.46.0",
