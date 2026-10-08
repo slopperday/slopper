@@ -24,6 +24,7 @@ export function loader() {
 - Updates: update, feature, field (a real-world test: who tried it, what they said), repromote.
 - Slopcessful: the owner declares a breakout (users, revenue, virality).
 - Auto-post: updates can be posted to the user's connected X, LinkedIn and Bluesky accounts (autopost: true). Every launch and posted update goes through an automated content check first; anything that fails it, or that someone has flagged, is never auto-posted.
+- Screenshots are checked as they're uploaded: explicit or hateful images are refused, and a mature one blurs any slop that shows it.
 
 ## Auth
 Personal API token, created by the user at ${origin}/settings/api. Send it as: Authorization: Bearer slp_...
@@ -40,7 +41,7 @@ ${tools}
 - GET    ${origin}/api/v1/categories
 - GET    ${origin}/api/v1/today
 - POST   ${origin}/api/v1/goal               { target, days, startDate?, title? }
-- POST   ${origin}/api/v1/media              raw image body (Content-Type: image/png…) or { base64 }
+- POST   ${origin}/api/v1/media              raw image body (Content-Type: image/png…) or { base64 } → { id, url, contentCheck }
 - GET    ${origin}/api/v1/slops
 - POST   ${origin}/api/v1/slops              { name, tagline, category, links, description?, screenshots?, madeWith?, launchNote?, autopost? }
 - PATCH  ${origin}/api/v1/slops/{slop}       any create_slop field

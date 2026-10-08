@@ -71,9 +71,9 @@ async function handle(request: Request, path: string): Promise<Response> {
     // Raw image uploads skip JSON entirely: `curl --data-binary @shot.png`.
     const contentType = request.headers.get("content-type") ?? "";
     if (match.operation === "upload_screenshot" && contentType.startsWith("image/")) {
-      const result = await uploadImage(user._id, new Uint8Array(await request.arrayBuffer()));
+      const result = await uploadImage(user._id, { bytes: new Uint8Array(await request.arrayBuffer()) });
       if (!result.ok) throw new ApiError(400, result.error);
-      return Response.json({ id: result.id, url: result.url }, { status: 201 });
+      return Response.json({ id: result.id, url: result.url, contentCheck: result.contentCheck }, { status: 201 });
     }
 
     let input: JsonObject = {};

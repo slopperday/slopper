@@ -1,4 +1,4 @@
-import { ConvexError, v } from "convex/values";
+import { ConvexError, type Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
 import { requireServer } from "./lib/auth";
@@ -52,6 +52,29 @@ export const autopostHoldFor = query({
  * "blocked" also hides it. For an update, "mature" only raises a flag and
  * "blocked" hides the slop. Anything but "ok" lands in the moderation queue.
  */
+async function recordCheck(
+  ctx: MutationCtx,
+  slopId: Id<"slops">,
+  scope: "slop" | "update",
+  verdict: Infer<typeof checkVerdictValidator>,
+  reason: string,
+): Promise<void> {
+  const note = reason.trim().slice(0, 300) || "No reason given";
+  if (scope === "slop") {
+    await ctx.db.patch(slopId, {
+      check: { verdict, reason: note, checkedAt: Date.now() },
+      ...(verdict === "ok" ? {} : { nsfw: true }),
+      ...(verdict === "blocked" ? { hidden: true } : {}),
+    });
+  } else if (verdict === "blocked") {
+    await ctx.db.patch(slopId, { hidden: true });
+  }
+  if (verdict !== "ok") {
+    const what = scope === "slop" ? "Content check" : "Content check on an update";
+    await ctx.db.insert("reports", { slopId, reporterId: null, reason: `${what} (${verdict}): ${note}` });
+  }
+}
+
 export const applyCheck = mutation({
   args: {
     slopId: v.id("slops"),
@@ -61,24 +84,32 @@ export const applyCheck = mutation({
   },
   handler: async (ctx, { slopId, scope, verdict, reason }) => {
     await requireServer(ctx);
-    const slop = await ctx.db.get(slopId);
-    if (!slop) return;
-    const note = reason.trim().slice(0, 300) || "No reason given";
-    if (scope === "slop") {
-      await ctx.db.patch(slopId, {
-        check: { verdict, reason: note, checkedAt: Date.now() },
-        ...(verdict === "ok" ? {} : { nsfw: true }),
-        ...(verdict === "blocked" ? { hidden: true } : {}),
-      });
-    } else if (verdict === "blocked") {
-      await ctx.db.patch(slopId, { hidden: true });
-    }
-    if (verdict !== "ok") {
-      const what = scope === "slop" ? "Content check" : "Content check on an update";
-      await ctx.db.insert("reports", { slopId, reporterId: null, reason: `${what} (${verdict}): ${note}` });
-    }
+    if (await ctx.db.get(slopId)) await recordCheck(ctx, slopId, scope, verdict, reason);
   },
 });
+
+/**
+ * A slop that newly shows a screenshot the upload check found mature gets
+ * that verdict too: blurred, queued for a moderator, never auto-posted.
+ * Screenshots it already showed are skipped, so a moderator's "looks fine"
+ * survives later edits. Returns whether it blurred the slop.
+ */
+export async function checkScreenshots(
+  ctx: MutationCtx,
+  slopId: Id<"slops">,
+  screenshots: readonly Id<"media">[],
+  alreadyShown: readonly Id<"media">[] = [],
+): Promise<boolean> {
+  const reasons: string[] = [];
+  for (const id of screenshots) {
+    if (alreadyShown.includes(id)) continue;
+    const media = await ctx.db.get(id);
+    if (media?.check?.verdict === "mature") reasons.push(media.check.reason);
+  }
+  if (reasons.length === 0) return false;
+  await recordCheck(ctx, slopId, "slop", "mature", `A screenshot: ${reasons.join(" ")}`);
+  return true;
+}
 
 /** A signed-in person flags a slop. Enough different people blur it. */
 export const flag = mutation({

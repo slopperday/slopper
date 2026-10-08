@@ -87,7 +87,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
 
   const { launchNote, ...input } = parsed.value;
-  let created: { slopId: Doc<"slops">["_id"]; updateId: Doc<"updates">["_id"]; slug: string };
+  let created: { slopId: Doc<"slops">["_id"]; updateId: Doc<"updates">["_id"]; slug: string; blurred: boolean };
   try {
     created = await convex.mutation(api.slops.create, {
       userId: user._id,
@@ -113,7 +113,8 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
   const autoposted =
     form.get("autopost") === "on" ? summarize(await announce(user, created.slopId, created.updateId)) : "";
-  const blurred = check?.verdict === "mature" ? " It's marked NSFW, so it's blurred." : "";
+  // A mature screenshot blurs the slop as it's created, whatever the launch check says.
+  const blurred = check?.verdict === "mature" || created.blurred ? " It's marked NSFW, so it's blurred." : "";
   return redirectWithFlash(`${here}?new=1`, {
     tone: "success",
     message: `${title} is on the wall.${blurred}${autoposted}`,

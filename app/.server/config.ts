@@ -32,6 +32,21 @@ export interface ContentCheckConfig {
   model: string;
 }
 
+/**
+ * A Backblaze B2 bucket for screenshots, through its S3-compatible API. The
+ * public URL images are served from (MEDIA_PUBLIC_URL) is set on Convex,
+ * which builds image URLs; the app server only writes and deletes objects.
+ */
+export interface B2Config {
+  /** S3 endpoint, e.g. https://s3.us-west-004.backblazeb2.com. No trailing slash. */
+  endpoint: string;
+  /** The endpoint's region, e.g. us-west-004. */
+  region: string;
+  bucket: string;
+  keyId: string;
+  applicationKey: string;
+}
+
 export interface Config {
   /** Public origin used for OAuth redirects and absolute links. */
   appUrl: URL;
@@ -64,6 +79,8 @@ export interface Config {
    * it on brings back everything already posted.
    */
   commentsEnabled: boolean;
+  /** Screenshot storage. Without it, screenshots go to Convex file storage. */
+  b2: B2Config | null;
 }
 
 type Env = Record<string, string | undefined>;
@@ -73,6 +90,25 @@ function credentials(env: Env, prefix: string): OAuthClientCredentials | null {
   const clientSecret = env[`${prefix}_CLIENT_SECRET`]?.trim();
   if (!clientId || !clientSecret) return null;
   return { clientId, clientSecret };
+}
+
+const B2_VARIABLES = ["B2_ENDPOINT", "B2_REGION", "B2_BUCKET", "B2_KEY_ID", "B2_APPLICATION_KEY"] as const;
+
+/**
+ * All five B2 variables, or none. A partial set is a deployment mistake, so
+ * it stops the server rather than quietly filling Convex storage instead.
+ */
+function b2Storage(env: Env): B2Config | null {
+  const [endpoint, region, bucket, keyId, applicationKey] = B2_VARIABLES.map((name) => env[name]?.trim() ?? "");
+  const missing = B2_VARIABLES.filter((name) => !env[name]?.trim());
+  if (missing.length === B2_VARIABLES.length) return null;
+  if (missing.length > 0) {
+    throw new Error(
+      `B2 storage is half configured. Set ${missing.join(", ")} too, or none of them for Convex storage.`,
+    );
+  }
+  if (!URL.canParse(endpoint)) throw new Error(`B2_ENDPOINT isn't a URL: ${endpoint}`);
+  return { endpoint: endpoint.replace(/\/+$/, ""), region, bucket, keyId, applicationKey };
 }
 
 export function loadConfig(env: Env = process.env): Config {
@@ -104,6 +140,7 @@ export function loadConfig(env: Env = process.env): Config {
         }
       : null,
     commentsEnabled: env.COMMENTS_ENABLED?.trim() === "true",
+    b2: b2Storage(env),
   };
 }
 

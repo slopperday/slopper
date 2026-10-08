@@ -8,7 +8,13 @@ export interface Screenshot {
 
 const MAX_EDGE = 1600;
 
-/** Downscales in the browser so uploads stay small. */
+/**
+ * Downscales in the browser so uploads stay small. Re-encoding through a
+ * canvas also strips EXIF and every other kind of metadata (GPS, camera,
+ * editing history): a canvas holds only pixels, and createImageBitmap applies
+ * the EXIF orientation before they're drawn. GIFs go up as they are to keep
+ * the animation; they carry no EXIF, though they can hold comment blocks.
+ */
 async function shrink(file: File): Promise<Blob> {
   if (file.type === "image/gif") return file; // keep the animation
   const bitmap = await createImageBitmap(file);
@@ -33,10 +39,12 @@ export function ScreenshotPicker({ initial, max }: { initial: readonly Screensho
   const [shots, setShots] = useState<Screenshot[]>([...initial]);
   const [pending, setPending] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
   async function upload(files: FileList) {
     setError(null);
+    setNotice(null);
     const room = max - shots.length;
     const chosen = Array.from(files).slice(0, room);
     if (files.length > room) setError(`Up to ${max} screenshots.`);
@@ -46,10 +54,12 @@ export function ScreenshotPicker({ initial, max }: { initial: readonly Screensho
         const body = new FormData();
         body.set("file", await shrink(file), file.name);
         const response = await fetch("/api/media", { method: "POST", body });
-        const result = (await response.json()) as { id?: string; url?: string; error?: string };
+        const result = (await response.json()) as { id?: string; url?: string; contentCheck?: string; error?: string };
         const { id, url } = result;
         if (!response.ok || !id || !url) throw new Error(result.error ?? "Upload failed");
         setShots((current) => [...current, { id, url }]);
+        if (result.contentCheck === "mature")
+          setNotice("The content check marked that one NSFW, so this slop will be blurred.");
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Upload failed");
       } finally {
@@ -122,6 +132,11 @@ export function ScreenshotPicker({ initial, max }: { initial: readonly Screensho
           </label>
         )}
       </div>
+      {notice && (
+        <p className="field-hint" role="status">
+          {notice}
+        </p>
+      )}
       {error && (
         <p className="field-error" role="alert">
           {error}

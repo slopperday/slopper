@@ -1,7 +1,12 @@
+import type { Infer } from "convex/values";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import type { mediaCheckValidator } from "@convex/schema";
 import { LIMITS } from "~/lib/model";
-import { convex, convexMessage } from "./convex";
+import { config, type ContentCheckConfig } from "./config";
+import { convex, type ConvexCaller, convexMessage } from "./convex";
+import { tryCheck, uploadSubmission } from "./moderation";
+import { b2Bucket, type MediaKind, type MediaStore, mediaStore, type S3Bucket } from "./storage";
 
 /** Recognises the image formats we accept by their magic bytes. */
 export function sniffImageType(bytes: Uint8Array): string | null {
@@ -13,25 +18,92 @@ export function sniffImageType(bytes: Uint8Array): string | null {
   return null;
 }
 
-export type UploadResult = { ok: true; id: Id<"media">; url: string | null } | { ok: false; error: string };
+/** What the upload check said about a stored image. */
+export type MediaCheck = Infer<typeof mediaCheckValidator>;
+
+export const BLOCKED_IMAGE = "This image can't go on Slopper.";
+
+export interface ImageUpload {
+  bytes: Uint8Array<ArrayBuffer>;
+  /** The name the browser sent, if any; the check reads it too. */
+  fileName?: string | null;
+  /**
+   * A screenshot (the default) or an avatar. Avatars show everywhere,
+   * unblurred, so a mature one is refused like a blocked one.
+   */
+  kind?: MediaKind;
+}
+
+export type UploadResult =
+  | { ok: true; id: Id<"media">; url: string | null; contentCheck: MediaCheck["verdict"] }
+  | { ok: false; error: string };
+
+/** What an upload talks to. Tests swap in fakes. */
+export interface UploadServices {
+  store: MediaStore;
+  convex: ConvexCaller;
+  contentCheck: ContentCheckConfig | null;
+  fetcher: typeof fetch;
+}
+
+function uploadServices(): UploadServices {
+  return { store: mediaStore(), convex, contentCheck: config.contentCheck, fetcher: fetch };
+}
 
 /**
- * Checks an image and stores it in Convex file storage. The browser form,
- * the REST API and MCP all upload through here.
+ * Checks an image and stores it. The browser form, the REST API and MCP all
+ * upload through here.
+ *
+ * The content check runs before anything is stored: a blocked image (nudity,
+ * sexual content, slurs or abuse, including text in the image) is refused and
+ * never kept. A mature one is stored and marked, and any slop that shows it is
+ * blurred (convex/moderation.ts, `checkScreenshots`).
+ *
+ * When the check can't run (no DEEPSEEK_API_KEY, a timeout, an error), the
+ * image is stored as "unchecked" rather than refused, so uploads don't depend
+ * on DeepSeek being up. That's the tradeoff: an unchecked image can sit on a
+ * slop's page until the launch check reads it (it reads every screenshot
+ * again), and nothing auto-posts until a slop passes that check.
  */
-export async function uploadImage(ownerId: Id<"users">, bytes: Uint8Array<ArrayBuffer>): Promise<UploadResult> {
+export async function uploadImage(
+  ownerId: Id<"users">,
+  { bytes, fileName, kind = "screenshot" }: ImageUpload,
+  services: UploadServices = uploadServices(),
+): Promise<UploadResult> {
   if (bytes.byteLength === 0) return { ok: false, error: "Empty file." };
   if (bytes.byteLength > LIMITS.mediaBytes) return { ok: false, error: "Images must be 2 MB or smaller." };
   const contentType = sniffImageType(bytes);
   if (!contentType) return { ok: false, error: "Use a PNG, JPEG, WebP or GIF image." };
 
   try {
-    const uploadUrl = await convex.mutation(api.media.uploadUrl, { userId: ownerId });
-    const response = await fetch(uploadUrl, { method: "POST", headers: { "content-type": contentType }, body: bytes });
-    if (!response.ok) return { ok: false, error: "Storage rejected the upload. Try again." };
-    const { storageId } = (await response.json()) as { storageId: Id<"_storage"> };
-    const { mediaId, url } = await convex.mutation(api.media.register, { ownerId, storageId });
-    return { ok: true, id: mediaId, url };
+    await services.convex.mutation(api.media.beginUpload, { userId: ownerId, backend: services.store.backend });
+
+    const result = await tryCheck(
+      uploadSubmission(bytes, contentType, kind, fileName),
+      services.contentCheck,
+      services.fetcher,
+    );
+    if (result?.verdict === "blocked" || (result?.verdict === "mature" && kind === "avatar")) {
+      console.warn(`Refused an upload from ${ownerId}: ${result.reason}`);
+      return { ok: false, error: BLOCKED_IMAGE };
+    }
+    const check: MediaCheck = result
+      ? { verdict: result.verdict === "mature" ? "mature" : "ok", reason: result.reason }
+      : { verdict: "unchecked", reason: "The content check couldn't run at upload." };
+
+    const location = await services.store.put(bytes, contentType, kind).catch((error: unknown) => {
+      console.error("Storing an upload failed", error);
+      return null;
+    });
+    if (!location) return { ok: false, error: "Storage rejected the upload. Try again." };
+    const { mediaId, url } = await services.convex.mutation(api.media.register, {
+      ownerId,
+      location,
+      contentType,
+      size: bytes.byteLength,
+      check,
+    });
+    return { ok: true, id: mediaId, url, contentCheck: check.verdict };
   } catch (error) {
     const message = convexMessage(error);
     if (message) return { ok: false, error: message };
@@ -40,15 +112,16 @@ export async function uploadImage(ownerId: Id<"users">, bytes: Uint8Array<ArrayB
 }
 
 /**
- * Keeps a copy of a new account's profile picture in Convex storage, for
- * providers whose picture URLs expire. Best effort: without it the account
- * shows its initial, so a failure is logged rather than stopping sign-in.
+ * Keeps a copy of a new account's profile picture (in the B2 bucket, or
+ * Convex storage), for providers whose picture URLs expire. It's checked like
+ * any upload. Best effort: without it the account shows its initial, so a
+ * failure or a refused picture is logged rather than stopping sign-in.
  */
 export async function copyAvatar(userId: Id<"users">, pictureUrl: string): Promise<void> {
   try {
     const response = await fetch(pictureUrl);
     if (!response.ok) throw new Error(`Picture request failed (${response.status})`);
-    const upload = await uploadImage(userId, new Uint8Array(await response.arrayBuffer()));
+    const upload = await uploadImage(userId, { bytes: new Uint8Array(await response.arrayBuffer()), kind: "avatar" });
     if (!upload.ok) throw new Error(upload.error);
     if (upload.url) await convex.mutation(api.users.setAvatar, { userId, avatarUrl: upload.url });
   } catch (error) {
@@ -64,4 +137,39 @@ export async function screenshotsWithUrls(ids: readonly string[]): Promise<{ id:
     if (url) shots.push({ id, url });
   }
   return shots;
+}
+
+/** How many orphaned objects one cleanup deletes; the rest wait for the next. */
+const CLEANUP_BATCH = 25;
+
+/**
+ * Deletes B2 objects no slop shows any more, then forgets their rows. Runs
+ * after a delete or edit that orphaned some (Convex marks them; see
+ * `releaseMedia` in convex/lib/media.ts).
+ *
+ * Best effort, and never fails the request that triggered it: the slop is
+ * already gone. An object that won't delete keeps its row, so the next
+ * cleanup tries it again; nothing is forgotten until the bucket confirms.
+ */
+export async function deleteOrphanedMedia(
+  bucket: S3Bucket | null = b2Bucket(),
+  caller: ConvexCaller = convex,
+): Promise<void> {
+  // Without the bucket's key there's nothing to delete with; the rows wait for it.
+  if (!bucket) return;
+  try {
+    const orphans = await caller.query(api.media.orphans, { limit: CLEANUP_BATCH });
+    const deleted: Id<"media">[] = [];
+    for (const orphan of orphans) {
+      try {
+        await bucket.remove(orphan.key);
+        deleted.push(orphan.id);
+      } catch (error) {
+        console.error(`Couldn't delete ${orphan.key} from the bucket; it stays queued`, error);
+      }
+    }
+    if (deleted.length > 0) await caller.mutation(api.media.forget, { ids: deleted });
+  } catch (error) {
+    console.error("Cleaning up orphaned screenshots failed; they stay queued", error);
+  }
 }

@@ -6,7 +6,7 @@ import { requireUser, viewerContext } from "~/.server/session";
 import { convex, convexMessage } from "~/.server/convex";
 import { formText, parseSlopForm, slopFormValues } from "~/.server/forms";
 import { forbidden, notFound, redirectWithFlash } from "~/.server/http";
-import { screenshotsWithUrls } from "~/.server/media";
+import { deleteOrphanedMedia, screenshotsWithUrls } from "~/.server/media";
 import { checkedContent, checkSlop } from "~/.server/moderation";
 import { modeFor } from "~/.server/social/crosspost";
 import { type CrosspostMode, NETWORK_LABELS } from "~/lib/model";
@@ -88,13 +88,15 @@ export async function action({ params, request, context }: Route.ActionArgs) {
     );
   }
   const { launchNote: _launchNote, ...input } = parsed.value;
+  let edited: { blurred: boolean; orphaned: number };
   try {
-    await convex.mutation(api.slops.edit, { userId: user._id, slopId: slop._id, input });
+    edited = await convex.mutation(api.slops.edit, { userId: user._id, slopId: slop._id, input });
   } catch (error) {
     const message = convexMessage(error);
     if (message) return redirectWithFlash(`${here}/edit`, { tone: "error", message });
     throw error;
   }
+  if (edited.orphaned > 0) await deleteOrphanedMedia();
   const saved = await convex.query(api.slops.getForServer, { slopId: slop._id });
   const check = saved && checkedContent(saved) !== checkedContent(slop) ? await checkSlop(slop._id) : null;
   if (check?.verdict === "blocked") {
@@ -105,7 +107,7 @@ export async function action({ params, request, context }: Route.ActionArgs) {
   }
   return redirectWithFlash(here, {
     tone: "success",
-    message: check?.verdict === "mature" ? "Saved. It's marked NSFW now, so it's blurred." : "Saved.",
+    message: check?.verdict === "mature" || edited.blurred ? "Saved. It's marked NSFW now, so it's blurred." : "Saved.",
   });
 }
 

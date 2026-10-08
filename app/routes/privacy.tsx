@@ -21,8 +21,8 @@ const SECTIONS: readonly LegalSection[] = [
   {
     title: "Who else sees it",
     body: [
-      "Convex stores Slopper's data and screenshots. Deno Deploy runs the site. Google Fonts serves the typefaces, so your browser asks Google for them.",
-      "DeepSeek checks every launch, its screenshots and auto-posted updates to keep Slopper safe for work. It gets the text and images of what you post, nothing about your account.",
+      "Convex stores Slopper's data; Backblaze B2 stores screenshots and copies of profile pictures. Deno Deploy runs the site. Google Fonts serves the typefaces, so your browser asks Google for them.",
+      "DeepSeek checks every screenshot as it's uploaded (with its file name), every launch and auto-posted updates to keep Slopper safe for work. It gets the text and images of what you post, nothing about your account.",
       "When you auto-post, the networks you connected get the post. We don't sell your data or share it with anyone else.",
     ],
   },
@@ -41,5 +41,5 @@ const SECTIONS: readonly LegalSection[] = [
 export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "Privacy", path: "/privacy" });
 
 export default function Privacy() {
-  return <LegalPage intro="In plain words." title="Privacy" updated="2026-10-07" sections={SECTIONS} />;
+  return <LegalPage intro="In plain words." title="Privacy" updated="2026-10-08" sections={SECTIONS} />;
 }

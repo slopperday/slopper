@@ -6,6 +6,8 @@ import { consume, nextCounter } from "./lib/rate";
 import { isVisibleTo, productIdOf, publicSlop, publicUser, toCards, voteOf } from "./lib/shape";
 import { linkValidator } from "./schema";
 import { openGoal } from "./goals";
+import { releaseMedia } from "./lib/media";
+import { checkScreenshots } from "./moderation";
 import { goalDayFor } from "../app/lib/goal";
 import { LIMITS } from "../app/lib/model";
 import { renderMarkdown } from "../app/lib/markdown";
@@ -24,7 +26,7 @@ const slopInput = v.object({
   madeWith: v.array(v.string()),
 });
 
-/** Keeps only media the user uploaded (or already attached), in order. */
+/** Keeps only media the user uploaded (or already attached), in order. Orphaned media is on its way out. */
 async function ownedMedia(
   ctx: QueryCtx,
   userId: Id<"users">,
@@ -35,7 +37,12 @@ async function ownedMedia(
   for (const raw of new Set(ids)) {
     const id = ctx.db.normalizeId("media", raw);
     if (!id) continue;
-    if (alreadyAttached.includes(id) || (await ctx.db.get(id))?.ownerId === userId) kept.push(id);
+    if (alreadyAttached.includes(id)) {
+      kept.push(id);
+      continue;
+    }
+    const media = await ctx.db.get(id);
+    if (media?.ownerId === userId && media.orphanedAt === undefined) kept.push(id);
   }
   return kept.slice(0, LIMITS.screenshots);
 }
@@ -83,6 +90,7 @@ export const create = mutation({
     const goalDay = goal ? goalDayFor(goal, today) : null;
     const slug = await freeSlug(ctx, userId, slugify(source ? `${input.name} ${launchLabel}` : input.name));
     const now = Date.now();
+    const screenshots = await ownedMedia(ctx, userId, input.screenshots, source?.screenshots);
     const slopId = await ctx.db.insert("slops", {
       userId,
       productId: source ? productIdOf(source) : null,
@@ -91,7 +99,7 @@ export const create = mutation({
       ...input,
       // Set by the content check, flags or moderators; never by the maker.
       nsfw: false,
-      screenshots: await ownedMedia(ctx, userId, input.screenshots, source?.screenshots),
+      screenshots,
       launchDate: today,
       raceDate: new Date(now).toISOString().slice(0, 10),
       goalId: goalDay && goal ? goal._id : null,
@@ -120,7 +128,8 @@ export const create = mutation({
       body: launchNote,
       crossposts: [],
     });
-    return { slopId, updateId, slug };
+    const blurred = await checkScreenshots(ctx, slopId, screenshots);
+    return { slopId, updateId, slug, blurred };
   },
 });
 
@@ -129,10 +138,11 @@ export const edit = mutation({
   handler: async (ctx, { userId, slopId, input }) => {
     await requireServer(ctx);
     const slop = await ownSlop(ctx, userId, slopId);
-    await ctx.db.patch(slopId, {
-      ...input,
-      screenshots: await ownedMedia(ctx, userId, input.screenshots, slop.screenshots),
-    });
+    const screenshots = await ownedMedia(ctx, userId, input.screenshots, slop.screenshots);
+    await ctx.db.patch(slopId, { ...input, screenshots });
+    const blurred = await checkScreenshots(ctx, slopId, screenshots, slop.screenshots);
+    const dropped = slop.screenshots.filter((id) => !screenshots.includes(id));
+    return { blurred, orphaned: await releaseMedia(ctx, userId, dropped) };
   },
 });
 
@@ -171,7 +181,7 @@ export const remove = mutation({
   handler: async (ctx, { slopId, byUserId, asAdmin }) => {
     await requireServer(ctx);
     const slop = await ctx.db.get(slopId);
-    if (!slop) return;
+    if (!slop) return { orphaned: 0 };
     if (slop.userId !== byUserId && !asAdmin) throw new ConvexError("That slop isn't yours.");
     const later = await ctx.db
       .query("slops")
@@ -209,6 +219,7 @@ export const remove = mutation({
       for (const entry of ledger) await ctx.db.delete(entry._id);
     }
     await ctx.db.delete(slopId);
+    return { orphaned: await releaseMedia(ctx, slop.userId, slop.screenshots) };
   },
 });
 

@@ -1,6 +1,7 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import type { SlopLink } from "../../app/lib/model";
+import { mediaUrl } from "./media";
 
 /**
  * What leaves Convex. Public queries return these shapes, never raw
@@ -72,7 +73,7 @@ export async function screenshotUrls(ctx: QueryCtx, ids: readonly Id<"media">[])
   const urls: string[] = [];
   for (const id of ids) {
     const media = await ctx.db.get(id);
-    const url = media ? await ctx.storage.getUrl(media.storageId) : null;
+    const url = media ? await mediaUrl(ctx, media) : null;
     if (url) urls.push(url);
   }
   return urls;

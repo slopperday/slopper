@@ -5,9 +5,10 @@ import { convex } from "./convex";
 import { encodeBase64 } from "./encoding";
 
 /**
- * The automated content check. Every launch (text and screenshots), every
- * edit that changes them, and every update that's about to be auto-posted
- * goes past DeepSeek once, which sorts it into ok, mature or blocked.
+ * The automated content check. Every screenshot as it's uploaded, every
+ * launch (text and screenshots), every edit that changes them, and every
+ * update that's about to be auto-posted goes past DeepSeek once, which sorts
+ * it into ok, mature or blocked.
  *
  * The policy is the first message and never changes between calls, so
  * DeepSeek's automatic prefix cache serves it (a cache hit costs about 2% of
@@ -22,11 +23,14 @@ export interface ContentCheck {
   reason: string;
 }
 
+/** An image to check: a URL the server can fetch, or bytes it already holds. */
+export type SubmissionImage = { url: string } | { bytes: Uint8Array; contentType: string };
+
 export interface Submission {
   /** Text fields as they'll be shown or posted. */
   fields: Record<string, string | readonly string[]>;
-  /** Image URLs the server can fetch. Sent inline, so private hosts work too. */
-  imageUrls: readonly string[];
+  /** Sent inline as data URLs, so private hosts and images not stored yet work too. */
+  images: readonly SubmissionImage[];
 }
 
 /** Screenshots beyond the first few rarely change the verdict, and each costs up to 1,024 tokens. */
@@ -61,8 +65,9 @@ export function parseVerdict(content: string | null | undefined): ContentCheck {
   return { verdict: verdict as Verdict, reason: typeof reason === "string" ? reason.trim().slice(0, 300) : "" };
 }
 
-async function inlineImage(url: string, fetcher: typeof fetch): Promise<string> {
-  const response = await fetcher(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+async function inlineImage(image: SubmissionImage, fetcher: typeof fetch): Promise<string> {
+  if ("bytes" in image) return `data:${image.contentType};base64,${encodeBase64(image.bytes)}`;
+  const response = await fetcher(image.url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!response.ok) throw new Error(`Couldn't load a screenshot for the content check (${response.status}).`);
   const type = response.headers.get("content-type") ?? "image/png";
   return `data:${type};base64,${encodeBase64(new Uint8Array(await response.arrayBuffer()))}`;
@@ -77,7 +82,7 @@ export async function checkContent(
   settings: ContentCheckConfig,
   fetcher: typeof fetch = fetch,
 ): Promise<ContentCheck> {
-  const images = await Promise.all(submission.imageUrls.slice(0, MAX_IMAGES).map((url) => inlineImage(url, fetcher)));
+  const images = await Promise.all(submission.images.slice(0, MAX_IMAGES).map((image) => inlineImage(image, fetcher)));
   const response = await fetcher(`${settings.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
     method: "POST",
     signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -107,14 +112,33 @@ export async function checkContent(
 }
 
 /** Runs the check if it's configured. Null means it couldn't run, and the error is logged. */
-async function tryCheck(submission: Submission): Promise<ContentCheck | null> {
-  if (!config.contentCheck) return null;
+export async function tryCheck(
+  submission: Submission,
+  settings: ContentCheckConfig | null = config.contentCheck,
+  fetcher: typeof fetch = fetch,
+): Promise<ContentCheck | null> {
+  if (!settings) return null;
   try {
-    return await checkContent(submission, config.contentCheck);
+    return await checkContent(submission, settings, fetcher);
   } catch (error) {
     console.error("Content check failed", error);
     return null;
   }
+}
+
+/**
+ * What the check reads from an upload: what it's for, the image, and the file
+ * name it came with (the browser sends one; agents don't). Text inside the
+ * image counts: slurs and abuse in a screenshot are blocked like any other.
+ */
+export function uploadSubmission(
+  bytes: Uint8Array,
+  contentType: string,
+  kind: "screenshot" | "avatar",
+  fileName?: string | null,
+): Submission {
+  const name = fileName?.split(/[\\/]/).pop()?.trim().slice(0, 200);
+  return { fields: { upload: kind, ...(name ? { fileName: name } : {}) }, images: [{ bytes, contentType }] };
 }
 
 /** What the check reads from a slop: everything that's shown or posted. */
@@ -129,7 +153,7 @@ export function slopSubmission(slop: Doc<"slops">, launchNote: string, imageUrls
       links: slop.links.map((link) => link.url),
       madeWith: slop.madeWith,
     },
-    imageUrls,
+    images: imageUrls.map((url) => ({ url })),
   };
 }
 
@@ -153,7 +177,7 @@ export async function checkSlop(slopId: Id<"slops">, launchNote = ""): Promise<C
 
 /** Checks an update's text before it's auto-posted. Null if the check couldn't run. */
 export async function checkUpdate(slopId: Id<"slops">, body: string): Promise<ContentCheck | null> {
-  const result = await tryCheck({ fields: { update: body }, imageUrls: [] });
+  const result = await tryCheck({ fields: { update: body }, images: [] });
   if (result) await convex.mutation(api.moderation.applyCheck, { slopId, scope: "update", ...result });
   return result;
 }

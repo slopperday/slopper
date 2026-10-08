@@ -45,6 +45,10 @@ release. Add a tool name to select part of the graph. For example, run
 - **Ids from forms or URLs** reach Convex as strings and are checked with `ctx.db.normalizeId`, never cast.
 - **Agents:** every agent capability is an operation in `app/.server/agent/operations.ts`, served by both MCP (`/mcp`)
   and REST (`/api/v1`). Add new ones there.
+- **Screenshots** go through `uploadImage` (`app/.server/media.ts`): checked before they're stored (blocked ones never
+  are), then written to B2 (`app/.server/storage.ts`) or, without the B2 variables, Convex storage. Image URLs are
+  built in Convex from `MEDIA_PUBLIC_URL` (a Convex env var). Mutations that drop screenshots return `orphaned`; call
+  `deleteOrphanedMedia` when it's above 0.
 - **Safety:** nothing auto-posts unless the slop passed the content check (`app/.server/moderation.ts`) and has no
   open flags. Makers can't mark their own slops NSFW; the check, flags and moderators do. Keep the policy prompt
   stable: it's the cached prefix of every DeepSeek call.
