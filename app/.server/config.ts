@@ -25,11 +25,22 @@ export interface OAuthClientCredentials {
   clientSecret: string;
 }
 
+/**
+ * The content check goes through OpenRouter, so switching models is a
+ * config change, not a code change.
+ */
 export interface ContentCheckConfig {
   apiKey: string;
-  /** OpenAI-compatible endpoint; DeepSeek by default. */
+  /** OpenRouter, or anything that speaks its chat completions API (the e2e fake). */
   baseUrl: string;
+  /** Any OpenRouter model that reads images and supports JSON mode. */
   model: string;
+  /**
+   * The provider OpenRouter tries first. DeepSeek serves the full model with
+   * the cheapest cache reads; others take over when it's down, and a model
+   * it doesn't serve skips it.
+   */
+  provider: string;
 }
 
 /**
@@ -132,11 +143,12 @@ export function loadConfig(env: Env = process.env): Config {
     x: credentials(env, "X"),
     linkedin: credentials(env, "LINKEDIN"),
     facebook: credentials(env, "FACEBOOK"),
-    contentCheck: env.DEEPSEEK_API_KEY?.trim()
+    contentCheck: env.OPENROUTER_API_KEY?.trim()
       ? {
-          apiKey: env.DEEPSEEK_API_KEY.trim(),
-          baseUrl: env.DEEPSEEK_BASE_URL?.trim() || "https://api.deepseek.com",
-          model: env.DEEPSEEK_MODEL?.trim() || "deepseek-flash",
+          apiKey: env.OPENROUTER_API_KEY.trim(),
+          baseUrl: env.OPENROUTER_BASE_URL?.trim() || "https://openrouter.ai/api/v1",
+          model: env.OPENROUTER_MODEL?.trim() || "deepseek/deepseek-v4.1-flash",
+          provider: env.OPENROUTER_PROVIDER?.trim() || "deepseek",
         }
       : null,
     commentsEnabled: env.COMMENTS_ENABLED?.trim() === "true",

@@ -51,7 +51,8 @@ release. Add a tool name to select part of the graph. For example, run
   `deleteOrphanedMedia` when it's above 0.
 - **Safety:** nothing auto-posts unless the slop passed the content check (`app/.server/moderation.ts`) and has no
   open flags. Makers can't mark their own slops NSFW; the check, flags and moderators do. Keep the policy prompt
-  stable: it's the cached prefix of every DeepSeek call.
+  stable: it's the cached prefix of every call. The check goes through OpenRouter (`OPENROUTER_MODEL`, DeepSeek V4.1
+  Flash by default), so switching models is config only.
 - **Sign-in:** every OAuth provider is one spec in `app/.server/auth/oauth.ts` with one redirect URI; the flow (`login`,
   `link`, `connect`) is stored with the pending authorization, never put in the URL. Linking rules live in
   `convex/users.ts` (`linkIdentity`/`unlinkIdentity`): one identity per provider, never the last one removed.
