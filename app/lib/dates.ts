@@ -45,6 +45,41 @@ export function addDays(date: string, days: number): string {
   return new Date(toUtcMidnight(date) + days * DAY_MS).toISOString().slice(0, 10);
 }
 
+const clocks = new Map<string, Intl.DateTimeFormat>();
+
+/** How far `timeZone`'s clock is ahead of UTC at `instant`, in milliseconds. */
+function offsetAt(instant: number, timeZone: string): number {
+  let clock = clocks.get(timeZone);
+  if (!clock) {
+    clock = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+    });
+    clocks.set(timeZone, clock);
+  }
+  const parts = Object.fromEntries(clock.formatToParts(new Date(instant)).map((part) => [part.type, part.value]));
+  const wall = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+  return wall - (instant - (instant % 1000));
+}
+
+/** The first moment after `now` when the clock in `timeZone` reads `hour`:00. */
+export function nextLocalHour(timeZone: string, hour: number, now: number): number {
+  let date = localDate(new Date(now), timeZone);
+  for (;;) {
+    const wall = toUtcMidnight(date) + hour * 3_600_000;
+    // Twice: the offset at the guess can differ from the offset at the answer across a DST change.
+    const at = wall - offsetAt(wall - offsetAt(wall, timeZone), timeZone);
+    if (at > now) return at;
+    date = addDays(date, 1);
+  }
+}
+
 /** Whole days from `from` to `to` (positive when `to` is later). */
 export function daysBetween(from: string, to: string): number {
   return Math.round((toUtcMidnight(to) - toUtcMidnight(from)) / DAY_MS);

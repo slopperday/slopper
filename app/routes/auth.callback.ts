@@ -120,6 +120,7 @@ async function completeLink(
     userId: pending.userId,
     provider,
     providerId: profile.providerId,
+    email: profile.email,
   });
   if (result.ok) {
     return redirectWithFlash(

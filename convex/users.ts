@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
 import { readerFor, requireServer } from "./lib/auth";
+import { firstEmail, nextDigestAt } from "./lib/digest";
 import { publicUser, toCards } from "./lib/shape";
 import { currentStreak, isValidTimeZone, localDate } from "../app/lib/dates";
 import { goalProgress, type Launch } from "../app/lib/goal";
@@ -36,24 +37,32 @@ export const upsertFromIdentity = mutation({
     bio: v.optional(v.string()),
     website: v.optional(v.union(v.string(), v.null())),
     timeZone: v.string(),
+    /** Verified by the provider, or null. Kept only when the account has none yet. */
+    email: v.optional(v.union(v.string(), v.null())),
   },
-  handler: async (ctx, args): Promise<{ userId: Id<"users">; created: boolean }> => {
+  handler: async (ctx, { email, ...args }): Promise<{ userId: Id<"users">; created: boolean }> => {
     await requireServer(ctx);
     const identity = await ctx.db
       .query("identities")
       .withIndex("by_provider_id", (q) => q.eq("provider", args.provider).eq("providerId", args.providerId))
       .unique();
-    if (identity && (await ctx.db.get(identity.userId))) return { userId: identity.userId, created: false };
+    const existing = identity ? await ctx.db.get(identity.userId) : null;
+    if (existing) {
+      if (email && !existing.email) await ctx.db.patch(existing._id, firstEmail(email, existing.timeZone, Date.now()));
+      return { userId: existing._id, created: false };
+    }
 
     const username = await freeUsername(ctx, args.preferredUsername);
+    const timeZone = isValidTimeZone(args.timeZone) ? args.timeZone : "UTC";
     const userId = await ctx.db.insert("users", {
       username,
       displayName: args.displayName.slice(0, 60) || username,
       avatarUrl: args.avatarUrl,
       bio: (args.bio ?? "").slice(0, LIMITS.bioLength),
       website: args.website ?? null,
-      timeZone: isValidTimeZone(args.timeZone) ? args.timeZone : "UTC",
+      timeZone,
       showNsfw: false,
+      ...(email ? firstEmail(email, timeZone, Date.now()) : {}),
     });
     if (identity) await ctx.db.patch(identity._id, { userId });
     else await ctx.db.insert("identities", { provider: args.provider, providerId: args.providerId, userId });
@@ -87,10 +96,16 @@ export type LinkIdentityResult =
 
 /** Adds a sign-in method to an account, so signing in with it lands there. */
 export const linkIdentity = mutation({
-  args: { userId: v.id("users"), provider: v.string(), providerId: v.string() },
-  handler: async (ctx, { userId, provider, providerId }): Promise<LinkIdentityResult> => {
+  args: {
+    userId: v.id("users"),
+    provider: v.string(),
+    providerId: v.string(),
+    email: v.optional(v.union(v.string(), v.null())),
+  },
+  handler: async (ctx, { userId, provider, providerId, email }): Promise<LinkIdentityResult> => {
     await requireServer(ctx);
-    if (!(await ctx.db.get(userId))) throw new ConvexError("Account not found.");
+    const user = await ctx.db.get(userId);
+    if (!user) throw new ConvexError("Account not found.");
     const existing = await ctx.db
       .query("identities")
       .withIndex("by_provider_id", (q) => q.eq("provider", provider).eq("providerId", providerId))
@@ -107,6 +122,7 @@ export const linkIdentity = mutation({
     // An identity whose account is gone is free to claim.
     if (existing) await ctx.db.patch(existing._id, { userId });
     else await ctx.db.insert("identities", { provider, providerId, userId });
+    if (email && !user.email) await ctx.db.patch(userId, firstEmail(email, user.timeZone, Date.now()));
     return { ok: true, alreadyLinked: false };
   },
 });
@@ -202,8 +218,42 @@ export const updateProfile = mutation({
       ...changes,
       displayName: changes.displayName.slice(0, 60) || changes.username,
       bio: changes.bio.slice(0, LIMITS.bioLength),
+      // A new time zone moves 9am.
+      nextDigestAt: nextDigestAt({ ...user, timeZone: changes.timeZone }, Date.now()),
     });
     return { ok: true };
+  },
+});
+
+/** Turns the daily digest on or off from Settings. */
+export const setEmailDigest = mutation({
+  args: { userId: v.id("users"), enabled: v.boolean() },
+  handler: async (ctx, { userId, enabled }) => {
+    await requireServer(ctx);
+    const user = await ctx.db.get(userId);
+    if (!user) throw new ConvexError("Account not found.");
+    const now = Date.now();
+    await ctx.db.patch(userId, {
+      emailDigest: enabled,
+      nextDigestAt: nextDigestAt({ ...user, emailDigest: enabled }, now),
+      // Turning it back on starts from now, not from whatever piled up meanwhile.
+      ...(enabled && user.emailDigest === false ? { digestSentAt: now } : {}),
+    });
+  },
+});
+
+/** The one-click unsubscribe link in a digest. Null when the token is unknown. */
+export const unsubscribe = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, { token }): Promise<{ username: string } | null> => {
+    await requireServer(ctx);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email_token", (q) => q.eq("emailToken", token))
+      .unique();
+    if (!user) return null;
+    await ctx.db.patch(user._id, { emailDigest: false, nextDigestAt: undefined });
+    return { username: user.username };
   },
 });
 
