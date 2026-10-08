@@ -16,14 +16,16 @@ export const meta: Route.MetaFunction = ({ matches }) =>
 export default function Streaks({ loaderData }: Route.ComponentProps) {
   const rows = useLive(api.goals.standings, {}, loaderData.rows);
   return (
-    <section className="mx-auto max-w-3xl px-4 py-12">
-      <p className="eyebrow">Open goals</p>
-      <h1 className="font-wide mt-2 text-4xl font-black sm:text-5xl">Streaks</h1>
-      <p className="mt-3 text-muted">
-        Ranked by goals hit, then current streak, then how close each person is to their number.
+    <section className="mx-auto max-w-3xl px-4 pt-14">
+      <h1 className="title-1">Streaks</h1>
+      <p className="lede mt-4">
+        Everyone with a goal running. Ranked by goals hit, then current streak, then how close each person is to their
+        number.
       </p>
-      <StreakList rows={rows} />
-      <Link to="/goal" className="btn btn-slop mt-8">
+      <div className="mt-10">
+        <StreakList rows={rows} />
+      </div>
+      <Link to="/goal" className="btn btn-slop btn-lg mt-10">
         Get on the list
       </Link>
     </section>

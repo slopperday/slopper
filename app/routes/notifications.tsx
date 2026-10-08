@@ -11,6 +11,7 @@ import { seo } from "~/lib/seo";
 import { Avatar } from "~/components/Avatar";
 import { useLive, useLiveClient } from "~/components/Live";
 import { EmptyState } from "~/components/Shared";
+import { Splat } from "~/components/Logo";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const user = requireUser(context.get(viewerContext), request);
@@ -49,10 +50,10 @@ export default function Notifications({ loaderData }: Route.ComponentProps) {
   }, [client, hasUnread]);
 
   return (
-    <section className="mx-auto max-w-2xl px-4 py-12">
-      <p className="eyebrow">Live</p>
-      <h1 className="font-wide mt-2 text-4xl font-black">Notifications</h1>
-      <ol className="mt-8 grid gap-2">
+    <section className="mx-auto max-w-2xl px-4 pt-14">
+      <h1 className="title-1">Notifications</h1>
+      <p className="mt-3 text-muted">Live. Votes, feedback and pledges land here the moment they happen.</p>
+      <ol className="mt-10 grid gap-1">
         {items.length === 0 && (
           <EmptyState>Nothing yet. Throw something at the wall and people will start reacting.</EmptyState>
         )}
@@ -60,13 +61,20 @@ export default function Notifications({ loaderData }: Route.ComponentProps) {
           <li key={item.id}>
             <Link
               to={slopPath(item.ownerUsername, item.slop.slug)}
-              className={`flex items-center gap-3 rounded-xl border-2 border-ink px-4 py-3 hover:-translate-y-0.5 ${
-                item.read ? "bg-card" : "bg-slop text-slop-ink"
+              className={`flex min-h-14 items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+                item.read ? "hover:bg-sunk" : "bg-sunk hover:bg-line"
               }`}
             >
-              {item.actor ? <Avatar user={item.actor} size="sm" /> : <span className="text-2xl">🏆</span>}
-              <span className="min-w-0 flex-1 text-sm font-semibold">{describe(item)}</span>
-              <span className="font-mono text-[0.65rem] opacity-70">{timeAgo(item.createdAt)}</span>
+              {item.actor ? (
+                <Avatar user={item.actor} size="sm" />
+              ) : (
+                <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-full bg-board">
+                  <Splat tone="board" className="h-5 w-auto" />
+                </span>
+              )}
+              <span className={`min-w-0 flex-1 ${item.read ? "" : "font-bold"}`}>{describe(item)}</span>
+              {!item.read && <span className="sr-only">Unread.</span>}
+              <span className="shrink-0 text-sm text-muted">{timeAgo(item.createdAt)}</span>
             </Link>
           </li>
         ))}

@@ -6,32 +6,32 @@ export interface LegalSection {
 }
 
 export function LegalPage({
-  eyebrow,
+  intro,
   title,
   updated,
   sections,
 }: {
-  eyebrow: string;
+  /** One line under the title, before the date. */
+  intro: string;
   title: string;
   /** ISO date the text last changed. */
   updated: string;
   sections: readonly LegalSection[];
 }) {
   return (
-    <section className="mx-auto max-w-3xl px-4 py-12">
-      <p className="eyebrow">{eyebrow}</p>
-      <h1 className="font-wide mt-2 text-4xl font-black sm:text-5xl">{title}</h1>
-      <p className="mt-3 font-mono text-xs text-muted">
-        Last updated <time dateTime={updated}>{updated}</time>
+    <section className="mx-auto max-w-3xl px-4 pt-14 pb-6">
+      <h1 className="title-1">{title}</h1>
+      <p className="mt-4 text-muted">
+        {intro} Last updated <time dateTime={updated}>{updated}</time>.
       </p>
-      <div className="mt-10 grid gap-8">
+      <div className="mt-12 grid gap-10">
         {sections.map((section) => (
           <section key={section.title} aria-labelledby={slug(section.title)}>
-            <h2 id={slug(section.title)} className="text-xl font-black">
+            <h2 id={slug(section.title)} className="font-display text-[1.75rem] leading-tight font-extrabold">
               {section.title}
             </h2>
             {section.body.map((paragraph) => (
-              <p key={paragraph} className="mt-2 text-muted">
+              <p key={paragraph} className="mt-3 max-w-[65ch]">
                 {paragraph}
               </p>
             ))}

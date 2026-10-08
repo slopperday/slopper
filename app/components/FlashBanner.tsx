@@ -1,9 +1,9 @@
 import type { Flash } from "~/lib/model";
 
 const TONES = {
-  info: "bg-card",
-  success: "bg-slop text-slop-ink",
-  error: "bg-hot text-white",
+  info: "bg-sunk text-ink",
+  success: "bg-ink text-ground",
+  error: "bg-hot text-hot-ink",
 } as const;
 
 export function FlashBanner({ flash }: { flash: Flash }) {
@@ -11,7 +11,7 @@ export function FlashBanner({ flash }: { flash: Flash }) {
     <div className="mx-auto mt-4 w-full max-w-6xl px-4">
       <p
         role={flash.tone === "error" ? "alert" : "status"}
-        className={`rounded-xl border-2 border-ink px-4 py-3 text-sm font-semibold hard-shadow-sm ${TONES[flash.tone]}`}
+        className={`rounded-xl px-4 py-3 font-bold ${TONES[flash.tone]}`}
       >
         {flash.message}
       </p>

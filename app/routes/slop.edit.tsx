@@ -15,6 +15,7 @@ import { seo } from "~/lib/seo";
 import { SlopFields } from "~/components/SlopFields";
 import { ModePicker } from "~/components/Autopost";
 import { AgentPrompt } from "~/components/AgentPrompt";
+import { Icon } from "~/components/Icon";
 import { editPrompt } from "~/lib/prompts";
 
 /** The caller's own slop, by `/@handle/slug`, or a 403/404. */
@@ -115,26 +116,26 @@ export default function EditSlop({ loaderData, actionData }: Route.ComponentProp
   const { slop, username, accounts } = loaderData;
   const path = slopPath(username, slop.slug);
   return (
-    <section className="mx-auto max-w-3xl px-4 py-12">
-      <Link to={path} className="eyebrow hover:text-ink">
-        ← {slop.name}
+    <section className="mx-auto max-w-3xl px-4 pt-10">
+      <Link to={path} className="inline-flex min-h-11 items-center gap-1.5 font-bold text-muted hover:text-ink">
+        <Icon name="left" className="size-4" /> {slop.name}
       </Link>
-      <h1 className="font-wide mt-2 text-4xl font-black">Edit {slop.name}</h1>
-      <p className="mt-2 text-muted">The launch date and slop number stay put. Everything else is fair game.</p>
-      <div className="mt-8">
+      <h1 className="title-1 mt-6">Edit {slop.name}</h1>
+      <p className="lede mt-4">The launch date and slop number stay put. Everything else is fair game.</p>
+      <div className="mt-10">
         <AgentPrompt prompt={(origin) => editPrompt(origin, slop.slug)} />
       </div>
-      <Form method="post" className="mt-10 grid gap-8">
+      <Form method="post" className="mt-12 grid gap-8">
         <input type="hidden" name="intent" value="details" />
         <SlopFields values={actionData?.values ?? slop.values} errors={actionData?.errors ?? {}} />
-        <button type="submit" className="btn btn-slop justify-self-start">
+        <button type="submit" className="btn btn-slop btn-lg justify-self-start">
           Save changes
         </button>
       </Form>
 
-      <section id="autopost" className="mt-16 scroll-mt-24">
-        <h2 className="font-wide text-2xl font-black">Auto-post for {slop.name}</h2>
-        <p className="mt-2 text-muted">
+      <section id="autopost" className="mt-20 scroll-mt-24 border-t border-line pt-12">
+        <h2 className="title-2">Auto-post for {slop.name}</h2>
+        <p className="mt-3 text-muted">
           Choose who speaks for this slop. Give it its own X account to post, and let your personal account repost it.
         </p>
         {accounts.length === 0 ? (
@@ -145,13 +146,10 @@ export default function EditSlop({ loaderData, actionData }: Route.ComponentProp
           <Form method="post" className="mt-6 grid gap-3">
             <input type="hidden" name="intent" value="autopost" />
             {accounts.map((account) => (
-              <div
-                key={account.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-ink bg-card p-4"
-              >
+              <div key={account.id} className="panel flex flex-wrap items-center justify-between gap-3 p-4">
                 <div>
                   <p className="font-bold">{account.handle}</p>
-                  <p className="font-mono text-[0.68rem] tracking-wider text-muted uppercase">
+                  <p className="text-sm text-muted">
                     {NETWORK_LABELS[account.provider]} · default {account.defaultMode}
                   </p>
                 </div>
@@ -165,16 +163,16 @@ export default function EditSlop({ loaderData, actionData }: Route.ComponentProp
         )}
       </section>
 
-      <section id="delete" className="mt-16 scroll-mt-24 rounded-2xl border-2 border-hot p-5">
-        <h2 className="text-lg font-black text-hot">Scrape it off the wall</h2>
-        <p className="mt-1 text-sm text-muted">
+      <section id="delete" className="mt-20 scroll-mt-24 rounded-2xl bg-hot-tint p-5 sm:p-6">
+        <h2 className="font-display text-[1.75rem] leading-none font-extrabold text-hot">Scrape it off the wall</h2>
+        <p className="mt-2 text-[0.9375rem]">
           Deletes the slop, its updates, feedback and votes. Type <code className="font-mono">{slop.slug}</code> to
           confirm.
         </p>
         <Form method="post" action={path} className="mt-3 flex flex-wrap gap-2">
           <input type="hidden" name="intent" value="delete" />
           <input name="confirm" className="input max-w-xs" aria-label="Type the slug to confirm" autoComplete="off" />
-          <button type="submit" className="btn btn-sm">
+          <button type="submit" className="btn bg-hot text-hot-ink hover:bg-hot/85">
             Delete forever
           </button>
         </Form>

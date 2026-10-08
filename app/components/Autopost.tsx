@@ -1,4 +1,5 @@
 import { Form } from "react-router";
+import { Icon } from "./Icon";
 import { type CrosspostMode, type CrosspostResult, NETWORK_LABELS, type SocialProvider } from "~/lib/model";
 
 const MODES: { value: CrosspostMode; label: string }[] = [
@@ -20,7 +21,7 @@ export function ModePicker({
   // LinkedIn has no API for resharing someone else's post.
   const modes = provider === "linkedin" ? MODES.filter((mode) => mode.value !== "amplify") : MODES;
   return (
-    <fieldset className="inline-flex rounded-full border-2 border-ink bg-wall p-0.5">
+    <fieldset className="inline-flex rounded-xl bg-sunk p-1">
       <legend className="sr-only">Auto-post mode</legend>
       {modes.map((mode) => (
         <label key={mode.value} className="cursor-pointer">
@@ -31,7 +32,7 @@ export function ModePicker({
             defaultChecked={value === mode.value}
             className="peer sr-only"
           />
-          <span className="block rounded-full px-3 py-1 font-mono text-[0.68rem] tracking-wider uppercase peer-checked:bg-ink peer-checked:text-wall peer-focus-visible:outline-2 peer-focus-visible:outline-slop">
+          <span className="flex min-h-9 items-center rounded-lg px-3 text-[0.9375rem] font-bold text-muted peer-checked:bg-ink peer-checked:text-ground peer-focus-visible:outline-2 peer-focus-visible:outline-(--focus)">
             {mode.label}
           </span>
         </label>
@@ -44,16 +45,20 @@ export function ModePicker({
 export function CrosspostReceipts({ update }: { update: { id: string; crossposts: readonly CrosspostResult[] } }) {
   const failed = update.crossposts.some((result) => result.status === "error");
   return (
-    <div className="mt-3 rounded-lg border border-dashed border-ink/40 p-3 font-mono text-[0.68rem]">
+    <div className="mt-3 rounded-xl bg-sunk p-3 text-sm">
       <ul className="grid gap-1">
         {update.crossposts.map((result) => (
           <li key={result.accountId} className="flex flex-wrap items-center gap-2">
             <span
               className={
-                result.status === "ok" ? "text-slop-deep" : result.status === "error" ? "text-hot" : "text-muted"
+                result.status === "ok"
+                  ? "font-bold text-slop-text"
+                  : result.status === "error"
+                    ? "font-bold text-hot"
+                    : "text-muted"
               }
             >
-              {result.status === "ok" ? "✓" : result.status === "error" ? "✕" : "–"}
+              <Icon name={result.status === "ok" ? "check" : "close"} className="size-4" />
             </span>
             <span>
               {result.mode === "post" ? "Posted" : "Reposted"} on {NETWORK_LABELS[result.provider]} as {result.handle}
@@ -71,7 +76,7 @@ export function CrosspostReceipts({ update }: { update: { id: string; crossposts
         <Form method="post" className="mt-2">
           <input type="hidden" name="intent" value="retry-autopost" />
           <input type="hidden" name="id" value={update.id} />
-          <button type="submit" className="underline">
+          <button type="submit" className="min-h-9 font-bold underline">
             Retry failed
           </button>
         </Form>

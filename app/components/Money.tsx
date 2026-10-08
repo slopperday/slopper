@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Form } from "react-router";
 import { COST_CATEGORIES, type MoneyKind, REVENUE_CATEGORIES } from "~/lib/model";
+import { Icon } from "./Icon";
 
 export interface LedgerLine {
   id: string;
@@ -17,20 +18,28 @@ import { formatDay } from "~/lib/dates";
 function Totals({ totals }: { totals: readonly MoneyTotal[] }) {
   if (totals.length === 0) return <p className="mt-2 text-sm text-muted">Nothing logged yet.</p>;
   return (
-    <dl className="mt-3 grid gap-2">
+    <dl className="mt-3 grid gap-3">
       {totals.map((total) => (
-        <div key={total.currency} className="grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-lg bg-wall-deep px-2 py-1.5">
-            <dt className="eyebrow">Spent</dt>
-            <dd className="font-bold tabular-nums">{formatMoney(total.spent, total.currency)}</dd>
+        <div key={total.currency} className="grid grid-cols-3 gap-3">
+          <div>
+            <dt className="text-sm text-muted">Spent</dt>
+            <dd className="font-display text-[1.5rem] leading-tight font-extrabold tabular-nums">
+              {formatMoney(total.spent, total.currency)}
+            </dd>
           </div>
-          <div className="rounded-lg bg-wall-deep px-2 py-1.5">
-            <dt className="eyebrow">Made</dt>
-            <dd className="font-bold tabular-nums">{formatMoney(total.made, total.currency)}</dd>
+          <div>
+            <dt className="text-sm text-muted">Made</dt>
+            <dd className="font-display text-[1.5rem] leading-tight font-extrabold tabular-nums">
+              {formatMoney(total.made, total.currency)}
+            </dd>
           </div>
-          <div className={`rounded-lg px-2 py-1.5 ${total.net >= 0 ? "bg-slop text-slop-ink" : "bg-hot text-white"}`}>
-            <dt className="font-mono text-[0.6875rem] tracking-[0.08em] uppercase">Net</dt>
-            <dd className="font-bold tabular-nums">
+          <div>
+            <dt className="text-sm text-muted">Net</dt>
+            <dd
+              className={`font-display text-[1.5rem] leading-tight font-extrabold tabular-nums ${
+                total.net >= 0 ? "text-slop-text" : "text-hot"
+              }`}
+            >
               {total.net >= 0 ? "+" : "−"}
               {formatMoney(Math.abs(total.net), total.currency)}
             </dd>
@@ -44,8 +53,10 @@ function Totals({ totals }: { totals: readonly MoneyTotal[] }) {
 /** Public view: the numbers, if the owner chose to share them. */
 export function MoneySummary({ totals }: { totals: readonly MoneyTotal[] }) {
   return (
-    <section className="rounded-2xl border-2 border-ink bg-card p-5">
-      <h2 className="eyebrow">Building in public</h2>
+    <section aria-labelledby="public-money-title">
+      <h2 id="public-money-title" className="caps">
+        Building in public
+      </h2>
       <Totals totals={totals} />
     </section>
   );
@@ -66,16 +77,20 @@ export function MoneyLedger({
   const [kind, setKind] = useState<MoneyKind>("cost");
   const categories = kind === "cost" ? COST_CATEGORIES : REVENUE_CATEGORIES;
   return (
-    <section id="money" className="scroll-mt-24 rounded-2xl border-2 border-ink bg-card p-5">
-      <h2 className="eyebrow">Money</h2>
-      <p className="mt-1 text-sm text-muted">What this product cost and what it made, across all its launches.</p>
+    <section id="money" aria-labelledby="money-ledger-title">
+      <h2 id="money-ledger-title" className="caps">
+        Money
+      </h2>
+      <p className="mt-1 text-[0.9375rem] text-muted">
+        What this product cost and what it made, across all its launches.
+      </p>
       <Totals totals={totals} />
 
       <details className="mt-4">
-        <summary className="cursor-pointer text-sm font-bold">Log a cost or revenue</summary>
+        <summary className="flex min-h-11 items-center font-bold hover:text-slop-text">Log a cost or revenue</summary>
         <Form method="post" className="mt-3 grid gap-2" key={entries.length}>
           <input type="hidden" name="intent" value="money-add" />
-          <fieldset className="inline-flex rounded-full border-2 border-ink bg-wall p-0.5">
+          <fieldset className="inline-flex rounded-xl bg-sunk p-1">
             <legend className="sr-only">Cost or revenue</legend>
             {(["cost", "revenue"] as const).map((option) => (
               <label key={option} className="flex-1 cursor-pointer">
@@ -87,7 +102,7 @@ export function MoneyLedger({
                   onChange={() => setKind(option)}
                   className="peer sr-only"
                 />
-                <span className="block rounded-full px-3 py-1 text-center font-mono text-[0.68rem] tracking-wider uppercase peer-checked:bg-ink peer-checked:text-wall">
+                <span className="flex min-h-9 items-center justify-center rounded-lg px-3 text-[0.9375rem] font-bold text-muted peer-checked:bg-ink peer-checked:text-ground peer-focus-visible:outline-2 peer-focus-visible:outline-(--focus)">
                   {option === "cost" ? "Spent" : "Made"}
                 </span>
               </label>
@@ -134,10 +149,10 @@ export function MoneyLedger({
       </details>
 
       {entries.length > 0 && (
-        <ul className="mt-4 grid gap-1.5 text-sm">
+        <ul className="mt-4 divide-y divide-line border-y border-line text-[0.9375rem]">
           {entries.map((entry) => (
-            <li key={entry.id} className="flex items-center gap-2">
-              <span className={entry.kind === "cost" ? "text-hot" : "text-slop-deep"}>
+            <li key={entry.id} className="flex items-center gap-2 py-1">
+              <span className={`font-bold tabular-nums ${entry.kind === "cost" ? "text-hot" : "text-slop-text"}`}>
                 {entry.kind === "cost" ? "−" : "+"}
                 {formatMoney(entry.amount, entry.currency)}
               </span>
@@ -147,8 +162,12 @@ export function MoneyLedger({
               <Form method="post">
                 <input type="hidden" name="intent" value="money-delete" />
                 <input type="hidden" name="id" value={entry.id} />
-                <button type="submit" className="text-xs text-muted underline" aria-label="Delete entry">
-                  ✕
+                <button
+                  type="submit"
+                  className="-my-1 inline-flex size-11 items-center justify-center rounded-lg text-muted hover:bg-sunk hover:text-ink"
+                  aria-label="Delete entry"
+                >
+                  <Icon name="close" className="size-4" />
                 </button>
               </Form>
             </li>
@@ -159,7 +178,7 @@ export function MoneyLedger({
       <Form method="post" className="mt-4">
         <input type="hidden" name="intent" value="money-visibility" />
         <input type="hidden" name="public" value={isPublic ? "off" : "on"} />
-        <button type="submit" className="text-xs underline">
+        <button type="submit" className="min-h-11 text-[0.9375rem] font-bold underline hover:text-slop-text">
           {isPublic ? "Hide these numbers from everyone else" : "Show these numbers publicly"}
         </button>
       </Form>

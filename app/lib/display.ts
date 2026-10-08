@@ -46,11 +46,9 @@ export function slopPath(username: string, slug: string): string {
   return `/@${username}/${slug}`;
 }
 
-/** Deterministic tilt so cards stick to the wall a little crooked. */
-export function tiltFor(id: string): number {
-  let hash = 0;
-  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-  return ((Math.abs(hash) % 7) - 3) * 0.5;
+/** "1 update", "3 updates". */
+export function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
 }
 
 /** "TiltMaze", or "TiltMaze · iOS app" for a later launch of the product. */

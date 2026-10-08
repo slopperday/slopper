@@ -60,19 +60,25 @@ export default function GoalPage({ loaderData, actionData }: Route.ComponentProp
   const { progress, today } = loaderData;
   const errors: Record<string, string> = actionData?.errors ?? {};
   return (
-    <section className="mx-auto max-w-4xl px-4 py-12">
-      <p className="eyebrow">Accountability</p>
-      <h1 className="font-wide mt-2 text-4xl font-black sm:text-5xl">{progress ? "Your goal" : "Set a goal"}</h1>
+    <section className="mx-auto max-w-4xl px-4 pt-14">
+      <h1 className="title-1">{progress ? "Your goal" : "Set a goal"}</h1>
+      <p className="lede mt-4">
+        {progress
+          ? "Every day you ship flips a tile. Miss one and the dot stays."
+          : "Pick a number and a deadline. Then ship every day until you hit it."}
+      </p>
 
       {progress ? (
-        <div className="mt-8 grid gap-6">
+        <div className="mt-10 grid gap-6">
           <GoalGrid progress={progress} username={loaderData.username} streak={loaderData.streak} />
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <Link to="/new" className="btn btn-slop">
+            <Link to="/new" className="btn btn-slop btn-lg">
               Throw today's slop
             </Link>
             <details>
-              <summary className="cursor-pointer text-sm text-muted underline">Drop this goal</summary>
+              <summary className="flex min-h-11 items-center text-muted underline hover:text-ink">
+                Drop this goal
+              </summary>
               <Form method="post" className="mt-2">
                 <input type="hidden" name="intent" value="abandon" />
                 <button type="submit" className="btn btn-sm">
@@ -83,12 +89,12 @@ export default function GoalPage({ loaderData, actionData }: Route.ComponentProp
           </div>
         </div>
       ) : (
-        <Form method="post" className="mt-8 grid gap-8">
+        <Form method="post" className="mt-10 grid gap-10">
           <AgentPrompt prompt={goalPrompt} />
           <input type="hidden" name="intent" value="create" />
           <fieldset>
             <legend className="field-label">Pick a size</legend>
-            <div className="grid gap-3 sm:grid-cols-4">
+            <div className="mt-1 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {PRESETS.map((preset, index) => (
                 <label key={preset.label} className="cursor-pointer">
                   <input
@@ -98,12 +104,13 @@ export default function GoalPage({ loaderData, actionData }: Route.ComponentProp
                     defaultChecked={index === 1}
                     className="peer sr-only"
                   />
-                  <span className="block h-full rounded-2xl border-2 border-ink bg-card p-4 transition-transform peer-checked:-translate-y-1 peer-checked:bg-slop peer-checked:text-slop-ink peer-checked:hard-shadow peer-focus-visible:outline-2 peer-focus-visible:outline-slop">
-                    <span className="font-wide block text-3xl font-black">
-                      {preset.target}/{preset.days}
+                  <span className="block h-full rounded-2xl bg-sunk p-4 transition-colors hover:bg-line peer-checked:bg-board peer-checked:text-board-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--focus)">
+                    <span className="block font-display text-[2.5rem] leading-none font-black tabular-nums">
+                      {preset.target}
+                      <span className="opacity-60">/{preset.days}</span>
                     </span>
-                    <span className="block font-black">{preset.label}</span>
-                    <span className="block text-sm opacity-75">{preset.blurb}</span>
+                    <span className="mt-2 block font-bold">{preset.label}</span>
+                    <span className="block text-[0.9375rem] opacity-75">{preset.blurb}</span>
                   </span>
                 </label>
               ))}
@@ -132,14 +139,14 @@ export default function GoalPage({ loaderData, actionData }: Route.ComponentProp
           <Field id="title" label="Name it (optional)" error={errors.title} hint="Defaults to “30 slops in 30 days”.">
             <input id="title" name="title" className="input" maxLength={80} placeholder="Slopvember" />
           </Field>
-          <p className="text-sm text-muted">
-            Days end at midnight in your time zone (<strong>{loaderData.timeZone}</strong>,{" "}
-            <Link to="/settings" className="underline">
+          <p className="text-muted">
+            Days end at midnight in your time zone (<strong className="text-ink">{loaderData.timeZone}</strong>,{" "}
+            <Link to="/settings" className="link">
               change
             </Link>
             ).
           </p>
-          <button type="submit" className="btn btn-slop justify-self-start text-lg">
+          <button type="submit" className="btn btn-slop btn-lg justify-self-start">
             Set the goal
           </button>
         </Form>

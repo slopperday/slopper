@@ -40,18 +40,15 @@ export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
   const { user, timeZones } = loaderData;
   return (
-    <section className="mx-auto max-w-2xl px-4 py-12">
+    <section className="mx-auto max-w-2xl px-4 pt-10">
       <SettingsNav />
-      <h1 className="font-wide mt-6 text-4xl font-black">Settings</h1>
+      <h1 className="title-1 mt-10">Settings</h1>
       {actionData?.error && (
-        <p
-          role="alert"
-          className="mt-6 rounded-xl border-2 border-ink bg-hot px-4 py-3 text-sm font-semibold text-white"
-        >
+        <p role="alert" className="mt-6 rounded-xl bg-hot px-4 py-3 font-bold text-hot-ink">
           {actionData.error}
         </p>
       )}
-      <Form method="post" className="mt-8 grid gap-6">
+      <Form method="post" className="mt-10 grid gap-7">
         <div className="grid gap-6 sm:grid-cols-2">
           <Field id="username" label="Username" hint="Your page lives at slopper.day/@username.">
             <input
@@ -106,21 +103,16 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
             {!timeZones.includes(user.timeZone) && <option value={user.timeZone}>{user.timeZone}</option>}
           </select>
         </Field>
-        <label className="flex items-start gap-3 rounded-xl border-2 border-ink bg-card p-4">
-          <input
-            type="checkbox"
-            name="showNsfw"
-            defaultChecked={user.showNsfw}
-            className="mt-1 size-5 accent-[var(--hot)]"
-          />
+        <label className="panel flex cursor-pointer items-start gap-3">
+          <input type="checkbox" name="showNsfw" defaultChecked={user.showNsfw} className="mt-1 size-5" />
           <span>
             <span className="font-bold">Show NSFW slops</span>
-            <span className="block text-sm text-muted">
+            <span className="block text-[0.9375rem] text-muted">
               Off by default. When on, NSFW slops show in feeds without the blur.
             </span>
           </span>
         </label>
-        <button type="submit" className="btn btn-slop justify-self-start">
+        <button type="submit" className="btn btn-slop btn-lg justify-self-start">
           Save
         </button>
       </Form>

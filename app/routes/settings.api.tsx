@@ -56,22 +56,22 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
     },
   ];
   return (
-    <section className="mx-auto max-w-3xl px-4 py-12">
+    <section className="mx-auto max-w-3xl px-4 pt-10">
       <SettingsNav />
-      <h1 className="font-wide mt-6 text-4xl font-black">API & MCP</h1>
-      <p className="mt-3 max-w-2xl text-muted">
+      <h1 className="title-1 mt-10">API & MCP</h1>
+      <p className="lede mt-4 max-w-2xl">
         Let your AI run Slopper for you: launch slops, post updates, log field tests, set goals. Create a token, add the
         MCP server to your agent, and paste the prompt from any form. Docs for agents live at{" "}
-        <a href="/llms.txt" className="underline">
+        <a href="/llms.txt" className="link">
           /llms.txt
         </a>
         .
       </p>
 
       {actionData?.token && (
-        <div className="mt-8 rounded-2xl border-2 border-ink bg-slop p-5 text-slop-ink">
-          <p className="font-black">Your new token. Copy it now; it won't be shown again.</p>
-          <code className="mt-3 block overflow-x-auto rounded-lg bg-wall p-3 font-mono text-sm text-ink">
+        <div className="panel mt-8">
+          <p className="font-bold">Your new token. Copy it now; it won't be shown again.</p>
+          <code className="mt-3 block overflow-x-auto rounded-xl bg-raised p-3 font-mono text-sm">
             {actionData.token}
           </code>
           <div className="mt-3 max-w-48">
@@ -80,15 +80,12 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
         </div>
       )}
       {actionData?.error && (
-        <p
-          role="alert"
-          className="mt-6 rounded-xl border-2 border-ink bg-hot px-4 py-3 text-sm font-semibold text-white"
-        >
+        <p role="alert" className="mt-6 rounded-xl bg-hot px-4 py-3 font-bold text-hot-ink">
           {actionData.error}
         </p>
       )}
 
-      <Form method="post" className="mt-8 flex flex-wrap gap-2">
+      <Form method="post" className="mt-10 flex flex-wrap gap-2">
         <input type="hidden" name="intent" value="create" />
         <input name="name" className="input max-w-xs" placeholder="Claude Code on my laptop" aria-label="Token name" />
         <button type="submit" className="btn btn-slop">
@@ -97,15 +94,12 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
       </Form>
 
       {tokens.length > 0 && (
-        <ul className="mt-6 grid gap-2">
+        <ul className="mt-8 divide-y divide-line border-y border-line">
           {tokens.map((item) => (
-            <li
-              key={item.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-ink bg-card px-4 py-3"
-            >
+            <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <span>
                 <span className="block font-bold">{item.name}</span>
-                <span className="block font-mono text-[0.68rem] text-muted">
+                <span className="block text-sm text-muted">
                   {item.preview}… · created {timeAgo(item.createdAt)}
                   {item.lastUsedAt ? ` · last used ${timeAgo(item.lastUsedAt)}` : " · never used"}
                 </span>
@@ -122,12 +116,12 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
         </ul>
       )}
 
-      <h2 className="font-wide mt-14 text-2xl font-black">Connect your agent</h2>
-      <div className="mt-5 grid gap-5">
+      <h2 className="title-2 mt-16">Connect your agent</h2>
+      <div className="mt-6 grid gap-7">
         {snippets.map((snippet) => (
-          <div key={snippet.label}>
+          <div key={snippet.label} className="min-w-0">
             <p className="field-label">{snippet.label}</p>
-            <pre className="overflow-x-auto rounded-xl border-2 border-ink bg-card p-4 font-mono text-xs leading-relaxed">
+            <pre className="overflow-x-auto rounded-xl bg-sunk p-4 font-mono text-[0.8125rem] leading-relaxed">
               {snippet.code}
             </pre>
             <div className="mt-2 max-w-40">
@@ -136,7 +130,7 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
           </div>
         ))}
       </div>
-      <p className="mt-10 text-sm text-muted">
+      <p className="mt-12 text-muted">
         Tools: whoami, list_categories, set_goal, upload_screenshot, create_slop, update_slop, post_update,
         mark_slopcessful, list_my_slops, todays_race. Social accounts are connected in the browser (they need your
         approval on each network); after that, agents can auto-post.

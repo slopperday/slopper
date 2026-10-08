@@ -1,96 +1,149 @@
 @import "tailwindcss";
 
 /*
- * Slopper's look: a wall you throw slop at. Plaster by day, concrete by
- * night. Slops are cards taped up a little crooked; shipping days leave
- * acid-green splats; gold is saved for the slops that break out.
+ * Slopper's look: a departures board for launches.
+ *
+ * The page is plain ground and confident type: Big Shoulders for anything you
+ * read from across the room, Schibsted Grotesk for everything you read up
+ * close, Atkinson Hyperlegible Mono for code. The one signature is the board: dark split-flap tiles that carry
+ * time and days (the countdown to midnight, a goal's run of days), and every
+ * day you ship flips its tile to a lime check. Lime is
+ * spent only on shipping: shipped days, the primary action and "now".
+ * Everything else stays out of the way: no borders where space will do, no
+ * shadows, no tilted cards.
  */
 
 :root {
-  --wall: #eeebe3;
-  --wall-deep: #e3dfd4;
-  --card: #fbfaf6;
-  --ink: #151513;
-  --muted: #6b6a63;
-  --line: rgb(21 21 19 / 0.15);
+  --ground: #f4f5f0;
+  --sunk: #e9ebe3;
+  --raised: #ffffff;
+  --ink: #161a13;
+  --muted: #575d50;
+  --faint: #7a8072;
+  --line: rgb(22 26 19 / 0.12);
+  --line-strong: rgb(22 26 19 / 0.26);
+
+  /* The board: dark in both themes, like the real thing. */
+  --board: #161a13;
+  --board-ink: #eef0e8;
+  --board-muted: #9aa18f;
+  --tile: #262b22;
+  --tile-top: #2e3429;
+
   --slop: #9be22d;
-  --slop-deep: #6fb10f;
-  --slop-ink: #151513;
-  --hot: #ff4d2e;
+  --slop-hover: #8bd11f;
+  --slop-deep: #5f9a12;
+  --slop-ink: #10140b;
+  --slop-text: #3b6608;
+  --slop-tint: rgb(155 226 45 / 0.24);
+
   --gold: #ffc21a;
-  --shadow: #151513;
-  --tape: rgb(255 255 255 / 0.55);
+  --gold-text: #8a5f00;
+  --gold-tint: rgb(255 194 26 / 0.24);
+
+  --hot: #c4371b;
+  --hot-ink: #ffffff;
+  --hot-tint: rgb(196 55 27 / 0.1);
+
+  --focus: #3b6608;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --wall: #121211;
-    --wall-deep: #0b0b0a;
-    --card: #1c1c1a;
-    --ink: #f1efe8;
-    --muted: #9d9b92;
-    --line: rgb(241 239 232 / 0.14);
+    --ground: #121410;
+    --sunk: #1b1e18;
+    --raised: #1f231c;
+    --ink: #eceee6;
+    --muted: #a2a897;
+    --faint: #7d8374;
+    --line: rgb(236 238 230 / 0.1);
+    --line-strong: rgb(236 238 230 / 0.22);
+
+    --board: #1c2019;
+    --board-ink: #eceee6;
+    --board-muted: #9aa18f;
+    --tile: #2a2f25;
+    --tile-top: #31372c;
+
     --slop: #b4f23c;
-    --slop-deep: #8ccf1a;
-    --slop-ink: #10110d;
-    --hot: #ff6a4d;
+    --slop-hover: #c3f760;
+    --slop-deep: #6fb10f;
+    --slop-ink: #10140b;
+    --slop-text: #b4f23c;
+    --slop-tint: rgb(180 242 60 / 0.14);
+
     --gold: #ffcf3f;
-    --shadow: #000;
-    --tape: rgb(255 255 255 / 0.12);
+    --gold-text: #ffcf3f;
+    --gold-tint: rgb(255 207 63 / 0.14);
+
+    --hot: #ff6a4d;
+    --hot-ink: #10140b;
+    --hot-tint: rgb(255 106 77 / 0.14);
+
+    --focus: #b4f23c;
     color-scheme: dark;
   }
 }
 
 @theme inline {
-  --font-display: "Bagel Fat One", ui-rounded, system-ui, sans-serif;
-  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Martian Mono", ui-monospace, "SFMono-Regular", monospace;
+  --font-display: "Big Shoulders", "Arial Narrow", ui-sans-serif, sans-serif;
+  --font-sans: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, "SFMono-Regular", monospace;
 
-  --color-wall: var(--wall);
-  --color-wall-deep: var(--wall-deep);
-  --color-card: var(--card);
+  --color-ground: var(--ground);
+  --color-sunk: var(--sunk);
+  --color-raised: var(--raised);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
+  --color-faint: var(--faint);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-board: var(--board);
+  --color-board-ink: var(--board-ink);
+  --color-board-muted: var(--board-muted);
+  --color-tile: var(--tile);
   --color-slop: var(--slop);
   --color-slop-deep: var(--slop-deep);
   --color-slop-ink: var(--slop-ink);
-  --color-hot: var(--hot);
+  --color-slop-text: var(--slop-text);
+  --color-slop-tint: var(--slop-tint);
   --color-gold: var(--gold);
+  --color-gold-text: var(--gold-text);
+  --color-gold-tint: var(--gold-tint);
+  --color-hot: var(--hot);
+  --color-hot-ink: var(--hot-ink);
+  --color-hot-tint: var(--hot-tint);
 }
 
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+    scrollbar-color: var(--line-strong) transparent;
   }
 
   body {
-    background: var(--wall);
+    background: var(--ground);
     color: var(--ink);
     font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.6;
     min-height: 100dvh;
     text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    caret-color: var(--slop-text);
   }
 
-  /* Plaster grain. Static, cheap, and it makes the flat colour feel physical. */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 60;
-    opacity: 0.08;
-    mix-blend-mode: multiply;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
   }
 
-  @media (prefers-color-scheme: dark) {
-    body::before {
-      mix-blend-mode: screen;
-      opacity: 0.05;
-    }
+  p {
+    text-wrap: pretty;
   }
 
   ::selection {
@@ -99,72 +152,118 @@
   }
 
   :focus-visible {
-    outline: 3px solid var(--slop);
-    outline-offset: 2px;
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+    border-radius: 4px;
   }
 
   a {
-    text-underline-offset: 0.2em;
+    text-underline-offset: 0.22em;
+    text-decoration-thickness: 1px;
+  }
+
+  summary {
+    cursor: pointer;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
   }
 }
 
-@utility font-wide {
-  font-stretch: 125%;
-  font-variation-settings: "wdth" 125;
-}
-
-@utility hard-shadow {
-  box-shadow: 4px 4px 0 var(--shadow);
-}
-
-@utility hard-shadow-sm {
-  box-shadow: 2px 2px 0 var(--shadow);
-}
-
 @layer components {
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    letter-spacing: 0.08em;
+  /* Type. Big Shoulders sets the signs; its optical size follows the font size. */
+  .display {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: clamp(3.4rem, 8.4vw, 6rem);
+    line-height: 0.9;
+    letter-spacing: -0.01em;
+  }
+
+  .title-1 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(2.75rem, 6vw, 4.25rem);
+    line-height: 0.95;
+    letter-spacing: -0.005em;
+  }
+
+  .title-2 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(2rem, 3.6vw, 2.6rem);
+    line-height: 1;
+  }
+
+  .title-3 {
+    font-weight: 700;
+    font-size: 1.125rem;
+    line-height: 1.3;
+  }
+
+  /* A board caption: small signage capitals for headings inside a column. */
+  .caps {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--muted);
   }
 
+  .lede {
+    font-size: 1.1875rem;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 36rem;
+  }
+
+  .link {
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-decoration-thickness: 2px;
+  }
+
+  .link:hover {
+    text-decoration-color: currentColor;
+  }
+
+  /* Buttons: one solid shape, no outlines or shadows. */
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     min-height: 2.75rem;
-    padding: 0.5rem 1.1rem;
-    border: 2px solid var(--ink);
-    border-radius: 999px;
-    font-weight: 800;
-    font-size: 0.95rem;
-    line-height: 1;
-    background: var(--card);
+    padding: 0.5rem 1.15rem;
+    border-radius: 0.75rem;
+    font-weight: 700;
+    font-size: 1rem;
+    line-height: 1.1;
+    background: var(--sunk);
     color: var(--ink);
-    box-shadow: 3px 3px 0 var(--shadow);
     transition:
-      transform 120ms ease,
-      box-shadow 120ms ease,
-      background 120ms ease;
+      background-color 140ms ease,
+      color 140ms ease,
+      transform 140ms ease;
     cursor: pointer;
     white-space: nowrap;
+    text-decoration: none;
   }
 
   .btn:hover {
-    transform: translate(-1px, -1px);
-    box-shadow: 4px 4px 0 var(--shadow);
+    background: color-mix(in oklab, var(--sunk), var(--ink) 9%);
   }
 
   .btn:active {
-    transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 var(--shadow);
+    transform: translateY(1px);
   }
 
   .btn:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: not-allowed;
     transform: none;
   }
@@ -174,99 +273,95 @@
     color: var(--slop-ink);
   }
 
+  .btn-slop:hover {
+    background: var(--slop-hover);
+  }
+
   .btn-gold {
     background: var(--gold);
-    color: #151513;
+    color: #161a13;
+  }
+
+  .btn-gold:hover {
+    background: color-mix(in oklab, var(--gold), #161a13 8%);
+  }
+
+  .btn-ink {
+    background: var(--ink);
+    color: var(--ground);
+  }
+
+  .btn-ink:hover {
+    background: color-mix(in oklab, var(--ink), var(--ground) 16%);
   }
 
   .btn-quiet {
-    border-color: transparent;
-    box-shadow: none;
     background: transparent;
-    padding-inline: 0.6rem;
+    padding-inline: 0.75rem;
   }
 
   .btn-quiet:hover {
-    box-shadow: none;
-    background: var(--wall-deep);
-    transform: none;
+    background: var(--sunk);
   }
 
   .btn-sm {
-    min-height: 2.25rem;
-    padding: 0.35rem 0.85rem;
-    font-size: 0.85rem;
+    padding-inline: 0.9rem;
+    font-size: 0.9375rem;
   }
 
-  /* A slop card, taped to the wall. */
-  .stuck {
-    position: relative;
-    border: 2px solid var(--ink);
-    border-radius: 10px;
-    background: var(--card);
-    box-shadow: 4px 5px 0 var(--shadow);
-  }
-
-  .tape {
-    position: absolute;
-    top: -12px;
-    left: 50%;
-    width: 72px;
-    height: 22px;
-    translate: -50% 0;
-    rotate: -3deg;
-    background: var(--tape);
-    border: 1px solid var(--line);
-    backdrop-filter: blur(2px);
-    z-index: 2;
-  }
-
-  .chip {
+  /* Small inline labels. Tinted, never outlined. */
+  .tag {
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    padding: 0.2rem 0.55rem;
-    border: 1.5px solid var(--ink);
-    border-radius: 999px;
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    line-height: 1.4;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.375rem;
+    background: var(--sunk);
+    color: var(--ink);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.45;
     white-space: nowrap;
   }
 
-  .chip-beta {
-    background: var(--slop);
-    color: var(--slop-ink);
+  .tag-slop {
+    background: var(--slop-tint);
+    color: var(--ink);
   }
 
-  .chip-nsfw {
+  .tag-gold {
+    background: var(--gold-tint);
+    color: var(--ink);
+  }
+
+  .tag-hot {
     background: var(--hot);
-    color: #fff;
+    color: var(--hot-ink);
   }
 
-  .chip-gold {
-    background: var(--gold);
-    color: #151513;
+  /* A flat tinted area for grouped controls. Tint is its only elevation. */
+  .panel {
+    border-radius: 1rem;
+    background: var(--sunk);
+    padding: 1.25rem;
   }
 
   .field-label {
     display: block;
     margin-bottom: 0.4rem;
-    font-weight: 800;
-    font-size: 0.9rem;
+    font-weight: 700;
+    font-size: 0.9375rem;
   }
 
   .field-hint {
-    margin-top: 0.35rem;
-    font-size: 0.8rem;
+    margin-top: 0.4rem;
+    font-size: 0.875rem;
     color: var(--muted);
   }
 
   .field-error {
-    margin-top: 0.35rem;
-    font-size: 0.8rem;
+    margin-top: 0.4rem;
+    font-size: 0.875rem;
     font-weight: 700;
     color: var(--hot);
   }
@@ -274,42 +369,123 @@
   .input {
     width: 100%;
     min-height: 2.75rem;
-    padding: 0.6rem 0.8rem;
-    border: 2px solid var(--ink);
-    border-radius: 10px;
-    background: var(--card);
+    padding: 0.6rem 0.85rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 0.75rem;
+    background: var(--raised);
     color: var(--ink);
     font: inherit;
     font-size: 1rem;
+    transition:
+      border-color 140ms ease,
+      box-shadow 140ms ease;
   }
 
   .input::placeholder {
-    color: color-mix(in oklab, var(--muted) 75%, transparent);
+    color: var(--faint);
+  }
+
+  .input:hover {
+    border-color: color-mix(in oklab, var(--line-strong), var(--ink) 20%);
   }
 
   .input:focus {
     outline: none;
-    box-shadow: 0 0 0 3px var(--slop);
+    border-color: var(--focus);
+    box-shadow: 0 0 0 3px var(--slop-tint);
   }
 
   textarea.input {
     min-height: 7rem;
     resize: vertical;
-    line-height: 1.5;
+    line-height: 1.55;
   }
 
   select.input {
     appearance: none;
     background-image:
-      linear-gradient(45deg, transparent 50%, var(--ink) 50%), linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+      linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+      linear-gradient(135deg, var(--muted) 50%, transparent 50%);
     background-position:
-      calc(100% - 18px) 50%,
-      calc(100% - 12px) 50%;
-    background-size: 6px 6px;
+      calc(100% - 18px) 52%,
+      calc(100% - 13px) 52%;
+    background-size: 5px 5px;
     background-repeat: no-repeat;
-    padding-right: 2rem;
+    padding-right: 2.25rem;
   }
 
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--slop-deep);
+  }
+
+  /*
+   * The board. A dark panel of split-flap tiles: each tile is two halves
+   * with a hairline split, the glyph centred across it.
+   */
+  .board {
+    border-radius: 1.25rem;
+    background: var(--board);
+    color: var(--board-ink);
+  }
+
+  .tiles {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.12em;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .tile {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 0.78em;
+    height: 1.18em;
+    border-radius: 0.14em;
+    background: linear-gradient(to bottom, var(--tile-top) 50%, var(--tile) 50%);
+    color: var(--board-ink);
+    perspective: 4em;
+  }
+
+  /* The split sits behind the glyph so small tiles stay legible. */
+  .tile::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    height: 1px;
+    background: rgb(0 0 0 / 0.5);
+  }
+
+  .tile > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .tile-sep {
+    width: 0.3em;
+    text-align: center;
+    color: inherit;
+    opacity: 0.6;
+  }
+
+  .tile-flip .tile > :not(.now-pulse) {
+    display: inline-block;
+    animation: flap 340ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: calc(var(--i, 0) * 45ms);
+    transform-origin: 50% 50%;
+  }
+
+  .tiles-urgent .tile {
+    background: linear-gradient(to bottom, color-mix(in oklab, var(--hot), #fff 6%) 50%, var(--hot) 50%);
+    color: var(--hot-ink);
+  }
+
+  /* Markdown from makers. */
   .prose-slop {
     line-height: 1.65;
     overflow-wrap: anywhere;
@@ -323,15 +499,24 @@
   .prose-slop h4,
   .prose-slop h5,
   .prose-slop h6 {
-    font-weight: 900;
-    font-size: 1.1rem;
-    margin-top: 1.4em;
+    font-weight: 700;
+    font-size: 1.125rem;
+    margin-top: 1.5em;
+  }
+
+  .prose-slop strong {
+    font-weight: 700;
   }
 
   .prose-slop a {
+    font-weight: 700;
     text-decoration: underline;
-    text-decoration-color: var(--slop-deep);
+    text-decoration-color: var(--line-strong);
     text-decoration-thickness: 2px;
+  }
+
+  .prose-slop a:hover {
+    text-decoration-color: currentColor;
   }
 
   .prose-slop ul {
@@ -344,19 +529,23 @@
     padding-left: 1.25rem;
   }
 
+  .prose-slop li::marker {
+    color: var(--muted);
+  }
+
   .prose-slop code {
     font-family: var(--font-mono);
-    font-size: 0.85em;
+    font-size: 0.875em;
     padding: 0.1em 0.35em;
-    border-radius: 4px;
-    background: var(--wall-deep);
+    border-radius: 0.3rem;
+    background: var(--sunk);
   }
 
   .prose-slop pre {
     overflow-x: auto;
-    padding: 0.9rem;
-    border-radius: 8px;
-    background: var(--wall-deep);
+    padding: 1rem;
+    border-radius: 0.75rem;
+    background: var(--sunk);
   }
 
   .prose-slop pre code {
@@ -365,84 +554,55 @@
   }
 
   .prose-slop blockquote {
-    border-left: 4px solid var(--slop);
-    padding-left: 0.9rem;
+    padding-left: 1rem;
+    border-left: 1px solid var(--line-strong);
     color: var(--muted);
   }
 }
 
-/* Just-slopped ticker */
-@keyframes ticker {
-  from {
-    transform: translateX(0);
+/* A utility rather than a component, so it takes responsive variants (sm:btn-lg). */
+@utility btn-lg {
+  min-height: 3.25rem;
+  padding-inline: 1.5rem;
+  font-size: 1.0625rem;
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
   }
-  to {
-    transform: translateX(-50%);
-  }
 }
 
-.ticker-track {
-  animation: ticker 50s linear infinite;
-}
-
-.ticker:hover .ticker-track {
-  animation-play-state: paused;
-}
-
-/* Cards land on the wall: thrown in, a little squash, then settle. */
-@keyframes thrown {
+/* A tile's glyph drops into place like a flap falling. */
+@keyframes flap {
   0% {
-    opacity: 0;
-    transform: translateY(28px) scale(0.92) rotate(calc(var(--tilt, 0deg) * -3));
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(-3px) scale(1.015) rotate(var(--tilt, 0deg));
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1) rotate(var(--tilt, 0deg));
-  }
-}
-
-.thrown {
-  animation: thrown 560ms cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
-  animation-delay: calc(var(--i, 0) * 60ms);
-  transform: rotate(var(--tilt, 0deg));
-}
-
-/* Splats on the goal grid */
-@keyframes splat {
-  0% {
-    transform: scale(0.2) rotate(var(--spin, 0deg));
+    transform: rotateX(-90deg);
     opacity: 0;
   }
-  55% {
-    transform: scale(1.18) rotate(var(--spin, 0deg));
+  60% {
     opacity: 1;
   }
   100% {
-    transform: scale(1) rotate(var(--spin, 0deg));
+    transform: rotateX(0);
+    opacity: 1;
   }
 }
 
-.splat-in {
-  animation: splat 460ms cubic-bezier(0.3, 1.5, 0.4, 1) both;
-  animation-delay: calc(var(--i, 0) * 30ms);
-}
-
-@keyframes pulse-ring {
+/* "Now": the one thing on the page that breathes. */
+@keyframes now {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--slop) 70%, transparent);
+    opacity: 1;
   }
   50% {
-    box-shadow: 0 0 0 7px color-mix(in oklab, var(--slop) 0%, transparent);
+    opacity: 0.35;
   }
 }
 
-.cell-today {
-  animation: pulse-ring 1.8s ease-in-out infinite;
+.now-pulse {
+  animation: now 2.4s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -451,11 +611,8 @@
   *::after {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
-  }
-
-  .ticker-track {
-    animation: none;
   }
 }

@@ -28,21 +28,23 @@ export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "
 
 export default function Rules() {
   return (
-    <section className="mx-auto max-w-3xl px-4 py-12">
-      <p className="eyebrow">Short list</p>
-      <h1 className="font-wide mt-2 text-4xl font-black sm:text-5xl">Rules</h1>
-      <ol className="mt-10 grid gap-4">
+    <section className="mx-auto max-w-3xl px-4 pt-14">
+      <h1 className="title-1">Rules</h1>
+      <p className="lede mt-4">A short list. Break one and your slop comes off the wall.</p>
+      <ol className="mt-12 divide-y divide-line border-y border-line">
         {RULES.map((rule, index) => (
-          <li key={rule.title} className="stuck flex gap-5 p-5">
-            <span className="font-wide text-4xl leading-none font-black text-slop-deep">{index + 1}</span>
+          <li key={rule.title} className="grid grid-cols-[2.25rem_1fr] gap-x-4 py-6">
+            <span className="font-display text-[2rem] leading-none font-black text-faint tabular-nums">
+              {index + 1}
+            </span>
             <div>
-              <h2 className="text-lg font-black">{rule.title}</h2>
-              <p className="mt-1 text-muted">{rule.body}</p>
+              <h2 className="font-display text-[1.75rem] leading-none font-extrabold">{rule.title}</h2>
+              <p className="mt-2 max-w-[60ch]">{rule.body}</p>
             </div>
           </li>
         ))}
       </ol>
-      <p className="mt-10 text-sm text-muted">
+      <p className="mt-10 text-muted">
         See something that breaks these? Use “Flag as inappropriate” on its page. Flagged slops stop auto-posting
         straight away, and moderators can hide anything.
       </p>

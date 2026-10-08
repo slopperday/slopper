@@ -49,7 +49,7 @@ export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "
 export default function Terms() {
   return (
     <>
-      <LegalPage eyebrow="Plain words" title="Terms" updated="2026-10-07" sections={SECTIONS} />
+      <LegalPage intro="In plain words." title="Terms" updated="2026-10-07" sections={SECTIONS} />
       <p className="mx-auto max-w-3xl px-4 text-sm text-muted">
         See also the{" "}
         <Link to="/rules" className="underline">

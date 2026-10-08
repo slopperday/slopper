@@ -138,7 +138,7 @@ function toLaunches(slops: readonly Doc<"slops">[]): Launch[] {
     .map((slop) => ({ id: slop._id, name: slop.name, slug: slop.slug, launchDate: slop.launchDate }));
 }
 
-/** Everything a profile page shows; live, so votes and splats update in place. */
+/** Everything a profile page shows; live, so votes and goal days update in place. */
 export const profile = query({
   args: { username: v.string(), asUser: v.optional(v.id("users")) },
   handler: async (ctx, { username, asUser }) => {

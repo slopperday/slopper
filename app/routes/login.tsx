@@ -4,7 +4,7 @@ import { config } from "~/.server/config";
 import { safeReturnTo } from "~/.server/auth/oauth";
 import { viewerContext } from "~/.server/session";
 import { seo } from "~/lib/seo";
-import { LogoMark } from "~/components/Logo";
+import { Splat } from "~/components/Logo";
 
 export function loader({ request, context }: Route.LoaderArgs) {
   const returnTo = safeReturnTo(new URL(request.url).searchParams.get("returnTo"));
@@ -23,34 +23,31 @@ export default function Login({ loaderData }: Route.ComponentProps) {
   const query = `?returnTo=${encodeURIComponent(loaderData.returnTo)}`;
   const nothingConfigured = !loaderData.github && !loaderData.google;
   return (
-    <section className="mx-auto grid max-w-md px-4 py-16">
-      <div className="stuck px-6 pt-8 pb-8 sm:px-8">
-        <div className="tape" aria-hidden="true" />
-        <div className="flex justify-center">
-          <LogoMark size={64} />
-        </div>
-        <h1 className="font-wide mt-5 text-center text-3xl font-black">Start slopping</h1>
-        <p className="mt-2 text-center text-muted">Sign in to set a goal and throw your first slop.</p>
+    <section className="mx-auto grid max-w-md px-4 pt-14">
+      <div>
+        <Splat className="h-24 w-auto" />
+        <h1 className="title-1 mt-6">Start slopping</h1>
+        <p className="lede mt-3">Sign in to set a goal and throw your first slop.</p>
         <div className="mt-8 grid gap-3">
           {loaderData.github && (
-            <a href={`/auth/github${query}`} className="btn btn-slop w-full">
+            <a href={`/auth/github${query}`} className="btn btn-ink btn-lg w-full">
               <GitHubIcon /> Continue with GitHub
             </a>
           )}
           {loaderData.google && (
-            <a href={`/auth/google${query}`} className="btn w-full">
+            <a href={`/auth/google${query}`} className="btn btn-lg w-full">
               <GoogleIcon /> Continue with Google
             </a>
           )}
           {nothingConfigured && !loaderData.devLogin && (
-            <p className="rounded-lg border-2 border-dashed border-ink/40 p-4 text-sm text-muted">
+            <p className="panel text-[0.9375rem] text-muted">
               No sign-in providers are configured. Set <code className="font-mono">GITHUB_CLIENT_ID</code> and{" "}
               <code className="font-mono">GITHUB_CLIENT_SECRET</code>.
             </p>
           )}
         </div>
         {loaderData.devLogin && (
-          <Form method="post" action="/auth/dev" className="mt-8 rounded-xl border-2 border-dashed border-ink/50 p-4">
+          <Form method="post" action="/auth/dev" className="panel mt-8">
             <input type="hidden" name="returnTo" value={loaderData.returnTo} />
             <label htmlFor="dev-username" className="field-label">
               Local dev login
@@ -71,7 +68,7 @@ export default function Login({ loaderData }: Route.ComponentProps) {
             <p className="field-hint">Only on your machine. Disabled in production.</p>
           </Form>
         )}
-        <p className="mt-8 text-center text-xs text-muted">
+        <p className="mt-8 text-sm text-muted">
           By signing in you agree to the{" "}
           <a href="/terms" className="underline">
             terms
