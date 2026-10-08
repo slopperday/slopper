@@ -11,7 +11,8 @@ goal (30 slops in 30 days), ship something every day, show it to people, and kee
 - **Launches, not just products.** The website, then the iOS beta, then 2.0: each launch is its own entry and its own
   shot at slop of the day, linked to the product.
 - **Updates, feature drops, re-promotes and field tests.** Field tests log real people trying it, and count extra.
-- **Votes** with private downvotes, **feedback** and **kudos**, **live notifications**.
+- **Votes** with private downvotes and **live notifications**. **Feedback** and **kudos** are built but off for V1:
+  they come back with heavier moderation (`COMMENTS_ENABLED=true` turns them on).
 - **Safe for work.** Every launch, screenshot and auto-posted update gets an automated content check. Mature slops are
   blurred, anything worse is held for a moderator, and nothing auto-posts until it passes. Anyone signed in can flag a
   slop; moderators decide at `/mod`.
@@ -22,7 +23,7 @@ goal (30 slops in 30 days), ship something every day, show it to people, and kee
   buttons everywhere.
 - **For agents:** an MCP server, a REST API and copy-paste prompts on every form, so your AI can run Slopper for you.
 
-Everything is live: votes, races, feedback, pledges and notifications update on every open page as they happen.
+Everything is live: votes, races, pledges and notifications update on every open page as they happen.
 
 ## Stack
 
@@ -83,7 +84,8 @@ first time. Your dev data on :3210 is never touched.
    dynamic runtime with entrypoint `deploy/main.ts`; build memory 2048 MB; region US, next to Convex. Set the
    environment variables from `.env.example`: `APP_URL=https://slopper.day`, `CONVEX_URL` (your `*.convex.cloud` URL),
    `SLOPPER_JWT_ISSUER`, `SLOPPER_JWT_PRIVATE_KEY`, `SLOPPER_SECRET_KEY`, `ADMIN_USERNAMES` (the moderators),
-   `DEEPSEEK_API_KEY` (the content check; without it nothing is ever auto-posted) and the OAuth keys (below).
+   `DEEPSEEK_API_KEY` (the content check; without it nothing is ever auto-posted) and the OAuth keys (below). Leave
+   `COMMENTS_ENABLED` unset: comments are off for V1.
 3. **Domain.** Add `slopper.day` to the Deno Deploy app.
 
 ### OAuth apps

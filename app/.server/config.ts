@@ -58,6 +58,12 @@ export interface Config {
   facebook: OAuthClientCredentials | null;
   /** Automated content check. Without it, nothing is ever auto-posted. */
   contentCheck: ContentCheckConfig | null;
+  /**
+   * Feedback and kudos on slops (`COMMENTS_ENABLED=true`). Off for V1: they
+   * come back with heavier moderation. The data and code stay, so turning
+   * it on brings back everything already posted.
+   */
+  commentsEnabled: boolean;
 }
 
 type Env = Record<string, string | undefined>;
@@ -97,6 +103,7 @@ export function loadConfig(env: Env = process.env): Config {
           model: env.DEEPSEEK_MODEL?.trim() || "deepseek-flash",
         }
       : null,
+    commentsEnabled: env.COMMENTS_ENABLED?.trim() === "true",
   };
 }
 

@@ -189,6 +189,7 @@ async function main(): Promise<void> {
       LINKEDIN_CLIENT_SECRET: "e2e-linkedin-secret",
       FACEBOOK_CLIENT_ID: "e2e-facebook-client",
       FACEBOOK_CLIENT_SECRET: "e2e-facebook-secret",
+      // Comments stay off, as in production (COMMENTS_ENABLED unset).
     },
   });
   children.push(app);

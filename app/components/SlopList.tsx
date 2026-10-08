@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useRouteLoaderData } from "react-router";
 import type { CardItem } from "@convex/lib/shape";
 import { dayLabel, plural, slopPath } from "~/lib/display";
 import { timeAgo } from "~/lib/dates";
@@ -8,12 +8,17 @@ import { VoteButtons } from "./VoteButtons";
 
 export type { CardItem };
 
+/** Whether feedback counts show: comments can be off (COMMENTS_ENABLED, read by the root loader). */
+function useCommentsEnabled(): boolean {
+  return useRouteLoaderData<{ commentsEnabled: boolean }>("root")?.commentsEnabled ?? false;
+}
+
 /** "1 field test · 2 feedback · 3 updates", leaving out what hasn't happened. */
-function activity(slop: CardItem["slop"]): string[] {
+function activity(slop: CardItem["slop"], commentsEnabled: boolean): string[] {
   const updates = slop.updateCount - 1;
   return [
     slop.fieldTests > 0 ? plural(slop.fieldTests, "field test", "field tests") : null,
-    slop.commentCount > 0 ? `${slop.commentCount} feedback` : null,
+    commentsEnabled && slop.commentCount > 0 ? `${slop.commentCount} feedback` : null,
     updates > 0 ? plural(updates, "update", "updates") : null,
   ].filter((part) => part !== null);
 }
@@ -77,7 +82,7 @@ function SlopRow({
   const { slop, owner } = item;
   const href = slopPath(owner.username, slop.slug);
   const day = dayLabel(slop);
-  const counts = activity(slop);
+  const counts = activity(slop, useCommentsEnabled());
   return (
     <li className="group relative flex min-w-0 items-center gap-3 py-4 sm:gap-5 sm:py-5">
       {rank !== undefined && (
@@ -160,6 +165,7 @@ export function SlopFeature({ item }: { item: CardItem }) {
   const { slop, owner } = item;
   const href = slopPath(owner.username, slop.slug);
   const day = dayLabel(slop);
+  const counts = activity(slop, useCommentsEnabled());
   const screenshot = slop.screenshots.length > 0;
   return (
     <article className="group relative">
@@ -182,7 +188,7 @@ export function SlopFeature({ item }: { item: CardItem }) {
       <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
         <Maker owner={owner} />
         <span>{day ?? "No goal"}</span>
-        {activity(slop).map((part) => (
+        {counts.map((part) => (
           <span key={part}>{part}</span>
         ))}
       </p>

@@ -55,6 +55,8 @@ test.describe("agents run Slopper", () => {
     const mine = await mcp(request, token, "tools/call", { name: "list_my_slops", arguments: {} });
     expect(mine.result?.isError).toBe(false);
     expect(JSON.stringify(mine.result?.structuredContent)).toContain(name);
+    // Comments are off: no feedback counts for agents either.
+    expect(JSON.stringify(mine.result?.structuredContent)).not.toContain('"feedback"');
     const race = await mcp(request, token, "tools/call", { name: "todays_race", arguments: {} });
     expect(race.result?.structuredContent).toMatchObject({ date: new Date().toISOString().slice(0, 10) });
 
