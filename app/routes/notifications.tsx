@@ -11,7 +11,7 @@ import { seo } from "~/lib/seo";
 import { Avatar } from "~/components/Avatar";
 import { useLive, useLiveClient } from "~/components/Live";
 import { EmptyState } from "~/components/Shared";
-import { Bang } from "~/components/Logo";
+import { Splat } from "~/components/Logo";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const user = requireUser(context.get(viewerContext), request);
@@ -69,7 +69,7 @@ export default function Notifications({ loaderData }: Route.ComponentProps) {
                 <Avatar user={item.actor} size="sm" />
               ) : (
                 <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-full bg-board">
-                  <Bang className="h-5 w-auto" />
+                  <Splat tone="board" className="h-5 w-auto" />
                 </span>
               )}
               <span className={`min-w-0 flex-1 ${item.read ? "" : "font-bold"}`}>{describe(item)}</span>

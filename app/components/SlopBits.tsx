@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { findCategory, type SlopLink } from "~/lib/model";
 import { platformBadges } from "~/lib/display";
 import { Icon } from "./Icon";
-import { Bang } from "./Logo";
+import { Splat } from "./Logo";
 
 /** Small pieces shared by slop cards, race rows and the slop page. */
 
@@ -49,8 +49,8 @@ export function NsfwTag() {
 }
 
 /**
- * The slop's cover screenshot or, with none, a shipped-day tile: the same
- * drip bang a launch flips onto the goal board.
+ * The slop's cover screenshot or, with none, a board tile with the seeded
+ * splat.
  */
 export function SlopCover({
   slop,
@@ -65,7 +65,7 @@ export function SlopCover({
   if (!first) {
     return (
       <div className={`tile grid place-items-center ${className}`} aria-hidden="true">
-        <Bang className="h-3/5 w-auto" />
+        <Splat tone="board" className="h-3/5 w-auto" />
       </div>
     );
   }

@@ -219,7 +219,7 @@ shadows, no outlined buttons.
 - The board: dark split-flap tiles for clocks and goal days, dark in both themes.
 - Lime means shipped, gold means won, red means hurry or danger.
 - Rows and hairlines instead of cards; flat tinted panels instead of shadows.
-- The drip bang "!" is the brand: logo, favicon and empty covers. It is never a status; shipped days get a check.
+- The seeded splat is the brand: logo, favicon and empty covers. It is never a status; shipped days get a check.
 
 ## Colors
 
@@ -230,11 +230,10 @@ follows the ground in both schemes.
 
 ### Primary
 
-- **Shipping Lime** (slop): the fill for shipped-day marks, the drip bang, primary buttons, the active nav bar, the
+- **Shipping Lime** (slop): the fill for shipped-day marks, the splat, primary buttons, the active nav bar, the
   "now" bar on today's tile, the "Just slopped" dot, the streak strip's shipped segments, and text selection.
 - **Lime Hover** (slop-hover): primary button hover only.
-- **Wet Edge** (slop-deep): the drip bang's offset underside that gives the mark its edge on light ground; checkbox and
-  radio accent.
+- **Wet Edge** (slop-deep): checkbox and radio accent.
 - **Lime Text** (slop-text): lime as a text colour on the ground (link hover in the footer, caret). Raw lime is a fill,
   never body text on light ground.
 - **Lime Tint** (slop-tint): launch tags and the input focus ring.
@@ -351,8 +350,7 @@ Soft rectangles with a small radius ladder: tile corners at 0.14em of the tile's
 
 The split-flap tile is the recurring silhouette: 0.78em by 1.18em, two halves (`tile-top` over `tile`) with a 1px dark
 split across the middle, sitting behind the glyph so small tiles stay legible. Goal-day cells use the same tile at a
-4:5 ratio. The drip bang (a splat dripping into an exclamation mark) is the one organic shape, kept for the brand: the logo, the
-favicon and covers with no screenshot.
+4:5 ratio. The seeded splat is the one organic shape, kept for the brand: the logo, the favicon and covers with no screenshot.
 
 ## Components
 
@@ -395,7 +393,7 @@ Solid, plain, confident: one shape, no outline, no shadow.
 
 ### Navigation
 
-- **Header:** "slopper!" lockup on the left, plain bold links (0.9375rem) in muted that turn ink on hover, the labelled
+- **Header:** the splat-and-"slopper" lockup on the left, plain bold links (0.9375rem) in muted that turn ink on hover, the labelled
   board-tile clock and the primary action on the right, avatar menu last.
 - **Active:** the current link sits on a 3px lime bar flush with the header's bottom edge, rounded on top. Settings tabs
   use the same bar.
@@ -421,7 +419,7 @@ Solid, plain, confident: one shape, no outline, no shadow.
 ### Slop Rows
 
 - **Structure:** rank numeral (faint 1.9rem; the leader 2.5rem in ink; a winner in gold-text), a square cover (3.5rem
-  to 5rem, 0.75rem radius; a tile with the drip bang when there is no screenshot), the name, tags, a two-line muted
+  to 5rem, 0.75rem radius; a board tile with the splat when there is no screenshot), the name, tags, a two-line muted
   tagline, a meta line (maker, goal day, time, activity, platforms) and the vote pill on the right.
 - **Behaviour:** the whole row is one link stretched from the name; the name underlines (2px) on row hover. The maker
   link and votes sit above the stretched link.
@@ -443,10 +441,10 @@ Solid, plain, confident: one shape, no outline, no shadow.
 
 ### Brand Mark and Icons
 
-- **Lockup:** "slopper" in Big Shoulders 900 with the drip bang at 0.84em on the baseline as its punctuation. The bang is
-  drawn twice: a `slop-deep` underside offset slightly down and right, the `slop` face on top. Loose droplets only above
-  about 40px.
-- **Favicon:** the bang in lime on a 32px ink tile (7px radius); in dark mode the tile turns lime and the bang ink.
+- **Lockup:** the seeded splat at 1.05em, then "slopper" in Big Shoulders 900, 0.22em apart and centred. The splat is
+  drawn twice: an `ink` copy nudged down and right (`board-ink` on the dark board), the `slop` face on top. Its
+  droplets are part of the paths.
+- **Favicon:** the splat on a transparent ground, lime over ink; in dark mode the ink copy turns light.
 - **Icons:** a small drawn set (arrows, bell, star, check, close, plus, out) on one 24px grid with a 2px round stroke in
   `currentColor`; the star fills for wins.
 
@@ -470,5 +468,5 @@ Solid, plain, confident: one shape, no outline, no shadow.
 - **Don't** outline buttons or tags; they are solid fills or tints.
 - **Don't** invert the board or its tiles to light in the light theme.
 - **Don't** use Atkinson Hyperlegible Mono for labels, headings or numbers that are not code or data codes.
-- **Don't** use emoji as icons or decoration; the drawn icon set and the drip bang carry every glyph.
+- **Don't** use emoji as icons or decoration; the drawn icon set and the splat carry every glyph.
 - **Don't** use kitchen, cooking, restaurant or food imagery anywhere.

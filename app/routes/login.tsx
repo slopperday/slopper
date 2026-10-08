@@ -4,7 +4,7 @@ import { config } from "~/.server/config";
 import { safeReturnTo } from "~/.server/auth/oauth";
 import { viewerContext } from "~/.server/session";
 import { seo } from "~/lib/seo";
-import { Bang } from "~/components/Logo";
+import { Splat } from "~/components/Logo";
 
 export function loader({ request, context }: Route.LoaderArgs) {
   const returnTo = safeReturnTo(new URL(request.url).searchParams.get("returnTo"));
@@ -25,7 +25,7 @@ export default function Login({ loaderData }: Route.ComponentProps) {
   return (
     <section className="mx-auto grid max-w-md px-4 pt-14">
       <div>
-        <Bang splash className="h-24 w-auto" />
+        <Splat className="h-24 w-auto" />
         <h1 className="title-1 mt-6">Start slopping</h1>
         <p className="lede mt-3">Sign in to set a goal and throw your first slop.</p>
         <div className="mt-8 grid gap-3">

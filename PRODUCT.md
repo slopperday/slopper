@@ -47,8 +47,8 @@ LinkedIn and Bluesky, live notifications, flags and a moderator queue, API token
 - Name: Slopper, at slopper.day. Tagline: "Throw slop at the wall. Every day."
 - Voice: plain words, cheeky. Throw slop at the wall, keep slopping until it's slopcessful. No kitchen, cooking,
   restaurant or food imagery or wording, ever.
-- Logo: the "Drip Bang" mark, a fresh splat dripping into an exclamation mark that trails the wordmark, so the lockup
-  reads "slopper!".
+- Logo: the seeded splat (the old splat generator's seed 20261006, frozen into paths), lime over a nudged ink copy,
+  leading the wordmark.
 - Owner's taste: simple, visual, distinctive, engaging; little twists on familiar things; never a clone.
 
 ## Evidence on Hand
