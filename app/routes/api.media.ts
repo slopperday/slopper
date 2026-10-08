@@ -9,7 +9,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   if (!user) return data({ error: "Sign in first." }, { status: 401 });
   const file = (await request.formData()).get("file");
   if (!(file instanceof File)) return data({ error: "No file received." }, { status: 400 });
-  const result = await uploadImage(user._id, new Uint8Array(await file.arrayBuffer()));
+  const result = await uploadImage(user._id, { bytes: new Uint8Array(await file.arrayBuffer()), fileName: file.name });
   if (!result.ok) return data({ error: result.error }, { status: 400 });
-  return data({ id: result.id, url: result.url }, { status: 201 });
+  return data({ id: result.id, url: result.url, contentCheck: result.contentCheck }, { status: 201 });
 }

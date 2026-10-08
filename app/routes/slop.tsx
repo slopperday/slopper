@@ -7,6 +7,7 @@ import { convex, convexMessage } from "~/.server/convex";
 import { absoluteUrl, config } from "~/.server/config";
 import { formText } from "~/.server/forms";
 import { badRequest, forbidden, notFound, redirectWithFlash } from "~/.server/http";
+import { deleteOrphanedMedia } from "~/.server/media";
 import { announce, retryFailed, summarize } from "~/.server/social/announce";
 import { modeFor } from "~/.server/social/crosspost";
 import { shareIntents } from "~/lib/compose";
@@ -311,7 +312,12 @@ export async function action({ params, request, context }: Route.ActionArgs) {
             message: `Type “${slop.slug}” to confirm.`,
           });
         }
-        await convex.mutation(api.slops.remove, { slopId: slop.id, byUserId: user._id, asAdmin: viewer.isAdmin });
+        const removed = await convex.mutation(api.slops.remove, {
+          slopId: slop.id,
+          byUserId: user._id,
+          asAdmin: viewer.isAdmin,
+        });
+        if (removed.orphaned > 0) await deleteOrphanedMedia();
         return redirectWithFlash(`/@${owner.username}`, {
           tone: "info",
           message: `${launchTitle(slop)} was scraped off the wall.`,

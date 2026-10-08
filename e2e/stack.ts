@@ -5,7 +5,10 @@
  * - a fresh Convex backend (the binary the Convex CLI already downloaded),
  *   with its own data in `.e2e/` that's deleted on every run;
  * - a fake DeepSeek that answers the content check by marker
- *   (`[e2e:mature]`, `[e2e:blocked]`) and logs what it was sent;
+ *   (`[e2e:mature]`, `[e2e:blocked]`, in a launch's text or an uploaded
+ *   file's name) and logs what it was sent;
+ * - a fake B2 bucket that checks every write's signature (e2e/fake-s3.ts),
+ *   so screenshots take the production path;
  * - the production build, served by Deno exactly as on Deno Deploy.
  *
  * Nothing touches your dev backend on :3210. The details tests need
@@ -19,6 +22,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import process from "node:process";
 import { generateServerKeys } from "../scripts/server-keys.ts";
+import { sha256Hex, startFakeS3 } from "./fake-s3.ts";
 import { E2E_ADMIN, type FakeCheckRequest, PORTS, STACK_FILE, type Stack } from "./ports.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -26,6 +30,11 @@ const STATE = join(ROOT, ".e2e");
 const CONVEX_URL = `http://127.0.0.1:${PORTS.convex}`;
 const APP_URL = `http://127.0.0.1:${PORTS.app}`;
 const CHECK_URL = `http://127.0.0.1:${PORTS.check}`;
+const S3_URL = `http://127.0.0.1:${PORTS.s3}`;
+const BUCKET = "slopper-e2e";
+/** Like B2's friendly download URL, deliberately not the S3 path the app writes to. */
+const MEDIA_URL = `${S3_URL}/file/${BUCKET}`;
+const S3_CREDENTIALS = { keyId: "e2e-key-id", secret: randomBytes(24).toString("base64"), region: "us-west-004" };
 
 const children: ChildProcess[] = [];
 
@@ -81,27 +90,34 @@ function startFakeCheck(): void {
       return;
     }
     const body = JSON.parse(await readBody(request)) as {
-      messages: { role: string; content: string | { type: string; text?: string }[] }[];
+      messages: {
+        role: string;
+        content: string | { type: string; text?: string; image_url?: { url: string } }[];
+      }[];
       response_format?: { type: string };
       thinking?: { type: string };
     };
     const [system, user] = body.messages;
     const parts = Array.isArray(user?.content) ? user.content : [];
     const text = parts.map((part) => part.text ?? "").join("\n");
-    const images = parts.filter((part) => part.type === "image_url").length;
+    // Images must arrive inline, as the real check sends them.
+    const images = parts.flatMap((part) => (part.type === "image_url" ? [part.image_url?.url ?? ""] : []));
+    const inline = images.map((url) => /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+)$/.exec(url));
     const wellFormed =
       request.headers.authorization === "Bearer e2e-key" &&
       system?.role === "system" &&
       typeof system.content === "string" &&
       system.content.includes("json") &&
       body.response_format?.type === "json_object" &&
-      body.thinking?.type === "disabled";
+      body.thinking?.type === "disabled" &&
+      inline.every((match) => match !== null);
     if (!wellFormed) {
       response.writeHead(400, { "content-type": "application/json" }).end('{"error":"malformed check request"}');
       return;
     }
     const verdict = text.includes("[e2e:blocked]") ? "blocked" : text.includes("[e2e:mature]") ? "mature" : "ok";
-    log.push({ text, images, verdict });
+    const imageHashes = inline.map((match) => sha256Hex(Buffer.from(match?.[2] ?? "", "base64")));
+    log.push({ text, images: images.length, imageHashes, verdict });
     const reply = { verdict, reason: `Fake check: ${verdict}.` };
     response
       .writeHead(200, { "content-type": "application/json" })
@@ -158,10 +174,12 @@ async function main(): Promise<void> {
   const convex = join(ROOT, "node_modules", ".bin", "convex");
   run(convex, ["env", "set", "--env-file", envFile, "SLOPPER_JWT_ISSUER", APP_URL]);
   run(convex, ["env", "set", "--env-file", envFile, "SLOPPER_JWKS", keys.jwks]);
+  run(convex, ["env", "set", "--env-file", envFile, "MEDIA_PUBLIC_URL", MEDIA_URL]);
   run(convex, ["deploy", "--env-file", envFile, "--codegen", "disable", "--typecheck", "disable"]);
 
-  // 3. The content check.
+  // 3. The content check and the bucket.
   startFakeCheck();
+  startFakeS3(PORTS.s3, BUCKET, S3_CREDENTIALS);
 
   // 4. The production build, as Deno Deploy runs it.
   const app = spawn("deno", ["run", "-A", "deploy/main.ts"], {
@@ -179,6 +197,11 @@ async function main(): Promise<void> {
       ADMIN_USERNAMES: E2E_ADMIN,
       DEEPSEEK_API_KEY: "e2e-key",
       DEEPSEEK_BASE_URL: CHECK_URL,
+      B2_ENDPOINT: S3_URL,
+      B2_REGION: S3_CREDENTIALS.region,
+      B2_BUCKET: BUCKET,
+      B2_KEY_ID: S3_CREDENTIALS.keyId,
+      B2_APPLICATION_KEY: S3_CREDENTIALS.secret,
       // Never called: the tests only check where the buttons send people.
       // Google stays unset, so a provider without keys stays hidden.
       GITHUB_CLIENT_ID: "e2e-github-client",
@@ -199,6 +222,8 @@ async function main(): Promise<void> {
     appUrl: APP_URL,
     convexUrl: CONVEX_URL,
     checkUrl: CHECK_URL,
+    s3Url: S3_URL,
+    mediaUrl: MEDIA_URL,
     adminKey,
     issuer: APP_URL,
     privateKey: keys.privateKey,

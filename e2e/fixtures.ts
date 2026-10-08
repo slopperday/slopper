@@ -8,6 +8,7 @@ import { importJWK, type JWK, SignJWT } from "jose";
 import { api } from "../convex/_generated/api.js";
 import type { Id } from "../convex/_generated/dataModel";
 import { hashToken, randomToken } from "../app/.server/encoding.ts";
+import type { FakeObject } from "./fake-s3.ts";
 import { E2E_ADMIN, type FakeCheckRequest, STACK_FILE, type Stack } from "./ports.ts";
 
 /**
@@ -86,6 +87,11 @@ export function runInternal(stack: Stack, name: string, args: Record<string, unk
 /** What the fake content check has been asked so far. */
 export async function checkRequests(stack: Stack): Promise<FakeCheckRequest[]> {
   return (await (await fetch(`${stack.checkUrl}/__requests`)).json()) as FakeCheckRequest[];
+}
+
+/** What the fake B2 bucket holds right now. */
+export async function bucketObjects(stack: Stack): Promise<FakeObject[]> {
+  return (await (await fetch(`${stack.s3Url}/__objects`)).json()) as FakeObject[];
 }
 
 export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHttpClient }>({

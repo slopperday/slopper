@@ -15,7 +15,7 @@ import { CURRENCIES } from "~/lib/money";
 import { absoluteUrl, config } from "../config";
 import { convex, convexMessage } from "../convex";
 import { validateGoal, validateSlop } from "../forms";
-import { uploadImage } from "../media";
+import { deleteOrphanedMedia, uploadImage } from "../media";
 import { checkedContent, checkSlop } from "../moderation";
 import { announce } from "../social/announce";
 import type { User } from "../session";
@@ -67,6 +67,8 @@ function summarizeSlop(slop: Doc<"slops">, username: string) {
     launchLabel: slop.launchLabel,
     name: slop.name,
     tagline: slop.tagline,
+    /** Blurred by the content check, a mature screenshot, flags or a moderator. */
+    nsfw: slop.nsfw,
     url: absoluteUrl(slopPath(username, slop.slug)),
     launchDate: slop.launchDate,
     goalDay: slop.goalDay,
@@ -209,7 +211,7 @@ export const OPERATIONS: Operation[] = [
     name: "upload_screenshot",
     title: "Upload a screenshot",
     description:
-      "Upload a PNG, JPEG, WebP or GIF (max 2 MB) as base64. Returns an id to pass in create_slop or update_slop screenshots.",
+      "Upload a PNG, JPEG, WebP or GIF (max 2 MB) as base64. It's checked first: explicit or hateful images are refused, and a mature one blurs any slop that shows it. Returns an id to pass in create_slop or update_slop screenshots, and the check's verdict (ok, mature, or unchecked when it couldn't run).",
     inputSchema: {
       type: "object",
       properties: { base64: { type: "string", description: "Image bytes, base64 encoded (no data: prefix)." } },
@@ -224,9 +226,9 @@ export const OPERATIONS: Operation[] = [
       } catch {
         throw new ApiError(400, "base64 is not valid base64.");
       }
-      const result = await uploadImage(user._id, bytes);
+      const result = await uploadImage(user._id, { bytes });
       if (!result.ok) throw new ApiError(400, result.error);
-      return { id: result.id, url: result.url };
+      return { id: result.id, url: result.url, contentCheck: result.contentCheck };
     },
   },
   {
@@ -343,7 +345,12 @@ export const OPERATIONS: Operation[] = [
       });
       if (!parsed.ok) throw new ApiError(422, "The slop needs fixing.", parsed.errors);
       const { launchNote: _launchNote, ...fields } = parsed.value;
-      await convex.mutation(api.slops.edit, { userId: context.user._id, slopId: slop._id, input: fields });
+      const edited = await convex.mutation(api.slops.edit, {
+        userId: context.user._id,
+        slopId: slop._id,
+        input: fields,
+      });
+      if (edited.orphaned > 0) await deleteOrphanedMedia();
       const saved = await slopById(slop._id);
       const check = checkedContent(saved) !== checkedContent(slop) ? await checkSlop(slop._id) : null;
       return {

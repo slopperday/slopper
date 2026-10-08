@@ -8,7 +8,7 @@ const RULES = [
   },
   {
     title: "Keep it safe for work",
-    body: "Slopper is for things you'd show anyone. Every launch, screenshot and auto-posted update gets an automated content check. Anything sexual, hateful or illegal is held for a moderator and never auto-posted.",
+    body: "Slopper is for things you'd show anyone. Every launch, screenshot and auto-posted update gets an automated content check. Sexual or hateful screenshots are refused at upload, and anything sexual, hateful or illegal in a launch is held for a moderator and never auto-posted.",
   },
   {
     title: "No spam, malware or scams",

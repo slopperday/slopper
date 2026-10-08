@@ -73,6 +73,9 @@ export const convex = {
   },
 };
 
+/** Something that calls Convex as the app server: `convex`, or a test's stand-in. */
+export type ConvexCaller = typeof convex;
+
 /** The message from a business-rule error thrown in Convex, if that's what this is. */
 export function convexMessage(error: unknown): string | null {
   if (error instanceof ConvexError) return typeof error.data === "string" ? error.data : "Something went wrong.";

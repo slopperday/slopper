@@ -74,6 +74,7 @@
         "npm:@types/react-dom@^19.3.0",
         "npm:@types/react@^19.3.0",
         "npm:@voidzero-dev/vite-plus-core@1.0.0",
+        "npm:aws4fetch@^1.0.20",
         "npm:convex-test@^0.0.60",
         "npm:convex@^1.46.0",
         "npm:cookie@^2.0.1",

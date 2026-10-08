@@ -48,6 +48,35 @@ export const oauthIntentValidator = v.union(v.literal("login"), v.literal("link"
 /** Outcome of the automated content check (see app/.server/moderation.ts). */
 export const checkVerdictValidator = v.union(v.literal("ok"), v.literal("mature"), v.literal("blocked"));
 
+/**
+ * What the check said about an image when it was uploaded. Blocked images are
+ * never stored; "unchecked" means the check couldn't run, so the launch-time
+ * check is the first to read it.
+ */
+export const mediaCheckValidator = v.object({
+  verdict: v.union(v.literal("ok"), v.literal("mature"), v.literal("unchecked")),
+  reason: v.string(),
+});
+
+/** Where an image's bytes live. Media rows from before B2 have no `backend`: they're in Convex. */
+export const mediaLocationValidator = v.union(
+  v.object({ backend: v.literal("convex"), storageId: v.id("_storage") }),
+  v.object({ backend: v.literal("b2"), key: v.string() }),
+);
+
+const mediaFields = {
+  ownerId: v.id("users"),
+  contentType: v.string(),
+  size: v.number(),
+  /** Absent on images uploaded before the upload check existed. */
+  check: v.optional(mediaCheckValidator),
+  /**
+   * Set when no slop shows a B2 image any more. Only the app server holds the
+   * bucket key, so it deletes the object, then the row (app/.server/media.ts).
+   */
+  orphanedAt: v.optional(v.number()),
+};
+
 export default defineSchema({
   users: defineTable({
     username: v.string(),
@@ -104,12 +133,13 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_end", ["endDate"]),
 
-  media: defineTable({
-    storageId: v.id("_storage"),
-    ownerId: v.id("users"),
-    contentType: v.string(),
-    size: v.number(),
-  }),
+  /** Screenshots, in Convex file storage or a Backblaze B2 bucket. */
+  media: defineTable(
+    v.union(
+      v.object({ ...mediaFields, backend: v.optional(v.literal("convex")), storageId: v.id("_storage") }),
+      v.object({ ...mediaFields, backend: v.literal("b2"), key: v.string() }),
+    ),
+  ).index("by_orphaned", ["orphanedAt"]),
 
   /** One launch. Later launches of a product point at its first via `productId`. */
   slops: defineTable({
