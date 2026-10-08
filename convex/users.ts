@@ -1,6 +1,6 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, type MutationCtx, query } from "./_generated/server";
+import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
 import { readerFor, requireServer } from "./lib/auth";
 import { publicUser, toCards } from "./lib/shape";
 import { currentStreak, isValidTimeZone, localDate } from "../app/lib/dates";
@@ -58,6 +58,81 @@ export const upsertFromIdentity = mutation({
     if (identity) await ctx.db.patch(identity._id, { userId });
     else await ctx.db.insert("identities", { provider: args.provider, providerId: args.providerId, userId });
     return { userId, created: true };
+  },
+});
+
+async function identitiesOf(ctx: QueryCtx, userId: Id<"users">): Promise<Doc<"identities">[]> {
+  return await ctx.db
+    .query("identities")
+    .withIndex("by_user_provider", (q) => q.eq("userId", userId))
+    .collect();
+}
+
+/** The providers that sign in to an account, one identity each. */
+export const identities = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }): Promise<string[]> => {
+    await requireServer(ctx);
+    return (await identitiesOf(ctx, userId)).map((row) => row.provider);
+  },
+});
+
+export type LinkIdentityResult =
+  | { ok: true; alreadyLinked: boolean }
+  /**
+   * `other_account`: that identity already signs in to someone else.
+   * `provider_linked`: this account already has a different one from the same provider.
+   */
+  | { ok: false; reason: "other_account" | "provider_linked" };
+
+/** Adds a sign-in method to an account, so signing in with it lands there. */
+export const linkIdentity = mutation({
+  args: { userId: v.id("users"), provider: v.string(), providerId: v.string() },
+  handler: async (ctx, { userId, provider, providerId }): Promise<LinkIdentityResult> => {
+    await requireServer(ctx);
+    if (!(await ctx.db.get(userId))) throw new ConvexError("Account not found.");
+    const existing = await ctx.db
+      .query("identities")
+      .withIndex("by_provider_id", (q) => q.eq("provider", provider).eq("providerId", providerId))
+      .unique();
+    if (existing?.userId === userId) return { ok: true, alreadyLinked: true };
+    // Never move an identity off a live account: that would take it over.
+    if (existing && (await ctx.db.get(existing.userId))) return { ok: false, reason: "other_account" };
+    const sameProvider = await ctx.db
+      .query("identities")
+      .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", provider))
+      .first();
+    if (sameProvider) return { ok: false, reason: "provider_linked" };
+
+    // An identity whose account is gone is free to claim.
+    if (existing) await ctx.db.patch(existing._id, { userId });
+    else await ctx.db.insert("identities", { provider, providerId, userId });
+    return { ok: true, alreadyLinked: false };
+  },
+});
+
+export type UnlinkIdentityResult = { ok: true } | { ok: false; reason: "not_linked" | "last_method" };
+
+/** Removes a sign-in method. The last one stays, so nobody locks themselves out. */
+export const unlinkIdentity = mutation({
+  args: { userId: v.id("users"), provider: v.string() },
+  handler: async (ctx, { userId, provider }): Promise<UnlinkIdentityResult> => {
+    await requireServer(ctx);
+    const all = await identitiesOf(ctx, userId);
+    const matching = all.filter((row) => row.provider === provider);
+    if (matching.length === 0) return { ok: false, reason: "not_linked" };
+    if (matching.length === all.length) return { ok: false, reason: "last_method" };
+    for (const row of matching) await ctx.db.delete(row._id);
+    return { ok: true };
+  },
+});
+
+/** Points an account at a picture the app server stored (see app/.server/media.ts). */
+export const setAvatar = mutation({
+  args: { userId: v.id("users"), avatarUrl: v.string() },
+  handler: async (ctx, { userId, avatarUrl }) => {
+    await requireServer(ctx);
+    await ctx.db.patch(userId, { avatarUrl });
   },
 });
 

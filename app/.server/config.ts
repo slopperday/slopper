@@ -55,6 +55,7 @@ export interface Config {
   google: OAuthClientCredentials | null;
   x: OAuthClientCredentials | null;
   linkedin: OAuthClientCredentials | null;
+  facebook: OAuthClientCredentials | null;
   /** Automated content check. Without it, nothing is ever auto-posted. */
   contentCheck: ContentCheckConfig | null;
 }
@@ -88,6 +89,7 @@ export function loadConfig(env: Env = process.env): Config {
     google: credentials(env, "GOOGLE"),
     x: credentials(env, "X"),
     linkedin: credentials(env, "LINKEDIN"),
+    facebook: credentials(env, "FACEBOOK"),
     contentCheck: env.DEEPSEEK_API_KEY?.trim()
       ? {
           apiKey: env.DEEPSEEK_API_KEY.trim(),

@@ -3,36 +3,37 @@ import { viewerContext } from "~/.server/session";
 import {
   authorizationUrl,
   clientCredentials,
-  isOAuthProvider,
-  type OAuthIntent,
-  providerLabel,
+  INTENT_HOME,
+  parseIntent,
   safeReturnTo,
   savePendingAuthorization,
 } from "~/.server/auth/oauth";
 import { randomToken } from "~/.server/encoding";
 import { loginUrl, notFound, OAUTH_COOKIE, redirectWithFlash, setCookie } from "~/.server/http";
+import { isOAuthProvider, OAUTH_LABELS } from "~/lib/model";
 
-const INTENTS: Record<string, OAuthIntent> = {
-  github: "login",
-  google: "login",
-  x: "connect",
-  linkedin: "connect",
-};
-
-/** Starts an OAuth flow: sign in (GitHub, Google) or connect (X, LinkedIn). */
+/**
+ * Starts an OAuth flow: `/auth/<provider>?intent=login|link|connect`.
+ * Without an intent, X and LinkedIn connect for auto-posting and the rest
+ * sign in (see `parseIntent`).
+ */
 export async function loader({ params, request, context }: Route.LoaderArgs) {
   const provider = params.provider;
   if (!isOAuthProvider(provider)) notFound();
-  const intent = INTENTS[provider];
+  const search = new URL(request.url).searchParams;
+  const intent = parseIntent(provider, search.get("intent"));
+  if (!intent) notFound();
+  const home = INTENT_HOME[intent];
   const client = clientCredentials(provider);
   if (!client) {
-    return redirectWithFlash(intent === "login" ? "/login" : "/settings/autopost", {
+    return redirectWithFlash(home, {
       tone: "error",
-      message: `${providerLabel(provider)} isn't set up on this server yet.`,
+      message: `${OAUTH_LABELS[provider]} isn't set up on this server yet.`,
     });
   }
   const viewer = context.get(viewerContext);
-  if (intent === "connect" && !viewer.user) return redirectWithFlash(loginUrl("/settings/autopost"));
+  // Linking and connecting add to the signed-in account.
+  if (intent !== "login" && !viewer.user) return redirectWithFlash(loginUrl(home));
 
   const state = randomToken();
   const codeVerifier = randomToken(48);
@@ -41,10 +42,10 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
     intent,
     codeVerifier,
     userId: viewer.user?._id ?? null,
-    returnTo: safeReturnTo(new URL(request.url).searchParams.get("returnTo")),
+    returnTo: intent === "login" ? safeReturnTo(search.get("returnTo")) : home,
   });
 
-  const url = await authorizationUrl(provider, client, state, codeVerifier);
+  const url = await authorizationUrl(provider, client, intent, state, codeVerifier);
   const headers = new Headers({ location: url.href });
   setCookie(headers, OAUTH_COOKIE, state, 600);
   return new Response(null, { status: 302, headers });

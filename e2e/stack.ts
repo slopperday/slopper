@@ -179,9 +179,16 @@ async function main(): Promise<void> {
       ADMIN_USERNAMES: E2E_ADMIN,
       DEEPSEEK_API_KEY: "e2e-key",
       DEEPSEEK_BASE_URL: CHECK_URL,
-      // Never called: the tests only check where the button sends people.
+      // Never called: the tests only check where the buttons send people.
+      // Google stays unset, so a provider without keys stays hidden.
       GITHUB_CLIENT_ID: "e2e-github-client",
       GITHUB_CLIENT_SECRET: "e2e-github-secret",
+      X_CLIENT_ID: "e2e-x-client",
+      X_CLIENT_SECRET: "e2e-x-secret",
+      LINKEDIN_CLIENT_ID: "e2e-linkedin-client",
+      LINKEDIN_CLIENT_SECRET: "e2e-linkedin-secret",
+      FACEBOOK_CLIENT_ID: "e2e-facebook-client",
+      FACEBOOK_CLIENT_SECRET: "e2e-facebook-secret",
     },
   });
   children.push(app);

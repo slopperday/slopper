@@ -39,6 +39,23 @@ export async function uploadImage(ownerId: Id<"users">, bytes: Uint8Array<ArrayB
   }
 }
 
+/**
+ * Keeps a copy of a new account's profile picture in Convex storage, for
+ * providers whose picture URLs expire. Best effort: without it the account
+ * shows its initial, so a failure is logged rather than stopping sign-in.
+ */
+export async function copyAvatar(userId: Id<"users">, pictureUrl: string): Promise<void> {
+  try {
+    const response = await fetch(pictureUrl);
+    if (!response.ok) throw new Error(`Picture request failed (${response.status})`);
+    const upload = await uploadImage(userId, new Uint8Array(await response.arrayBuffer()));
+    if (!upload.ok) throw new Error(upload.error);
+    if (upload.url) await convex.mutation(api.users.setAvatar, { userId, avatarUrl: upload.url });
+  } catch (error) {
+    console.error("Couldn't keep a copy of the profile picture", error);
+  }
+}
+
 /** Pairs media ids with their URLs, for re-rendering a form. Unknown ids are dropped. */
 export async function screenshotsWithUrls(ids: readonly string[]): Promise<{ id: string; url: string }[]> {
   const shots: { id: string; url: string }[] = [];

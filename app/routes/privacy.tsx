@@ -7,7 +7,7 @@ const SECTIONS: readonly LegalSection[] = [
   {
     title: "What we keep",
     body: [
-      "Your account: a username, display name, avatar, bio, website and time zone. When you sign in with GitHub or Google we keep their id for you, so you can sign in again. We read your email address only to suggest a username and never store it.",
+      "Your account: a username, display name, avatar, bio, website and time zone. When you sign in with GitHub, Google, X, LinkedIn or Facebook we keep that account's id, so it signs you in again. We read your email address only to suggest a username and never store it.",
       "What you post: slops, screenshots, updates, feedback, votes, pledges, goals and the money you log. Slops, updates, feedback and upvote counts are public. Downvotes and who pledged what stay private (only totals show), and your money ledger stays private unless you make it public.",
       "Connected accounts: if you connect X, LinkedIn or Bluesky for auto-posting, we keep the tokens those networks give us, encrypted, and use them only to post what you ask us to post.",
     ],

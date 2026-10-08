@@ -161,12 +161,12 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
         <ConnectCard
           title="X"
           body="Post launches and updates. To add another account, switch accounts on x.com first, then connect again. X charges per post, billed to whoever runs this Slopper."
-          href={loaderData.xEnabled ? "/auth/x" : null}
+          href={loaderData.xEnabled ? "/auth/x?intent=connect" : null}
         />
         <ConnectCard
           title="LinkedIn"
           body="Post to your feed with a link card. LinkedIn makes everyone reconnect every 60 days."
-          href={loaderData.linkedinEnabled ? "/auth/linkedin" : null}
+          href={loaderData.linkedinEnabled ? "/auth/linkedin?intent=connect" : null}
         />
       </div>
 

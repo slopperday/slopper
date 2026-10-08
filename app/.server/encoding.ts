@@ -1,4 +1,4 @@
-/** Base64url helpers that work the same on Node and Deno. */
+/** Byte encodings that work the same on Node and Deno. */
 
 export function encodeBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -17,6 +17,10 @@ export function decodeBase64Url(text: string): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
+}
+
+export function encodeHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export function randomToken(bytes = 32): string {
