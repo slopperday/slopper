@@ -21,7 +21,7 @@ import { createServer, type IncomingMessage } from "node:http";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import process from "node:process";
-import { generateServerKeys } from "../scripts/server-keys.ts";
+import { generateServerKeys, generateVapidKeys } from "../scripts/server-keys.ts";
 import { sha256Hex, startFakeS3 } from "./fake-s3.ts";
 import { E2E_ADMIN, type FakeCheckRequest, PORTS, STACK_FILE, type Stack } from "./ports.ts";
 
@@ -178,6 +178,9 @@ async function main(): Promise<void> {
   run(convex, ["env", "set", "--env-file", envFile, "SLOPPER_JWT_ISSUER", APP_URL]);
   run(convex, ["env", "set", "--env-file", envFile, "SLOPPER_JWKS", keys.jwks]);
   run(convex, ["env", "set", "--env-file", envFile, "MEDIA_PUBLIC_URL", MEDIA_URL]);
+  const vapid = await generateVapidKeys();
+  run(convex, ["env", "set", "--env-file", envFile, "VAPID_PUBLIC_KEY", vapid.publicKey]);
+  run(convex, ["env", "set", "--env-file", envFile, "VAPID_PRIVATE_KEY", vapid.privateKey]);
   run(convex, ["deploy", "--env-file", envFile, "--codegen", "disable", "--typecheck", "disable"]);
 
   // 3. The content check and the bucket.
@@ -200,6 +203,7 @@ async function main(): Promise<void> {
       ADMIN_USERNAMES: E2E_ADMIN,
       OPENROUTER_API_KEY: "e2e-key",
       OPENROUTER_BASE_URL: CHECK_URL,
+      VAPID_PUBLIC_KEY: vapid.publicKey,
       B2_ENDPOINT: S3_URL,
       B2_REGION: S3_CREDENTIALS.region,
       B2_BUCKET: BUCKET,

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, query, type QueryCtx } from "./_generated/server";
 import { readerFor } from "./lib/auth";
+import { notify } from "./lib/notify";
 import { toCards } from "./lib/shape";
 import { addDays } from "../app/lib/dates";
 
@@ -86,13 +87,12 @@ export const crown = internalMutation({
     await ctx.db.insert("dailyWinners", { date: target, slopId: winner?._id ?? null });
     if (!winner) return;
     await ctx.db.patch(winner._id, { slopOfTheDay: target });
-    await ctx.db.insert("notifications", {
+    await notify(ctx, {
       userId: winner.userId,
       kind: "slop_of_the_day",
       slopId: winner._id,
       actorId: null,
       amount: null,
-      readAt: null,
     });
   },
 });

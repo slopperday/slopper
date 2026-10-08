@@ -65,6 +65,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@block65/webcrypto-web-push@2",
         "npm:@edge-runtime/vm@5",
         "npm:@playwright/test@^1.63.0",
         "npm:@react-router/dev@^8.4.0",

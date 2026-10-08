@@ -92,6 +92,12 @@ export interface Config {
   commentsEnabled: boolean;
   /** Screenshot storage. Without it, screenshots go to Convex file storage. */
   b2: B2Config | null;
+  /**
+   * The VAPID public key browsers subscribe with (base64url). Its private
+   * half lives on Convex, which sends the notifications. Without it, the
+   * browser notifications setting is hidden.
+   */
+  vapidPublicKey: string | null;
 }
 
 type Env = Record<string, string | undefined>;
@@ -153,6 +159,7 @@ export function loadConfig(env: Env = process.env): Config {
       : null,
     commentsEnabled: env.COMMENTS_ENABLED?.trim() === "true",
     b2: b2Storage(env),
+    vapidPublicKey: env.VAPID_PUBLIC_KEY?.trim() || null,
   };
 }
 

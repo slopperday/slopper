@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { readerFor, requireServer } from "./lib/auth";
+import { notify } from "./lib/notify";
 import { consume, nextCounter } from "./lib/rate";
 import { isVisibleTo, productIdOf, publicSlop, publicUser, toCards, voteOf } from "./lib/shape";
 import { linkValidator } from "./schema";
@@ -272,14 +273,7 @@ export const vote = mutation({
     else if (existing && value !== 0) await ctx.db.patch(existing._id, { value });
     else if (value !== 0) await ctx.db.insert("votes", { slopId: slop._id, userId, value });
     if (value === 1) {
-      await ctx.db.insert("notifications", {
-        userId: slop.userId,
-        kind: "upvote",
-        slopId: slop._id,
-        actorId: userId,
-        amount: null,
-        readAt: null,
-      });
+      await notify(ctx, { userId: slop.userId, kind: "upvote", slopId: slop._id, actorId: userId, amount: null });
     }
     return { upvotes, vote: value };
   },
@@ -310,14 +304,7 @@ export const pledge = mutation({
     else if (existing) await ctx.db.patch(existing._id, { amount });
     else if (amount > 0) await ctx.db.insert("pledges", { slopId: slop._id, userId, amount });
     if (amount > previous) {
-      await ctx.db.insert("notifications", {
-        userId: slop.userId,
-        kind: "pledge",
-        slopId: slop._id,
-        actorId: userId,
-        amount,
-        readAt: null,
-      });
+      await notify(ctx, { userId: slop.userId, kind: "pledge", slopId: slop._id, actorId: userId, amount });
     }
     return { backers, pledged, amount };
   },
