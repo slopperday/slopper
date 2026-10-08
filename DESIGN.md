@@ -201,7 +201,7 @@ components:
 **Creative North Star: "The Departures Board"**
 
 Slopper is set like the board in a station hall: today's slops are listed, ranked and timed against midnight, and every
-day a maker ships flips a tile to the drip bang "!" from the logo. The page itself is plain platform-white ground and
+day a maker ships flips a tile to a lime check. The page itself is plain platform-white ground and
 confident condensed signage; the one dark, physical object on it is the board, a panel of split-flap tiles that carries
 time and days. Everything else stays out of its way.
 
@@ -219,7 +219,7 @@ shadows, no outlined buttons.
 - The board: dark split-flap tiles for clocks and goal days, dark in both themes.
 - Lime means shipped, gold means won, red means hurry or danger.
 - Rows and hairlines instead of cards; flat tinted panels instead of shadows.
-- The drip bang "!" is the shipped glyph everywhere: logo, goal days, empty covers, favicon.
+- The drip bang "!" is the brand: logo, favicon and empty covers. It is never a status; shipped days get a check.
 
 ## Colors
 
@@ -351,8 +351,8 @@ Soft rectangles with a small radius ladder: tile corners at 0.14em of the tile's
 
 The split-flap tile is the recurring silhouette: 0.78em by 1.18em, two halves (`tile-top` over `tile`) with a 1px dark
 split across the middle, sitting behind the glyph so small tiles stay legible. Goal-day cells use the same tile at a
-4:5 ratio. The drip bang (a splat dripping into an exclamation mark) is the one organic shape; it appears only as the
-shipped mark.
+4:5 ratio. The drip bang (a splat dripping into an exclamation mark) is the one organic shape, kept for the brand: the logo, the
+favicon and covers with no screenshot.
 
 ## Components
 
@@ -411,7 +411,7 @@ Solid, plain, confident: one shape, no outline, no shadow.
   day", "to midnight UTC"). In the last hour it switches to minutes and seconds and the tiles turn red.
 - **Goal board:** the dark board (1.25rem padding, 1.75rem from `sm`) with the goal title, a big "shipped/target" count
   with a caps "slopped" caption, the grid of days, and a muted footer (streak, end date). Day states: shipped flips to
-  the drip bang (up to three bangs for multiple launches) and lifts 2px on hover; today shows its number over a 3px
+  a lime check (the drawn icon; a small "×2" in the corner for more than one launch) and lifts 2px on hover; today shows its number over a 3px
   pulsing lime "now" bar; missed is a dimmed tile with a small dot; upcoming is an empty cell with a faint hairline and a
   muted number.
 - **Motion:** once the page is live, a changed glyph drops into place with a 340ms flap (`cubic-bezier(0.2, 0.7, 0.2,

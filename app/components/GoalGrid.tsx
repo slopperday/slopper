@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import type { GoalDay, GoalProgress } from "~/lib/goal";
 import { formatDay } from "~/lib/dates";
 import { slopPath } from "~/lib/display";
-import { Bang } from "./Logo";
+import { Icon } from "./Icon";
 import { tileOrder, useHydrated } from "./Tiles";
 
 const STATUS_COPY = {
@@ -14,9 +14,9 @@ const STATUS_COPY = {
 } as const;
 
 /**
- * The goal as a board of days. Every day you ship flips its tile to a drip
- * bang (two launches, two bangs); a missed day keeps a full stop; today
- * waits on the lime "now" bar.
+ * The goal as a board of days. Every day you ship flips its tile to a lime
+ * check (with a count when you shipped more than once); a missed day keeps a
+ * full stop; today waits on the lime "now" bar.
  */
 export function GoalGrid({
   progress,
@@ -75,13 +75,16 @@ function Cell({ day, username, index, demo }: { day: GoalDay; username: string; 
 
   if (day.state === "shipped") {
     const names = day.launches.map((launch) => launch.name).join(", ");
-    const bangs = Math.min(day.launches.length, 3);
+    const count = day.launches.length;
     const content = (
-      <span className={`flex items-end justify-center gap-[6%] ${bangs > 1 ? "h-[50%]" : "h-[62%]"}`}>
-        {Array.from({ length: bangs }, (_, bang) => (
-          <Bang key={bang} className="h-full w-auto" />
-        ))}
-      </span>
+      <>
+        <Icon name="check" className="size-[1.9em] text-slop" />
+        {count > 1 && (
+          <span aria-hidden="true" className="absolute top-1 right-1.5 text-[0.7rem] leading-none text-slop">
+            ×{count}
+          </span>
+        )}
+      </>
     );
     const tile = `tile ${CELL} h-auto`;
     return (
