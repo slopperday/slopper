@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import schema from "@convex/schema";
+import { loadConfig } from "~/.server/config";
 import { checkContent, CONTENT_POLICY, parseVerdict, type Submission, uploadSubmission } from "~/.server/moderation";
 import { FLAGS_TO_BLUR } from "~/lib/model";
 
@@ -47,7 +48,12 @@ async function ship(server: Server, userId: Id<"users">): Promise<Id<"slops">> {
 }
 
 describe("content check request", () => {
-  const settings = { apiKey: "key", baseUrl: "https://api.deepseek.test/", model: "deepseek-flash" };
+  const settings = {
+    apiKey: "key",
+    baseUrl: "https://openrouter.test/api/v1/",
+    model: "deepseek/deepseek-v4.1-flash",
+    provider: "deepseek",
+  };
 
   function fakeFetch(reply: unknown, status = 200) {
     const calls: { url: string; body: string; authorization: string | null }[] = [];
@@ -73,17 +79,20 @@ describe("content check request", () => {
     const { calls, fetcher } = fakeFetch(verdict('{"verdict":"ok","reason":"Fine."}'));
     await expect(checkContent(submission, settings, fetcher)).resolves.toEqual({ verdict: "ok", reason: "Fine." });
 
-    const request = calls.find((call) => call.url === "https://api.deepseek.test/chat/completions");
+    const request = calls.find((call) => call.url === "https://openrouter.test/api/v1/chat/completions");
     const body = JSON.parse(request?.body ?? "") as {
       model: string;
       messages: { role: string; content: unknown }[];
       response_format: unknown;
-      thinking: unknown;
+      reasoning: unknown;
+      provider: unknown;
     };
-    expect(body.model).toBe("deepseek-flash");
+    expect(body.model).toBe("deepseek/deepseek-v4.1-flash");
     expect(body.messages[0]).toEqual({ role: "system", content: CONTENT_POLICY });
     expect(body.response_format).toEqual({ type: "json_object" });
-    expect(body.thinking).toEqual({ type: "disabled" });
+    expect(body.reasoning).toEqual({ enabled: false });
+    // DeepSeek first, and only providers that honour JSON mode and the reasoning switch.
+    expect(body.provider).toEqual({ order: ["deepseek"], require_parameters: true });
     const parts = body.messages[1].content as { type: string; text?: string; image_url?: { url: string } }[];
     // The submission is data inside the user turn, never part of the policy.
     expect(JSON.parse(parts[0].text ?? "")).toEqual(submission.fields);
@@ -103,7 +112,7 @@ describe("content check request", () => {
       checkContent(uploadSubmission(bytes, "image/png", "screenshot", "C:\\shots\\launch day.png"), settings, fetcher),
     ).resolves.toEqual({ verdict: "blocked", reason: "A slur." });
 
-    expect(calls.map((call) => call.url)).toEqual(["https://api.deepseek.test/chat/completions"]);
+    expect(calls.map((call) => call.url)).toEqual(["https://openrouter.test/api/v1/chat/completions"]);
     const body = JSON.parse(calls[0].body) as { messages: { role: string; content: unknown }[] };
     expect(body.messages[0]).toEqual({ role: "system", content: CONTENT_POLICY });
     expect(body.messages[1].content).toEqual([
@@ -125,6 +134,20 @@ describe("content check request", () => {
     expect(parseVerdict('{"verdict":"blocked"}')).toEqual({ verdict: "blocked", reason: "" });
     expect(() => parseVerdict("not json")).toThrow();
     expect(() => parseVerdict("[]")).toThrow("unknown verdict");
+  });
+
+  it("runs only with an OpenRouter key, on DeepSeek V4.1 Flash unless told otherwise", () => {
+    expect(loadConfig({}).contentCheck).toBeNull();
+    expect(loadConfig({ OPENROUTER_API_KEY: " key " }).contentCheck).toEqual({
+      apiKey: "key",
+      baseUrl: "https://openrouter.ai/api/v1",
+      model: "deepseek/deepseek-v4.1-flash",
+      provider: "deepseek",
+    });
+    expect(
+      loadConfig({ OPENROUTER_API_KEY: "key", OPENROUTER_MODEL: "google/gemini-flash", OPENROUTER_PROVIDER: "google" })
+        .contentCheck,
+    ).toMatchObject({ model: "google/gemini-flash", provider: "google" });
   });
 });
 

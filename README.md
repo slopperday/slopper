@@ -28,17 +28,17 @@ Everything is live: votes, races, pledges and notifications update on every open
 
 ## Stack
 
-| Piece     | Choice                                                                                                                          |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Toolchain | [Vite+](https://viteplus.dev) (`vp`): Vite 8 + Rolldown, Oxlint, Oxfmt, Vitest, tsgo                                            |
-| App       | React Router 8 framework mode, React 19, server-side rendering with web streams, ESM only                                       |
-| Styles    | Tailwind CSS 4                                                                                                                  |
-| Data      | [Convex](https://convex.dev): realtime queries and crons                                                                        |
-| Media     | Screenshots and copied profile pictures in a [Backblaze B2](https://www.backblaze.com/cloud-storage) bucket (S3 API, aws4fetch) |
-| Hosting   | [Deno Deploy](https://deno.com/deploy), one self-contained ESM server bundle                                                    |
-| Auth      | GitHub, Google, X, LinkedIn and Facebook OAuth; the app signs ES256 JWTs that Convex verifies (`convex/auth.config.ts`)         |
-| Safety    | DeepSeek `deepseek-flash` reads text and screenshots; the policy is a fixed, cached prompt prefix                               |
-| Tests     | Vitest (logic, Convex functions) and Playwright (journeys against the production build)                                         |
+| Piece     | Choice                                                                                                                           |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Toolchain | [Vite+](https://viteplus.dev) (`vp`): Vite 8 + Rolldown, Oxlint, Oxfmt, Vitest, tsgo                                             |
+| App       | React Router 8 framework mode, React 19, server-side rendering with web streams, ESM only                                        |
+| Styles    | Tailwind CSS 4                                                                                                                   |
+| Data      | [Convex](https://convex.dev): realtime queries and crons                                                                         |
+| Media     | Screenshots and copied profile pictures in a [Backblaze B2](https://www.backblaze.com/cloud-storage) bucket (S3 API, aws4fetch)  |
+| Hosting   | [Deno Deploy](https://deno.com/deploy), one self-contained ESM server bundle                                                     |
+| Auth      | GitHub, Google, X, LinkedIn and Facebook OAuth; the app signs ES256 JWTs that Convex verifies (`convex/auth.config.ts`)          |
+| Safety    | DeepSeek V4.1 Flash through [OpenRouter](https://openrouter.ai) reads text and screenshots; the policy is a fixed, cached prefix |
+| Tests     | Vitest (logic, Convex functions) and Playwright (journeys against the production build)                                          |
 
 The free tiers are enough to launch: Deno Deploy gives 1M requests and 20 GB of egress a month; Convex gives 1M function
 calls and 0.5 GB of database; Backblaze B2 stores the first 10 GB free.
@@ -86,7 +86,7 @@ need Deno, Playwright's Chromium (`node_modules/.bin/playwright install chromium
    dynamic runtime with entrypoint `deploy/main.ts`; build memory 2048 MB; region US, next to Convex. Set the
    environment variables from `.env.example`: `APP_URL=https://slopper.day`, `CONVEX_URL` (your `*.convex.cloud` URL),
    `SLOPPER_JWT_ISSUER`, `SLOPPER_JWT_PRIVATE_KEY`, `SLOPPER_SECRET_KEY`, `ADMIN_USERNAMES` (the moderators),
-   `DEEPSEEK_API_KEY` (the content check; without it nothing is ever auto-posted), the B2 variables below and the
+   `OPENROUTER_API_KEY` (the content check; without it nothing is ever auto-posted), the B2 variables below and the
    OAuth keys (below). Leave `COMMENTS_ENABLED` unset: comments are off for V1.
 3. **Backblaze B2** for screenshots (see below).
 4. **Domain.** Add `slopper.day` to the Deno Deploy app.

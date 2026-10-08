@@ -15,7 +15,7 @@ What's built is in the README. These come next, roughly in order.
 - A Remotion composition per launch (vertical, square, landscape) built from the slop's name, tagline, screenshots and
   goal day. Preview it on the slop page with `@remotion/player`; render in the browser with `@remotion/web-renderer`
   (no server cost), or on a render server later.
-- DeepSeek (`deepseek-flash`, JSON mode) writes the script from the description. Remotion is free for individuals and
+- DeepSeek V4.1 Flash (through OpenRouter, JSON mode) writes the script from the description. Remotion is free for individuals and
   companies up to three people.
 
 ## More networks

@@ -7,13 +7,15 @@ import { encodeBase64 } from "./encoding";
 /**
  * The automated content check. Every screenshot as it's uploaded, every
  * launch (text and screenshots), every edit that changes them, and every
- * update that's about to be auto-posted goes past DeepSeek once, which sorts
- * it into ok, mature or blocked.
+ * update that's about to be auto-posted goes past a model once (DeepSeek V4.1
+ * Flash through OpenRouter by default), which sorts it into ok, mature or
+ * blocked.
  *
- * The policy is the first message and never changes between calls, so
- * DeepSeek's automatic prefix cache serves it (a cache hit costs about 2% of
- * a miss); only the submission after it is new each time. Editing the policy
- * costs one uncached call, then it's cached again.
+ * The policy is the first message and never changes between calls, so the
+ * provider's automatic prefix cache serves it (on DeepSeek a cache hit costs
+ * 2% of a miss) and OpenRouter keeps routing to the provider that holds it;
+ * only the submission after it is new each time. Editing the policy costs
+ * one uncached call, then it's cached again.
  */
 
 export type Verdict = "ok" | "mature" | "blocked";
@@ -100,8 +102,10 @@ export async function checkContent(
         },
       ],
       response_format: { type: "json_object" },
-      // A classification, not a puzzle: thinking is on by default and only adds cost and latency.
-      thinking: { type: "disabled" },
+      // A classification, not a puzzle: reasoning only adds cost and latency.
+      reasoning: { enabled: false },
+      // Skip providers that would ignore JSON mode or the reasoning switch.
+      provider: { order: [settings.provider], require_parameters: true },
       temperature: 0,
       max_tokens: 200,
     }),

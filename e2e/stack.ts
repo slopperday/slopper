@@ -4,7 +4,7 @@
  *
  * - a fresh Convex backend (the binary the Convex CLI already downloaded),
  *   with its own data in `.e2e/` that's deleted on every run;
- * - a fake DeepSeek that answers the content check by marker
+ * - a fake OpenRouter that answers the content check by marker
  *   (`[e2e:mature]`, `[e2e:blocked]`, in a launch's text or an uploaded
  *   file's name) and logs what it was sent;
  * - a fake B2 bucket that checks every write's signature (e2e/fake-s3.ts),
@@ -78,8 +78,9 @@ async function readBody(request: IncomingMessage): Promise<string> {
 }
 
 /**
- * Stands in for DeepSeek's chat completions. It rejects requests that drift
- * from what the real check must send (policy first, JSON mode, no thinking),
+ * Stands in for OpenRouter's chat completions. It rejects requests that drift
+ * from what the real check must send (policy first, JSON mode, no reasoning,
+ * only providers that honour both),
  * so the tests catch a broken request, not just a broken reply.
  */
 function startFakeCheck(): void {
@@ -95,7 +96,8 @@ function startFakeCheck(): void {
         content: string | { type: string; text?: string; image_url?: { url: string } }[];
       }[];
       response_format?: { type: string };
-      thinking?: { type: string };
+      reasoning?: { enabled?: boolean };
+      provider?: { require_parameters?: boolean };
     };
     const [system, user] = body.messages;
     const parts = Array.isArray(user?.content) ? user.content : [];
@@ -109,7 +111,8 @@ function startFakeCheck(): void {
       typeof system.content === "string" &&
       system.content.includes("json") &&
       body.response_format?.type === "json_object" &&
-      body.thinking?.type === "disabled" &&
+      body.reasoning?.enabled === false &&
+      body.provider?.require_parameters === true &&
       inline.every((match) => match !== null);
     if (!wellFormed) {
       response.writeHead(400, { "content-type": "application/json" }).end('{"error":"malformed check request"}');
@@ -195,8 +198,8 @@ async function main(): Promise<void> {
       SLOPPER_JWT_PRIVATE_KEY: keys.privateKey,
       SLOPPER_SECRET_KEY: randomBytes(32).toString("base64"),
       ADMIN_USERNAMES: E2E_ADMIN,
-      DEEPSEEK_API_KEY: "e2e-key",
-      DEEPSEEK_BASE_URL: CHECK_URL,
+      OPENROUTER_API_KEY: "e2e-key",
+      OPENROUTER_BASE_URL: CHECK_URL,
       B2_ENDPOINT: S3_URL,
       B2_REGION: S3_CREDENTIALS.region,
       B2_BUCKET: BUCKET,

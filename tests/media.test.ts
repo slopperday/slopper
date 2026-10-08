@@ -13,7 +13,12 @@ import { ConvexStorage, type MediaKind, type MediaLocation, type MediaStore, S3B
 const modules = import.meta.glob("../convex/**/*.ts");
 
 const MEDIA_URL = "https://media.test/file/slopper-media";
-const CHECK = { apiKey: "key", baseUrl: "https://api.deepseek.test", model: "deepseek-flash" };
+const CHECK = {
+  apiKey: "key",
+  baseUrl: "https://openrouter.test/api/v1",
+  model: "deepseek/deepseek-v4.1-flash",
+  provider: "deepseek",
+};
 const B2 = {
   endpoint: "https://s3.us-west-004.backblazeb2.com",
   region: "us-west-004",
@@ -95,8 +100,8 @@ class MemoryBucket implements MediaStore {
   }
 }
 
-/** DeepSeek giving every check one verdict (null: it's down), recording what it was sent. */
-function deepseek(verdict: "ok" | "mature" | "blocked" | null) {
+/** The content check giving every check one verdict (null: it's down), recording what it was sent. */
+function contentCheck(verdict: "ok" | "mature" | "blocked" | null) {
   const bodies: string[] = [];
   const fetcher: typeof fetch = async (_input, init) => {
     bodies.push(typeof init?.body === "string" ? init.body : "");
@@ -120,7 +125,7 @@ describe("upload check", () => {
     const { t, server } = setup();
     const owner = await makeUser(server, "maker");
     const bucket = new MemoryBucket();
-    const check = deepseek("blocked");
+    const check = contentCheck("blocked");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const result = await uploadImage(
@@ -141,7 +146,7 @@ describe("upload check", () => {
     const { server } = setup();
     const owner = await makeUser(server, "maker");
     const bucket = new MemoryBucket();
-    const result = await uploadImage(owner, { bytes: PNG }, services(server, bucket, deepseek("mature").fetcher));
+    const result = await uploadImage(owner, { bytes: PNG }, services(server, bucket, contentCheck("mature").fetcher));
     if (!result.ok) throw new Error(result.error);
     expect(result).toMatchObject({ contentCheck: "mature", url: `${MEDIA_URL}/screenshots/1.png` });
     expect(bucket.objects.get("screenshots/1.png")).toEqual(PNG);
@@ -168,14 +173,14 @@ describe("upload check", () => {
     const { t, server } = setup();
     const owner = await makeUser(server, "maker");
     const bucket = new MemoryBucket();
-    const notConfigured = deepseek("ok");
+    const notConfigured = contentCheck("ok");
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const unconfigured = await uploadImage(
       owner,
       { bytes: PNG },
       services(server, bucket, notConfigured.fetcher, false),
     );
-    const down = await uploadImage(owner, { bytes: PNG }, services(server, bucket, deepseek(null).fetcher));
+    const down = await uploadImage(owner, { bytes: PNG }, services(server, bucket, contentCheck(null).fetcher));
 
     expect(unconfigured).toMatchObject({ ok: true, contentCheck: "unchecked" });
     expect(down).toMatchObject({ ok: true, contentCheck: "unchecked" });
@@ -195,7 +200,7 @@ describe("upload check", () => {
     const owner = await makeUser(server, "maker");
     const bucket = new MemoryBucket();
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    const withVerdict = (verdict: "ok" | "mature") => services(server, bucket, deepseek(verdict).fetcher);
+    const withVerdict = (verdict: "ok" | "mature") => services(server, bucket, contentCheck(verdict).fetcher);
     expect(await uploadImage(owner, { bytes: PNG, kind: "avatar" }, withVerdict("mature"))).toEqual({
       ok: false,
       error: BLOCKED_IMAGE,
@@ -212,16 +217,16 @@ describe("upload check", () => {
     vi.stubEnv("MEDIA_PUBLIC_URL", "");
     const owner = await makeUser(server, "maker");
     const bucket = new MemoryBucket();
-    await expect(uploadImage(owner, { bytes: PNG }, services(server, bucket, deepseek("ok").fetcher))).rejects.toThrow(
-      "MEDIA_PUBLIC_URL",
-    );
+    await expect(
+      uploadImage(owner, { bytes: PNG }, services(server, bucket, contentCheck("ok").fetcher)),
+    ).rejects.toThrow("MEDIA_PUBLIC_URL");
     expect(bucket.objects.size).toBe(0);
   });
 
   it("still sniffs the type and caps the size", async () => {
     const { server } = setup();
     const owner = await makeUser(server, "maker");
-    const check = deepseek("ok");
+    const check = contentCheck("ok");
     const upload = (bytes: Uint8Array<ArrayBuffer>) =>
       uploadImage(owner, { bytes }, services(server, new MemoryBucket(), check.fetcher));
     expect(await upload(new Uint8Array([1, 2, 3]))).toEqual({
@@ -239,7 +244,7 @@ describe("Convex storage", () => {
   it("stores through an upload URL, and rows from before B2 still resolve", async () => {
     const { t, server } = setup();
     const owner = await makeUser(server, "maker");
-    const check = deepseek("ok");
+    const check = contentCheck("ok");
     // Convex's upload endpoint: store the posted bytes, answer with their id.
     const fetcher: typeof fetch = async (input, init) => {
       const url = input instanceof Request ? input.url : input.toString();
@@ -270,7 +275,7 @@ describe("orphaned screenshots", () => {
     const { t, server } = setup();
     const owner = await makeUser(server, "maker");
     const bucket = new MemoryBucket();
-    const uploaded = await uploadImage(owner, { bytes: PNG }, services(server, bucket, deepseek("ok").fetcher));
+    const uploaded = await uploadImage(owner, { bytes: PNG }, services(server, bucket, contentCheck("ok").fetcher));
     if (!uploaded.ok) throw new Error(uploaded.error);
     const inB2 = uploaded.id;
     const { inConvex, storageId } = await t.run(async (ctx) => {
