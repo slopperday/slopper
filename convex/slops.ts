@@ -361,11 +361,19 @@ export const listForServer = query({
 
 /**
  * Everything the slop page shows, live: votes, pledges, updates and
- * feedback reach every open copy of the page as they happen.
+ * feedback reach every open copy of the page as they happen. Feedback is
+ * left out unless `withComments` asks for it: the app turns comments on
+ * and off (COMMENTS_ENABLED), and while they're off none is sent anywhere.
  */
 export const page = query({
-  args: { username: v.string(), slug: v.string(), asUser: v.optional(v.id("users")), isAdmin: v.optional(v.boolean()) },
-  handler: async (ctx, { username, slug, asUser, isAdmin = false }) => {
+  args: {
+    username: v.string(),
+    slug: v.string(),
+    asUser: v.optional(v.id("users")),
+    isAdmin: v.optional(v.boolean()),
+    withComments: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { username, slug, asUser, isAdmin = false, withComments = false }) => {
     const owner = await ctx.db
       .query("users")
       .withIndex("by_username", (q) => q.eq("username", username.toLowerCase()))
@@ -385,10 +393,12 @@ export const page = query({
       .withIndex("by_slop", (q) => q.eq("slopId", slop._id))
       .order("desc")
       .collect();
-    const comments = await ctx.db
-      .query("comments")
-      .withIndex("by_slop", (q) => q.eq("slopId", slop._id))
-      .collect();
+    const comments = withComments
+      ? await ctx.db
+          .query("comments")
+          .withIndex("by_slop", (q) => q.eq("slopId", slop._id))
+          .collect()
+      : [];
     const productId = productIdOf(slop);
     const product = await ctx.db.get(productId);
     const later = await ctx.db

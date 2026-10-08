@@ -4,7 +4,7 @@ import type { Route } from "./+types/slop";
 import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
 import { convex, convexMessage } from "~/.server/convex";
-import { absoluteUrl } from "~/.server/config";
+import { absoluteUrl, config } from "~/.server/config";
 import { formText } from "~/.server/forms";
 import { badRequest, forbidden, notFound, redirectWithFlash } from "~/.server/http";
 import { announce, retryFailed, summarize } from "~/.server/social/announce";
@@ -60,6 +60,7 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     slug: params.slug,
     asUser: viewer.user?._id,
     isAdmin: viewer.isAdmin,
+    withComments: config.commentsEnabled,
   });
   if (!page) notFound();
   const { slop, owner } = page;
@@ -79,6 +80,7 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     username,
     slug: params.slug,
     extras: {
+      commentsEnabled: config.commentsEnabled,
       isAdmin: viewer.isAdmin,
       signedIn: viewer.user !== null,
       autopostCount,
@@ -103,8 +105,14 @@ async function attempt(here: string, run: () => Promise<Response>): Promise<Resp
   }
 }
 
+/** Feedback and kudos: they don't exist while comments are off (COMMENTS_ENABLED). */
+const COMMENT_INTENTS: ReadonlySet<string> = new Set(["comment", "delete-comment"]);
+
 export async function action({ params, request, context }: Route.ActionArgs) {
   const viewer = context.get(viewerContext);
+  const form = await request.formData();
+  const intent = formText(form, "intent");
+  if (COMMENT_INTENTS.has(intent) && !config.commentsEnabled) notFound();
   const user = requireUser(viewer, request);
   const username = parseHandle(params.handle);
   const page = await convex.query(api.slops.page, {
@@ -117,8 +125,6 @@ export async function action({ params, request, context }: Route.ActionArgs) {
   const { slop, owner, isOwner } = page;
   const ownerRef = { _id: owner.id, username: owner.username };
   const here = slopPath(owner.username, slop.slug);
-  const form = await request.formData();
-  const intent = formText(form, "intent");
 
   return await attempt(here, async () => {
     switch (intent) {
@@ -337,7 +343,12 @@ type View = PageData & Route.ComponentProps["loaderData"]["extras"];
 
 export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
   // Live: votes, pledges, updates and feedback from everyone land here as they happen.
-  const page = useLive(api.slops.page, { username: data.username, slug: data.slug }, data.page) ?? data.page;
+  const page =
+    useLive(
+      api.slops.page,
+      { username: data.username, slug: data.slug, withComments: data.extras.commentsEnabled },
+      data.page,
+    ) ?? data.page;
   const loaderData: View = { ...page, ...data.extras };
   const { owner, slop, isOwner, intents } = loaderData;
   const [search] = useSearchParams();
@@ -481,7 +492,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
 
             {loaderData.launches.length > 1 && <LaunchHistory loaderData={loaderData} />}
             <Updates loaderData={loaderData} />
-            <Feedback loaderData={loaderData} path={path} />
+            {loaderData.commentsEnabled && <Feedback loaderData={loaderData} path={path} />}
           </div>
 
           <Sidebar loaderData={loaderData} path={path} />

@@ -55,8 +55,15 @@ export interface Config {
   google: OAuthClientCredentials | null;
   x: OAuthClientCredentials | null;
   linkedin: OAuthClientCredentials | null;
+  facebook: OAuthClientCredentials | null;
   /** Automated content check. Without it, nothing is ever auto-posted. */
   contentCheck: ContentCheckConfig | null;
+  /**
+   * Feedback and kudos on slops (`COMMENTS_ENABLED=true`). Off for V1: they
+   * come back with heavier moderation. The data and code stay, so turning
+   * it on brings back everything already posted.
+   */
+  commentsEnabled: boolean;
 }
 
 type Env = Record<string, string | undefined>;
@@ -88,6 +95,7 @@ export function loadConfig(env: Env = process.env): Config {
     google: credentials(env, "GOOGLE"),
     x: credentials(env, "X"),
     linkedin: credentials(env, "LINKEDIN"),
+    facebook: credentials(env, "FACEBOOK"),
     contentCheck: env.DEEPSEEK_API_KEY?.trim()
       ? {
           apiKey: env.DEEPSEEK_API_KEY.trim(),
@@ -95,6 +103,7 @@ export function loadConfig(env: Env = process.env): Config {
           model: env.DEEPSEEK_MODEL?.trim() || "deepseek-flash",
         }
       : null,
+    commentsEnabled: env.COMMENTS_ENABLED?.trim() === "true",
   };
 }
 

@@ -249,3 +249,67 @@ describe("money", () => {
     expect(own?.money.entries).toHaveLength(1);
   });
 });
+
+describe("feedback and kudos", () => {
+  // Comments are off in V1 (COMMENTS_ENABLED); the logic stays ready for when they're back.
+  it("counts feedback, tells the maker and only sends it when the page asks", async () => {
+    const { t, server } = setup();
+    const owner = await makeUser(server, "owner");
+    const fan = await makeUser(server, "fan");
+    const { slopId } = await ship(server, owner, "2026-10-06");
+
+    await server.mutation(api.activity.addComment, {
+      userId: fan,
+      slopId,
+      kind: "feedback",
+      body: "The **tilt** lags.",
+    });
+    await server.mutation(api.activity.addComment, { userId: fan, slopId, kind: "kudos", body: "Played for an hour." });
+    // Talking to yourself doesn't notify you.
+    await server.mutation(api.activity.addComment, { userId: owner, slopId, kind: "feedback", body: "Fixed it." });
+    expect((await server.query(api.slops.getForServer, { slopId }))?.commentCount).toBe(3);
+    const kinds = (await t.withIdentity({ subject: owner }).query(api.notifications.mine, {})).map((item) => item.kind);
+    expect(kinds.sort()).toEqual(["feedback", "kudos"]);
+
+    const page = (withComments?: boolean) =>
+      server.query(api.slops.page, { username: "owner", slug: "tiltmaze", asUser: fan, withComments });
+    expect((await page())?.comments).toEqual([]);
+    expect((await page(false))?.comments).toEqual([]);
+    const comments = (await page(true))?.comments ?? [];
+    expect(comments.map((comment) => comment.kind)).toEqual(["feedback", "kudos", "feedback"]);
+    expect(comments[0].html).toContain("<strong>tilt</strong>");
+    expect(comments.map((comment) => comment.canDelete)).toEqual([true, true, false]);
+  });
+
+  it("lets the author, the maker and moderators delete it, and nobody else", async () => {
+    const { server } = setup();
+    const owner = await makeUser(server, "owner");
+    const fan = await makeUser(server, "fan");
+    const stranger = await makeUser(server, "stranger");
+    const { slopId } = await ship(server, owner, "2026-10-06");
+    const add = () => server.mutation(api.activity.addComment, { userId: fan, slopId, kind: "feedback", body: "Hm." });
+    const [first, second, third] = [await add(), await add(), await add()];
+
+    await expect(
+      server.mutation(api.activity.deleteComment, { userId: stranger, commentId: first, asAdmin: false }),
+    ).rejects.toThrow("isn't yours");
+    await server.mutation(api.activity.deleteComment, { userId: fan, commentId: first, asAdmin: false });
+    await server.mutation(api.activity.deleteComment, { userId: owner, commentId: second, asAdmin: false });
+    await server.mutation(api.activity.deleteComment, { userId: stranger, commentId: third, asAdmin: true });
+    // Gone, or never an id at all: nothing to do.
+    await server.mutation(api.activity.deleteComment, { userId: fan, commentId: first, asAdmin: false });
+    await server.mutation(api.activity.deleteComment, { userId: fan, commentId: "not-an-id", asAdmin: false });
+    expect((await server.query(api.slops.getForServer, { slopId }))?.commentCount).toBe(0);
+  });
+
+  it("refuses feedback on hidden slops", async () => {
+    const { server } = setup();
+    const owner = await makeUser(server, "owner");
+    const fan = await makeUser(server, "fan");
+    const { slopId } = await ship(server, owner, "2026-10-06");
+    await server.mutation(api.slops.setHidden, { slopId, hidden: true });
+    await expect(
+      server.mutation(api.activity.addComment, { userId: fan, slopId, kind: "feedback", body: "Hello?" }),
+    ).rejects.toThrow("Slop not found");
+  });
+});

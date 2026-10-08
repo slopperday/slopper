@@ -12,7 +12,7 @@ import {
 import { localDate } from "~/lib/dates";
 import { slopPath } from "~/lib/display";
 import { CURRENCIES } from "~/lib/money";
-import { absoluteUrl } from "../config";
+import { absoluteUrl, config } from "../config";
 import { convex, convexMessage } from "../convex";
 import { validateGoal, validateSlop } from "../forms";
 import { uploadImage } from "../media";
@@ -73,7 +73,8 @@ function summarizeSlop(slop: Doc<"slops">, username: string) {
     upvotes: slop.upvotes,
     updates: slop.updateCount,
     fieldTests: slop.fieldTests,
-    feedback: slop.commentCount,
+    // Comments are off in V1 (COMMENTS_ENABLED); no count while they are.
+    ...(config.commentsEnabled ? { feedback: slop.commentCount } : {}),
     backers: slop.backers,
     pledgedUsdCents: slop.pledged,
     slopOfTheDay: slop.slopOfTheDay,

@@ -66,23 +66,80 @@ test.describe("visitors", () => {
   });
 });
 
-test.describe("signing in", () => {
-  test("GitHub sign-in sends people to GitHub with PKCE and a way back", async ({ page, request, stack }) => {
-    await page.goto("/login?returnTo=%2Fnew");
-    const button = page.getByRole("link", { name: "Continue with GitHub" });
-    await expect(button).toHaveAttribute("href", "/auth/github?returnTo=%2Fnew");
+/** Each sign-in button the stack has keys for, and where its first hop must go. */
+const SIGN_IN = [
+  {
+    provider: "github",
+    label: "GitHub",
+    authorize: /^https:\/\/github\.com\/login\/oauth\/authorize$/,
+    scope: "read:user user:email",
+    pkce: true,
+  },
+  {
+    provider: "x",
+    label: "X",
+    authorize: /^https:\/\/x\.com\/i\/oauth2\/authorize$/,
+    // Read-only: signing in never asks to post.
+    scope: "users.read tweet.read",
+    pkce: true,
+  },
+  {
+    provider: "linkedin",
+    label: "LinkedIn",
+    authorize: /^https:\/\/www\.linkedin\.com\/oauth\/v2\/authorization$/,
+    scope: "openid profile email",
+    pkce: false,
+  },
+  {
+    provider: "facebook",
+    label: "Facebook",
+    authorize: /^https:\/\/www\.facebook\.com\/v\d+\.0\/dialog\/oauth$/,
+    scope: "public_profile email",
+    pkce: true,
+  },
+] as const;
 
-    // Follow the button's first hop only: the next one is GitHub itself.
-    const response = await request.get("/auth/github?returnTo=%2Fnew", { maxRedirects: 0 });
-    expect(response.status()).toBe(302);
-    expect(response.headers()["set-cookie"]).toContain("slopper_oauth=");
-    const url = new URL(response.headers().location ?? "");
-    expect(url.origin + url.pathname).toBe("https://github.com/login/oauth/authorize");
-    expect(url.searchParams.get("client_id")).toBe("e2e-github-client");
-    expect(url.searchParams.get("redirect_uri")).toBe(`${stack.appUrl}/auth/github/callback`);
-    expect(url.searchParams.get("code_challenge_method")).toBe("S256");
-    expect(url.searchParams.get("code_challenge")).toMatch(/^[\w-]{43}$/);
-    expect(url.searchParams.get("state")).toBeTruthy();
+test.describe("signing in", () => {
+  for (const { provider, label, authorize, scope, pkce } of SIGN_IN) {
+    test(`${label} sign-in sends people to ${label} with a state and a way back`, async ({ page, request, stack }) => {
+      await page.goto("/login?returnTo=%2Fnew");
+      const href = `/auth/${provider}?intent=login&returnTo=%2Fnew`;
+      await expect(page.getByRole("link", { name: `Continue with ${label}`, exact: true })).toHaveAttribute(
+        "href",
+        href,
+      );
+
+      // Follow the button's first hop only: the next one is the provider itself.
+      const response = await request.get(href, { maxRedirects: 0 });
+      expect(response.status()).toBe(302);
+      const state = /slopper_oauth=([^;]+)/.exec(response.headers()["set-cookie"] ?? "")?.[1];
+      expect(state).toBeTruthy();
+      const url = new URL(response.headers().location ?? "");
+      expect(url.origin + url.pathname).toMatch(authorize);
+      expect(url.searchParams.get("response_type")).toBe("code");
+      expect(url.searchParams.get("client_id")).toBe(`e2e-${provider}-client`);
+      expect(url.searchParams.get("redirect_uri")).toBe(`${stack.appUrl}/auth/${provider}/callback`);
+      expect(url.searchParams.get("scope")).toBe(scope);
+      // The state in the URL is the one this browser holds.
+      expect(url.searchParams.get("state")).toBe(state);
+      if (pkce) {
+        expect(url.searchParams.get("code_challenge_method")).toBe("S256");
+        expect(url.searchParams.get("code_challenge")).toMatch(/^[\w-]{43}$/);
+      } else {
+        expect(url.searchParams.has("code_challenge")).toBe(false);
+      }
+    });
+  }
+
+  test("only providers with keys get a button", async ({ page }) => {
+    await page.goto("/login");
+    const buttons = page.getByRole("link", { name: /^Continue with / });
+    await expect(buttons).toHaveText([
+      "Continue with GitHub",
+      "Continue with X",
+      "Continue with LinkedIn",
+      "Continue with Facebook",
+    ]);
   });
 
   test("a forged OAuth callback is turned away", async ({ page }) => {

@@ -11,7 +11,8 @@ goal (30 slops in 30 days), ship something every day, show it to people, and kee
 - **Launches, not just products.** The website, then the iOS beta, then 2.0: each launch is its own entry and its own
   shot at slop of the day, linked to the product.
 - **Updates, feature drops, re-promotes and field tests.** Field tests log real people trying it, and count extra.
-- **Votes** with private downvotes, **feedback** and **kudos**, **live notifications**.
+- **Votes** with private downvotes and **live notifications**. **Feedback** and **kudos** are built but off for V1:
+  they come back with heavier moderation (`COMMENTS_ENABLED=true` turns them on).
 - **Safe for work.** Every launch, screenshot and auto-posted update gets an automated content check. Mature slops are
   blurred, anything worse is held for a moderator, and nothing auto-posts until it passes. Anyone signed in can flag a
   slop; moderators decide at `/mod`.
@@ -22,20 +23,20 @@ goal (30 slops in 30 days), ship something every day, show it to people, and kee
   buttons everywhere.
 - **For agents:** an MCP server, a REST API and copy-paste prompts on every form, so your AI can run Slopper for you.
 
-Everything is live: votes, races, feedback, pledges and notifications update on every open page as they happen.
+Everything is live: votes, races, pledges and notifications update on every open page as they happen.
 
 ## Stack
 
-| Piece     | Choice                                                                                            |
-| --------- | ------------------------------------------------------------------------------------------------- |
-| Toolchain | [Vite+](https://viteplus.dev) (`vp`): Vite 8 + Rolldown, Oxlint, Oxfmt, Vitest, tsgo              |
-| App       | React Router 8 framework mode, React 19, server-side rendering with web streams, ESM only         |
-| Styles    | Tailwind CSS 4                                                                                    |
-| Data      | [Convex](https://convex.dev): realtime queries, file storage for screenshots, crons               |
-| Hosting   | [Deno Deploy](https://deno.com/deploy), one self-contained ESM server bundle                      |
-| Auth      | GitHub and Google OAuth; the app signs ES256 JWTs that Convex verifies (`convex/auth.config.ts`)  |
-| Safety    | DeepSeek `deepseek-flash` reads text and screenshots; the policy is a fixed, cached prompt prefix |
-| Tests     | Vitest (logic, Convex functions) and Playwright (journeys against the production build)           |
+| Piece     | Choice                                                                                                                  |
+| --------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Toolchain | [Vite+](https://viteplus.dev) (`vp`): Vite 8 + Rolldown, Oxlint, Oxfmt, Vitest, tsgo                                    |
+| App       | React Router 8 framework mode, React 19, server-side rendering with web streams, ESM only                               |
+| Styles    | Tailwind CSS 4                                                                                                          |
+| Data      | [Convex](https://convex.dev): realtime queries, file storage for screenshots, crons                                     |
+| Hosting   | [Deno Deploy](https://deno.com/deploy), one self-contained ESM server bundle                                            |
+| Auth      | GitHub, Google, X, LinkedIn and Facebook OAuth; the app signs ES256 JWTs that Convex verifies (`convex/auth.config.ts`) |
+| Safety    | DeepSeek `deepseek-flash` reads text and screenshots; the policy is a fixed, cached prompt prefix                       |
+| Tests     | Vitest (logic, Convex functions) and Playwright (journeys against the production build)                                 |
 
 Both free tiers are enough to launch: Deno Deploy gives 1M requests and 20 GB of egress a month; Convex gives 1M function
 calls, 0.5 GB of database and 1 GB of file storage.
@@ -83,18 +84,32 @@ first time. Your dev data on :3210 is never touched.
    dynamic runtime with entrypoint `deploy/main.ts`; build memory 2048 MB; region US, next to Convex. Set the
    environment variables from `.env.example`: `APP_URL=https://slopper.day`, `CONVEX_URL` (your `*.convex.cloud` URL),
    `SLOPPER_JWT_ISSUER`, `SLOPPER_JWT_PRIVATE_KEY`, `SLOPPER_SECRET_KEY`, `ADMIN_USERNAMES` (the moderators),
-   `DEEPSEEK_API_KEY` (the content check; without it nothing is ever auto-posted) and the OAuth keys.
+   `DEEPSEEK_API_KEY` (the content check; without it nothing is ever auto-posted) and the OAuth keys (below). Leave
+   `COMMENTS_ENABLED` unset: comments are off for V1.
 3. **Domain.** Add `slopper.day` to the Deno Deploy app.
 
 ### OAuth apps
 
-| Provider | Where                                                            | Callback URL                                 | Notes                                                                                                                          |
-| -------- | ---------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| GitHub   | Settings → Developer settings → OAuth Apps                       | `https://slopper.day/auth/github/callback`   | Sign in.                                                                                                                       |
-| Google   | Google Cloud console → Credentials → OAuth client (Web)          | `https://slopper.day/auth/google/callback`   | Sign in. Scopes: openid, email, profile.                                                                                       |
-| X        | developer.x.com → app → User authentication (OAuth 2.0, Web App) | `https://slopper.day/auth/x/callback`        | Auto-post. Scopes: tweet.read, tweet.write, users.read, offline.access. **Pay per use:** a post with a link costs about $0.20. |
-| LinkedIn | linkedin.com/developers → app → Products                         | `https://slopper.day/auth/linkedin/callback` | Add "Sign In with LinkedIn using OpenID Connect" and "Share on LinkedIn". Tokens last 60 days.                                 |
-| Bluesky  | Nothing to register                                              |                                              | People connect with an app password.                                                                                           |
+Every provider has one callback URL. Signing in, linking a sign-in method from Settings and connecting an account for
+auto-posting all come back to it: the app remembers which flow it started, so register the URL once. A provider's button
+appears on `/login` (and in Settings) only when both of its keys are set.
+
+| Provider | Keys                                           | Where                                                            | Callback URL                                 | Notes                                                                                                                                                                                  |
+| -------- | ---------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub   | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`     | Settings → Developer settings → OAuth Apps                       | `https://slopper.day/auth/github/callback`   | Sign in.                                                                                                                                                                               |
+| Google   | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`     | Google Cloud console → Credentials → OAuth client (Web)          | `https://slopper.day/auth/google/callback`   | Sign in. Scopes: openid, email, profile.                                                                                                                                               |
+| X        | `X_CLIENT_ID`, `X_CLIENT_SECRET`               | developer.x.com → app → User authentication (OAuth 2.0, Web App) | `https://slopper.day/auth/x/callback`        | Sign in (users.read, tweet.read; X shares no email) and auto-post (tweet.read, tweet.write, users.read, offline.access). **Pay per use:** a post with a link costs about $0.20.        |
+| LinkedIn | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` | linkedin.com/developers → app → Products                         | `https://slopper.day/auth/linkedin/callback` | Add "Sign In with LinkedIn using OpenID Connect" (sign in: openid, profile, email) and "Share on LinkedIn" (auto-post: openid, profile, w_member_social). Posting tokens last 60 days. |
+| Facebook | `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET` | developers.facebook.com → app → Use cases → Facebook Login       | `https://slopper.day/auth/facebook/callback` | Sign in (public_profile, email). See below.                                                                                                                                            |
+| Bluesky  | None                                           | Nothing to register                                              |                                              | People connect with an app password.                                                                                                                                                   |
+
+**Facebook:** the keys are the app's App ID and App Secret. Add the callback under Facebook Login → Settings → Valid
+OAuth Redirect URIs, turn on "Require App Secret" (the server signs its Graph calls with `appsecret_proof`), and use
+`https://slopper.day/privacy` as the privacy policy and data deletion instructions URL. Instagram has no consumer
+sign-in any more (Instagram Login is for professional accounts), so Facebook covers Meta.
+
+Email addresses are read only to suggest a username for a new account, and never stored. LinkedIn and Facebook
+pictures are copied into Convex storage when an account is made, because their links expire.
 
 ## For agents
 

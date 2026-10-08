@@ -1,3 +1,4 @@
+import { api } from "../convex/_generated/api.js";
 import { expect, runInternal, test } from "./fixtures.ts";
 
 test.describe("people reacting, live", () => {
@@ -48,35 +49,43 @@ test.describe("people reacting, live", () => {
     await expect(page.locator('form[action$="/vote"]')).toContainText("1");
   });
 
-  test("feedback and kudos land on the page for everyone", async ({ seed }) => {
+  test("comments are off: no feedback, no counts, and nothing that writes them", async ({ seed, convex }) => {
     const maker = await seed.user("maker");
     const fan = await seed.user("fan");
     const slop = await seed.slop(maker);
+    // Feedback posted before comments went off stays stored, and unseen.
+    await convex.mutation(api.activity.addComment, {
+      userId: fan.id,
+      slopId: slop.id,
+      kind: "feedback",
+      body: "Stored, never shown.",
+    });
 
-    const makerPage = await seed.pageAs(maker);
-    await makerPage.goto(slop.path);
-    const fanPage = await seed.pageAs(fan);
-    await fanPage.goto(slop.path);
+    const page = await seed.pageAs(fan);
+    await page.goto(slop.path);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(slop.name);
+    await expect(page.getByRole("heading", { name: "Updates" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toHaveCount(0);
+    await expect(page.locator("#feedback")).toHaveCount(0);
+    await expect(page.getByLabel("Your feedback")).toHaveCount(0);
+    await expect(page.getByText("Stored, never shown.")).toHaveCount(0);
 
-    await fanPage.getByLabel("Your feedback").fill("The **tilt** is too sensitive on Android.");
-    await fanPage.getByRole("button", { name: "Leave feedback" }).click();
-    await expect(fanPage.getByRole("status")).toHaveText("Feedback posted.");
-    await fanPage.getByLabel("Your feedback").fill("Played it for an hour.");
-    await fanPage.getByRole("button", { name: "🔥 This is good" }).click();
-    await expect(fanPage.getByRole("status")).toHaveText("Kudos sent. 🔥");
+    for (const path of ["/today", `/@${maker.username}`]) {
+      await page.goto(path);
+      const row = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: slop.name, exact: true }) });
+      await expect(row).toBeVisible();
+      await expect(row).not.toContainText("feedback");
+    }
 
-    const feedback = makerPage.locator("#feedback");
-    await expect(feedback.getByText("is too sensitive on Android.")).toBeVisible();
-    await expect(feedback.locator("strong", { hasText: "tilt" })).toBeVisible();
-    await expect(feedback.getByText("Played it for an hour.")).toBeVisible();
-    await expect(makerPage.getByRole("link", { name: "Notifications, 2 unread" })).toBeVisible();
-
-    // The author can take theirs back.
-    await fanPage
-      .locator("#feedback li", { hasText: "Played it for an hour." })
-      .getByRole("button", { name: "Delete" })
-      .click();
-    await expect(feedback.getByText("Played it for an hour.")).toHaveCount(0);
+    const writes: Record<string, string>[] = [
+      { intent: "comment", kind: "feedback", body: "Let me in." },
+      { intent: "delete-comment", id: "anything" },
+    ];
+    for (const form of writes) {
+      const response = await page.request.post(slop.path, { form, maxRedirects: 0 });
+      expect(response.status()).toBe(404);
+    }
+    expect((await convex.query(api.slops.getForServer, { slopId: slop.id }))?.commentCount).toBe(1);
   });
 
   test("visitors are asked to sign in before voting or pledging", async ({ seed }) => {

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { requireServer } from "./lib/auth";
+import { oauthIntentValidator } from "./schema";
 
 /** In-flight OAuth authorizations. Each `state` can be taken exactly once. */
 
@@ -10,7 +11,7 @@ export const save = mutation({
   args: {
     state: v.string(),
     provider: v.string(),
-    intent: v.union(v.literal("login"), v.literal("connect")),
+    intent: oauthIntentValidator,
     codeVerifier: v.string(),
     userId: v.union(v.id("users"), v.null()),
     returnTo: v.string(),

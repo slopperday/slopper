@@ -29,6 +29,7 @@ export function loader({ context }: Route.LoaderArgs) {
     flash: viewer.flash,
     origin: config.appUrl.origin,
     convexUrl: config.convexUrl,
+    commentsEnabled: config.commentsEnabled,
   };
 }
 

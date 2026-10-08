@@ -42,6 +42,9 @@ export const updateKindValidator = v.union(
   v.literal("slopcessful"),
 );
 
+/** Why an OAuth flow started (see app/.server/auth/oauth.ts). */
+export const oauthIntentValidator = v.union(v.literal("login"), v.literal("link"), v.literal("connect"));
+
 /** Outcome of the automated content check (see app/.server/moderation.ts). */
 export const checkVerdictValidator = v.union(v.literal("ok"), v.literal("mature"), v.literal("blocked"));
 
@@ -57,11 +60,14 @@ export default defineSchema({
     showNsfw: v.boolean(),
   }).index("by_username", ["username"]),
 
+  /** Ways into an account: one per provider ("github", "x", "dev"…), at least one each. */
   identities: defineTable({
     provider: v.string(),
     providerId: v.string(),
     userId: v.id("users"),
-  }).index("by_provider_id", ["provider", "providerId"]),
+  })
+    .index("by_provider_id", ["provider", "providerId"])
+    .index("by_user_provider", ["userId", "provider"]),
 
   /** Browser sessions. Only a hash of the cookie value is stored. */
   sessions: defineTable({
@@ -76,7 +82,7 @@ export default defineSchema({
   oauthStates: defineTable({
     state: v.string(),
     provider: v.string(),
-    intent: v.union(v.literal("login"), v.literal("connect")),
+    intent: oauthIntentValidator,
     codeVerifier: v.string(),
     userId: v.union(v.id("users"), v.null()),
     returnTo: v.string(),

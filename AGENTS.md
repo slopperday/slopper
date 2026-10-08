@@ -48,4 +48,9 @@ release. Add a tool name to select part of the graph. For example, run
 - **Safety:** nothing auto-posts unless the slop passed the content check (`app/.server/moderation.ts`) and has no
   open flags. Makers can't mark their own slops NSFW; the check, flags and moderators do. Keep the policy prompt
   stable: it's the cached prefix of every DeepSeek call.
+- **Sign-in:** every OAuth provider is one spec in `app/.server/auth/oauth.ts` with one redirect URI; the flow (`login`,
+  `link`, `connect`) is stored with the pending authorization, never put in the URL. Linking rules live in
+  `convex/users.ts` (`linkIdentity`/`unlinkIdentity`): one identity per provider, never the last one removed.
+- **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
+  gate anything that shows or writes comments on the switch.
 - **Voice:** throw slop at the wall, keep slopping until it's slopcessful. Plain words; no restaurant metaphors.

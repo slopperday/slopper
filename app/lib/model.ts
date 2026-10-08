@@ -99,7 +99,29 @@ export interface SlopLink {
   url: string;
 }
 
-export type LoginProvider = "github" | "google" | "dev";
+/**
+ * OAuth providers people sign in with, in the order the login page offers
+ * them. X and LinkedIn also connect accounts for auto-posting. Instagram has
+ * no consumer sign-in any more (Instagram Login is for professional
+ * accounts), so Facebook stands in for Meta.
+ */
+export const OAUTH_PROVIDERS = ["github", "google", "x", "linkedin", "facebook"] as const;
+export type OAuthProviderId = (typeof OAUTH_PROVIDERS)[number];
+
+export const OAUTH_LABELS: Record<OAuthProviderId, string> = {
+  github: "GitHub",
+  google: "Google",
+  x: "X",
+  linkedin: "LinkedIn",
+  facebook: "Facebook",
+};
+
+export function isOAuthProvider(value: string): value is OAuthProviderId {
+  return (OAUTH_PROVIDERS as readonly string[]).includes(value);
+}
+
+/** Every way into an account: the OAuth providers, plus the local dev login. */
+export type LoginProvider = OAuthProviderId | "dev";
 
 export type CrosspostMode = "post" | "amplify" | "off";
 
