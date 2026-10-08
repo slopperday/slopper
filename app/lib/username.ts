@@ -5,6 +5,7 @@ const RESERVED = new Set([
   "admin",
   "api",
   "auth",
+  "changelog",
   "help",
   "mcp",
   "media",

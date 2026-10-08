@@ -100,6 +100,16 @@ export function formatDay(date: string): string {
   });
 }
 
+/** "8 October 2026" style label for a calendar date. */
+export function formatDate(date: string): string {
+  return new Date(toUtcMidnight(date)).toLocaleDateString("en-GB", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 /** Compact relative time: "now", "5m", "3h", "2d", then a date. */
 export function timeAgo(at: string | number, now: Date = new Date()): string {
   const ms = typeof at === "number" ? at : Date.parse(at);

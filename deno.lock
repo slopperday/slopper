@@ -67,6 +67,7 @@
       "dependencies": [
         "npm:@block65/webcrypto-web-push@2",
         "npm:@edge-runtime/vm@5",
+        "npm:@monochange/cli@0.18.0",
         "npm:@playwright/test@^1.63.0",
         "npm:@react-router/dev@^8.4.0",
         "npm:@react-router/node@^8.4.0",

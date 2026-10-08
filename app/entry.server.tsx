@@ -3,6 +3,7 @@ import { renderToReadableStream } from "react-dom/server.edge";
 import type { EntryContext, RouterContextProvider } from "react-router";
 import { ServerRouter } from "react-router";
 import { config } from "./.server/config";
+import { APP_VERSION } from "./lib/version";
 
 /** Live queries open a websocket to Convex; the policy must allow it. */
 function convexSources(): string {
@@ -36,6 +37,8 @@ export default async function handleRequest(
   responseHeaders.set("content-type", "text/html; charset=utf-8");
   responseHeaders.set("x-content-type-options", "nosniff");
   responseHeaders.set("referrer-policy", "strict-origin-when-cross-origin");
+  // `node scripts/release.ts publish` waits for slopper.day to report the new release here.
+  responseHeaders.set("x-slopper-version", APP_VERSION);
   if (import.meta.env.PROD) {
     // Inline scripts stay allowed: React Router streams hydration data with
     // them. Inline styles too: cards set CSS variables for their tilt.

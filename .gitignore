@@ -22,3 +22,6 @@ build/
 .e2e/
 test-results/
 playwright-report/
+
+# monochange local cache (release records in .monochange/releases/ are committed)
+.monochange/local/

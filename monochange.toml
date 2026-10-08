@@ -1,0 +1,94 @@
+# Releases for slopper.day, planned by monochange (https://github.com/monochange/monochange).
+# The CLI is pinned in devDependencies: run it as `vp exec monochange`, not a
+# global install, which may be older.
+#
+# Every change that should be released gets a changeset in .changeset/. The
+# type picks the audience:
+#
+#   vp exec monochange create --package slopper --type user_feat --reason "Pin your best slop" --output .changeset/pin-slops.md
+#   vp exec monochange create --package slopper --type fix --reason "Retry B2 uploads once" --output .changeset/retry-b2.md
+#
+# User types (user_feat, user_fix, user_change) become the release notes on
+# slopper.day/changelog. Everything else (feat, fix, major, minor, patch, docs,
+# refactor, test, none, ...) goes to CHANGELOG.md for developers. A change that
+# matters to both audiences gets one changeset for each.
+#
+#   vp exec monochange run release --dry-run   # preview the next release
+#   vp exec monochange run release             # bump, write both changelogs, commit
+#   vp exec monochange run publish             # tag, push main, wait for slopper.day
+
+[defaults]
+# The app is a private package; release it anyway.
+include_private = true
+
+[package.slopper]
+path = "."
+type = "npm"
+# Tags are plain v1.2.3; this is the only release owner.
+tag = true
+version_format = "primary"
+# Deno Deploy ships the site; nothing goes to npm.
+publish = { enabled = false }
+changelog = { path = "CHANGELOG.md", format = "keep_a_changelog" }
+# The website reads the date back out of this title (app/.server/changelog.ts).
+changelog_version_title = "{{ version }} ({{ date }})"
+
+[ecosystems.npm]
+# monochange can't parse pnpm 12's two-document pnpm-lock.yaml yet, so let
+# pnpm refresh it. The root version isn't in the lockfile, so this is a no-op.
+lockfile_commands = [{ command = "pnpm install --lockfile-only" }]
+
+[changelog.streams.user]
+description = "What people using slopper.day notice: new things to do, fixes they'd feel, changes they need to act on. Deployment, CI, tooling, tests and refactors stay in the default stream."
+
+[changelog.types]
+user_feat = { bump = "minor", section = "user_new", stream = "user", description = "Something new people can do on slopper.day" }
+user_fix = { bump = "patch", section = "user_fixed", stream = "user", description = "Something that now works the way people expect" }
+user_change = { bump = "major", section = "user_changed", stream = "user", description = "A change people have to act on, such as signing in again" }
+
+[changelog.sections]
+user_changed = { heading = "Changed", priority = 10 }
+user_new = { heading = "New", priority = 20 }
+user_fixed = { heading = "Fixed", priority = 30 }
+
+# One JSON file per release, bundled into the site and shown at /changelog.
+[changelog.outputs.user]
+stream = "user"
+targets = ["slopper"]
+path = "app/changelog/{{ version }}.json"
+format = "json"
+mode = "release"
+
+[cli.release]
+help_text = "Prepare the next release on main: bump package.json, write CHANGELOG.md and the website's release notes, and commit"
+inputs = [{ name = "format", type = "choice", choices = ["text", "markdown", "json"], default = "text" }]
+
+[[cli.release.steps]]
+type = "Command"
+name = "check the branch"
+command = "node scripts/release.ts check"
+
+[[cli.release.steps]]
+type = "PrepareRelease"
+name = "plan release"
+inputs = ["format"]
+
+[[cli.release.steps]]
+type = "CommitRelease"
+name = "commit release"
+# A dry run writes no release record, so there's nothing to commit.
+when = "{{ number_of_changesets > 0 && not release.dry_run }}"
+
+[cli.publish]
+help_text = "Publish the release commit at HEAD: tag it, push main and the tag, and wait until slopper.day serves it"
+
+[[cli.publish.steps]]
+type = "TagRelease"
+name = "tag release"
+inputs = { from = "HEAD", push = false }
+
+[[cli.publish.steps]]
+type = "Command"
+name = "push and deploy"
+command = "node scripts/release.ts publish"
+dry_run_command = "node scripts/release.ts publish --dry-run"

@@ -63,4 +63,9 @@ release. Add a tool name to select part of the graph. For example, run
   `convex/users.ts` (`linkIdentity`/`unlinkIdentity`): one identity per provider, never the last one removed.
 - **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
   gate anything that shows or writes comments on the switch.
+- **Releases:** every change worth releasing gets a changeset, made with `vp exec monochange create` and named with
+  `--output .changeset/<name>.md` (the global `monochange` is older). `user_feat`, `user_fix` and `user_change` are for
+  what people using the site notice and become `/changelog` (`app/changelog/<version>.json`); every other type (`feat`,
+  `fix`, ...) goes to `CHANGELOG.md`. Write two changesets when both audiences care. Never hand-edit `app/changelog/`,
+  `CHANGELOG.md` or `.monochange/releases/`: `vp exec monochange run release` and `run publish` own them.
 - **Voice:** throw slop at the wall, keep slopping until it's slopcessful. Plain words; no restaurant metaphors.

@@ -170,6 +170,30 @@ Email addresses are read only to suggest a username for a new account, and never
 pictures are copied into media storage (B2, or Convex storage locally) when an account is made, because their links
 expire. The copy is checked like a screenshot, and a mature one is refused too, since avatars are never blurred.
 
+## Release
+
+Releases are planned by [monochange](https://github.com/monochange/monochange), configured in `monochange.toml` and
+pinned in `devDependencies`, so run it with `vp exec monochange`. Every change worth releasing gets a changeset in
+`.changeset/`, and its type picks the audience:
+
+- `user_feat`, `user_fix` and `user_change` are what people using slopper.day notice. They become the release notes on
+  [/changelog](https://slopper.day/changelog), one JSON file per release in `app/changelog/`.
+- Every other type (`feat`, `fix`, `major`, `minor`, `patch`, `docs`, `refactor`, `test`, `none`, ...) is a developer
+  note in `CHANGELOG.md`.
+
+A change both audiences care about gets two changesets. Name each one with `--output`.
+
+```bash
+vp exec monochange create --package slopper --type user_feat --reason "Pin your best slop" --output .changeset/pin-slops.md
+vp exec monochange run release --dry-run   # the next version and its notes
+vp exec monochange run release             # on a clean, up-to-date main: bump, write both changelogs, commit
+vp exec monochange run publish             # tag v<version>, push main and the tag, wait for slopper.day
+```
+
+`publish` pushes `main` and the tag together, so the pre-push hook runs CI once and a failure pushes neither. Deno
+Deploy builds production from that push; `publish` returns once slopper.day answers with the new `x-slopper-version`
+header. Convex functions still deploy on their own (see Deploy).
+
 ## For agents
 
 - MCP (Streamable HTTP): `claude mcp add --transport http slopper https://slopper.day/mcp --header "Authorization: Bearer <token>"`
@@ -183,6 +207,7 @@ app/            React Router app: routes, components, shared lib, .server/ (serv
 convex/         schema, queries, mutations, crons, auth config
 server/app.ts   production request handler, bundled with the app
 deploy/main.ts  Deno Deploy entry: static assets + handler
+scripts/        key generators and release.ts (the git and deploy half of a release)
 tests/          Vitest suites (pure logic and Convex functions)
 ```
 

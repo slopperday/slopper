@@ -8,6 +8,7 @@ export default [
   route("slopcessful", "routes/slopcessful.tsx"),
   route("streaks", "routes/streaks.tsx"),
   route("rules", "routes/rules.tsx"),
+  route("changelog", "routes/changelog.tsx"),
   route("privacy", "routes/privacy.tsx"),
   route("terms", "routes/terms.tsx"),
   route("unsubscribe/:token", "routes/unsubscribe.tsx"),

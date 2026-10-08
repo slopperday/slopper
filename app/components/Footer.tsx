@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { APP_VERSION } from "~/lib/version";
 import { Wordmark } from "./Logo";
 
 const COLUMNS = [
@@ -8,6 +9,7 @@ const COLUMNS = [
       { to: "/wall", label: "The wall" },
       { to: "/slopcessful", label: "Slopcessful" },
       { to: "/streaks", label: "Streaks" },
+      { to: "/changelog", label: "What's new" },
       { to: "/feed.xml", label: "RSS", document: true },
     ],
   },
@@ -54,7 +56,13 @@ export function Footer() {
           </div>
         ))}
       </div>
-      <p className="mx-auto max-w-6xl px-4 pb-10 text-sm text-muted">slopper.day · keep slopping</p>
+      <p className="mx-auto max-w-6xl px-4 pb-10 text-sm text-muted">
+        slopper.day ·{" "}
+        <Link to="/changelog" className="hover:text-slop-text">
+          v{APP_VERSION}
+        </Link>{" "}
+        · keep slopping
+      </p>
     </footer>
   );
 }

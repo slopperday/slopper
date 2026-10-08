@@ -42,6 +42,16 @@ test.describe("visitors", () => {
     await expect(page.getByRole("link", { name: "what we keep" })).toHaveAttribute("href", "/privacy");
   });
 
+  test("can see what's new, and which release they're on, from every page", async ({ page }) => {
+    const response = await page.goto("/");
+    const version = response?.headers()["x-slopper-version"];
+    expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+    const footer = page.getByRole("contentinfo");
+    await expect(footer.getByRole("link", { name: `v${version}` })).toHaveAttribute("href", "/changelog");
+    await footer.getByRole("link", { name: "What's new" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("What's new");
+  });
+
   test("are sent to sign in, and back, from pages that need an account", async ({ page }) => {
     for (const path of ["/new", "/goal", "/settings", "/notifications"]) {
       await page.goto(path);
