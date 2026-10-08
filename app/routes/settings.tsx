@@ -32,12 +32,21 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     (provider) => linked.has(provider) || config[provider] !== null,
   ).map((provider) => ({ provider, linked: linked.has(provider), available: config[provider] !== null }));
   return {
-    user,
+    // What the form edits, and nothing else: the record also holds the digest's unsubscribe token.
+    user: {
+      username: user.username,
+      displayName: user.displayName,
+      bio: user.bio,
+      website: user.website,
+      timeZone: user.timeZone,
+      showNsfw: user.showNsfw,
+    },
     timeZones: Intl.supportedValuesOf("timeZone"),
     methods,
     // Every identity counts, the local dev login included: the last one stays.
     canUnlink: identities.length > 1,
     vapidPublicKey: config.vapidPublicKey,
+    digest: { address: user.email ?? null, enabled: user.emailDigest !== false },
   };
 }
 
@@ -49,6 +58,14 @@ export async function action({ request, context }: Route.ActionArgs) {
       return await saveProfile(user, form);
     case "unlink":
       return await unlink(user, formText(form, "provider"));
+    case "digest": {
+      const enabled = formText(form, "enabled") === "on";
+      await convex.mutation(api.users.setEmailDigest, { userId: user._id, enabled });
+      return redirectWithFlash(`${HERE}#email-digest`, {
+        tone: "success",
+        message: enabled ? "Daily digest on." : "Daily digest off.",
+      });
+    }
     default:
       badRequest("Unknown action");
   }
@@ -88,7 +105,7 @@ async function unlink(user: User, provider: string): Promise<Response> {
 export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "Settings", noindex: true });
 
 export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
-  const { user, timeZones, methods, canUnlink, vapidPublicKey } = loaderData;
+  const { user, timeZones, methods, canUnlink, vapidPublicKey, digest } = loaderData;
   return (
     <section className="mx-auto max-w-2xl px-4 pt-10">
       <SettingsNav />
@@ -167,8 +184,40 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
           Save
         </button>
       </Form>
+      <EmailDigest {...digest} />
       {vapidPublicKey && <BrowserNotifications vapidPublicKey={vapidPublicKey} />}
       {methods.length > 0 && <SignInMethods methods={methods} canUnlink={canUnlink} />}
+    </section>
+  );
+}
+
+function EmailDigest({ address, enabled }: { address: string | null; enabled: boolean }) {
+  return (
+    <section id="email-digest" className="mt-16 scroll-mt-24" aria-labelledby="email-digest-title">
+      <h2 id="email-digest-title" className="title-2">
+        Daily digest
+      </h2>
+      {address ? (
+        <>
+          <p className="mt-2 text-muted">
+            One email at 9am your time, on days something happened to your slops: upvotes, pledges, wins. It goes to{" "}
+            <span className="font-bold text-ink">{address}</span>, from your sign-in.
+          </p>
+          <Form method="post" className="mt-6 flex flex-wrap items-center gap-4">
+            <input type="hidden" name="intent" value="digest" />
+            <input type="hidden" name="enabled" value={enabled ? "off" : "on"} />
+            <button type="submit" className={`btn btn-sm ${enabled ? "btn-quiet" : "btn-ink"}`}>
+              {enabled ? "Turn off" : "Turn on"}
+            </button>
+            <span className="text-sm text-muted">{enabled ? "On" : "Off"}</span>
+          </Form>
+        </>
+      ) : (
+        <p className="mt-2 text-muted">
+          None of your sign-in methods shares a verified email, so there's nowhere to send it. Link Google, GitHub,
+          LinkedIn or Facebook below to get it.
+        </p>
+      )}
     </section>
   );
 }

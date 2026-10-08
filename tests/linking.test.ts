@@ -15,7 +15,7 @@ function setup() {
 
 type Server = ReturnType<typeof setup>["server"];
 
-async function signIn(server: Server, profile: IdentityProfile) {
+async function signIn(server: Server, profile: Omit<IdentityProfile, "email">) {
   return await server.mutation(api.users.upsertFromIdentity, { ...profile, timeZone: "UTC" });
 }
 

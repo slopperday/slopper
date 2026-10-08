@@ -60,10 +60,21 @@ describe("provider profiles", () => {
       avatarUrl: "https://a.test/i.png",
       bio: "",
       website: "https://slop.day",
+      email: null,
     });
   });
 
-  it("suggests a Google username from the email, never keeping the email", () => {
+  it("keeps GitHub's primary email only when GitHub verified it", () => {
+    const user = { id: 42, login: "ifiok", name: null, avatar_url: "", blog: null, bio: null };
+    const emails = [
+      { email: "old@example.com", primary: false, verified: true },
+      { email: "Ifiok@Example.com", primary: true, verified: true },
+    ];
+    expect(githubIdentity(user, emails).email).toBe("ifiok@example.com");
+    expect(githubIdentity(user, [{ email: "ifiok@example.com", primary: true, verified: false }]).email).toBeNull();
+  });
+
+  it("suggests a Google username from the email, keeping the email only when Google verified it", () => {
     const profile = googleIdentity({ sub: "g-1", name: "Ada Lovelace", email: "ada.l@example.com" });
     expect(profile).toEqual({
       provider: "google",
@@ -71,8 +82,12 @@ describe("provider profiles", () => {
       preferredUsername: "ada.l",
       displayName: "Ada Lovelace",
       avatarUrl: null,
+      email: null,
     });
     expect(JSON.stringify(profile)).not.toContain("example.com");
+    expect(googleIdentity({ sub: "g-1", email: "ada.l@example.com", email_verified: true }).email).toBe(
+      "ada.l@example.com",
+    );
   });
 
   it("maps X by its stable id, with the handle as the username and a bigger avatar", () => {
@@ -89,6 +104,7 @@ describe("provider profiles", () => {
       preferredUsername: "slopmaker",
       displayName: "Slop Maker",
       avatarUrl: "https://pbs.twimg.com/profile_images/1/abc_400x400.jpg",
+      email: null,
     });
     expect(xIdentity({ id: "9", username: "nameless", name: " " })).toMatchObject({
       displayName: "nameless",
@@ -109,8 +125,12 @@ describe("provider profiles", () => {
       preferredUsername: "grace",
       displayName: "Grace Hopper",
       avatarUrl: "https://media.licdn.com/g.jpg",
+      email: null,
     });
     expect(JSON.stringify(withEmail)).not.toContain("navy.example");
+    expect(linkedinIdentity({ sub: "li-1", email: "grace@navy.example", email_verified: true }).email).toBe(
+      "grace@navy.example",
+    );
     expect(linkedinIdentity({ sub: "li-2", given_name: "Grace", family_name: "Hopper" })).toMatchObject({
       preferredUsername: "Grace Hopper",
       displayName: "Grace Hopper",
@@ -135,6 +155,8 @@ describe("provider profiles", () => {
       preferredUsername: "mark",
       displayName: "Mark Slop",
       avatarUrl: "https://platform-lookaside.fbsbx.com/p.jpg",
+      // Facebook only shares confirmed addresses.
+      email: "mark@fb.example",
     });
     expect(
       facebookIdentity({
@@ -158,6 +180,24 @@ describe("fetching profiles", () => {
     await expect(fetchIdentity("x", "user-token", client)).resolves.toMatchObject({ providerId: "7" });
     expect(calls[0].url).toBe("https://api.x.com/2/users/me?user.fields=profile_image_url,name,username");
     expect(calls[0].headers.get("authorization")).toBe("Bearer user-token");
+  });
+
+  it("asks GitHub for the profile and the verified emails with the same token", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : input.toString();
+      calls.push(url);
+      return Response.json(
+        url.endsWith("/user/emails")
+          ? [{ email: "gh@example.com", primary: true, verified: true }]
+          : { id: 5, login: "gh", name: "GH", avatar_url: "", blog: null, bio: null },
+      );
+    });
+    await expect(fetchIdentity("github", "user-token", client)).resolves.toMatchObject({
+      providerId: "5",
+      email: "gh@example.com",
+    });
+    expect(calls.sort()).toEqual(["https://api.github.com/user", "https://api.github.com/user/emails"]);
   });
 
   it("signs Facebook's Graph call with an app secret proof", async () => {

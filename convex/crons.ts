@@ -26,5 +26,7 @@ const crons = cronJobs();
 // Just after midnight UTC, yesterday's race is over: crown its winner.
 crons.daily("crown slop of the day", { hourUTC: 0, minuteUTC: 1 }, internal.race.crown, {});
 crons.daily("sweep expired rows", { hourUTC: 3, minuteUTC: 0 }, internal.crons.sweep, {});
+// Each person's digest goes out at 9am their time, so check every hour.
+crons.hourly("email digests", { minuteUTC: 0 }, internal.digest.run, {});
 
 export default crons;

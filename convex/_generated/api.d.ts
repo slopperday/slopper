@@ -11,9 +11,12 @@
 import type * as accounts from "../accounts.js";
 import type * as activity from "../activity.js";
 import type * as crons from "../crons.js";
+import type * as digest from "../digest.js";
+import type * as digestSend from "../digestSend.js";
 import type * as goals from "../goals.js";
 import type * as home from "../home.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_digest from "../lib/digest.js";
 import type * as lib_media from "../lib/media.js";
 import type * as lib_notify from "../lib/notify.js";
 import type * as lib_rate from "../lib/rate.js";
@@ -41,9 +44,12 @@ declare const fullApi: ApiFromModules<{
   accounts: typeof accounts;
   activity: typeof activity;
   crons: typeof crons;
+  digest: typeof digest;
+  digestSend: typeof digestSend;
   goals: typeof goals;
   home: typeof home;
   "lib/auth": typeof lib_auth;
+  "lib/digest": typeof lib_digest;
   "lib/media": typeof lib_media;
   "lib/notify": typeof lib_notify;
   "lib/rate": typeof lib_rate;

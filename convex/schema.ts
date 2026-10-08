@@ -87,7 +87,23 @@ export default defineSchema({
     /** IANA zone. Midnight here ends this person's day. */
     timeZone: v.string(),
     showNsfw: v.boolean(),
-  }).index("by_username", ["username"]),
+    /**
+     * A sign-in provider's verified address, kept only for the daily
+     * digest. Server-side: it never goes into a public shape.
+     */
+    email: v.optional(v.string()),
+    /** The daily digest; on unless turned off. */
+    emailDigest: v.optional(v.boolean()),
+    /** Unguessable, for the one-click unsubscribe link in every digest. */
+    emailToken: v.optional(v.string()),
+    /** When the next digest is due (9am local). Absent: none is. */
+    nextDigestAt: v.optional(v.number()),
+    /** Notifications after this went into no digest yet. */
+    digestSentAt: v.optional(v.number()),
+  })
+    .index("by_username", ["username"])
+    .index("by_next_digest", ["nextDigestAt"])
+    .index("by_email_token", ["emailToken"]),
 
   /** Ways into an account: one per provider ("github", "x", "dev"…), at least one each. */
   identities: defineTable({

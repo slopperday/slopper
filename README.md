@@ -113,6 +113,24 @@ straight from the bucket's public URL. Without these variables, screenshots go t
    any file in the bucket, minus the file name). Put a CDN in front later by changing only this; uploads are refused
    until it's set.
 
+### Daily digest email
+
+Once a day, at 9am in each person's time zone, Slopper emails what happened to their slops since the last digest:
+upvotes, pledges, feedback, wins. Only unread notifications count, and days with nothing new send nothing. It goes to
+the verified address a sign-in provider shared (Google, GitHub, LinkedIn or Facebook; X shares none), with a one-click
+unsubscribe. People turn it off in Settings or from any digest.
+
+Convex runs it every hour (`convex/digest.ts`) and sends the batch through [Resend](https://resend.com)
+(`convex/digestSend.ts`), whose free plan covers 3,000 emails a month and 100 a day.
+
+1. Sign up for Resend and add the domain `slopper.day`. Add the DNS records it shows: a DKIM `TXT` on
+   `resend._domainkey`, and an `MX` and `TXT` on `send` for bounces. None of them touch the root's Google mail.
+2. Create an API key with sending access to that domain only.
+3. On Convex: `npx convex env set --prod RESEND_API_KEY re_…`. Optional: `APP_URL` (where links point, default
+   `https://slopper.day`) and `DIGEST_FROM` (default `Slopper <digest@slopper.day>`).
+
+Without `RESEND_API_KEY` the hourly job does nothing, and digests start where they left off once it's set.
+
 ### Browser notifications
 
 Upvotes, pledges, feedback and slop of the day reach people's browsers through Web Push, which costs nothing: each

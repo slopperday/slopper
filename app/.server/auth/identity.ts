@@ -6,7 +6,8 @@ import { FACEBOOK_GRAPH_VERSION, OAuthError } from "./oauth";
 /**
  * Who is signing in, as each provider describes them. The `*Identity`
  * functions map a provider's profile; `fetchIdentity` asks for it.
- * Emails are read only to suggest a username, and never stored.
+ * An email suggests a username, and when the provider vouches for it, it's
+ * kept for the daily digest (and nothing else).
  */
 
 /** What a login provider tells us about the person signing in. */
@@ -18,6 +19,14 @@ export interface IdentityProfile {
   avatarUrl: string | null;
   website?: string | null;
   bio?: string;
+  /** Only an address the provider has verified belongs to this person. */
+  email: string | null;
+}
+
+/** Lowercased, or null when it doesn't look like an address. */
+function verifiedEmail(email: string | undefined | null, verified: boolean | undefined): string | null {
+  const address = email?.trim().toLowerCase();
+  return verified && address && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address) && address.length <= 254 ? address : null;
 }
 
 /**
@@ -43,7 +52,15 @@ export interface GitHubUser {
   bio: string | null;
 }
 
-export function githubIdentity(user: GitHubUser): IdentityProfile {
+/** One row of `GET /user/emails` (the `user:email` scope). */
+export interface GitHubEmail {
+  email: string;
+  primary: boolean;
+  verified: boolean;
+}
+
+export function githubIdentity(user: GitHubUser, emails: readonly GitHubEmail[] = []): IdentityProfile {
+  const primary = emails.find((row) => row.primary);
   const blog = user.blog?.trim();
   return {
     provider: "github",
@@ -53,6 +70,7 @@ export function githubIdentity(user: GitHubUser): IdentityProfile {
     avatarUrl: user.avatar_url,
     bio: user.bio ?? "",
     website: blog ? (/^https?:\/\//.test(blog) ? blog : `https://${blog}`) : null,
+    email: verifiedEmail(primary?.email, primary?.verified),
   };
 }
 
@@ -61,6 +79,7 @@ export interface GoogleUser {
   name?: string;
   given_name?: string;
   email?: string;
+  email_verified?: boolean;
   picture?: string;
 }
 
@@ -71,6 +90,7 @@ export function googleIdentity(user: GoogleUser): IdentityProfile {
     preferredUsername: emailName(user.email) ?? user.given_name ?? "slopper",
     displayName: user.name ?? user.given_name ?? "New slopper",
     avatarUrl: user.picture ?? null,
+    email: verifiedEmail(user.email, user.email_verified),
   };
 }
 
@@ -90,6 +110,7 @@ export function xIdentity(user: XUser): IdentityProfile {
     displayName: user.name?.trim() || user.username,
     // X serves a 48px "_normal" image by default; the same path has a 400px one.
     avatarUrl: user.profile_image_url?.replace(/_normal(\.\w+)$/, "_400x400$1") ?? null,
+    email: null,
   };
 }
 
@@ -101,6 +122,7 @@ export interface LinkedInUser {
   family_name?: string;
   picture?: string;
   email?: string;
+  email_verified?: boolean;
 }
 
 export function linkedinIdentity(user: LinkedInUser): IdentityProfile {
@@ -111,6 +133,7 @@ export function linkedinIdentity(user: LinkedInUser): IdentityProfile {
     preferredUsername: emailName(user.email) ?? (fullName || "slopper"),
     displayName: fullName || "New slopper",
     avatarUrl: user.picture ?? null,
+    email: verifiedEmail(user.email, user.email_verified),
   };
 }
 
@@ -133,6 +156,8 @@ export function facebookIdentity(user: FacebookUser): IdentityProfile {
     displayName: name || "New slopper",
     // The grey default silhouette is no better than our initial.
     avatarUrl: picture?.url && !picture.is_silhouette ? picture.url : null,
+    // Facebook only shares addresses its people have confirmed.
+    email: verifiedEmail(user.email, true),
   };
 }
 
@@ -172,8 +197,13 @@ export async function fetchIdentity(
   client: OAuthClientCredentials,
 ): Promise<IdentityProfile> {
   switch (provider) {
-    case "github":
-      return githubIdentity(await getJson<GitHubUser>("https://api.github.com/user", accessToken));
+    case "github": {
+      const [user, emails] = await Promise.all([
+        getJson<GitHubUser>("https://api.github.com/user", accessToken),
+        getJson<GitHubEmail[]>("https://api.github.com/user/emails", accessToken),
+      ]);
+      return githubIdentity(user, emails);
+    }
     case "google":
       return googleIdentity(await getJson<GoogleUser>("https://openidconnect.googleapis.com/v1/userinfo", accessToken));
     case "x": {

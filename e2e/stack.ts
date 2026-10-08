@@ -23,7 +23,7 @@ import { join, resolve } from "node:path";
 import process from "node:process";
 import { generateServerKeys, generateVapidKeys } from "../scripts/server-keys.ts";
 import { sha256Hex, startFakeS3 } from "./fake-s3.ts";
-import { E2E_ADMIN, type FakeCheckRequest, PORTS, STACK_FILE, type Stack } from "./ports.ts";
+import { E2E_ADMIN, type FakeCheckRequest, type FakeEmail, PORTS, STACK_FILE, type Stack } from "./ports.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const STATE = join(ROOT, ".e2e");
@@ -85,9 +85,27 @@ async function readBody(request: IncomingMessage): Promise<string> {
  */
 function startFakeCheck(): void {
   const log: FakeCheckRequest[] = [];
+  const emails: FakeEmail[] = [];
   const server = createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/__requests") {
       response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(log));
+      return;
+    }
+    // The same server stands in for Resend's batch API, for the daily digest.
+    if (request.method === "GET" && request.url === "/__emails") {
+      response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(emails));
+      return;
+    }
+    if (request.method === "POST" && request.url === "/emails/batch") {
+      const batch = JSON.parse(await readBody(request)) as FakeEmail[];
+      if (request.headers.authorization !== "Bearer e2e-resend" || !request.headers["idempotency-key"]) {
+        response.writeHead(401, { "content-type": "application/json" }).end('{"message":"bad key"}');
+        return;
+      }
+      emails.push(...batch);
+      response
+        .writeHead(200, { "content-type": "application/json" })
+        .end(JSON.stringify({ data: batch.map((_, n) => ({ id: `email-${emails.length - batch.length + n}` })) }));
       return;
     }
     const body = JSON.parse(await readBody(request)) as {
@@ -178,6 +196,9 @@ async function main(): Promise<void> {
   run(convex, ["env", "set", "--env-file", envFile, "SLOPPER_JWT_ISSUER", APP_URL]);
   run(convex, ["env", "set", "--env-file", envFile, "SLOPPER_JWKS", keys.jwks]);
   run(convex, ["env", "set", "--env-file", envFile, "MEDIA_PUBLIC_URL", MEDIA_URL]);
+  run(convex, ["env", "set", "--env-file", envFile, "APP_URL", APP_URL]);
+  run(convex, ["env", "set", "--env-file", envFile, "RESEND_API_KEY", "e2e-resend"]);
+  run(convex, ["env", "set", "--env-file", envFile, "RESEND_BASE_URL", CHECK_URL]);
   const vapid = await generateVapidKeys();
   run(convex, ["env", "set", "--env-file", envFile, "VAPID_PUBLIC_KEY", vapid.publicKey]);
   run(convex, ["env", "set", "--env-file", envFile, "VAPID_PRIVATE_KEY", vapid.privateKey]);

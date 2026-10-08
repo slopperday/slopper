@@ -9,7 +9,7 @@ import { api } from "../convex/_generated/api.js";
 import type { Id } from "../convex/_generated/dataModel";
 import { hashToken, randomToken } from "../app/.server/encoding.ts";
 import type { FakeObject } from "./fake-s3.ts";
-import { E2E_ADMIN, type FakeCheckRequest, STACK_FILE, type Stack } from "./ports.ts";
+import { E2E_ADMIN, type FakeCheckRequest, type FakeEmail, STACK_FILE, type Stack } from "./ports.ts";
 
 /**
  * Shared setup for the journeys. Tests that aren't about signing in start
@@ -44,7 +44,7 @@ interface SlopOptions {
 
 export interface Seed {
   /** A person with a live session. Usernames are unique per test. */
-  user(prefix?: string): Promise<SeededUser>;
+  user(prefix?: string, options?: { email?: string }): Promise<SeededUser>;
   /** The one moderator the stack trusts (ADMIN_USERNAMES), with a fresh session. */
   admin(): Promise<SeededUser>;
   /** A launch by `owner`, entered into today's race. */
@@ -89,6 +89,11 @@ export async function checkRequests(stack: Stack): Promise<FakeCheckRequest[]> {
   return (await (await fetch(`${stack.checkUrl}/__requests`)).json()) as FakeCheckRequest[];
 }
 
+/** Every email the fake Resend has been handed so far. */
+export async function sentEmails(stack: Stack): Promise<FakeEmail[]> {
+  return (await (await fetch(`${stack.checkUrl}/__emails`)).json()) as FakeEmail[];
+}
+
 /** What the fake B2 bucket holds right now. */
 export async function bucketObjects(stack: Stack): Promise<FakeObject[]> {
   return (await (await fetch(`${stack.s3Url}/__objects`)).json()) as FakeObject[];
@@ -112,7 +117,12 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
     const contexts: BrowserContext[] = [];
     const unique = () => `${testInfo.workerIndex}${randomBytes(3).toString("hex")}`;
 
-    async function signIn(providerId: string, username: string, displayName: string): Promise<SeededUser> {
+    async function signIn(
+      providerId: string,
+      username: string,
+      displayName: string,
+      email: string | null = null,
+    ): Promise<SeededUser> {
       const { userId } = await convex.mutation(api.users.upsertFromIdentity, {
         provider: "e2e",
         providerId,
@@ -120,6 +130,7 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
         displayName,
         avatarUrl: null,
         timeZone: "UTC",
+        email,
       });
       const token = randomToken();
       await convex.mutation(api.users.createSession, {
@@ -133,9 +144,9 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
     }
 
     const seed: Seed = {
-      async user(prefix = "slopper") {
+      async user(prefix = "slopper", { email } = {}) {
         const name = `${prefix}-${unique()}`.slice(0, 30);
-        return await signIn(name, name, prefix[0].toUpperCase() + prefix.slice(1));
+        return await signIn(name, name, prefix[0].toUpperCase() + prefix.slice(1), email ?? null);
       },
 
       async admin() {

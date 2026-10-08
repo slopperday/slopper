@@ -27,6 +27,16 @@ export interface Stack {
 }
 
 /** One request the fake content check received. */
+/** One email as the digest sends it to Resend's batch API. */
+export interface FakeEmail {
+  from: string;
+  to: string[];
+  subject: string;
+  text: string;
+  html: string;
+  headers: Record<string, string>;
+}
+
 export interface FakeCheckRequest {
   text: string;
   images: number;

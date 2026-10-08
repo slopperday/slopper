@@ -10,6 +10,7 @@ export default [
   route("rules", "routes/rules.tsx"),
   route("privacy", "routes/privacy.tsx"),
   route("terms", "routes/terms.tsx"),
+  route("unsubscribe/:token", "routes/unsubscribe.tsx"),
   route("login", "routes/login.tsx"),
   route("new", "routes/new.tsx"),
   route("goal", "routes/goal.tsx"),

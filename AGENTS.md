@@ -49,6 +49,8 @@ release. Add a tool name to select part of the graph. For example, run
   are), then written to B2 (`app/.server/storage.ts`) or, without the B2 variables, Convex storage. Image URLs are
   built in Convex from `MEDIA_PUBLIC_URL` (a Convex env var). Mutations that drop screenshots return `orphaned`; call
   `deleteOrphanedMedia` when it's above 0.
+- **Emails:** `users.email` holds a sign-in provider's verified address, for the daily digest only. Keep it out of
+  every public shape and loader that isn't the owner's.
 - **Notifications:** create them with `notify()` (`convex/lib/notify.ts`), never a bare insert: it also schedules the
   browser push (`convex/pushSend.ts`) for people who turned it on. Push text comes from `app/lib/notifications.ts`,
   shared with the notifications page.

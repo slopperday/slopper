@@ -54,7 +54,7 @@ test.describe("settings", () => {
     const person = await seed.user("linker");
     const page = await seed.pageAs(person);
     await page.goto("/settings");
-    const methods = page.locator("section", { has: page.getByRole("heading", { name: "Sign-in methods" }) });
+    const methods = page.getByRole("region", { name: "Sign-in methods" });
     for (const [provider, label] of [
       ["github", "GitHub"],
       ["x", "X"],
