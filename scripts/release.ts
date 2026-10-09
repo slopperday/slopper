@@ -5,6 +5,9 @@
  *   node scripts/release.ts publish [--dry-run]  # last step of `monochange run publish`
  *   node scripts/release.ts deploy               # deploy HEAD again, after a failed publish
  *
+ * Deploying needs `netlify login` and the 1Password service account token in
+ * .env.monosecret (see monosecret.toml).
+ *
  * `check` makes sure a release starts from a clean main that has everything on
  * origin/main. `publish` runs once monochange has tagged the release commit at
  * HEAD: it pushes main and the tag together, so the pre-push hook runs CI once
@@ -87,7 +90,9 @@ function step(what: string, args: string[]): void {
 
 async function deploy(): Promise<void> {
   const version = releaseVersion();
-  step("Convex", ["convex", "deploy", "--yes"]);
+  // The deploy key (monosecret.toml's deploy profile) picks production, whatever .env.local selects.
+  const reason = `Deploy slopper.day v${version} to Convex`;
+  step("Convex", ["monosecret", "--reason", reason, "run", "--profile", "deploy", "--", "convex", "deploy"]);
   step("Netlify", ["netlify", "deploy", "--build", "--prod", "--site", NETLIFY_SITE, "--message", `v${version}`]);
 
   const deadline = Date.now() + SERVE_TIMEOUT_MS;

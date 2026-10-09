@@ -95,7 +95,8 @@ need Playwright's Chromium (`node_modules/.bin/playwright install chromium`), an
    Netlify secrets, production only). `vp run env:netlify --dry-run` lists them without reading 1Password. Leave
    `COMMENTS_ENABLED` unset: comments are off for V1.
 4. **Backblaze B2** for screenshots (see below).
-5. **Deploy.** `node scripts/release.ts deploy` deploys Convex, then builds here and deploys Netlify. Releases do the
+5. **Deploy.** Add a Convex production deploy key (dashboard → Settings → Deploy keys) to the item's "deploy" section as
+   `CONVEX_DEPLOY_KEY`. `node scripts/release.ts deploy` deploys Convex with it, then builds here and deploys Netlify. Releases do the
    same (see Release).
 6. **Domain.** Add `slopper.day` to the Netlify project (Domain management) and point its DNS at Netlify.
 
