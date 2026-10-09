@@ -116,6 +116,18 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
   seed: async ({ browser, convex, stack }, provide, testInfo) => {
     const contexts: BrowserContext[] = [];
     const unique = () => `${testInfo.workerIndex}${randomBytes(3).toString("hex")}`;
+    // The project's device (a phone for the mobile project): contexts made by hand don't inherit it.
+    const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = testInfo.project.use;
+    const newContext = () =>
+      browser.newContext({
+        viewport,
+        userAgent,
+        deviceScaleFactor,
+        isMobile,
+        hasTouch,
+        baseURL: stack.appUrl,
+        timezoneId: "UTC",
+      });
 
     async function signIn(
       providerId: string,
@@ -183,14 +195,14 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
       },
 
       async pageAs(user) {
-        const context = await browser.newContext({ baseURL: stack.appUrl, timezoneId: "UTC" });
+        const context = await newContext();
         contexts.push(context);
         await context.addCookies([{ name: SESSION_COOKIE, value: user.token, url: stack.appUrl }]);
         return await context.newPage();
       },
 
       async visitorPage() {
-        const context = await browser.newContext({ baseURL: stack.appUrl, timezoneId: "UTC" });
+        const context = await newContext();
         contexts.push(context);
         return await context.newPage();
       },

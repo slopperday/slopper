@@ -18,6 +18,32 @@ test.describe("on a phone", () => {
     await expect(page).toHaveURL("/streaks");
   });
 
+  test("signed-in pages fit the screen too", async ({ seed }) => {
+    const maker = await seed.user("pocketful");
+    const slop = await seed.slop(maker);
+    const page = await seed.pageAs(maker);
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    for (const path of [
+      "/new",
+      "/goal",
+      "/settings",
+      "/settings/autopost",
+      "/settings/api",
+      "/notifications",
+      "/streaks",
+      "/slopcessful",
+      `/day/${yesterday}`,
+      `${slop.path}/edit`,
+    ]) {
+      await page.goto(path);
+      expect(page.viewportSize()?.width, "a phone-sized page").toBeLessThan(500);
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, `horizontal overflow on ${path}`).toBeLessThanOrEqual(0);
+    }
+  });
+
   test("a maker can launch from a phone", async ({ seed }) => {
     const page = await seed.pageAs(await seed.user("thumbs"));
     await page.goto("/new");
