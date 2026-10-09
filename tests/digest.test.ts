@@ -5,7 +5,10 @@ import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import schema from "@convex/schema";
 import { nextLocalHour } from "~/lib/dates";
-import { composeDigest, type DigestItem } from "~/lib/digest";
+import { createElement } from "react";
+import { render } from "react-email";
+import { DigestEmail, type DigestEmailProps } from "~/emails/digest";
+import { type DigestItem, digestHeadline, digestLine, summariseDigest } from "~/lib/digest";
 
 const modules = import.meta.glob("../convex/**/*.ts");
 const HOUR = 3_600_000;
@@ -88,32 +91,43 @@ describe("the digest email", () => {
     { kind: "pledge", slop, amount: 2500 },
     { kind: "upvote", slop: other, amount: null },
   ];
-  const input = {
+  const input: DigestEmailProps = {
     username: "maker",
     items,
     appUrl: "https://slopper.day",
     unsubscribeUrl: "https://slopper.day/unsubscribe/token",
   };
 
-  it("sums up each slop with links back", () => {
-    const { subject, text, html } = composeDigest(input);
-    expect(subject).toBe("Your slops got 3 upvotes and 1 pledge");
-    expect(text).toContain("TiltMaze: 2 upvotes and 1 pledge ($25.00)\nhttps://slopper.day/@maker/tiltmaze");
-    expect(text).toContain("<Slop & Co> · iOS app: 1 upvote");
-    expect(text).toContain("Stop it: https://slopper.day/unsubscribe/token");
-    // Names people chose are text, never markup.
-    expect(html).toContain("&#60;Slop &#38; Co&#62;");
-    expect(html).not.toContain("<Slop & Co>");
-    expect(html).toContain('href="https://slopper.day/unsubscribe/token"');
+  it("sums up each slop", () => {
+    const slops = summariseDigest("maker", items);
+    expect(digestHeadline(slops)).toBe("Your slops got 3 upvotes and 1 pledge");
+    expect(slops.map(digestLine)).toEqual(["2 upvotes and 1 pledge ($25.00)", "1 upvote"]);
+    expect(slops[0].path).toBe("/@maker/tiltmaze");
   });
 
   it("leads with a win", () => {
-    const { subject, text } = composeDigest({
-      ...input,
-      items: [...items, { kind: "slop_of_the_day", slop: other, amount: null }],
-    });
-    expect(subject).toBe("🏆 <Slop & Co> · iOS app won slop of the day");
-    expect(text.indexOf("<Slop & Co>")).toBeLessThan(text.indexOf("TiltMaze"));
+    const slops = summariseDigest("maker", [...items, { kind: "slop_of_the_day", slop: other, amount: null }]);
+    expect(digestHeadline(slops)).toBe("🏆 <Slop & Co> · iOS app won slop of the day");
+    expect(slops[0].title).toBe("<Slop & Co> · iOS app");
+  });
+
+  it("renders on brand, with absolute links and every name as text", async () => {
+    const email = createElement(DigestEmail, input);
+    const html = await render(email);
+    const text = await render(email, { plainText: true });
+    expect(html).toContain("SLOPPER");
+    expect(html).toContain("Your slops got 3 upvotes and 1 pledge");
+    expect(html).toContain('href="https://slopper.day/@maker/tiltmaze"');
+    expect(html).toContain('src="https://slopper.day/icon-192.png"');
+    expect(html).toContain('href="https://slopper.day/unsubscribe/token"');
+    expect(html).toContain("#9be22d"); // the lime button
+    // Names people chose are text, never markup.
+    expect(html).not.toContain("<Slop & Co>");
+    expect(html).toContain("&lt;Slop &amp; Co&gt;");
+    // The plain-text part has the news and the way out.
+    expect(text).toContain("TiltMaze");
+    expect(text).toContain("https://slopper.day/@maker/tiltmaze");
+    expect(text).toContain("https://slopper.day/unsubscribe/token");
   });
 });
 
@@ -172,7 +186,7 @@ describe("daily digests", () => {
     const posts: {
       url: string;
       headers: Headers;
-      body: { to: string[]; subject: string; text: string; headers: Record<string, string> }[];
+      body: { to: string[]; subject: string; text: string; html: string; headers: Record<string, string> }[];
     }[] = [];
     vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
       posts.push({
@@ -199,7 +213,8 @@ describe("daily digests", () => {
     const user = await t.run((ctx) => ctx.db.get(maker));
     expect(email.to).toEqual(["maker@example.com"]);
     expect(email.subject).toBe("Your slops got 1 upvote and 1 pledge");
-    expect(email.text).toContain("TiltMaze: 1 upvote and 1 pledge ($15.00)");
+    expect(email.text).toContain("TiltMaze");
+    expect(email.html).toContain("$15.00");
     expect(email.headers["List-Unsubscribe"]).toBe(`<https://slopper.day/unsubscribe/${user?.emailToken}>`);
     expect(email.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
     expect(user?.digestSentAt).toBe(NOW);

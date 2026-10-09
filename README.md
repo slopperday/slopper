@@ -120,8 +120,10 @@ upvotes, pledges, feedback, wins. Only unread notifications count, and days with
 the verified address a sign-in provider shared (Google, GitHub, LinkedIn or Facebook; X shares none), with a one-click
 unsubscribe. People turn it off in Settings or from any digest.
 
-Convex runs it every hour (`convex/digest.ts`) and sends the batch through [Resend](https://resend.com)
-(`convex/digestSend.ts`), whose free plan covers 3,000 emails a month and 100 a day.
+Convex runs it every hour (`convex/digest.ts`); `convex/digestSend.ts` renders each email with
+[react-email](https://react.email) (`app/emails/digest.tsx`, on brand, with a plain-text part) and sends the batch
+through [Resend](https://resend.com), whose free plan covers 3,000 emails a month and 100 a day. Preview emails with
+`vp run email` (http://localhost:3030).
 
 1. Sign up for Resend and add the domain `slopper.day`. Add the DNS records it shows: a DKIM `TXT` on
    `resend._domainkey`, and an `MX` and `TXT` on `send` for bounces. None of them touch the root's Google mail.

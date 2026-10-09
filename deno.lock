@@ -84,6 +84,7 @@
         "npm:jose@^6.2.12",
         "npm:marked@^18.1.0",
         "npm:react-dom@^19.3.0",
+        "npm:react-email@6.11.1",
         "npm:react-router@^8.4.0",
         "npm:react@^19.3.0",
         "npm:tailwindcss@^4.3.3",
