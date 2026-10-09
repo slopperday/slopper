@@ -2,7 +2,7 @@
  * Generates the ES256 key pair that lets the app server talk to Convex.
  *
  * - The private key goes into `.env.local` (or is printed with --print, for
- *   pasting into Deno Deploy's environment).
+ *   1Password: monosecret.toml sends it to Netlify).
  * - The public key goes to the Convex deployment as a JWKS data URI, along
  *   with the issuer, via `convex env set`.
  *

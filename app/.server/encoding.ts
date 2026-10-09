@@ -1,4 +1,4 @@
-/** Byte encodings that work the same on Node and Deno. */
+/** Byte encodings on web APIs alone (atob, btoa), no Node Buffer. */
 
 export function encodeBase64(bytes: Uint8Array): string {
   let binary = "";

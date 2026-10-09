@@ -1,7 +1,17 @@
 minimumReleaseAgeExclude:
   - marked@18.1.0
   - vite@8.3.3
+  - netlify-cli@27.12.0
 overrides:
+  # @monosecret/cli 0.4.1 was published with workspace:* binary dependencies; pin them.
+  "@monosecret/cli>@monosecret/cli-darwin-arm64": 0.4.1
+  "@monosecret/cli>@monosecret/cli-darwin-x64": 0.4.1
+  "@monosecret/cli>@monosecret/cli-linux-arm64-gnu": 0.4.1
+  "@monosecret/cli>@monosecret/cli-linux-arm64-musl": 0.4.1
+  "@monosecret/cli>@monosecret/cli-linux-x64-gnu": 0.4.1
+  "@monosecret/cli>@monosecret/cli-linux-x64-musl": 0.4.1
+  "@monosecret/cli>@monosecret/cli-win32-arm64-msvc": 0.4.1
+  "@monosecret/cli>@monosecret/cli-win32-x64-msvc": 0.4.1
   vite@*: "npm:@voidzero-dev/vite-plus-core@1.0.0"
 peerDependencyRules:
   allowAny:
@@ -10,3 +20,7 @@ peerDependencyRules:
     vite: "*"
 allowBuilds:
   esbuild: true
+  # netlify-cli works without its optional native builds (local image CDN, syslog).
+  netlify-cli: false
+  sharp: false
+  unix-dgram: false

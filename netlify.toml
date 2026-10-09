@@ -1,0 +1,21 @@
+# slopper.day on Netlify. Deploys run from this machine, never on Netlify's
+# builders: `vp exec monochange run publish` ends in scripts/release.ts, which
+# runs `netlify deploy --build --prod` (this build, then the upload).
+#
+# The React Router plugin (vite.config.ts) writes the server as one Netlify
+# Function in .netlify/v1/functions; files in build/client are served first.
+# Runtime variables live on Netlify, not here (see monosecret.toml).
+
+[build]
+command = "pnpm exec vp build"
+publish = "build/client"
+
+[build.environment]
+NODE_VERSION = "24"
+
+# Hashed file names: a new build never reuses one.
+[[headers]]
+for = "/assets/*"
+
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"

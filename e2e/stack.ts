@@ -9,7 +9,8 @@
  *   file's name) and logs what it was sent;
  * - a fake B2 bucket that checks every write's signature (e2e/fake-s3.ts),
  *   so screenshots take the production path;
- * - the production build, served by Deno exactly as on Deno Deploy.
+ * - the production build: build/client and the Netlify Function, served by
+ *   scripts/serve.ts the way Netlify serves them.
  *
  * Nothing touches your dev backend on :3210. The details tests need
  * (URLs, the admin key, the signing key) land in `.e2e/stack.json`.
@@ -208,8 +209,9 @@ async function main(): Promise<void> {
   startFakeCheck();
   startFakeS3(PORTS.s3, BUCKET, S3_CREDENTIALS);
 
-  // 4. The production build, as Deno Deploy runs it.
-  const app = spawn("deno", ["run", "-A", "deploy/main.ts"], {
+  // 4. The production build, as Netlify runs it. Only this environment
+  //    reaches it: never a checkout's .env.local.
+  const app = spawn(process.execPath, ["scripts/serve.ts"], {
     cwd: ROOT,
     stdio: ["ignore", "inherit", "inherit"],
     env: {

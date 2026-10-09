@@ -10,10 +10,12 @@
     "vapid": "node scripts/vapid-keys.ts",
     "email": "email dev --dir app/emails --port 3030",
     "typegen": "react-router typegen",
-    "start": "deno run -A deploy/main.ts"
+    "start": "node --env-file-if-exists=.env.local scripts/serve.ts",
+    "env:netlify": "node scripts/netlify-env.ts"
   },
   "dependencies": {
     "@block65/webcrypto-web-push": "^2.0.0",
+    "@netlify/vite-plugin-react-router": "^4.0.0",
     "@react-router/node": "^8.4.0",
     "aws4fetch": "^1.0.20",
     "convex": "^1.46.0",
@@ -29,13 +31,16 @@
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
     "@monochange/cli": "0.17.1",
+    "@monosecret/cli": "0.4.1",
     "@playwright/test": "^1.63.0",
     "@react-router/dev": "^8.4.0",
+    "@remix-run/node-fetch-server": "^1.0.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.0.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "convex-test": "^0.0.60",
+    "netlify-cli": "27.12.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "npm:@voidzero-dev/vite-plus-core@1.0.0",
