@@ -14,7 +14,7 @@ import { execFileSync } from "node:child_process";
 import process from "node:process";
 
 /** The Netlify project, as in scripts/release.ts. */
-const NETLIFY_SITE = "slopper-day";
+const NETLIFY_SITE = "20e2e1d0-81fc-4370-a6f4-ea00cff5716d";
 
 interface Manifest {
   profiles: { default: { secrets: Record<string, { hasDefault: boolean }> } };

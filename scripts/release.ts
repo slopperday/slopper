@@ -21,9 +21,9 @@ import process from "node:process";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const SITE = new URL("/changelog", process.env.SLOPPER_URL ?? "https://slopper.day");
-/** The Netlify project (slopper.netlify.app belongs to someone else). */
-const NETLIFY_SITE = "slopper-day";
-const DEPLOYS = `https://app.netlify.com/projects/${NETLIFY_SITE}/deploys`;
+/** The Netlify project "slopper-day" (slopper.netlify.app belongs to someone else). Builds need the id, not the name. */
+const NETLIFY_SITE = "20e2e1d0-81fc-4370-a6f4-ea00cff5716d";
+const DEPLOYS = "https://app.netlify.com/projects/slopper-day/deploys";
 /** Netlify deploys are atomic; this only covers the CDN catching up. */
 const SERVE_TIMEOUT_MS = 2 * 60_000;
 const POLL_MS = 5_000;

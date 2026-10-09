@@ -181,7 +181,7 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0
       '@netlify/vite-plugin-react-router':
-        specifier: 4.0.0
+        specifier: ^4.0.0
         version: 4.0.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@24.19.1)(esbuild@0.27.0)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
       '@react-router/node':
         specifier: ^8.4.0
@@ -233,7 +233,7 @@ importers:
         specifier: ^8.4.0
         version: 8.4.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@24.19.1)(esbuild@0.27.0)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@11.0.0)(typescript@7.0.2)
       '@remix-run/node-fetch-server':
-        specifier: 1.0.0
+        specifier: ^1.0.0
         version: 1.0.0
       '@tailwindcss/vite':
         specifier: ^4.3.3
