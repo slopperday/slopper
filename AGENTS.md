@@ -37,7 +37,8 @@ release. Add a tool name to select part of the graph. For example, run
   add remote CI without asking.
 - **Hosting:** Netlify runs the build (`netlify.toml`): static files from `build/client`, the server as one Netlify
   Function. Deploys run from this machine (`node scripts/release.ts deploy`, also the end of `publish`), Convex first;
-  never connect Netlify to Git or add remote builds. Requests are capped at 6 MB (binary ones about 4.5 MB), so keep
+  never connect Netlify to Git or add remote builds. Deploy from the main checkout or a sibling worktree: in one nested
+  inside the repo (`.claude/worktrees/`), Netlify resolves the outer checkout and uploads no function. Requests are capped at 6 MB (binary ones about 4.5 MB), so keep
   uploads under `LIMITS.mediaBytes`.
 - **Production variables** are declared in `monosecret.toml`: plain values as defaults, secrets in the 1Password item.
   `vp run env:netlify` sets them on Netlify with one 1Password read. Add new variables there, not in the Netlify UI.
