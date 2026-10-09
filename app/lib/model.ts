@@ -180,7 +180,8 @@ export const LIMITS = {
   links: 6,
   screenshots: 6,
   madeWith: 6,
-  mediaBytes: 2 * 1024 * 1024,
+  /** Room for a sharp 2400px PNG screenshot. */
+  mediaBytes: 5 * 1024 * 1024,
   goalDays: 365,
 } as const;
 
