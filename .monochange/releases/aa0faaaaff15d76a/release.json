@@ -1,0 +1,224 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-10-09T06:01:13Z",
+  "command": "release",
+  "version": "1.1.0",
+  "versions": {
+    "slopper": "1.1.0"
+  },
+  "release_targets": [
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.1.0",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.1.0",
+      "rendered_title": "v1.1.0 (2026-10-09)",
+      "rendered_changelog_title": "1.1.0 (2026-10-09)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["slopper"],
+  "changed_files": ["CHANGELOG.md", "app/changelog/1.1.0.json", "package.json"],
+  "package_publications": [],
+  "updated_changelogs": ["CHANGELOG.md", "app/changelog/1.1.0.json"],
+  "deleted_changesets": [".changeset/release-with-monochange.md", ".changeset/whats-new-page.md"],
+  "changesets": [
+    {
+      "path": ".changeset/release-with-monochange.md",
+      "summary": "Release with monochange",
+      "details": "Changesets in `.changeset/` record every change worth releasing. User types (`user_feat`, `user_fix`, `user_change`) become the release notes on `/changelog`, read from `app/changelog/<version>.json`; every other type lands in `CHANGELOG.md`. `vp exec monochange run release` bumps `package.json`, writes both and commits on `main`; `vp exec monochange run publish` tags the release, pushes `main` with the tag, and waits until Deno Deploy serves it on slopper.day.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8a6d3743d13f0ff234adcef5736c57151679d8b7",
+            "short_sha": "8a6d374",
+            "url": null,
+            "authored_at": "2026-10-08T23:14:06+01:00",
+            "committed_at": "2026-10-08T23:32:03+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "ifiokotung@gmail.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8a6d3743d13f0ff234adcef5736c57151679d8b7",
+            "short_sha": "8a6d374",
+            "url": null,
+            "authored_at": "2026-10-08T23:14:06+01:00",
+            "committed_at": "2026-10-08T23:32:03+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "ifiokotung@gmail.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/whats-new-page.md",
+      "summary": "See what's new on Slopper",
+      "details": "A new page at /changelog lists every release, newest first: what you can do now, what got fixed, and anything you need to act on. It's linked from the footer as \"What's new\", next to the version you're on.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8a6d3743d13f0ff234adcef5736c57151679d8b7",
+            "short_sha": "8a6d374",
+            "url": null,
+            "authored_at": "2026-10-08T23:14:06+01:00",
+            "committed_at": "2026-10-08T23:32:03+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "ifiokotung@gmail.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8a6d3743d13f0ff234adcef5736c57151679d8b7",
+            "short_sha": "8a6d374",
+            "url": null,
+            "authored_at": "2026-10-08T23:14:06+01:00",
+            "committed_at": "2026-10-08T23:32:03+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "ifiokotung@gmail.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.1.0 (2026-10-09)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "- **Release with monochange.** Changesets in `.changeset/` record every change worth releasing. User types (`user_feat`, `user_fix`, `user_change`) become the release notes on `/changelog`, read from `app/changelog/<version>.json`; every other type lands in `CHANGELOG.md`. `vp exec monochange run release` bumps `package.json`, writes both and commits on `main`; `vp exec monochange run publish` tags the release, pushes `main` with the tag, and waits until Deno Deploy serves it on slopper.day.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 8a6d374"
+            ]
+          }
+        ]
+      },
+      "rendered": "## 1.1.0 (2026-10-09)\n\n### Features\n\n- **Release with monochange.** Changesets in `.changeset/` record every change worth releasing. User types (`user_feat`, `user_fix`, `user_change`) become the release notes on `/changelog`, read from `app/changelog/<version>.json`; every other type lands in `CHANGELOG.md`. `vp exec monochange run release` bumps `package.json`, writes both and commits on `main`; `vp exec monochange run publish` tags the release, pushes `main` with the tag, and waits until Deno Deploy serves it on slopper.day.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 8a6d374"
+    },
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "user",
+      "stream": "user",
+      "path": "app/changelog/1.1.0.json",
+      "format": "json",
+      "notes": {
+        "title": "1.1.0 (2026-10-09)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "New",
+            "collapsed": false,
+            "entries": [
+              "- **See what's new on Slopper.** A new page at /changelog lists every release, newest first: what you can do now, what got fixed, and anything you need to act on. It's linked from the footer as \"What's new\", next to the version you're on.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 8a6d374"
+            ]
+          }
+        ]
+      },
+      "rendered": "{\n  \"title\": \"1.1.0 (2026-10-09)\",\n  \"summary\": [],\n  \"sections\": [\n    {\n      \"title\": \"New\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"See what's new on Slopper\",\n          \"details_markdown\": \"A new page at /changelog lists every release, newest first: what you can do now, what got fixed, and anything you need to act on. It's linked from the footer as \\\"What's new\\\", next to the version you're on.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/whats-new-page.md\",\n            \"changeset_path\": \".changeset/whats-new-page.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"8a6d374\"\n            }\n          }\n        }\n      ]\n    }\n  ]\n}"
+    }
+  ],
+  "provider": null
+}
