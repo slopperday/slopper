@@ -210,8 +210,7 @@ export const OPERATIONS: Operation[] = [
   {
     name: "upload_screenshot",
     title: "Upload a screenshot",
-    description:
-      "Upload a PNG, JPEG, WebP or GIF (max 2 MB) as base64. It's checked first: explicit or hateful images are refused, and a mature one blurs any slop that shows it. Returns an id to pass in create_slop or update_slop screenshots, and the check's verdict (ok, mature, or unchecked when it couldn't run).",
+    description: `Upload a PNG, JPEG, WebP or GIF (max ${LIMITS.mediaBytes / 1024 / 1024} MB) as base64. It's checked first: explicit or hateful images are refused, and a mature one blurs any slop that shows it. Returns an id to pass in create_slop or update_slop screenshots, and the check's verdict (ok, mature, or unchecked when it couldn't run).`,
     inputSchema: {
       type: "object",
       properties: { base64: { type: "string", description: "Image bytes, base64 encoded (no data: prefix)." } },

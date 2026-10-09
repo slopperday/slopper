@@ -123,6 +123,8 @@ export interface CardItem {
   owner: PublicUser;
   vote: Vote;
   voteMode: VoteMode;
+  /** Blur its screenshots: NSFW, and the reader neither made it nor opted in to seeing NSFW. */
+  blur: boolean;
 }
 
 /** Hidden slops never show in feeds; NSFW ones only for people who opted in. */
@@ -157,6 +159,7 @@ export async function toCards(
       owner: publicUser(owner),
       vote: reader ? await voteOf(ctx, slop._id, reader._id) : 0,
       voteMode: !reader ? "login" : reader._id === slop.userId ? "own" : "vote",
+      blur: slop.nsfw && reader?._id !== slop.userId && reader?.showNsfw !== true,
     });
   }
   return cards;

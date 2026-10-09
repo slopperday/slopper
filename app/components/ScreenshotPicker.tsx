@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { LIMITS } from "~/lib/model";
 import { Icon } from "./Icon";
 
 export interface Screenshot {
@@ -6,16 +7,23 @@ export interface Screenshot {
   url: string;
 }
 
-const MAX_EDGE = 1600;
+/** Sharp at twice the size the slop page shows a screenshot, even on wide screens. */
+const MAX_EDGE = 2400;
+/** Lossy qualities to try, best first, until the image fits the upload limit. */
+const QUALITIES = [0.92, 0.86, 0.78] as const;
 
 /**
- * Downscales in the browser so uploads stay small. Re-encoding through a
- * canvas also strips EXIF and every other kind of metadata (GPS, camera,
- * editing history): a canvas holds only pixels, and createImageBitmap applies
- * the EXIF orientation before they're drawn. GIFs go up as they are to keep
- * the animation; they carry no EXIF, though they can hold comment blocks.
+ * Prepares a screenshot in the browser: no bigger than MAX_EDGE, as sharp
+ * as fits in LIMITS.mediaBytes. A PNG stays PNG (lossless, so text and UI
+ * edges stay crisp) when it fits; anything else, or a PNG too big, becomes
+ * WebP (JPEG where the browser can't encode WebP) at the best quality that
+ * fits. Re-encoding through a canvas also strips EXIF and every other kind
+ * of metadata (GPS, camera, editing history): a canvas holds only pixels,
+ * and createImageBitmap applies the EXIF orientation before they're drawn.
+ * GIFs go up as they are to keep the animation; they carry no EXIF, though
+ * they can hold comment blocks.
  */
-async function shrink(file: File): Promise<Blob> {
+async function prepare(file: File): Promise<Blob> {
   if (file.type === "image/gif") return file; // keep the animation
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
@@ -24,15 +32,24 @@ async function shrink(file: File): Promise<Blob> {
   canvas.height = Math.round(bitmap.height * scale);
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Canvas is unavailable");
+  context.imageSmoothingQuality = "high";
   context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
-  const encode = (type: string) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, 0.86));
-  const webp = await encode("image/webp");
-  if (webp?.type === "image/webp") return webp;
-  // Safari may not encode WebP.
-  const jpeg = await encode("image/jpeg");
-  if (!jpeg) throw new Error("Couldn't encode the image");
-  return jpeg;
+  const encode = (type: string, quality?: number) =>
+    new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+  const fits = (blob: Blob | null): blob is Blob => blob !== null && blob.size <= LIMITS.mediaBytes;
+
+  if (file.type === "image/png") {
+    const png = await encode("image/png");
+    if (fits(png)) return png;
+  }
+  // Safari may not encode WebP: toBlob then hands back a PNG instead.
+  const lossy = (await encode("image/webp", QUALITIES[0]))?.type === "image/webp" ? "image/webp" : "image/jpeg";
+  for (const quality of QUALITIES) {
+    const blob = await encode(lossy, quality);
+    if (fits(blob)) return blob;
+  }
+  throw new Error(`That image is too big even compressed. Try one under ${LIMITS.mediaBytes / 1024 / 1024} MB.`);
 }
 
 export function ScreenshotPicker({ initial, max }: { initial: readonly Screenshot[]; max: number }) {
@@ -52,7 +69,7 @@ export function ScreenshotPicker({ initial, max }: { initial: readonly Screensho
     for (const file of chosen) {
       try {
         const body = new FormData();
-        body.set("file", await shrink(file), file.name);
+        body.set("file", await prepare(file), file.name);
         const response = await fetch("/api/media", { method: "POST", body });
         const result = (await response.json()) as { id?: string; url?: string; contentCheck?: string; error?: string };
         const { id, url } = result;

@@ -9,6 +9,7 @@ import type { ConvexCaller } from "~/.server/convex";
 import { encodeBase64 } from "~/.server/encoding";
 import { BLOCKED_IMAGE, deleteOrphanedMedia, type UploadServices, uploadImage } from "~/.server/media";
 import { ConvexStorage, type MediaKind, type MediaLocation, type MediaStore, S3Bucket } from "~/.server/storage";
+import { LIMITS } from "~/lib/model";
 
 const modules = import.meta.glob("../convex/**/*.ts");
 
@@ -233,9 +234,9 @@ describe("upload check", () => {
       ok: false,
       error: "Use a PNG, JPEG, WebP or GIF image.",
     });
-    const huge = new Uint8Array(2 * 1024 * 1024 + 1);
+    const huge = new Uint8Array(LIMITS.mediaBytes + 1);
     huge.set(PNG);
-    expect(await upload(huge)).toEqual({ ok: false, error: "Images must be 2 MB or smaller." });
+    expect(await upload(huge)).toEqual({ ok: false, error: "Images must be 5 MB or smaller." });
     expect(check.bodies).toEqual([]);
   });
 });

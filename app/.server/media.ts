@@ -71,7 +71,8 @@ export async function uploadImage(
   services: UploadServices = uploadServices(),
 ): Promise<UploadResult> {
   if (bytes.byteLength === 0) return { ok: false, error: "Empty file." };
-  if (bytes.byteLength > LIMITS.mediaBytes) return { ok: false, error: "Images must be 2 MB or smaller." };
+  if (bytes.byteLength > LIMITS.mediaBytes)
+    return { ok: false, error: `Images must be ${LIMITS.mediaBytes / 1024 / 1024} MB or smaller.` };
   const contentType = sniffImageType(bytes);
   if (!contentType) return { ok: false, error: "Use a PNG, JPEG, WebP or GIF image." };
 

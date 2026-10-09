@@ -96,7 +96,7 @@ function SlopRow({
       )}
       <SlopCover
         slop={slop}
-        blur={slop.nsfw}
+        blur={item.blur}
         className={`shrink-0 self-start rounded-xl ${rank !== undefined ? "hidden sm:grid" : ""} ${lead ? "size-20" : "size-14 sm:size-16"}`}
       />
       <div className="min-w-0 flex-1">
@@ -169,7 +169,7 @@ export function SlopFeature({ item }: { item: CardItem }) {
   const screenshot = slop.screenshots.length > 0;
   return (
     <article className="group relative">
-      {screenshot && <SlopCover slop={slop} blur={slop.nsfw} className="mb-4 aspect-[16/10] w-full rounded-2xl" />}
+      {screenshot && <SlopCover slop={slop} blur={item.blur} className="mb-4 aspect-[16/10] w-full rounded-2xl" />}
       <div className="flex items-start justify-between gap-3">
         {!screenshot && <SlopCover slop={slop} className="size-14 shrink-0 rounded-xl" />}
         <div className="min-w-0 flex-1">
