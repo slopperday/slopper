@@ -3,8 +3,9 @@ import { formatMoney } from "./money";
 import type { NotificationKind } from "./notifications";
 
 /**
- * The daily digest email: everything that happened to a person's slops
- * since the last one, grouped by slop. Built in Convex, sent by Resend.
+ * What goes into the daily digest: everything that happened to a person's
+ * slops since the last one, summed up per slop. Convex gathers the items;
+ * `app/emails/digest.tsx` lays them out.
  */
 
 export interface DigestItem {
@@ -14,25 +15,13 @@ export interface DigestItem {
   amount: number | null;
 }
 
-export interface DigestInput {
-  username: string;
-  items: readonly DigestItem[];
-  /** The site's origin, for absolute links: emails have no base URL. */
-  appUrl: string;
-  unsubscribeUrl: string;
-}
-
-export interface DigestEmail {
-  subject: string;
-  text: string;
-  html: string;
-}
-
-interface SlopSummary {
+export interface SlopSummary {
   title: string;
+  /** Site-relative, e.g. `/@maker/tiltmaze`. */
   path: string;
   upvotes: number;
   pledges: number;
+  /** In cents. */
   pledged: number;
   feedback: number;
   kudos: number;
@@ -43,12 +32,13 @@ function count(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
-/** "3 upvotes, 2 pledges ($40.00) and 1 piece of feedback". */
-function joinParts(parts: string[]): string {
+/** "3 upvotes, 2 pledges and 1 piece of feedback". */
+function joinParts(parts: readonly string[]): string {
   return parts.length < 2 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 }
 
-function lineFor(summary: SlopSummary): string {
+/** One slop's news in a line: "won slop of the day 🏆, 2 upvotes and 1 pledge ($25.00)". */
+export function digestLine(summary: SlopSummary): string {
   const parts: string[] = [];
   if (summary.won) parts.push("won slop of the day 🏆");
   if (summary.upvotes) parts.push(count(summary.upvotes, "upvote", "upvotes"));
@@ -60,7 +50,8 @@ function lineFor(summary: SlopSummary): string {
   return joinParts(parts);
 }
 
-function summarise(username: string, items: readonly DigestItem[]): SlopSummary[] {
+/** Per slop, wins first, then the busiest. */
+export function summariseDigest(username: string, items: readonly DigestItem[]): SlopSummary[] {
   const bySlop = new Map<string, SlopSummary>();
   for (const { kind, slop, amount } of items) {
     let summary = bySlop.get(slop.id);
@@ -85,61 +76,21 @@ function summarise(username: string, items: readonly DigestItem[]): SlopSummary[
     else if (kind === "kudos") summary.kudos++;
     else summary.won = true;
   }
-  // Wins first, then the busiest.
   return [...bySlop.values()].sort(
     (a, b) => Number(b.won) - Number(a.won) || b.upvotes + b.pledges - (a.upvotes + a.pledges),
   );
 }
 
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
-}
-
-export function composeDigest({ username, items, appUrl, unsubscribeUrl }: DigestInput): DigestEmail {
-  const slops = summarise(username, items);
+/** The subject line, and the email's headline. */
+export function digestHeadline(slops: readonly SlopSummary[]): string {
   const winner = slops.find((slop) => slop.won);
+  if (winner) return `🏆 ${winner.title} won slop of the day`;
   const upvotes = slops.reduce((sum, slop) => sum + slop.upvotes, 0);
   const pledges = slops.reduce((sum, slop) => sum + slop.pledges, 0);
-  const subject = winner
-    ? `🏆 ${winner.title} won slop of the day`
-    : `Your slops got ${
-        joinParts(
-          [
-            upvotes ? count(upvotes, "upvote", "upvotes") : "",
-            pledges ? count(pledges, "pledge", "pledges") : "",
-          ].filter(Boolean),
-        ) || "some love"
-      }`;
-  const url = (path: string) => new URL(path, appUrl).href;
-  const settings = url("/settings#email-digest");
-
-  const text = [
-    `Here's what hit the wall since your last digest, @${username}:`,
-    "",
-    ...slops.map((slop) => `${slop.title}: ${lineFor(slop)}\n${url(slop.path)}`),
-    "",
-    `All notifications: ${url("/notifications")}`,
-    "",
-    "You get this at 9am your time, only on days something happened.",
-    `Stop it: ${unsubscribeUrl} (or in Settings: ${settings})`,
-  ].join("\n");
-
-  const html = `<!doctype html>
-<html lang="en">
-<body style="margin:0;padding:24px;background:#f4f5f0;color:#121410;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:16px;line-height:1.5">
-<div style="max-width:520px;margin:0 auto">
-<p style="margin:0 0 20px">Here's what hit the wall since your last digest, @${escapeHtml(username)}:</p>
-${slops
-  .map(
-    (slop) =>
-      `<p style="margin:0 0 16px"><a href="${escapeHtml(url(slop.path))}" style="color:#121410;font-weight:700">${escapeHtml(slop.title)}</a><br>${escapeHtml(lineFor(slop))}</p>`,
-  )
-  .join("\n")}
-<p style="margin:24px 0"><a href="${escapeHtml(url("/notifications"))}" style="color:#121410">All notifications</a></p>
-<p style="margin:0;color:#5c6157;font-size:13px">You get this at 9am your time, only on days something happened. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#5c6157">Stop these emails</a> or change it in <a href="${escapeHtml(settings)}" style="color:#5c6157">Settings</a>.</p>
-</div>
-</body>
-</html>`;
-
-  return { subject, text, html };
+  const news = joinParts(
+    [upvotes ? count(upvotes, "upvote", "upvotes") : "", pledges ? count(pledges, "pledge", "pledges") : ""].filter(
+      Boolean,
+    ),
+  );
+  return `Your slops got ${news || "some love"}`;
 }

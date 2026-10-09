@@ -2,12 +2,13 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import { nextDigestAt } from "./lib/digest";
-import { composeDigest, type DigestItem } from "../app/lib/digest";
+import type { DigestItem } from "../app/lib/digest";
 
 /**
  * Daily digest emails. Every hour this picks the people whose 9am has come
  * (`nextDigestAt`), gathers their unread notifications since the last
- * digest, and hands the emails to `digestSend.deliver` in one batch.
+ * digest, and hands them to `digestSend.deliver`, which renders the
+ * emails (`app/emails/digest.tsx`) and sends them in one batch.
  * People with nothing new get no email; their next digest is tomorrow.
  *
  * Off until RESEND_API_KEY is set on Convex. APP_URL (Convex) is the site
@@ -56,16 +57,20 @@ export const run = internalMutation({
       }
       await ctx.db.patch(user._id, { nextDigestAt: next, ...(items.length > 0 ? { digestSentAt: now } : {}) });
       if (items.length === 0) continue;
-      const unsubscribeUrl = new URL(`/unsubscribe/${user.emailToken}`, appUrl).href;
       emails.push({
         to: user.email,
-        unsubscribeUrl,
-        ...composeDigest({ username: user.username, items, appUrl, unsubscribeUrl }),
+        username: user.username,
+        items,
+        unsubscribeUrl: new URL(`/unsubscribe/${user.emailToken}`, appUrl).href,
       });
     }
 
     if (emails.length > 0) {
-      await ctx.scheduler.runAfter(0, internal.digestSend.deliver, { emails, idempotencyKey: `digest-${now}` });
+      await ctx.scheduler.runAfter(0, internal.digestSend.deliver, {
+        emails,
+        appUrl,
+        idempotencyKey: `digest-${now}`,
+      });
     }
     // More people due than one batch holds: carry on straight away.
     if (due.length === BATCH) await ctx.scheduler.runAfter(0, internal.digest.run, { now });

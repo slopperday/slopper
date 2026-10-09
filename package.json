@@ -8,6 +8,7 @@
     "convex": "convex dev",
     "keys": "node scripts/convex-keys.ts",
     "vapid": "node scripts/vapid-keys.ts",
+    "email": "email dev --dir app/emails --port 3030",
     "typegen": "react-router typegen",
     "start": "deno run -A deploy/main.ts"
   },
@@ -22,6 +23,7 @@
     "marked": "^18.1.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-email": "6.11.1",
     "react-router": "^8.4.0"
   },
   "devDependencies": {

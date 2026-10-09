@@ -27,7 +27,8 @@ test.describe("daily digest", () => {
   test("a maker gets yesterday's reactions by email and stops it from the link", async ({ seed, stack }) => {
     const { email, maker, slop, sent, unsubscribe } = await digestFor(seed, stack, "digester");
     expect(sent.subject).toBe("Your slops got 1 upvote");
-    expect(sent.text).toContain(`${slop.name}: 1 upvote`);
+    expect(sent.text).toContain(slop.name);
+    expect(sent.html).toContain("SLOPPER");
     expect(sent.text).toContain(`${stack.appUrl}${slop.path}`);
     expect(sent.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
     expect(unsubscribe.startsWith(`${stack.appUrl}/unsubscribe/`)).toBe(true);
