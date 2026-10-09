@@ -210,8 +210,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       '@monochange/cli':
-        specifier: 0.18.0
-        version: 0.18.0
+        specifier: 0.17.1
+        version: 0.17.1
       '@playwright/test':
         specifier: ^1.63.0
         version: 1.63.0
@@ -671,52 +671,52 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@monochange/cli-darwin-arm64@0.18.0':
-    resolution: {integrity: sha512-YimQ8eiaQST0rw1SfYty+OhW1zpMS7Kj2RmwWrecuYlBqGNLpO0fqc4R3El6HvOeUyW1I5Ultf8ooyxgGd/IoA==}
+  '@monochange/cli-darwin-arm64@0.17.1':
+    resolution: {integrity: sha512-hr3MTbCOb52YRogPjywUdhC779fwXEvpz+Jz/bXvXKbrINihReahoULied2ey06G0AmCVKOuHSn6OFpieDUgOQ==}
     cpu: [arm64]
     os: [darwin]
 
-  '@monochange/cli-darwin-x64@0.18.0':
-    resolution: {integrity: sha512-TMgmKHu7qGRM9ko5N2lS1kidYcMc/lHDGwxxP0vlJF0whkc7651MkLQ+x0lwoSnidJ2RQcMYLUr/mNGZsMtrvg==}
+  '@monochange/cli-darwin-x64@0.17.1':
+    resolution: {integrity: sha512-wtBcgnLO3MFzZujgsY7puy5oT+Kp604LEf1AlUILh7F7IkS+6Ho71qWHySndFDLMhb87TZYuHCU9FREsa+BLOw==}
     cpu: [x64]
     os: [darwin]
 
-  '@monochange/cli-linux-arm64-gnu@0.18.0':
-    resolution: {integrity: sha512-T1Y4lIknk0Ajwb0xltbgO+WwOTxQGRVSaBO4rWl3RZdS4B0g5912SY//FN/tN7cJ5OEyek32mgcM6BCKOosAmQ==}
+  '@monochange/cli-linux-arm64-gnu@0.17.1':
+    resolution: {integrity: sha512-icHm/h1lGWBh34RtuVKSErXsztBz4o9QXXmUL3L5LRXrNoRYu4jU1v00MdKRj6+TvA1snk6xdWH2KwTNvPFnEg==}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@monochange/cli-linux-arm64-musl@0.18.0':
-    resolution: {integrity: sha512-O/+kEx/PvyNrE0iA2xOODeSGK+jNiC2Kh8Pdhudg8OSkRUnc1KvCUBO5SjdfSS8kKlsP7jumWSV4xq4lepVw/Q==}
+  '@monochange/cli-linux-arm64-musl@0.17.1':
+    resolution: {integrity: sha512-6Bjss6u83suNufIZMucB4g4NevoVCw8cp9oARbsrKcc/rX/ql1BIMLs86F6EmggiDdFJwFdzaZh/F8zlWoRWJQ==}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@monochange/cli-linux-x64-gnu@0.18.0':
-    resolution: {integrity: sha512-EMu5u2dcmmdbouwzC2/9Q2a7hPWgIDwk9DwvypLsdPMlOc0EplETajq41VawWihG2fYJnqOnPXsuf/4isbThBQ==}
+  '@monochange/cli-linux-x64-gnu@0.17.1':
+    resolution: {integrity: sha512-kkWw8nsImaEbwDpKbCN7rdDfIj1aiBYeuywL6qxNTu2Y8HAMXNUZESc3dBrNQLZB1Lzfk9bGp8i9X0zOO7HPMQ==}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@monochange/cli-linux-x64-musl@0.18.0':
-    resolution: {integrity: sha512-plupQ5Vw7ZAikOGGrLVtPRDFQFSvvKnSr0ePUWKN41wYkdF8mRn0BdGcvVwZWmwcNSN7C/S5RLfCYHg01Lr7fQ==}
+  '@monochange/cli-linux-x64-musl@0.17.1':
+    resolution: {integrity: sha512-vuKF2cISFpmIR6BllFyrMmIyJDs/H9F+pmiskfTLoriLkvjq9R8cosV99LqtZWuYC0UfVUo1eo/vhDRAUXU4iw==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@monochange/cli-win32-arm64-msvc@0.18.0':
-    resolution: {integrity: sha512-fh7wEVGoHWK+xS3kK1522EYY6NeG8zcplI8rihVKHMRZ+h7l1IS/WVXHdhoVNtVqv9iPxkr8ZrLTij+2qAFcrA==}
+  '@monochange/cli-win32-arm64-msvc@0.17.1':
+    resolution: {integrity: sha512-D0Ym2yS6jSI7ZvQK7INXE7hJrEWpBciigRRQ5ZD2z7nGFjVm22q+BhtOpanHQTLxuwO8FrxQy/KVuBKlm2nldg==}
     cpu: [arm64]
     os: [win32]
 
-  '@monochange/cli-win32-x64-msvc@0.18.0':
-    resolution: {integrity: sha512-K/qAYBSa/4SBUDgLfd3dTXnFoZR9tKGQ/LoB1D46NxaKhrgMP6R0GT2KRHdvI9bel6v+dELklszEFpREb8ca8w==}
+  '@monochange/cli-win32-x64-msvc@0.17.1':
+    resolution: {integrity: sha512-JdH8XRIY68V1rPkHoYE9dQ816ioGTrLXkhFCoFQ9bT/KAaSWHTFi4Jc5O6BRYnnukv0IuPv7+S+KdFnTuTJZ+Q==}
     cpu: [x64]
     os: [win32]
 
-  '@monochange/cli@0.18.0':
-    resolution: {integrity: sha512-STWhD/1QjqEpK1dysxS3BGwB0F1/7a3Ga0HCpKbFePgMeeomzDftXXZuqxD/zLqLkgxo9edD1C/ZLAOQf0nwRg==}
+  '@monochange/cli@0.17.1':
+    resolution: {integrity: sha512-nTIGGlAnCKBysZfkvdUsFJiuTyxqXWoXpc713u1s/0Os2M++GtGnb5Xz/ehakLn+K6QX/s7z6/g6hf3t0WEbMQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -2859,40 +2859,40 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@monochange/cli-darwin-arm64@0.18.0':
+  '@monochange/cli-darwin-arm64@0.17.1':
     optional: true
 
-  '@monochange/cli-darwin-x64@0.18.0':
+  '@monochange/cli-darwin-x64@0.17.1':
     optional: true
 
-  '@monochange/cli-linux-arm64-gnu@0.18.0':
+  '@monochange/cli-linux-arm64-gnu@0.17.1':
     optional: true
 
-  '@monochange/cli-linux-arm64-musl@0.18.0':
+  '@monochange/cli-linux-arm64-musl@0.17.1':
     optional: true
 
-  '@monochange/cli-linux-x64-gnu@0.18.0':
+  '@monochange/cli-linux-x64-gnu@0.17.1':
     optional: true
 
-  '@monochange/cli-linux-x64-musl@0.18.0':
+  '@monochange/cli-linux-x64-musl@0.17.1':
     optional: true
 
-  '@monochange/cli-win32-arm64-msvc@0.18.0':
+  '@monochange/cli-win32-arm64-msvc@0.17.1':
     optional: true
 
-  '@monochange/cli-win32-x64-msvc@0.18.0':
+  '@monochange/cli-win32-x64-msvc@0.17.1':
     optional: true
 
-  '@monochange/cli@0.18.0':
+  '@monochange/cli@0.17.1':
     optionalDependencies:
-      '@monochange/cli-darwin-arm64': 0.18.0
-      '@monochange/cli-darwin-x64': 0.18.0
-      '@monochange/cli-linux-arm64-gnu': 0.18.0
-      '@monochange/cli-linux-arm64-musl': 0.18.0
-      '@monochange/cli-linux-x64-gnu': 0.18.0
-      '@monochange/cli-linux-x64-musl': 0.18.0
-      '@monochange/cli-win32-arm64-msvc': 0.18.0
-      '@monochange/cli-win32-x64-msvc': 0.18.0
+      '@monochange/cli-darwin-arm64': 0.17.1
+      '@monochange/cli-darwin-x64': 0.17.1
+      '@monochange/cli-linux-arm64-gnu': 0.17.1
+      '@monochange/cli-linux-arm64-musl': 0.17.1
+      '@monochange/cli-linux-x64-gnu': 0.17.1
+      '@monochange/cli-linux-x64-musl': 0.17.1
+      '@monochange/cli-win32-arm64-msvc': 0.17.1
+      '@monochange/cli-win32-x64-msvc': 0.17.1
 
   '@oxc-project/runtime@0.151.0': {}
 
