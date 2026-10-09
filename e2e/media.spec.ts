@@ -41,8 +41,9 @@ test.describe("screenshots", () => {
     const checked = (await checkRequests(stack)).find((request) => request.text.includes(shotName));
     expect(checked).toMatchObject({ images: 1, verdict: "ok" });
     const stored = (await bucketObjects(stack)).find((object) => object.sha256 === checked?.imageHashes[0]);
-    expect(stored).toMatchObject({ contentType: "image/webp", cacheControl: "public, max-age=31536000, immutable" });
-    expect(stored?.key).toMatch(/^screenshots\/[\w-]+\.webp$/);
+    // A PNG screenshot stays a lossless PNG, so its text stays crisp.
+    expect(stored).toMatchObject({ contentType: "image/png", cacheControl: "public, max-age=31536000, immutable" });
+    expect(stored?.key).toMatch(/^screenshots\/[\w-]+\.png$/);
     const url = `${stack.mediaUrl}/${stored?.key}`;
     await expect(thumbnail).toHaveAttribute("src", url);
 
@@ -51,7 +52,7 @@ test.describe("screenshots", () => {
     await expect(page.getByRole("status")).toHaveText(`${name} is on the wall.`);
     await expect(page.getByRole("img", { name: `${name} screenshot 1` })).toHaveAttribute("src", url);
     const served = await fetch(url);
-    expect(served.headers.get("content-type")).toBe("image/webp");
+    expect(served.headers.get("content-type")).toBe("image/png");
     expect(
       createHash("sha256")
         .update(new Uint8Array(await served.arrayBuffer()))
