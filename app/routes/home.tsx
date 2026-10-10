@@ -7,7 +7,7 @@ import { goalProgress, type Goal } from "~/lib/goal";
 import { formatDay } from "~/lib/dates";
 import { seo } from "~/lib/seo";
 import { RaceList, SlopFeature, SlopList } from "~/components/SlopList";
-import { Countdown, RACE_CLOCK_LABEL } from "~/components/Countdown";
+import { Countdown } from "~/components/Countdown";
 import { GoalGrid } from "~/components/GoalGrid";
 import { JustSlopped } from "~/components/JustSlopped";
 import { UpdatesList } from "~/components/UpdatesList";
@@ -66,7 +66,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             line="Live, ranked by votes. Closes at midnight UTC."
             action={
               <>
-                <Countdown utc label={RACE_CLOCK_LABEL} className="text-[1.6rem]" />
+                <Countdown className="text-[1.6rem]" />
                 <Link to="/today" className="btn btn-sm">
                   Full race <Icon name="right" className="size-4" />
                 </Link>

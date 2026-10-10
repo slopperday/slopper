@@ -55,6 +55,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
   const location = useLocation();
   useEffect(() => {
+    // Tells the server the visitor's time zone, so a goal day ends at their midnight
+    // and a new account starts in their zone, before anyone has signed in.
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    document.cookie = `slopper_tz=${encodeURIComponent(zone)}; path=/; max-age=31536000; samesite=lax`;
+  }, []);
+  useEffect(() => {
     // Replacing the entry in place keeps React Router from loading the page again.
     const clean = withoutRedirectMarker(window.location.href);
     if (clean !== null) window.history.replaceState(window.history.state, "", clean);

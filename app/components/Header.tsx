@@ -40,7 +40,6 @@ export function Header({ user, isAdmin, path }: { user: HeaderUser | null; isAdm
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
-          {/* Mounted at every width: it also tells the server the visitor's time zone. */}
           <span className="hidden lg:inline-flex">
             <Countdown className="text-[1.15rem]" />
           </span>
