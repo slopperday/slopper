@@ -107,7 +107,7 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
       <SettingsNav />
       <h1 className="title-1 mt-10">Auto-post</h1>
       <p className="lede mt-4 max-w-2xl">
-        Connected accounts post your launches and updates for you. Connect as many X accounts as you like: give each app
+        Connected accounts post your launches and updates for you. Connect as many accounts as you like: give each app
         its own account to <strong className="text-ink">post</strong>, and let your personal account{" "}
         <strong className="text-ink">repost</strong>. Each slop can override these defaults.
       </p>
@@ -157,18 +157,25 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
       ))}
 
       <h2 className="title-2 mt-16">Connect</h2>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <ConnectCard
-          title="X"
-          body="Post launches and updates. To add another account, switch accounts on x.com first, then connect again. X charges per post, billed to whoever runs this Slopper."
-          href={loaderData.xEnabled ? "/auth/x?intent=connect" : null}
-        />
-        <ConnectCard
-          title="LinkedIn"
-          body="Post to your feed with a link card. LinkedIn makes everyone reconnect every 60 days."
-          href={loaderData.linkedinEnabled ? "/auth/linkedin?intent=connect" : null}
-        />
-      </div>
+      {/* Only networks this server has keys for; the rest stay hidden rather than shown as broken. */}
+      {(loaderData.xEnabled || loaderData.linkedinEnabled) && (
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          {loaderData.xEnabled && (
+            <ConnectCard
+              title="X"
+              body="Post launches and updates. To add another account, switch accounts on x.com first, then connect again. X charges per post, billed to whoever runs this Slopper."
+              href="/auth/x?intent=connect"
+            />
+          )}
+          {loaderData.linkedinEnabled && (
+            <ConnectCard
+              title="LinkedIn"
+              body="Post to your feed with a link card. LinkedIn makes everyone reconnect every 60 days."
+              href="/auth/linkedin?intent=connect"
+            />
+          )}
+        </div>
+      )}
 
       <Form method="post" className="panel mt-4">
         <input type="hidden" name="intent" value="bluesky" />
@@ -225,18 +232,14 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
   );
 }
 
-function ConnectCard({ title, body, href }: { title: string; body: string; href: string | null }) {
+function ConnectCard({ title, body, href }: { title: string; body: string; href: string }) {
   return (
     <div className="panel flex flex-col">
       <h3 className="font-display text-[1.6rem] leading-none font-extrabold">{title}</h3>
       <p className="mt-2 flex-1 text-[0.9375rem] text-muted">{body}</p>
-      {href ? (
-        <a href={href} className="btn btn-ink btn-sm mt-4 self-start">
-          Connect {title}
-        </a>
-      ) : (
-        <p className="mt-4 text-sm font-bold text-muted">Not set up on this server</p>
-      )}
+      <a href={href} className="btn btn-ink btn-sm mt-4 self-start">
+        Connect {title}
+      </a>
     </div>
   );
 }

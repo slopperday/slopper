@@ -6,7 +6,7 @@ import { convex } from "~/.server/convex";
 import { notFound } from "~/.server/http";
 import { addDays, formatDay, isIsoDate } from "~/lib/dates";
 import { seo } from "~/lib/seo";
-import { Countdown, RACE_CLOCK_LABEL } from "~/components/Countdown";
+import { Countdown } from "~/components/Countdown";
 import { RaceList } from "~/components/SlopList";
 import { EmptyState } from "~/components/Shared";
 import { Icon } from "~/components/Icon";
@@ -55,7 +55,7 @@ export default function Day({ loaderData }: Route.ComponentProps) {
         </p>
       ) : (
         <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
-          <Countdown utc label={RACE_CLOCK_LABEL} className="text-[2.25rem]" />
+          <Countdown className="text-[2.25rem]" />
           <p className="text-muted">Live, ranked by votes. The top slop at midnight UTC wins slop of the day.</p>
         </div>
       )}
