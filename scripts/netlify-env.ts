@@ -2,7 +2,8 @@
  * Sets the production environment of the Netlify site from monosecret.toml:
  * plain values from its defaults, and secrets from the 1Password item as
  * Netlify secrets, which can't be read back. Values only reach the
- * production context and Netlify Functions.
+ * production context. No `--scope`: netlify-cli 27 exits 0 without setting
+ * anything when it's given, so every variable is checked once it's set.
  *
  *   vp run env:netlify             # resolve and set every variable
  *   vp run env:netlify --dry-run   # list what would be set; reads no secrets
@@ -18,6 +19,16 @@ const NETLIFY_SITE = "20e2e1d0-81fc-4370-a6f4-ea00cff5716d";
 
 interface Manifest {
   profiles: { default: { secrets: Record<string, { hasDefault: boolean }> } };
+}
+
+/** Whether a value decodes the way app/.server/convex.ts reads SLOPPER_JWT_PRIVATE_KEY. */
+function isPrivateJwk(value: string): boolean {
+  try {
+    const jwk: { d?: unknown; kid?: unknown } = JSON.parse(atob(value));
+    return typeof jwk.d === "string" && typeof jwk.kid === "string";
+  } catch {
+    return false;
+  }
 }
 
 function run(command: string, args: string[]): string {
@@ -37,7 +48,15 @@ const values: Record<string, string | null> = JSON.parse(
   run("monosecret", ["--reason", "Set slopper.day's production environment on Netlify", "export", "--format", "json"]),
 );
 
-let set = 0;
+// A key that lost a character on its way into 1Password fails every
+// Convex call; catch it here, before Netlify gets anything.
+const jwtKey = values.SLOPPER_JWT_PRIVATE_KEY;
+if (jwtKey && !isPrivateJwk(jwtKey)) {
+  console.error("SLOPPER_JWT_PRIVATE_KEY isn't a base64 private JWK. Copy it into 1Password again.");
+  process.exit(1);
+}
+
+const wanted: string[] = [];
 for (const [name, { hasDefault }] of declared) {
   const value = values[name];
   // Optional secrets that aren't in the item yet (X, the content check).
@@ -46,20 +65,17 @@ for (const [name, { hasDefault }] of declared) {
     continue;
   }
   const secret = hasDefault ? [] : ["--secret"];
-  run("netlify", [
-    "env:set",
-    name,
-    value,
-    "--context",
-    "production",
-    "--scope",
-    "functions",
-    ...secret,
-    "--site",
-    NETLIFY_SITE,
-    "--force",
-  ]);
+  run("netlify", ["env:set", name, value, "--context", "production", ...secret, "--site", NETLIFY_SITE, "--force"]);
   console.log(`set ${name}${secret.length ? " (secret)" : ""}`);
-  set++;
+  wanted.push(name);
 }
-console.log(`Set ${set} variables on Netlify. Deploy again for functions to see them.`);
+
+const onNetlify = new Set(
+  Object.keys(JSON.parse(run("netlify", ["env:list", "--json", "--context", "production", "--site", NETLIFY_SITE]))),
+);
+const missing = wanted.filter((name) => !onNetlify.has(name));
+if (missing.length > 0) {
+  console.error(`Netlify doesn't have ${missing.join(", ")} after setting them.`);
+  process.exit(1);
+}
+console.log(`Set ${wanted.length} variables on Netlify. Deploy again for functions to see them.`);
