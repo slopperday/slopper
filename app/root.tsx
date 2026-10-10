@@ -17,6 +17,8 @@ import { FlashBanner } from "./components/FlashBanner";
 import { LiveProvider } from "./components/Live";
 import { Tiles } from "./components/Tiles";
 import "./app.css";
+import bigShouldersLatin from "@fontsource-variable/big-shoulders/files/big-shoulders-latin-standard-normal.woff2?url";
+import schibstedGroteskLatin from "@fontsource-variable/schibsted-grotesk/files/schibsted-grotesk-latin-wght-normal.woff2?url";
 
 export const middleware: Route.MiddlewareFunction[] = [csrfMiddleware, viewerMiddleware];
 
@@ -38,12 +40,10 @@ export const links: Route.LinksFunction = () => [
   { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
   // Lets phones install Slopper, which iOS needs before it shows notifications.
   { rel: "manifest", href: "/manifest.webmanifest" },
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400..700&family=Big+Shoulders:opsz,wght@10..72,600..900&family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&display=swap",
-  },
+  // Every page opens with both faces (app.css declares them), so fetch them alongside the
+  // stylesheet instead of after it, and they're usually in before the first paint.
+  { rel: "preload", href: bigShouldersLatin, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
+  { rel: "preload", href: schibstedGroteskLatin, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
   { rel: "alternate", type: "application/rss+xml", title: "Slopper: fresh slop", href: "/feed.xml" },
 ];
 

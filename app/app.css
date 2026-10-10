@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@import "@fontsource-variable/big-shoulders/standard.css";
+@import "@fontsource-variable/schibsted-grotesk/wght.css";
+@import "@fontsource-variable/schibsted-grotesk/wght-italic.css";
+@import "@fontsource-variable/atkinson-hyperlegible-mono/wght.css";
 
 /*
  * Slopper's look: a departures board for launches.
@@ -12,6 +16,83 @@
  * Everything else stays out of the way: no borders where space will do, no
  * shadows, no tilted cards.
  */
+
+/*
+ * Stand-ins shown until the self-hosted fonts arrive. Each one is a system
+ * font scaled to the real font's average letter width and line metrics, so
+ * the swap changes letter shapes but doesn't rewrap text or move the page.
+ * Ascent and descent come from the fonts' hhea tables, divided by size-adjust
+ * because it scales them too. size-adjust is measured against the homepage's
+ * own text and leans a touch narrow: a tight row that fits the real font then
+ * still fits its stand-in.
+ */
+@font-face {
+  font-family: "Big Shoulders Fallback";
+  src: local("Arial Narrow Bold"), local("ArialNarrow-Bold");
+  font-weight: 100 900;
+  size-adjust: 100%;
+  ascent-override: 98.6%;
+  descent-override: 21.5%;
+  line-gap-override: 0%;
+}
+
+/*
+ * Capitals and digits don't scale like Big Shoulders' lowercase: its capitals
+ * are much narrower than Arial Narrow's, its digits a little wider, and its 1
+ * is barely half a digit. Each gets its own size so counters and caps keep their width.
+ */
+@font-face {
+  font-family: "Big Shoulders Fallback";
+  src: local("Arial Narrow Bold"), local("ArialNarrow-Bold");
+  font-weight: 100 900;
+  unicode-range: U+0041-005A;
+  size-adjust: 81%;
+  ascent-override: 121.7%;
+  descent-override: 26.5%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Big Shoulders Fallback";
+  src: local("Arial Narrow Bold"), local("ArialNarrow-Bold");
+  font-weight: 100 900;
+  unicode-range: U+0030, U+0032-0039;
+  size-adjust: 108%;
+  ascent-override: 91.3%;
+  descent-override: 19.9%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Big Shoulders Fallback";
+  src: local("Arial Narrow Bold"), local("ArialNarrow-Bold");
+  font-weight: 100 900;
+  unicode-range: U+0031;
+  size-adjust: 61.5%;
+  ascent-override: 160.2%;
+  descent-override: 34.9%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Schibsted Grotesk Fallback";
+  src: local("Arial"), local("ArialMT");
+  font-weight: 100 599;
+  size-adjust: 102.8%;
+  ascent-override: 95%;
+  descent-override: 25.1%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Schibsted Grotesk Fallback";
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  font-weight: 600 900;
+  size-adjust: 101%;
+  ascent-override: 96.7%;
+  descent-override: 25.5%;
+  line-gap-override: 0%;
+}
 
 :root {
   --ground: #f4f5f0;
@@ -87,9 +168,9 @@
 }
 
 @theme inline {
-  --font-display: "Big Shoulders", "Arial Narrow", ui-sans-serif, sans-serif;
-  --font-sans: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, "SFMono-Regular", monospace;
+  --font-display: "Big Shoulders Variable", "Big Shoulders Fallback", ui-sans-serif, sans-serif;
+  --font-sans: "Schibsted Grotesk Variable", "Schibsted Grotesk Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono Variable", ui-monospace, "SFMono-Regular", monospace;
 
   --color-ground: var(--ground);
   --color-sunk: var(--sunk);
