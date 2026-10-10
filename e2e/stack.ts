@@ -194,15 +194,17 @@ async function main(): Promise<void> {
   writeFileSync(envFile, `CONVEX_SELF_HOSTED_URL=${CONVEX_URL}\nCONVEX_SELF_HOSTED_ADMIN_KEY=${adminKey}\n`);
   const keys = await generateServerKeys();
   const convex = join(ROOT, "node_modules", ".bin", "convex");
-  run(convex, ["env", "set", "--env-file", envFile, "SLOPPER_JWT_ISSUER", APP_URL]);
-  run(convex, ["env", "set", "--env-file", envFile, "SLOPPER_JWKS", keys.jwks]);
-  run(convex, ["env", "set", "--env-file", envFile, "MEDIA_PUBLIC_URL", MEDIA_URL]);
-  run(convex, ["env", "set", "--env-file", envFile, "APP_URL", APP_URL]);
-  run(convex, ["env", "set", "--env-file", envFile, "RESEND_API_KEY", "e2e-resend"]);
-  run(convex, ["env", "set", "--env-file", envFile, "RESEND_BASE_URL", CHECK_URL]);
+  // `--` ends the options: a random base64url key can start with "-".
+  const setEnv = (name: string, value: string) => run(convex, ["env", "set", "--env-file", envFile, "--", name, value]);
+  setEnv("SLOPPER_JWT_ISSUER", APP_URL);
+  setEnv("SLOPPER_JWKS", keys.jwks);
+  setEnv("MEDIA_PUBLIC_URL", MEDIA_URL);
+  setEnv("APP_URL", APP_URL);
+  setEnv("RESEND_API_KEY", "e2e-resend");
+  setEnv("RESEND_BASE_URL", CHECK_URL);
   const vapid = await generateVapidKeys();
-  run(convex, ["env", "set", "--env-file", envFile, "VAPID_PUBLIC_KEY", vapid.publicKey]);
-  run(convex, ["env", "set", "--env-file", envFile, "VAPID_PRIVATE_KEY", vapid.privateKey]);
+  setEnv("VAPID_PUBLIC_KEY", vapid.publicKey);
+  setEnv("VAPID_PRIVATE_KEY", vapid.privateKey);
   run(convex, ["deploy", "--env-file", envFile, "--codegen", "disable", "--typecheck", "disable"]);
 
   // 3. The content check and the bucket.

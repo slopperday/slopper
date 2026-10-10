@@ -24,7 +24,7 @@ const print = args.has("--print");
 const { publicKey, privateKey } = await generateVapidKeys();
 
 const convex = (name: string, value: string) =>
-  execFileSync("node_modules/.bin/convex", ["env", "set", ...(prod ? ["--prod"] : []), name, value], {
+  execFileSync("node_modules/.bin/convex", ["env", "set", ...(prod ? ["--prod"] : []), "--", name, value], {
     stdio: "inherit",
   });
 convex("VAPID_PUBLIC_KEY", publicKey);
