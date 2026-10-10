@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink } from "react-router";
 import type { shareIntents } from "~/lib/compose";
+import { Icon } from "./Icon";
 
 /** Small shared widgets. */
 
@@ -23,6 +24,29 @@ export function CopyButton({ value, label = "Copy link" }: { value: string; labe
       }}
     >
       <span aria-live="polite">{copied ? "Copied ✓" : label}</span>
+    </button>
+  );
+}
+
+/** The copy icon on its own, for values shown in a row: a check confirms the copy. */
+export function CopyIconButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="btn btn-quiet btn-sm px-2.5"
+      aria-label={label}
+      title={label}
+      onClick={async () => {
+        await navigator.clipboard.writeText(value);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1600);
+      }}
+    >
+      <Icon name={copied ? "check" : "copy"} className="size-5" />
+      <span className="sr-only" aria-live="polite">
+        {copied ? "Copied" : ""}
+      </span>
     </button>
   );
 }

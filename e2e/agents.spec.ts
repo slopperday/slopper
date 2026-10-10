@@ -18,10 +18,22 @@ test.describe("agents run Slopper", () => {
     await page.getByLabel("Token name").fill("Claude Code on my laptop");
     await page.getByRole("button", { name: "Create token" }).click();
     await expect(page.getByText("Your new token. Copy it now; it won't be shown again.")).toBeVisible();
-    const token = (await page.locator("code").first().textContent())?.trim() ?? "";
-    expect(token.length).toBeGreaterThan(20);
-    // The connection snippets carry it.
+    // Hidden until asked for, here and in the snippets, in case the screen is being shared.
+    const shown = page.getByTestId("new-token");
+    await expect(shown).toHaveText(/^slp_•+$/);
+    await expect(page.getByText(/Bearer slp_[^•]/)).toHaveCount(0);
+
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.getByRole("button", { name: "Copy token" }).click();
+    const token = await page.evaluate(() => navigator.clipboard.readText());
+    expect(token).toMatch(/^slp_[\w-]{20,}$/);
+
+    await page.getByRole("button", { name: "Reveal token" }).click();
+    await expect(shown).toHaveText(token);
+    // The connection snippets carry it once it's revealed.
     await expect(page.getByText(`Authorization: Bearer ${token}`).first()).toBeVisible();
+    await page.getByRole("button", { name: "Hide token" }).click();
+    await expect(shown).toHaveText(/^slp_•+$/);
 
     const headers = { authorization: `Bearer ${token}` };
     const me = await request.get("/api/v1/me", { headers });
