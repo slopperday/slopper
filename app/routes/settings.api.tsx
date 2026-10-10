@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { data, Form } from "react-router";
 import type { Route } from "./+types/settings.api";
 import { api } from "@convex/_generated/api";
@@ -9,7 +10,13 @@ import { formText } from "~/.server/forms";
 import { redirectWithFlash } from "~/.server/http";
 import { timeAgo } from "~/lib/dates";
 import { seo } from "~/lib/seo";
-import { CopyButton, SettingsNav } from "~/components/Shared";
+import { CopyButton, CopyIconButton, SettingsNav } from "~/components/Shared";
+import { Icon } from "~/components/Icon";
+
+/** Keeps the "slp_" prefix so people can tell what it is, and hides the rest. */
+function maskToken(token: string): string {
+  return `${token.slice(0, 4)}${"•".repeat(24)}`;
+}
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const user = requireUser(context.get(viewerContext), request);
@@ -36,8 +43,12 @@ export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "
 
 export default function ApiSettings({ loaderData, actionData }: Route.ComponentProps) {
   const { tokens, origin } = loaderData;
-  const token = actionData?.token ?? "<token>";
-  const snippets = [
+  const newToken = actionData?.token ?? null;
+  // A new token stays hidden until asked for, in case the screen is being shared or streamed.
+  // Revealing is per token: the next one made starts hidden again.
+  const [revealedToken, setRevealedToken] = useState<string | null>(null);
+  const revealed = newToken !== null && revealedToken === newToken;
+  const snippetsFor = (token: string) => [
     {
       label: "Claude Code",
       code: `claude mcp add --transport http slopper ${origin}/mcp --header "Authorization: Bearer ${token}"`,
@@ -55,6 +66,9 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
       code: `curl ${origin}/api/v1/me -H "Authorization: Bearer ${token}"`,
     },
   ];
+  // What's copied always holds the real token; what's shown holds it only once revealed.
+  const copied = snippetsFor(newToken ?? "<token>");
+  const shown = snippetsFor(newToken && !revealed ? maskToken(newToken) : (newToken ?? "<token>"));
   return (
     <section className="mx-auto max-w-3xl px-4 pt-10">
       <SettingsNav />
@@ -68,14 +82,27 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
         .
       </p>
 
-      {actionData?.token && (
+      {newToken && (
         <div className="panel mt-8">
           <p className="font-bold">Your new token. Copy it now; it won't be shown again.</p>
-          <code className="mt-3 block overflow-x-auto rounded-xl bg-raised p-3 font-mono text-sm">
-            {actionData.token}
-          </code>
-          <div className="mt-3 max-w-48">
-            <CopyButton value={actionData.token} label="Copy token" />
+          <div className="mt-3 flex items-center gap-1 rounded-xl bg-raised py-1.5 pr-1.5 pl-3">
+            <code
+              className="min-w-0 flex-1 overflow-x-auto font-mono text-sm whitespace-nowrap"
+              data-testid="new-token"
+            >
+              {revealed ? newToken : maskToken(newToken)}
+            </code>
+            <button
+              type="button"
+              className="btn btn-quiet btn-sm px-2.5"
+              aria-label={revealed ? "Hide token" : "Reveal token"}
+              title={revealed ? "Hide token" : "Reveal token"}
+              aria-pressed={revealed}
+              onClick={() => setRevealedToken(revealed ? null : newToken)}
+            >
+              <Icon name={revealed ? "eyeOff" : "eye"} className="size-5" />
+            </button>
+            <CopyIconButton value={newToken} label="Copy token" />
           </div>
         </div>
       )}
@@ -118,14 +145,14 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
 
       <h2 className="title-2 mt-16">Connect your agent</h2>
       <div className="mt-6 grid gap-7">
-        {snippets.map((snippet) => (
+        {shown.map((snippet, index) => (
           <div key={snippet.label} className="min-w-0">
             <p className="field-label">{snippet.label}</p>
             <pre className="overflow-x-auto rounded-xl bg-sunk p-4 font-mono text-[0.8125rem] leading-relaxed">
               {snippet.code}
             </pre>
             <div className="mt-2 max-w-40">
-              <CopyButton value={snippet.code} label="Copy" />
+              <CopyButton value={copied[index].code} label="Copy" />
             </div>
           </div>
         ))}
