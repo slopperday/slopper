@@ -12,7 +12,8 @@ import { announce, summarize } from "~/.server/social/announce";
 import { goalDayFor } from "~/lib/goal";
 import { localDate } from "~/lib/dates";
 import { LIMITS, NETWORK_LABELS } from "~/lib/model";
-import { launchTitle, slopPath } from "~/lib/display";
+import { launchTitle, listWords, slopPath } from "~/lib/display";
+import { useAutopostNetworks } from "~/components/Shared";
 import { launchPrompt, relaunchPrompt } from "~/lib/prompts";
 import { seo } from "~/lib/seo";
 import { Field, SlopFields } from "~/components/SlopFields";
@@ -129,6 +130,7 @@ export const meta: Route.MetaFunction = ({ matches, loaderData }) =>
 
 export default function NewSlop({ loaderData, actionData }: Route.ComponentProps) {
   const { goal, autopost, relaunch } = loaderData;
+  const networks = useAutopostNetworks();
   const navigation = useNavigation();
   const submitting = navigation.state === "submitting" && (navigation.formAction ?? "").startsWith("/new");
   const errors: Record<string, string> = actionData?.errors ?? {};
@@ -232,7 +234,7 @@ export default function NewSlop({ loaderData, actionData }: Route.ComponentProps
             </label>
           ) : (
             <p className="text-muted">
-              Want this posted to X, LinkedIn or Bluesky automatically?{" "}
+              Want this posted to {listWords(networks, "or")} automatically?{" "}
               <Link to="/settings/autopost" className="link text-ink">
                 Connect accounts
               </Link>

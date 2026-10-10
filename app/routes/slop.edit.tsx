@@ -138,7 +138,7 @@ export default function EditSlop({ loaderData, actionData }: Route.ComponentProp
       <section id="autopost" className="mt-20 scroll-mt-24 border-t border-line pt-12">
         <h2 className="title-2">Auto-post for {slop.name}</h2>
         <p className="mt-3 text-muted">
-          Choose who speaks for this slop. Give it its own X account to post, and let your personal account repost it.
+          Choose who speaks for this slop. Give it its own account to post, and let your personal account repost it.
         </p>
         {accounts.length === 0 ? (
           <Link to="/settings/autopost" className="btn mt-5">

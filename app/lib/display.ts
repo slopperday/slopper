@@ -55,3 +55,13 @@ export function plural(count: number, one: string, many: string): string {
 export function launchTitle(slop: { name: string; launchLabel: string | null }): string {
   return slop.launchLabel ? `${slop.name} · ${slop.launchLabel}` : slop.name;
 }
+
+const LISTS = {
+  and: new Intl.ListFormat("en-GB", { type: "conjunction" }),
+  or: new Intl.ListFormat("en-GB", { type: "disjunction" }),
+};
+
+/** "X, LinkedIn and Bluesky", or with "or". */
+export function listWords(words: readonly string[], joiner: keyof typeof LISTS): string {
+  return LISTS[joiner].format(words);
+}

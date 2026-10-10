@@ -12,7 +12,8 @@ import { GoalGrid } from "~/components/GoalGrid";
 import { JustSlopped } from "~/components/JustSlopped";
 import { UpdatesList } from "~/components/UpdatesList";
 import { StreakList } from "~/components/StreakList";
-import { EmptyState } from "~/components/Shared";
+import { EmptyState, useAutopostNetworks } from "~/components/Shared";
+import { listWords } from "~/lib/display";
 import { Icon } from "~/components/Icon";
 import { useLive } from "~/components/Live";
 
@@ -271,31 +272,35 @@ function ViewerStrip({
   );
 }
 
-const STEPS = [
-  {
-    title: "Set a goal",
-    body: "30 slops in 30 days. 7 in 7. 100 in 100. The day ends at midnight where you are.",
-  },
-  {
-    title: "Ship daily",
-    body: "A website, a TestFlight link, an Android beta, a repo. Messy counts. Live is the only requirement.",
-  },
-  {
-    title: "Auto-post",
-    body: "Connect X (as many accounts as you like), LinkedIn and Bluesky. Launches and updates post themselves.",
-  },
-  {
-    title: "Keep slopping",
-    body: "Post updates, ship features, re-promote. Win slop of the day and it's slopcessful.",
-  },
-];
+function howItWorks(networks: readonly string[]) {
+  const connect = networks.map((network) => (network === "X" ? "X (as many accounts as you like)" : network));
+  return [
+    {
+      title: "Set a goal",
+      body: "30 slops in 30 days. 7 in 7. 100 in 100. The day ends at midnight where you are.",
+    },
+    {
+      title: "Ship daily",
+      body: "A website, a TestFlight link, an Android beta, a repo. Messy counts. Live is the only requirement.",
+    },
+    {
+      title: "Auto-post",
+      body: `Connect ${listWords(connect, "and")}. Launches and updates post themselves.`,
+    },
+    {
+      title: "Keep slopping",
+      body: "Post updates, ship features, re-promote. Win slop of the day and it's slopcessful.",
+    },
+  ];
+}
 
 function HowItWorks() {
+  const steps = howItWorks(useAutopostNetworks());
   return (
     <section className="mx-auto mt-32 max-w-6xl px-4">
       <h2 className="display max-w-[12ch] text-[clamp(3rem,7vw,5rem)]">Volume beats taste.</h2>
       <ol className="mt-12 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-        {STEPS.map((step, index) => (
+        {steps.map((step, index) => (
           <li key={step.title} className="border-t border-line-strong pt-5">
             <p className="font-display text-[1.75rem] leading-none font-extrabold">
               <span className="mr-2 text-faint tabular-nums">{index + 1}</span>

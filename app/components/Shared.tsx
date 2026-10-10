@@ -1,9 +1,16 @@
 import { useState } from "react";
-import { NavLink } from "react-router";
+import { NavLink, useRouteLoaderData } from "react-router";
+import type { loader as rootLoader } from "~/root";
 import type { shareIntents } from "~/lib/compose";
 import { Icon } from "./Icon";
 
 /** Small shared widgets. */
+
+/** The networks this server can auto-post to (see `autopostNetworks`), for copy that names them. */
+export function useAutopostNetworks(): string[] {
+  // Root data is only missing on error pages, where Bluesky (no keys needed) is still true.
+  return useRouteLoaderData<typeof rootLoader>("root")?.autopostNetworks ?? ["Bluesky"];
+}
 
 /** Server-rendered Markdown. The HTML comes from `.server/markdown`, which escapes raw HTML. */
 export function Markdown({ html, className = "" }: { html: string; className?: string }) {

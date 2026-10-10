@@ -1,4 +1,5 @@
-import { config } from "~/.server/config";
+import { autopostNetworks, config } from "~/.server/config";
+import { listWords } from "~/lib/display";
 import { LIMITS } from "~/lib/model";
 import { OPERATIONS } from "~/.server/agent/operations";
 
@@ -25,7 +26,7 @@ export function loader() {
 - Votes: everyone gets ${LIMITS.votesPerDay} a day (UTC), up or private down. Switching today's vote is free and clearing it gives it back.
 - Updates: update, feature, field (a real-world test: who tried it, what they said), repromote.
 - Slopcessful: winning slop of the day makes a slop slopcessful and puts it in the hall of fame. Nobody can declare it.
-- Auto-post: updates can be posted to the user's connected X, LinkedIn and Bluesky accounts (autopost: true). Every launch and posted update goes through an automated content check first; anything that fails it, or that someone has flagged, is never auto-posted.
+- Auto-post: updates can be posted to the user's connected ${listWords(autopostNetworks(), "and")} accounts (autopost: true). Every launch and posted update goes through an automated content check first; anything that fails it, or that someone has flagged, is never auto-posted.
 - Screenshots are checked as they're uploaded: explicit or hateful images are refused, and a mature one blurs any slop that shows it.
 
 ## Auth

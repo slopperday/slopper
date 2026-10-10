@@ -9,6 +9,8 @@ test.describe("visitors", () => {
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Every day.");
     await expect(page.getByRole("heading", { name: "Today's race" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Volume beats taste." })).toBeVisible();
+    // Only networks the server has keys for are named; the stack has them all.
+    await expect(page.getByText("Connect X (as many accounts as you like), LinkedIn and Bluesky.")).toBeVisible();
 
     const nav = page.getByRole("navigation", { name: "Main", exact: true });
     for (const [label, heading] of [
@@ -70,6 +72,7 @@ test.describe("visitors", () => {
     const guide = await request.get("/llms.txt");
     expect(guide.ok()).toBe(true);
     expect(await guide.text()).toContain("/mcp");
+    expect(await guide.text()).toContain("connected X, LinkedIn and Bluesky accounts");
     const feed = await request.get("/feed.xml");
     expect(feed.ok()).toBe(true);
     expect(feed.headers()["content-type"]).toContain("xml");
