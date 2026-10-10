@@ -1,3 +1,4 @@
+import { LIMITS } from "~/lib/model";
 import { absoluteUrl } from "../config";
 import { allowAction, userForBearer } from "../tokens";
 import { ApiError } from "./input";
@@ -13,7 +14,7 @@ const SUPPORTED_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"];
 const SERVER_INFO = { name: "slopper", title: "Slopper", version: "1.0.0" };
 
 const INSTRUCTIONS = `Slopper (slopper.day) is where people throw slop at the wall every day: they ship small apps and sites daily, track a goal like "30 slops in 30 days", and keep slopping until one is slopcessful.
-Start with whoami. To launch: upload_screenshot for each image, then create_slop with links (website, TestFlight, Play beta, source…). A new platform or a 2.0 is a new launch: create_slop with relaunchOf and launchLabel. Use post_update for fixes and features, kind "field" for real-world tests, log_money for costs and revenue, and mark_slopcessful when a slop breaks out. Pass autopost: true to post to the user's connected social accounts.`;
+Start with whoami. To launch: upload_screenshot for each image, then create_slop with links (website, TestFlight, Play beta, source…). A new platform or a 2.0 is a new launch: create_slop with relaunchOf and launchLabel. Use post_update for fixes and features, kind "field" for real-world tests, log_money for costs and revenue. Nobody declares a slop slopcessful: the slop with the most votes when the UTC day ends wins slop of the day and goes slopcessful. todays_race shows the race, and vote spends one of the user's ${LIMITS.votesPerDay} votes a day. Pass autopost: true to post to the user's connected social accounts.`;
 
 type JsonRpcId = string | number;
 

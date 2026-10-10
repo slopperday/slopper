@@ -55,7 +55,7 @@ test.describe("a maker's day", () => {
     await expect(page.getByRole("link", { name, exact: true }).first()).toBeVisible();
   });
 
-  test("posts updates, edits, launches again, logs money and goes slopcessful", async ({ seed }) => {
+  test("posts updates, edits, launches again and logs money", async ({ seed }) => {
     const maker = await seed.user("maker");
     const slop = await seed.slop(maker, { name: `Marbles ${Date.now().toString(36)}` });
     const page = await seed.pageAs(maker);
@@ -93,13 +93,8 @@ test.describe("a maker's day", () => {
     await expect(visitor.getByText("$12.99").first()).toBeVisible();
     await expect(visitor.getByText("Domain")).toHaveCount(0);
 
-    // Slopcessful.
-    await page.getByLabel("What happened").fill("1k players in a week");
-    await page.getByRole("button", { name: "★ Mark slopcessful" }).click();
-    await expect(page.getByRole("status")).toHaveText("Slopcessful. Keep slopping.");
-    await expect(page.getByText("★ Slopcessful: 1k players in a week")).toBeVisible();
-    await visitor.goto("/slopcessful");
-    await expect(visitor.getByRole("link", { name: slop.name }).first()).toBeVisible();
+    // Only winning the day makes a slop slopcessful; its maker can't declare it.
+    await expect(page.getByRole("button", { name: /slopcessful/i })).toHaveCount(0);
 
     // Launch it again, on another platform.
     await page.getByRole("link", { name: "🚀 Launch again" }).click();

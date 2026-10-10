@@ -1,6 +1,5 @@
 ---
-slopper:
-  type: fix
+slopper: fix
 ---
 
 # Netlify environment sync sets every variable

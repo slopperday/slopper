@@ -13,9 +13,15 @@
 # refactor, test, none, ...) goes to CHANGELOG.md for developers. A change that
 # matters to both audiences gets one changeset for each.
 #
+# The agent CLI (@slopperday/cli) and its skill (@slopperday/skill) release
+# together as the `cli` group and publish to npm from this machine. They're
+# public on npm but not open source (UNLICENSED). Their changesets name the
+# group: `--package cli --type feat`.
+#
 #   vp exec monochange run release --dry-run   # preview the next release
-#   vp exec monochange run release             # bump, write both changelogs, commit
-#   vp exec monochange run publish             # tag, push main, deploy Convex and Netlify
+#   vp exec monochange run release             # bump, write the changelogs, commit
+#   vp exec monochange run publish             # tag, push main, deploy the site, publish to npm
+#   vp exec monochange publish placeholder     # once per new npm package, before its first release
 
 [defaults]
 # The app is a private package; release it anyway.
@@ -33,10 +39,32 @@ changelog = { path = "CHANGELOG.md", format = "keep_a_changelog" }
 # The website reads the date back out of this title (app/.server/changelog.ts).
 changelog_version_title = "{{ version }} ({{ date }})"
 
+[package."@slopperday/cli"]
+path = "packages/cli"
+type = "npm"
+
+[package."@slopperday/skill"]
+path = "packages/skill"
+type = "npm"
+
+# The skill documents the CLI, so they share a version: tags are cli/v1.2.3.
+[group.cli]
+packages = ["@slopperday/cli", "@slopperday/skill"]
+tag = true
+changelog = { path = "packages/cli/CHANGELOG.md", format = "keep_a_changelog" }
+
 [ecosystems.npm]
 # monochange can't parse pnpm 12's two-document pnpm-lock.yaml yet, so let
 # pnpm refresh it. The root version isn't in the lockfile, so this is a no-op.
 lockfile_commands = [{ command = "pnpm install --lockfile-only" }]
+
+[ecosystems.npm.publish]
+# Published from this machine with your npm login (`npm login`): the repo is
+# private, so there's no CI and no trusted publishing or provenance.
+enabled = true
+mode = "builtin"
+registry = "npm"
+trusted_publishing = false
 
 [changelog.streams.user]
 description = "What people using slopper.day notice: new things to do, fixes they'd feel, changes they need to act on. Deployment, CI, tooling, tests and refactors stay in the default stream."
@@ -80,7 +108,7 @@ name = "commit release"
 when = "{{ number_of_changesets > 0 && not release.dry_run }}"
 
 [cli.publish]
-help_text = "Publish the release commit at HEAD: tag it, push main and the tag, deploy Convex and Netlify, and wait until slopper.day serves it"
+help_text = "Publish the release commit at HEAD: tag it, push main and its tags, deploy Convex and Netlify when the site was released, and publish released npm packages"
 
 [[cli.publish.steps]]
 type = "TagRelease"
@@ -92,3 +120,9 @@ type = "Command"
 name = "push and deploy"
 command = "node scripts/release.ts publish"
 dry_run_command = "node scripts/release.ts publish --dry-run"
+
+# After the push, so a CI failure publishes nothing. Packages this release
+# didn't bump are skipped.
+[[cli.publish.steps]]
+type = "PublishPackages"
+name = "publish to npm"

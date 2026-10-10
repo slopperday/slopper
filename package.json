@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
-    "@monochange/cli": "0.17.1",
+    "@monochange/cli": "0.18.0",
     "@monosecret/cli": "0.4.2",
     "@playwright/test": "^1.63.0",
     "@react-router/dev": "^8.4.0",

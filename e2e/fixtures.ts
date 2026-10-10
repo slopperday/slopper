@@ -54,6 +54,8 @@ export interface Seed {
   /** A browser page for a visitor, in its own context. */
   visitorPage(): Promise<Page>;
   vote(user: SeededUser, slop: SeededSlop, value: 1 | -1): Promise<void>;
+  /** A personal API token for `user`, as /settings/api makes them. */
+  apiToken(user: SeededUser): Promise<string>;
 }
 
 async function serverClient(stack: Stack): Promise<ConvexHttpClient> {
@@ -209,6 +211,17 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
 
       async vote(user, slop, value) {
         await convex.mutation(api.slops.vote, { userId: user.id, slopId: slop.id, value });
+      },
+
+      async apiToken(user) {
+        const token = `slp_${randomToken(32)}`;
+        await convex.mutation(api.tokens.create, {
+          userId: user.id,
+          name: "e2e",
+          preview: token.slice(0, 10),
+          hash: await hashToken(token),
+        });
+        return token;
       },
     };
 

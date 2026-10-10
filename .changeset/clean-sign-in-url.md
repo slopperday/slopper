@@ -1,6 +1,5 @@
 ---
-slopper:
-  type: user_fix
+slopper: user_fix
 ---
 
 # Signing in leaves a clean address

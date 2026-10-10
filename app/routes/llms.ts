@@ -1,4 +1,5 @@
 import { config } from "~/.server/config";
+import { LIMITS } from "~/lib/model";
 import { OPERATIONS } from "~/.server/agent/operations";
 
 /** Plain-text guide for AI agents: what Slopper is and how to drive it. */
@@ -21,8 +22,9 @@ export function loader() {
 - Slop: one shipped thing with links (website, App Store, TestFlight, Google Play, Android beta, source), screenshots, a tagline and a Markdown description.
 - Goal: N slops in M days. Days end at midnight in the user's time zone.
 - Slop of the day: every UTC day, slops launched that day race on votes. The leader at midnight UTC wins.
+- Votes: everyone gets ${LIMITS.votesPerDay} a day (UTC), up or private down. Switching today's vote is free and clearing it gives it back.
 - Updates: update, feature, field (a real-world test: who tried it, what they said), repromote.
-- Slopcessful: the owner declares a breakout (users, revenue, virality).
+- Slopcessful: winning slop of the day makes a slop slopcessful and puts it in the hall of fame. Nobody can declare it.
 - Auto-post: updates can be posted to the user's connected X, LinkedIn and Bluesky accounts (autopost: true). Every launch and posted update goes through an automated content check first; anything that fails it, or that someone has flagged, is never auto-posted.
 - Screenshots are checked as they're uploaded: explicit or hateful images are refused, and a mature one blurs any slop that shows it.
 
@@ -46,8 +48,14 @@ ${tools}
 - POST   ${origin}/api/v1/slops              { name, tagline, category, links, description?, screenshots?, madeWith?, launchNote?, autopost? }
 - PATCH  ${origin}/api/v1/slops/{slop}       any create_slop field
 - POST   ${origin}/api/v1/slops/{slop}/updates      { kind, body, autopost? }
-- POST   ${origin}/api/v1/slops/{slop}/slopcessful  { note, autopost? }
-{slop} is a slop id or slug. Errors return { error, details }.
+- POST   ${origin}/api/v1/slops/{slop}/money        { kind: "cost" | "revenue", amount, currency?, category?, note?, date? }
+- POST   ${origin}/api/v1/slops/{slop}/vote         { vote: "up" | "down" | "clear" }
+{slop} is one of your slops' id or slug, or for vote any slop's id (from /today). Errors return { error, details }.
+
+## CLI
+npx @slopperday/cli login --token slp_...   (or set SLOPPER_TOKEN)
+npx @slopperday/cli help                     every command, mapped onto this API
+npx @slopperday/cli skill                    the agent skill (also on npm as @slopperday/skill)
 
 ## Example: launch a site with a screenshot
 curl -X POST ${origin}/api/v1/media -H "Authorization: Bearer $SLOPPER_TOKEN" -H "Content-Type: image/png" --data-binary @shot.png

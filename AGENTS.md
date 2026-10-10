@@ -51,7 +51,14 @@ release. Add a tool name to select part of the graph. For example, run
 - **Live pages** load data in the route loader, then subscribe with `useLive(query, args, loaderData)`.
 - **Ids from forms or URLs** reach Convex as strings and are checked with `ctx.db.normalizeId`, never cast.
 - **Agents:** every agent capability is an operation in `app/.server/agent/operations.ts`, served by both MCP (`/mcp`)
-  and REST (`/api/v1`). Add new ones there.
+  and REST (`/api/v1`). Add new ones there, then give them a REST route, a command in the CLI
+  (`packages/cli/src/commands.ts`, `@slopperday/cli`) and a line in its skill (`packages/skill/SKILL.md`).
+- **CLI packages** (`packages/*`) are public on npm but not open source (`UNLICENSED`). They release together as the
+  monochange group `cli` (tags `cli/v1.2.3`) and publish from this machine at the end of `run publish`, which needs
+  `npm login` with access to the `@slopperday` scope. A new package needs `vp exec monochange publish placeholder` once.
+  Run monochange from the main checkout: in a worktree under `.claude/`, it discovers no packages.
+- **Votes and slopcessful:** everyone gets `LIMITS.votesPerDay` (5) votes per UTC day (`convex/slops.ts` `vote`).
+  Slopcessful is never declared: `race.crown` marks the day's winner slopcessful.
 - **Screenshots** go through `uploadImage` (`app/.server/media.ts`): checked before they're stored (blocked ones never
   are), then written to B2 (`app/.server/storage.ts`) or, without the B2 variables, Convex storage. Image URLs are
   built in Convex from `MEDIA_PUBLIC_URL` (a Convex env var). Mutations that drop screenshots return `orphaned`; call

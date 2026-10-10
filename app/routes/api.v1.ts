@@ -18,8 +18,8 @@ import { findOperation, runOperation } from "~/.server/agent/operations";
  *   POST   /api/v1/slops
  *   PATCH  /api/v1/slops/:slop
  *   POST   /api/v1/slops/:slop/updates
- *   POST   /api/v1/slops/:slop/slopcessful
  *   POST   /api/v1/slops/:slop/money
+ *   POST   /api/v1/slops/:slop/vote
  */
 
 interface Match {
@@ -42,10 +42,8 @@ function route(method: string, path: string): Match | null {
   }
   if (parts.length === 2 && method === "PATCH") return { operation: "update_slop", slop: ref };
   if (parts.length === 3 && method === "POST" && action === "updates") return { operation: "post_update", slop: ref };
-  if (parts.length === 3 && method === "POST" && action === "slopcessful") {
-    return { operation: "mark_slopcessful", slop: ref };
-  }
   if (parts.length === 3 && method === "POST" && action === "money") return { operation: "log_money", slop: ref };
+  if (parts.length === 3 && method === "POST" && action === "vote") return { operation: "vote", slop: ref };
   return null;
 }
 

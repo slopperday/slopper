@@ -1,6 +1,5 @@
 ---
-slopper:
-  type: user_fix
+slopper: user_fix
 ---
 
 # One countdown, the same for everyone

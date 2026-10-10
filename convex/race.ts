@@ -4,13 +4,15 @@ import { internalMutation, query, type QueryCtx } from "./_generated/server";
 import { readerFor } from "./lib/auth";
 import { notify } from "./lib/notify";
 import { toCards } from "./lib/shape";
-import { addDays } from "../app/lib/dates";
+import { addDays, formatDay } from "../app/lib/dates";
+import { plural } from "../app/lib/display";
 
 /**
  * Slop of the day. Every UTC day is one race: the launches of that day,
  * ranked by net votes (private downvotes count against). Ties go to more
  * updates, then more feedback, then the earlier launch. A cron crowns the
  * winner just after midnight UTC, and the badge never changes after that.
+ * The winner also goes slopcessful: the hall of fame is every day's winner.
  */
 
 export function utcToday(): string {
@@ -86,7 +88,23 @@ export const crown = internalMutation({
     const winner = leader && net(leader) > 0 ? leader : null;
     await ctx.db.insert("dailyWinners", { date: target, slopId: winner?._id ?? null });
     if (!winner) return;
-    await ctx.db.patch(winner._id, { slopOfTheDay: target });
+    // Winning the day is what makes a slop slopcessful; nobody can declare it.
+    const now = Date.now();
+    const note = `Won slop of the day on ${formatDay(target)} with ${plural(winner.upvotes, "upvote", "upvotes")}.`;
+    await ctx.db.patch(winner._id, {
+      slopOfTheDay: target,
+      slopcessfulAt: winner.slopcessfulAt ?? now,
+      slopcessfulNote: note,
+      updateCount: winner.updateCount + 1,
+      lastActivityAt: now,
+    });
+    await ctx.db.insert("updates", {
+      slopId: winner._id,
+      userId: winner.userId,
+      kind: "slopcessful",
+      body: note,
+      crossposts: [],
+    });
     await notify(ctx, {
       userId: winner.userId,
       kind: "slop_of_the_day",

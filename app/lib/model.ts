@@ -172,7 +172,6 @@ export const LIMITS = {
   updateLength: 2000,
   commentLength: 1000,
   bioLength: 280,
-  slopcessfulNoteLength: 140,
   launchLabelLength: 40,
   ledgerNoteLength: 120,
   /** $10,000 in cents: a pledge, not a wire transfer. */
@@ -186,6 +185,11 @@ export const LIMITS = {
    */
   mediaBytes: 4 * 1024 * 1024,
   goalDays: 365,
+  /**
+   * Votes (up or private down) each person can cast per UTC day, the race's
+   * day. Taking one back today returns it.
+   */
+  votesPerDay: 5,
 } as const;
 
 /** Where people reach a human: privacy requests, account deletion, appeals. */

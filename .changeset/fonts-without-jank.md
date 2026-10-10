@@ -1,6 +1,5 @@
 ---
-slopper:
-  type: user_fix
+slopper: user_fix
 ---
 
 # Pages open without the text jumping

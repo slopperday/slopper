@@ -1,0 +1,35 @@
+{
+  "name": "@slopperday/cli",
+  "version": "0.0.0",
+  "description": "Throw slop at the wall from your terminal: launch, update and vote on slopper.day. Built for agents.",
+  "keywords": [
+    "agent",
+    "cli",
+    "slopper"
+  ],
+  "homepage": "https://slopper.day",
+  "license": "UNLICENSED",
+  "bin": {
+    "slopper": "./dist/slopper.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "prepack": "vp pack"
+  },
+  "dependencies": {
+    "@slopperday/skill": "workspace:^"
+  },
+  "devDependencies": {
+    "vite-plus": "1.0.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
