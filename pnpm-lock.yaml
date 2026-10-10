@@ -163,14 +163,6 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@monosecret/cli>@monosecret/cli-darwin-arm64': 0.4.1
-  '@monosecret/cli>@monosecret/cli-darwin-x64': 0.4.1
-  '@monosecret/cli>@monosecret/cli-linux-arm64-gnu': 0.4.1
-  '@monosecret/cli>@monosecret/cli-linux-arm64-musl': 0.4.1
-  '@monosecret/cli>@monosecret/cli-linux-x64-gnu': 0.4.1
-  '@monosecret/cli>@monosecret/cli-linux-x64-musl': 0.4.1
-  '@monosecret/cli>@monosecret/cli-win32-arm64-msvc': 0.4.1
-  '@monosecret/cli>@monosecret/cli-win32-x64-msvc': 0.4.1
   vite@*: npm:@voidzero-dev/vite-plus-core@1.0.0
 
 importers:
@@ -224,8 +216,8 @@ importers:
         specifier: 0.17.1
         version: 0.17.1
       '@monosecret/cli':
-        specifier: 0.4.1
-        version: 0.4.1
+        specifier: 0.4.2
+        version: 0.4.2
       '@playwright/test':
         specifier: ^1.63.0
         version: 1.63.0
@@ -1283,52 +1275,52 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@monosecret/cli-darwin-arm64@0.4.1':
-    resolution: {integrity: sha512-l9ShGA77VtMLgPDkELRivP3NicekMOKD8aF0SvD359Vm+JT7DOBmTqOIA8VP23OY8Ren42oqIvlvBzeBLk2Iwg==}
+  '@monosecret/cli-darwin-arm64@0.4.2':
+    resolution: {integrity: sha512-teYP8yTmdQI7IfHS5xUbkMwQrGgs6if3G68TDNBwePVfR6TPbHPh36XzQeHdCtAOArmxNFaw1JKp0nFJ6yMA4Q==}
     cpu: [arm64]
     os: [darwin]
 
-  '@monosecret/cli-darwin-x64@0.4.1':
-    resolution: {integrity: sha512-I4IX3ABPy8slhc+20TBogEQzx+xEaLdVbE1RVUr9JmwgbsDJAcgOoYZJoiP4trAVTz5QMzoMyvqWC3xGbHWzCA==}
+  '@monosecret/cli-darwin-x64@0.4.2':
+    resolution: {integrity: sha512-v+4dK61FQHXJCrdRI5KpUXzBFKGbJlIGP3HMRob0iNxz9Nx+IsJ3qJqg8X3SoKQCCJfh2eC+hDNIz0x8Eg1Ywg==}
     cpu: [x64]
     os: [darwin]
 
-  '@monosecret/cli-linux-arm64-gnu@0.4.1':
-    resolution: {integrity: sha512-1OiKB3V+1mQ0XUDYQvAUMAELr3xpoLbCt6bq697kjRBgcSEm5YlkIORSX5uMmBI14jL8hNO28v+V20e0V4r+Cw==}
+  '@monosecret/cli-linux-arm64-gnu@0.4.2':
+    resolution: {integrity: sha512-SwzTB34houFtJ9UqIF07bLmzjoa1v8ciBrcS1tWWzpEJpkCxjBH9d2EOVp7+IGjkq56vs8dSez9/uyGcyFNQPg==}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@monosecret/cli-linux-arm64-musl@0.4.1':
-    resolution: {integrity: sha512-sXbKA7W3s/sh84ERMhir4UOJuHvFV0NVz6ddv0o5/b2o5s07VG/FIlcIphZXZM8GgGwuQT9ymc7i91u+PG8yNA==}
+  '@monosecret/cli-linux-arm64-musl@0.4.2':
+    resolution: {integrity: sha512-XJStPWllvoFGw3UQ8btUAgjRzYuKb3xgVlY3SsEHiDd0F4gEaTjbmLE89Cb/yAum4fgxUeMTi7EED2wglANThQ==}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@monosecret/cli-linux-x64-gnu@0.4.1':
-    resolution: {integrity: sha512-4TvaPfwKyVgoZnccRDjohW5c5+xQCcIDoGwVkbyaG0lFw7XQvbgdKiuatw02Xtyw/mQtCLx9SjCilHXkDtYGmg==}
+  '@monosecret/cli-linux-x64-gnu@0.4.2':
+    resolution: {integrity: sha512-2IT1TEfVT3Bhq8ScTOYQE/F9+VjkQeD83PcKRK3Zb9fUSZUXwN723g2hX5WyDq+8bPUx91lIAwmjTAsOWQJLZA==}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@monosecret/cli-linux-x64-musl@0.4.1':
-    resolution: {integrity: sha512-/JSYsyYXwZoDmK3nm7+8ZkARjOJOsWXjBX/x97kxhDKKql/m41HfWvv0iJfNBIMqt2gAe6QOfRyDRzTJwkMRsA==}
+  '@monosecret/cli-linux-x64-musl@0.4.2':
+    resolution: {integrity: sha512-XrM6vM7PO3l6k0zVaaUzd/BPwrlTzkNP6q6z709e0h3kvTX0JToOKBhiVdJrIp74GI8GHSnIzFIvexZ0pcOhjg==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@monosecret/cli-win32-arm64-msvc@0.4.1':
-    resolution: {integrity: sha512-oPoKZZ9Ft79+wFeynokoKgYO44S39d7eWxFv1jLgBn5cgj3vsNM7P9t93gSB1j2rA/kdtsRE+ypcLo1cEhEAwA==}
+  '@monosecret/cli-win32-arm64-msvc@0.4.2':
+    resolution: {integrity: sha512-yvedfxJ+9yq6f8VCc10+iY0AUZ2A2nb37AlmNikLGA3TZzNe8AOrs7JS9R4F3waa/VaFLn3wTVsfvlYC6C+qog==}
     cpu: [arm64]
     os: [win32]
 
-  '@monosecret/cli-win32-x64-msvc@0.4.1':
-    resolution: {integrity: sha512-bwRvpz0oqED7q5sY8C0hNLIhE16NvxOqE1v0lW/dpgOkeyihoP/n8ydUCYq/NBX2Y6fslb45QJQjfUH8qK9VWw==}
+  '@monosecret/cli-win32-x64-msvc@0.4.2':
+    resolution: {integrity: sha512-zg/0KM2S/wnX98JknSLPV/sKGlvxpHRHmIEwsgq1rqTaQH8FF1ne/OnylytoThVpipmSFGmhcI+bjunTPgXQUg==}
     cpu: [x64]
     os: [win32]
 
-  '@monosecret/cli@0.4.1':
-    resolution: {integrity: sha512-Nol0UNjs5JoaeVUn55YtSdEVNf1JYmCVxid5B7FEEf7/nXWRt+PQQNpOZgbKJ7s99fEZMQ5/raFygJfjtDImbw==}
+  '@monosecret/cli@0.4.2':
+    resolution: {integrity: sha512-rB6rEtDbg8RAc1qeSQvGlClQw+7C83JWq7xEiYmocIuWbvVFB7M6Ud3LN4ZzvRplDAoHt/RC+xgDMeXqjKgPtg==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -7095,40 +7087,40 @@ snapshots:
       '@monochange/cli-win32-arm64-msvc': 0.17.1
       '@monochange/cli-win32-x64-msvc': 0.17.1
 
-  '@monosecret/cli-darwin-arm64@0.4.1':
+  '@monosecret/cli-darwin-arm64@0.4.2':
     optional: true
 
-  '@monosecret/cli-darwin-x64@0.4.1':
+  '@monosecret/cli-darwin-x64@0.4.2':
     optional: true
 
-  '@monosecret/cli-linux-arm64-gnu@0.4.1':
+  '@monosecret/cli-linux-arm64-gnu@0.4.2':
     optional: true
 
-  '@monosecret/cli-linux-arm64-musl@0.4.1':
+  '@monosecret/cli-linux-arm64-musl@0.4.2':
     optional: true
 
-  '@monosecret/cli-linux-x64-gnu@0.4.1':
+  '@monosecret/cli-linux-x64-gnu@0.4.2':
     optional: true
 
-  '@monosecret/cli-linux-x64-musl@0.4.1':
+  '@monosecret/cli-linux-x64-musl@0.4.2':
     optional: true
 
-  '@monosecret/cli-win32-arm64-msvc@0.4.1':
+  '@monosecret/cli-win32-arm64-msvc@0.4.2':
     optional: true
 
-  '@monosecret/cli-win32-x64-msvc@0.4.1':
+  '@monosecret/cli-win32-x64-msvc@0.4.2':
     optional: true
 
-  '@monosecret/cli@0.4.1':
+  '@monosecret/cli@0.4.2':
     optionalDependencies:
-      '@monosecret/cli-darwin-arm64': 0.4.1
-      '@monosecret/cli-darwin-x64': 0.4.1
-      '@monosecret/cli-linux-arm64-gnu': 0.4.1
-      '@monosecret/cli-linux-arm64-musl': 0.4.1
-      '@monosecret/cli-linux-x64-gnu': 0.4.1
-      '@monosecret/cli-linux-x64-musl': 0.4.1
-      '@monosecret/cli-win32-arm64-msvc': 0.4.1
-      '@monosecret/cli-win32-x64-msvc': 0.4.1
+      '@monosecret/cli-darwin-arm64': 0.4.2
+      '@monosecret/cli-darwin-x64': 0.4.2
+      '@monosecret/cli-linux-arm64-gnu': 0.4.2
+      '@monosecret/cli-linux-arm64-musl': 0.4.2
+      '@monosecret/cli-linux-x64-gnu': 0.4.2
+      '@monosecret/cli-linux-x64-musl': 0.4.2
+      '@monosecret/cli-win32-arm64-msvc': 0.4.2
+      '@monosecret/cli-win32-x64-msvc': 0.4.2
 
   '@netlify/ai@1.0.1':
     dependencies:

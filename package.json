@@ -31,7 +31,7 @@
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
     "@monochange/cli": "0.17.1",
-    "@monosecret/cli": "0.4.1",
+    "@monosecret/cli": "0.4.2",
     "@playwright/test": "^1.63.0",
     "@react-router/dev": "^8.4.0",
     "@remix-run/node-fetch-server": "^1.0.0",
