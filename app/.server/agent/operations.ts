@@ -1,5 +1,6 @@
 import { api } from "@convex/_generated/api";
 import type { Doc } from "@convex/_generated/dataModel";
+import type { Vote } from "@convex/lib/shape";
 import {
   CATEGORIES,
   COST_CATEGORIES,
@@ -99,6 +100,18 @@ async function slopById(slopId: Doc<"slops">["_id"]): Promise<Doc<"slops">> {
   return slop;
 }
 
+/** Votes as agents spell them. */
+const VOTE_INPUTS = { up: 1, down: -1, clear: 0 } as const satisfies Record<string, Vote>;
+type VoteInput = keyof typeof VOTE_INPUTS;
+
+function isVoteInput(value: string): value is VoteInput {
+  return Object.hasOwn(VOTE_INPUTS, value);
+}
+
+function voteName(vote: Vote): "up" | "down" | null {
+  return vote === 1 ? "up" : vote === -1 ? "down" : null;
+}
+
 const SLOP_REF = { type: "string", description: "The slop's id or slug (from list_my_slops or create_slop)." };
 
 const LINKS_SCHEMA = {
@@ -122,11 +135,14 @@ export const OPERATIONS: Operation[] = [
     name: "whoami",
     title: "Who am I",
     description:
-      "The signed-in Slopper user: profile, time zone, the open goal with progress, and streak. Call this first.",
+      "The signed-in Slopper user: profile, time zone, the open goal with progress, streak and votes left today. Call this first.",
     inputSchema: { type: "object", properties: {} },
     readOnly: true,
     async run({ user, now }) {
-      const profile = await convex.query(api.users.profile, { username: user.username, asUser: user._id });
+      const [profile, votesLeft] = await Promise.all([
+        convex.query(api.users.profile, { username: user.username, asUser: user._id }),
+        convex.query(api.slops.votesLeft, { asUser: user._id }),
+      ]);
       const progress = profile?.progress ?? null;
       return {
         username: user.username,
@@ -136,6 +152,7 @@ export const OPERATIONS: Operation[] = [
         today: localDate(now, user.timeZone),
         streak: profile?.streak ?? 0,
         totalSlops: profile?.totalShipped ?? 0,
+        votesLeft,
         goal: progress
           ? {
               title: progress.goal.title,
@@ -398,34 +415,6 @@ export const OPERATIONS: Operation[] = [
     },
   },
   {
-    name: "mark_slopcessful",
-    title: "Mark a slop slopcessful",
-    description:
-      "Declare a breakout: real users, revenue, a viral post. The note says what happened. It shows in the hall of fame.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        slop: SLOP_REF,
-        note: { type: "string", maxLength: LIMITS.slopcessfulNoteLength, description: "e.g. “10k users in a week”" },
-        autopost: AUTOPOST,
-      },
-      required: ["slop", "note"],
-    },
-    readOnly: false,
-    async run(context, input) {
-      const slop = await ownSlop(context, requiredString(input, "slop"));
-      const note = requiredString(input, "note").trim();
-      const updateId = await convex.mutation(api.slops.setSlopcessful, {
-        userId: context.user._id,
-        slopId: slop._id,
-        note,
-      });
-      const autopost =
-        updateId && optionalBoolean(input, "autopost") ? await announce(context.user, slop._id, updateId) : null;
-      return { slop: summarizeSlop(await slopById(slop._id), context.user.username), autopost };
-    },
-  },
-  {
     name: "log_money",
     title: "Log a cost or revenue",
     description:
@@ -492,23 +481,55 @@ export const OPERATIONS: Operation[] = [
   {
     name: "todays_race",
     title: "Today's slop of the day race",
-    description: "Today's slops ranked by votes (UTC day). The leader at midnight UTC becomes slop of the day.",
+    description:
+      "Today's slops ranked by votes (UTC day), with how the user voted and their votes left. The leader at midnight UTC becomes slop of the day and goes slopcessful.",
     inputSchema: { type: "object", properties: {} },
     readOnly: true,
-    async run({ now }) {
-      const race = await convex.query(api.race.day, { date: now.toISOString().slice(0, 10), limit: 20 });
+    async run({ user, now }) {
+      const [race, votesLeft] = await Promise.all([
+        convex.query(api.race.day, { date: now.toISOString().slice(0, 10), limit: 20, asUser: user._id }),
+        convex.query(api.slops.votesLeft, { asUser: user._id }),
+      ]);
       return {
         date: race.date,
+        votesLeft,
         ranking: race.items.map((item, index) => ({
           rank: index + 1,
+          id: item.slop.id,
           owner: item.owner.username,
           name: item.slop.name,
           launchLabel: item.slop.launchLabel,
           tagline: item.slop.tagline,
           upvotes: item.slop.upvotes,
           url: absoluteUrl(slopPath(item.owner.username, item.slop.slug)),
+          yours: item.voteMode === "own",
+          yourVote: voteName(item.vote),
         })),
       };
+    },
+  },
+  {
+    name: "vote",
+    title: "Vote on a slop",
+    description: `Upvote a slop, downvote it (privately: it lowers the ranking and nobody sees it), or clear the vote. Everyone gets ${LIMITS.votesPerDay} votes per UTC day, so spend them on the slops that deserve to win: switching today's vote is free and clearing it gives it back. Not on the user's own slops.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        slop: { type: "string", description: "The slop's id (from todays_race)." },
+        vote: { type: "string", enum: Object.keys(VOTE_INPUTS) },
+      },
+      required: ["slop", "vote"],
+    },
+    readOnly: false,
+    async run({ user }, input) {
+      const vote = requiredString(input, "vote");
+      if (!isVoteInput(vote)) throw new ApiError(400, `vote must be one of ${Object.keys(VOTE_INPUTS).join(", ")}.`);
+      const result = await convex.mutation(api.slops.vote, {
+        userId: user._id,
+        slopId: requiredString(input, "slop").trim(),
+        value: VOTE_INPUTS[vote],
+      });
+      return { vote: voteName(result.vote), upvotes: result.upvotes, votesLeft: result.votesLeft };
     },
   },
 ];

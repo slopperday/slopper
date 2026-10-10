@@ -1,5 +1,19 @@
+import { execFile } from "node:child_process";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import process from "node:process";
+import { promisify } from "node:util";
 import type { APIRequestContext } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
+
+/** Runs the slopper CLI from source (packages/cli), the way an agent would, and parses its JSON. */
+async function slopper(env: Record<string, string>, ...args: string[]): Promise<Record<string, unknown>> {
+  const { stdout } = await promisify(execFile)("node", ["packages/cli/src/slopper.ts", ...args], {
+    env: { ...process.env, ...env },
+  });
+  return JSON.parse(stdout) as Record<string, unknown>;
+}
 
 async function mcp(request: APIRequestContext, token: string, method: string, params: object = {}) {
   const response = await request.post("/mcp", {
@@ -63,7 +77,9 @@ test.describe("agents run Slopper", () => {
     // MCP: same operations, JSON-RPC.
     const tools = await mcp(request, token, "tools/list");
     const names = ((tools.result?.tools ?? []) as { name: string }[]).map((tool) => tool.name);
-    expect(names).toEqual(expect.arrayContaining(["create_slop", "post_update", "todays_race", "set_goal"]));
+    expect(names).toEqual(expect.arrayContaining(["create_slop", "post_update", "todays_race", "set_goal", "vote"]));
+    // Slopcessful is won on votes, never declared.
+    expect(names).not.toContain("mark_slopcessful");
     const mine = await mcp(request, token, "tools/call", { name: "list_my_slops", arguments: {} });
     expect(mine.result?.isError).toBe(false);
     expect(JSON.stringify(mine.result?.structuredContent)).toContain(name);
@@ -71,6 +87,12 @@ test.describe("agents run Slopper", () => {
     expect(JSON.stringify(mine.result?.structuredContent)).not.toContain('"feedback"');
     const race = await mcp(request, token, "tools/call", { name: "todays_race", arguments: {} });
     expect(race.result?.structuredContent).toMatchObject({ date: new Date().toISOString().slice(0, 10) });
+
+    // Voting spends one of the day's votes.
+    const rival = await seed.slop(await seed.user("rival"));
+    const voted = await request.post(`/api/v1/slops/${rival.id}/vote`, { headers, data: { vote: "up" } });
+    expect(voted.status()).toBe(201);
+    expect(await voted.json()).toEqual({ vote: "up", upvotes: 1, votesLeft: 4 });
 
     await page.goto(`/@${maker.username}`);
     await expect(page.getByRole("link", { name, exact: true }).first()).toBeVisible();
@@ -80,6 +102,40 @@ test.describe("agents run Slopper", () => {
     await page.getByRole("button", { name: "Revoke" }).click();
     await expect(page.getByRole("status")).toHaveText("Token revoked.");
     expect((await request.get("/api/v1/me", { headers })).status()).toBe(401);
+  });
+
+  test("the slopper CLI launches, posts and votes through the same API", async ({ seed, stack }) => {
+    const maker = await seed.user("terminal");
+    const rival = await seed.slop(await seed.user("rival"));
+    const env = {
+      SLOPPER_URL: stack.appUrl,
+      SLOPPER_TOKEN: await seed.apiToken(maker),
+      XDG_CONFIG_HOME: await mkdtemp(join(tmpdir(), "slopper-e2e-")),
+    };
+
+    expect(await slopper(env, "whoami")).toMatchObject({ username: maker.username, votesLeft: 5 });
+    const name = `CLI slop ${Date.now().toString(36)}`;
+    const launched = await slopper(
+      env,
+      "launch",
+      "--name",
+      name,
+      "--tagline",
+      "Launched from a terminal",
+      "--category",
+      "ai",
+      "--link",
+      "https://cli.example/",
+    );
+    expect(launched).toMatchObject({ slop: { name }, contentCheck: "ok" });
+    const slug = (launched.slop as { slug: string }).slug;
+    expect(await slopper(env, "post", slug, "--kind", "feature", "--body", "Now with flags")).toMatchObject({
+      update: { kind: "feature" },
+    });
+
+    // The race is shared by every test, so only the parts that are this test's.
+    expect(await slopper(env, "today")).toMatchObject({ date: new Date().toISOString().slice(0, 10), votesLeft: 5 });
+    expect(await slopper(env, "vote", rival.id, "up")).toEqual({ vote: "up", upvotes: 1, votesLeft: 4 });
   });
 
   test("calls without a token are refused", async ({ request }) => {

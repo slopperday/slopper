@@ -16,7 +16,7 @@ export async function loader({ context }: Route.LoaderArgs) {
 export const meta: Route.MetaFunction = ({ matches }) =>
   seo(matches, {
     title: "Slopcessful",
-    description: "Slops that broke out. Every one of them started as just another day's slop.",
+    description: "Every slop of the day: the slops that won their day's race on votes.",
     path: "/slopcessful",
   });
 
@@ -29,8 +29,8 @@ export default function Slopcessful({ loaderData }: Route.ComponentProps) {
         Slopcessful
       </h1>
       <p className="lede mt-4">
-        The hall of fame. Slops that broke out: real users, real revenue, a post that blew up. None of them looked
-        special on launch day. They just kept slopping.
+        The hall of fame. Every slop that won its day: the most votes when the clock hit midnight UTC. Nobody can
+        declare it; people vote it in.
       </p>
       <div className="mt-14">
         {items.length > 0 ? (
@@ -39,7 +39,7 @@ export default function Slopcessful({ loaderData }: Route.ComponentProps) {
           <EmptyState>
             <p className="font-display text-[2.75rem] leading-none font-black text-ink">Not yet.</p>
             <p className="mx-auto mt-3 max-w-md">
-              Nobody has broken out. The first slopcessful slop is out there, probably a few dozen slops away.
+              No day has a winner yet. The first slopcessful slop is out there, probably a few dozen slops away.
             </p>
             <Link to="/new" className="btn btn-slop mt-6">
               Keep slopping

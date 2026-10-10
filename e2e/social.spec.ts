@@ -120,8 +120,38 @@ test.describe("people reacting, live", () => {
   });
 });
 
+test.describe("votes", () => {
+  test("everyone gets five a day, and taking one back frees it", async ({ seed }) => {
+    const maker = await seed.user("prolific");
+    const slops = [];
+    for (let index = 0; index < 6; index++) {
+      slops.push(await seed.slop(maker, { name: `Ballot ${index} ${Date.now().toString(36)}` }));
+    }
+    const fan = await seed.user("picky");
+    for (const slop of slops.slice(0, 5)) await seed.vote(fan, slop, 1);
+    const page = await seed.pageAs(fan);
+
+    await page.goto(slops[5].path);
+    const upvote = page.locator("header").getByRole("button", { name: "Upvote" });
+    await upvote.click();
+    await expect(page.getByRole("alert")).toHaveText("You've used your 5 votes for today. More at midnight UTC.");
+    await expect(upvote).toHaveAttribute("aria-pressed", "false");
+    await page.goto("/today");
+    await expect(page.getByText("You've cast all 5 of today's votes.", { exact: false })).toBeVisible();
+
+    await page.goto(slops[0].path);
+    await page.locator("header").getByRole("button", { name: "Upvote" }).click();
+    await expect(page.locator("header").getByRole("button", { name: "Upvote" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await page.goto("/today");
+    await expect(page.getByText("1 vote left today, out of 5.", { exact: false })).toBeVisible();
+  });
+});
+
 test.describe("slop of the day", () => {
-  test("the day's top slop is crowned, and its maker hears about it", async ({ seed, stack }) => {
+  test("the day's top slop is crowned and goes slopcessful, and its maker hears about it", async ({ seed, stack }) => {
     const maker = await seed.user("champ");
     const slop = await seed.slop(maker, { name: `Champion ${Date.now().toString(36)}` });
     // Far more votes than any other test gives its slops.
@@ -132,6 +162,9 @@ test.describe("slop of the day", () => {
     const page = await seed.pageAs(maker);
     await page.goto(slop.path);
     await expect(page.getByText(/Slop of the day/).first()).toBeVisible();
+    await expect(page.getByText(/★ Slopcessful: Won slop of the day on .+ with 12 upvotes\./)).toBeVisible();
+    await page.goto("/slopcessful");
+    await expect(page.getByRole("link", { name: slop.name }).first()).toBeVisible();
     await page.goto("/notifications");
     await expect(page.getByText(`🏆 ${slop.name} won slop of the day`)).toBeVisible();
     await page.goto("/");

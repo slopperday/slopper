@@ -5,6 +5,7 @@ import process from "node:process";
 import { defineConfig, lazyPlugins } from "vite-plus";
 
 const IGNORED = [
+  "packages/*/dist/**",
   "build/**",
   ".react-router/**",
   ".netlify/**",
@@ -15,6 +16,8 @@ const IGNORED = [
 ];
 
 export default defineConfig({
+  // The site is the root package; `vp dev` and `vp build` (Netlify too) mean it, not packages/*.
+  defaultPackage: ".",
   // React Router's plugin builds the app, and Netlify's turns the server build
   // into one Netlify Function (.netlify/v1/functions). Tests import modules directly.
   plugins: lazyPlugins(() => (process.env.VITEST ? [] : [tailwindcss(), reactRouter(), netlifyReactRouter()])),
@@ -36,9 +39,9 @@ export default defineConfig({
       typeCheck: true,
     },
   },
-  // Vitest runs tests/; Playwright runs e2e/ against the production build.
+  // Vitest runs tests/ and each package's tests; Playwright runs e2e/ against the production build.
   test: {
-    include: ["tests/**/*.test.ts"],
+    include: ["tests/**/*.test.ts", "packages/*/tests/**/*.test.ts"],
   },
   // CI runs on this machine, not on GitHub: `vp run ci`, also run by the
   // pre-push hook (.vite-hooks/pre-push).

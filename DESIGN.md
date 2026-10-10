@@ -240,8 +240,8 @@ follows the ground in both schemes.
 
 ### Secondary
 
-- **Win Gold** (gold): slop of the day and slopcessful only: the gold button that marks a slop slopcessful, the
-  slopcessful timeline dot, filled stars on the slopcessful hall.
+- **Win Gold** (gold): slop of the day and slopcessful only: the slopcessful timeline dot, filled stars on the
+  slopcessful hall.
 - **Gold Text** (gold-text): the winning rank numeral and gold stars on tags.
 - **Gold Tint** (gold-tint): "Slop of the day" and "Slopcessful" tags, the slopcessful note panel.
 
@@ -364,7 +364,7 @@ Solid, plain, confident: one shape, no outline, no shadow.
 - **Default:** sunk fill; hover mixes 9% ink into it. Used for secondary actions and "see more" links with a right
   arrow.
 - **Ink:** ink fill on ground text, for strong actions that are not shipping (sign in, post feedback, pledge, connect)
-  and the skip link. **Gold:** only to mark a slop slopcessful. **Quiet:** transparent with tighter padding, sunk on
+  and the skip link. **Quiet:** transparent with tighter padding, sunk on
   hover, for remove and disconnect actions, usually in muted text.
 - **Sizes:** small (0.9rem inline padding, 0.9375rem text) in the header and section heads; large (3.25rem tall, 1.5rem
   padding, 1.0625rem text) for a page's main action, often only from `sm` up.

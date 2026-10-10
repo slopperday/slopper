@@ -7,6 +7,7 @@ import { consume, nextCounter } from "./lib/rate";
 import { isVisibleTo, productIdOf, publicSlop, publicUser, toCards, voteOf } from "./lib/shape";
 import { linkValidator } from "./schema";
 import { openGoal } from "./goals";
+import { utcToday } from "./race";
 import { releaseMedia } from "./lib/media";
 import { checkScreenshots } from "./moderation";
 import { goalDayFor } from "../app/lib/goal";
@@ -224,31 +225,20 @@ export const remove = mutation({
   },
 });
 
-/** Declares (or with `note: null`, retracts) a breakout, logged as an update. */
-export const setSlopcessful = mutation({
-  args: { userId: v.id("users"), slopId: v.id("slops"), note: v.union(v.string(), v.null()) },
-  handler: async (ctx, { userId, slopId, note }): Promise<Id<"updates"> | null> => {
-    await requireServer(ctx);
-    const slop = await ownSlop(ctx, userId, slopId);
-    if (note === null) {
-      await ctx.db.patch(slopId, { slopcessfulAt: null, slopcessfulNote: null });
-      return null;
-    }
-    const now = Date.now();
-    const text = note.trim().slice(0, LIMITS.slopcessfulNoteLength);
-    await ctx.db.patch(slopId, {
-      slopcessfulAt: slop.slopcessfulAt ?? now,
-      slopcessfulNote: text,
-      updateCount: slop.updateCount + 1,
-      lastActivityAt: now,
-    });
-    return await ctx.db.insert("updates", { slopId, userId, kind: "slopcessful", body: text, crossposts: [] });
-  },
-});
+/** How many votes a person cast on a UTC day (see `LIMITS.votesPerDay`). */
+async function votesCastOn(ctx: QueryCtx, userId: Id<"users">, date: string): Promise<number> {
+  const votes = await ctx.db
+    .query("votes")
+    .withIndex("by_user_cast_on", (q) => q.eq("userId", userId).eq("castOn", date))
+    .collect();
+  return votes.length;
+}
 
 /**
- * Upvote, private downvote, or clear (0). Counters move in the same
- * transaction, and upvotes notify the owner.
+ * Upvote, private downvote, or clear (0). Everyone gets `LIMITS.votesPerDay`
+ * votes per UTC day: a new vote, or changing one cast on an earlier day,
+ * spends one; switching today's vote is free, and clearing it gives it back.
+ * Counters move in the same transaction, and upvotes notify the owner.
  */
 export const vote = mutation({
   args: { userId: v.id("users"), slopId: v.string(), value: v.union(v.literal(1), v.literal(-1), v.literal(0)) },
@@ -259,23 +249,41 @@ export const vote = mutation({
     if (!slop || slop.hidden) throw new ConvexError("Slop not found.");
     if (slop.userId === userId) throw new ConvexError("You can't vote on your own slop.");
     await consume(ctx, `vote:${userId}`, 120, 3_600_000);
+    const today = utcToday();
+    const used = await votesCastOn(ctx, userId, today);
     const existing = await ctx.db
       .query("votes")
       .withIndex("by_slop_user", (q) => q.eq("slopId", slop._id).eq("userId", userId))
       .unique();
     const previous = existing?.value ?? 0;
-    if (previous === value) return { upvotes: slop.upvotes, vote: value };
+    if (previous === value) return { upvotes: slop.upvotes, vote: value, votesLeft: LIMITS.votesPerDay - used };
 
+    const castToday = existing?.castOn === today;
+    const spends = value !== 0 && !castToday;
+    if (spends && used >= LIMITS.votesPerDay) {
+      throw new ConvexError(`You've used your ${LIMITS.votesPerDay} votes for today. More at midnight UTC.`);
+    }
     const upvotes = slop.upvotes + (value === 1 ? 1 : 0) - (previous === 1 ? 1 : 0);
     const downvotes = slop.downvotes + (value === -1 ? 1 : 0) - (previous === -1 ? 1 : 0);
     await ctx.db.patch(slop._id, { upvotes, downvotes });
     if (value === 0 && existing) await ctx.db.delete(existing._id);
-    else if (existing && value !== 0) await ctx.db.patch(existing._id, { value });
-    else if (value !== 0) await ctx.db.insert("votes", { slopId: slop._id, userId, value });
+    else if (existing && value !== 0) await ctx.db.patch(existing._id, { value, castOn: today });
+    else if (value !== 0) await ctx.db.insert("votes", { slopId: slop._id, userId, value, castOn: today });
     if (value === 1) {
       await notify(ctx, { userId: slop.userId, kind: "upvote", slopId: slop._id, actorId: userId, amount: null });
     }
-    return { upvotes, vote: value };
+    const returned = value === 0 && castToday ? 1 : 0;
+    return { upvotes, vote: value, votesLeft: LIMITS.votesPerDay - used - (spends ? 1 : 0) + returned };
+  },
+});
+
+/** The reader's votes left today (UTC); null for visitors. */
+export const votesLeft = query({
+  args: { asUser: v.optional(v.id("users")) },
+  handler: async (ctx, { asUser }): Promise<number | null> => {
+    const reader = await readerFor(ctx, asUser);
+    if (!reader) return null;
+    return LIMITS.votesPerDay - (await votesCastOn(ctx, reader._id, utcToday()));
   },
 });
 

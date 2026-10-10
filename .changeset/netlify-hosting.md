@@ -1,6 +1,5 @@
 ---
-slopper:
-  type: feat
+slopper: feat
 ---
 
 # Host on Netlify instead of Deno Deploy

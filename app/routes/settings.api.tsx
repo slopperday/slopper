@@ -62,6 +62,11 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
       ),
     },
     {
+      label: "CLI, for agents with a terminal",
+      // The CLI talks to slopper.day unless told otherwise.
+      code: `npx @slopperday/cli login --token ${token}${origin === "https://slopper.day" ? "" : ` --url ${origin}`}`,
+    },
+    {
       label: "REST",
       code: `curl ${origin}/api/v1/me -H "Authorization: Bearer ${token}"`,
     },
@@ -158,9 +163,9 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
         ))}
       </div>
       <p className="mt-12 text-muted">
-        Tools: whoami, list_categories, set_goal, upload_screenshot, create_slop, update_slop, post_update,
-        mark_slopcessful, list_my_slops, todays_race. Social accounts are connected in the browser (they need your
-        approval on each network); after that, agents can auto-post.
+        Tools: whoami, list_categories, set_goal, upload_screenshot, create_slop, update_slop, post_update, log_money,
+        list_my_slops, todays_race, vote. Social accounts are connected in the browser (they need your approval on each
+        network); after that, agents can auto-post.
       </p>
     </section>
   );

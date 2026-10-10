@@ -5,6 +5,8 @@ import { viewerContext } from "~/.server/session";
 import { convex } from "~/.server/convex";
 import { notFound } from "~/.server/http";
 import { addDays, formatDay, isIsoDate } from "~/lib/dates";
+import { plural } from "~/lib/display";
+import { LIMITS } from "~/lib/model";
 import { seo } from "~/lib/seo";
 import { Countdown } from "~/components/Countdown";
 import { RaceList } from "~/components/SlopList";
@@ -17,8 +19,12 @@ export async function loader({ params, context }: Route.LoaderArgs) {
   const today = new Date().toISOString().slice(0, 10);
   const date = params.date ?? today;
   if (!isIsoDate(date) || date > today) notFound();
-  const race = await convex.query(api.race.day, { date, asUser: context.get(viewerContext).user?._id });
-  return { today, race };
+  const asUser = context.get(viewerContext).user?._id;
+  const [race, votesLeft] = await Promise.all([
+    convex.query(api.race.day, { date, asUser }),
+    convex.query(api.slops.votesLeft, { asUser }),
+  ]);
+  return { today, race, votesLeft };
 }
 
 export const meta: Route.MetaFunction = ({ matches, loaderData }) =>
@@ -28,8 +34,20 @@ export const meta: Route.MetaFunction = ({ matches, loaderData }) =>
     path: loaderData ? `/day/${loaderData.race.date}` : undefined,
   });
 
+/** Everyone gets LIMITS.votesPerDay votes a day; this says how many are still to spend. */
+function VotesLeft({ left }: { left: number }) {
+  return (
+    <p className="w-full font-bold" aria-live="polite">
+      {left > 0
+        ? `${plural(left, "vote", "votes")} left today, out of ${LIMITS.votesPerDay}. Spend them on the slops that should win.`
+        : `You've cast all ${LIMITS.votesPerDay} of today's votes. Take one back to move it, or wait for midnight UTC.`}
+    </p>
+  );
+}
+
 export default function Day({ loaderData }: Route.ComponentProps) {
   const race = useLive(api.race.day, { date: loaderData.race.date }, loaderData.race);
+  const votesLeft = useLive(api.slops.votesLeft, {}, loaderData.votesLeft);
   const { date, final } = race;
   const previous = addDays(date, -1);
   const next = addDays(date, 1);
@@ -56,7 +74,10 @@ export default function Day({ loaderData }: Route.ComponentProps) {
       ) : (
         <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
           <Countdown className="text-[2.25rem]" />
-          <p className="text-muted">Live, ranked by votes. The top slop at midnight UTC wins slop of the day.</p>
+          <p className="text-muted">
+            Live, ranked by votes. The top slop at midnight UTC wins slop of the day and goes slopcessful.
+          </p>
+          {votesLeft !== null && <VotesLeft left={votesLeft} />}
         </div>
       )}
       <div className="mt-12">

@@ -10,8 +10,9 @@
  *
  * `check` makes sure a release starts from a clean main that has everything on
  * origin/main. `publish` runs once monochange has tagged the release commit at
- * HEAD: it pushes main and the tag together, so the pre-push hook runs CI once
- * and a failure pushes neither, then deploys. `deploy` runs from this machine:
+ * HEAD: it pushes main and every tag at HEAD together, so the pre-push hook runs
+ * CI once and a failure pushes nothing, then deploys if the site was released.
+ * monochange publishes the npm packages (the `cli` group) after it. `deploy` runs from this machine:
  * Convex functions first, so the app never calls one that isn't there yet,
  * then the Netlify site. It returns once slopper.day serves the release.
  */
@@ -108,22 +109,25 @@ async function deploy(): Promise<void> {
 }
 
 async function publish(dryRun: boolean): Promise<void> {
-  const version = releaseVersion();
-  const tag = `v${version}`;
+  const siteTag = `v${releaseVersion()}`;
   if (dryRun) {
-    console.log(`Would push main and ${tag} to origin, deploy Convex and Netlify, then wait for ${SITE.origin}.`);
+    console.log(
+      `Would push main and the release tags at HEAD to origin, then, if ${siteTag} is one of them, deploy Convex and Netlify and wait for ${SITE.origin}.`,
+    );
     return;
   }
   requireCleanMain();
-  if (taggedCommit(tag) !== git("rev-parse", "HEAD")) {
-    fail(`${tag} doesn't point at HEAD. Tag it with monochange first.`);
-  }
+  // monochange tags every release owner in the commit: v1.2.3 for the site, cli/v1.2.3 for the npm packages.
+  const tags = git("tag", "--points-at", "HEAD").split("\n").filter(Boolean);
+  if (tags.length === 0) fail("No release tags point at HEAD. Tag it with monochange first.");
 
   // Inherit stdio so the pre-push hook's CI run streams to the terminal.
-  const push = spawnSync("git", ["push", "--atomic", "origin", "HEAD:main", `refs/tags/${tag}`], { stdio: "inherit" });
+  const refs = tags.map((tag) => `refs/tags/${tag}`);
+  const push = spawnSync("git", ["push", "--atomic", "origin", "HEAD:main", ...refs], { stdio: "inherit" });
   if (push.status !== 0) fail(`Nothing was pushed. Fix what git reported above, then publish again.`);
-  console.log(`Pushed main and ${tag}.`);
-  await deploy();
+  console.log(`Pushed main and ${tags.join(", ")}.`);
+  if (taggedCommit(siteTag) === git("rev-parse", "HEAD")) await deploy();
+  else console.log(`This release doesn't change the site (no ${siteTag} at HEAD), so nothing to deploy.`);
 }
 
 const [command, ...flags] = process.argv.slice(2);

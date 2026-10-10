@@ -289,7 +289,7 @@ function howItWorks(networks: readonly string[]) {
     },
     {
       title: "Keep slopping",
-      body: "Post updates, ship features, re-promote. When one breaks out, mark it slopcessful.",
+      body: "Post updates, ship features, re-promote. Win slop of the day and it's slopcessful.",
     },
   ];
 }

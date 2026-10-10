@@ -224,7 +224,14 @@ export default defineSchema({
     slopId: v.id("slops"),
     userId: v.id("users"),
     value: v.union(v.literal(1), v.literal(-1)),
-  }).index("by_slop_user", ["slopId", "userId"]),
+    /**
+     * UTC day the vote was cast (or last changed), for the daily allowance.
+     * Absent on votes from before the allowance, which count on no day.
+     */
+    castOn: v.optional(v.string()),
+  })
+    .index("by_slop_user", ["slopId", "userId"])
+    .index("by_user_cast_on", ["userId", "castOn"]),
 
   pledges: defineTable({
     slopId: v.id("slops"),

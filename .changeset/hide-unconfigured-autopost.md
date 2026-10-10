@@ -1,6 +1,5 @@
 ---
-slopper:
-  type: user_fix
+slopper: user_fix
 ---
 
 # Auto-post only offers networks you can connect

@@ -163,7 +163,11 @@ describe("votes, pledges and notifications", () => {
     await expect(server.mutation(api.slops.vote, { userId: owner, slopId, value: 1 })).rejects.toThrow(
       "can't vote on your own",
     );
-    expect(await server.mutation(api.slops.vote, { userId: fan, slopId, value: 1 })).toEqual({ upvotes: 1, vote: 1 });
+    expect(await server.mutation(api.slops.vote, { userId: fan, slopId, value: 1 })).toEqual({
+      upvotes: 1,
+      vote: 1,
+      votesLeft: 4,
+    });
     await server.mutation(api.slops.vote, { userId: hater, slopId, value: -1 });
     await server.mutation(api.slops.vote, { userId: fan, slopId, value: -1 });
     let doc = await server.query(api.slops.getForServer, { slopId });
@@ -184,6 +188,43 @@ describe("votes, pledges and notifications", () => {
     expect(await asOwner.query(api.notifications.unreadCount, {})).toBe(3);
     await asOwner.mutation(api.notifications.markAllRead, {});
     expect(await asOwner.query(api.notifications.unreadCount, {})).toBe(0);
+  });
+
+  it("gives everyone five votes a UTC day, and taking one back frees it", async () => {
+    const { t, server } = setup();
+    const owner = await makeUser(server, "owner");
+    const fan = await makeUser(server, "fan");
+    const today = new Date().toISOString().slice(0, 10);
+    const slops: Id<"slops">[] = [];
+    for (let index = 0; index < 7; index++) slops.push((await ship(server, owner, today)).slopId);
+    const vote = (slopId: Id<"slops">, value: 1 | -1 | 0) =>
+      server.mutation(api.slops.vote, { userId: fan, slopId, value });
+    const left = () => server.query(api.slops.votesLeft, { asUser: fan });
+
+    expect(await server.query(api.slops.votesLeft, {})).toBeNull();
+    expect(await left()).toBe(5);
+    for (const slopId of slops.slice(0, 4)) await vote(slopId, 1);
+    expect((await vote(slops[4], -1)).votesLeft).toBe(0);
+    await expect(vote(slops[5], 1)).rejects.toThrow("You've used your 5 votes for today. More at midnight UTC.");
+
+    // Switching today's vote is free, and repeating it changes nothing.
+    expect(await vote(slops[4], 1)).toEqual({ upvotes: 1, vote: 1, votesLeft: 0 });
+    expect(await vote(slops[4], 1)).toEqual({ upvotes: 1, vote: 1, votesLeft: 0 });
+    // Clearing gives it back, to spend elsewhere.
+    expect((await vote(slops[0], 0)).votesLeft).toBe(1);
+    expect((await vote(slops[5], 1)).votesLeft).toBe(0);
+    expect(await left()).toBe(0);
+
+    // A vote from an earlier day doesn't count today, but changing it spends one.
+    const old = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("votes", { slopId: slops[6], userId: fan, value: 1, castOn: "2026-01-01" });
+      await ctx.db.patch(slops[6], { upvotes: 1 });
+      return id;
+    });
+    await expect(vote(slops[6], -1)).rejects.toThrow("used your 5 votes");
+    await vote(slops[1], 0);
+    expect(await vote(slops[6], -1)).toEqual({ upvotes: 0, vote: -1, votesLeft: 0 });
+    expect((await t.run((ctx) => ctx.db.get(old)))?.castOn).toBe(today);
   });
 
   it("reports malformed ids as not found instead of crashing", async () => {
@@ -216,8 +257,22 @@ describe("slop of the day", () => {
     await t.mutation(internal.race.crown, { date });
     const crowned = await server.query(api.race.day, { date });
     expect(crowned.winnerId).toBe(second.slopId);
-    expect((await server.query(api.slops.getForServer, { slopId: second.slopId }))?.slopOfTheDay).toBe(date);
+    const winner = await server.query(api.slops.getForServer, { slopId: second.slopId });
+    expect(winner?.slopOfTheDay).toBe(date);
     expect((await server.query(api.race.champion, {}))?.item.slop.id).toBe(second.slopId);
+
+    // Winning is what makes a slop slopcessful, logged on its timeline.
+    expect(winner?.slopcessfulAt).toEqual(expect.any(Number));
+    expect(winner?.slopcessfulNote).toMatch(/^Won slop of the day on .+ with 2 upvotes\.$/);
+    expect((await server.query(api.slops.slopcessful, {})).map((item) => item.slop.id)).toEqual([second.slopId]);
+    const updates = await t.run((ctx) =>
+      ctx.db
+        .query("updates")
+        .withIndex("by_slop", (q) => q.eq("slopId", second.slopId))
+        .collect(),
+    );
+    expect(updates.map((update) => update.kind)).toEqual(["launch", "slopcessful"]);
+    expect((await server.query(api.slops.getForServer, { slopId: first.slopId }))?.slopcessfulAt).toBeNull();
   });
 });
 

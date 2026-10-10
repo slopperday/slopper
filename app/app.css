@@ -358,15 +358,6 @@
     background: var(--slop-hover);
   }
 
-  .btn-gold {
-    background: var(--gold);
-    color: #161a13;
-  }
-
-  .btn-gold:hover {
-    background: color-mix(in oklab, var(--gold), #161a13 8%);
-  }
-
   .btn-ink {
     background: var(--ink);
     color: var(--ground);

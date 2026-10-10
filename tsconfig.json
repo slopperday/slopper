@@ -1,6 +1,7 @@
 {
   "include": ["**/*", "**/.server/**/*", "**/.client/**/*", ".react-router/types/**/*"],
-  "exclude": ["node_modules", "build", ".netlify"],
+  // Packages bring their own tsconfig.
+  "exclude": ["node_modules", "build", ".netlify", "packages"],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2024"],
     "types": ["node", "vite/client"],

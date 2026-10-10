@@ -183,27 +183,6 @@ export async function action({ params, request, context }: Route.ActionArgs) {
         });
       }
 
-      case "slopcessful": {
-        if (!isOwner) forbidden();
-        const note = formText(form, "note");
-        if (!note) {
-          return redirectWithFlash(`${here}#slopcessful`, {
-            tone: "error",
-            message: "Say what happened: users, revenue, a viral post…",
-          });
-        }
-        const updateId = await convex.mutation(api.slops.setSlopcessful, { userId: user._id, slopId: slop.id, note });
-        const autoposted =
-          updateId && form.get("autopost") === "on" ? summarize(await announce(ownerRef, slop.id, updateId)) : "";
-        return redirectWithFlash(here, { tone: "success", message: `Slopcessful. Keep slopping.${autoposted}` });
-      }
-
-      case "unslopcessful": {
-        if (!isOwner) forbidden();
-        await convex.mutation(api.slops.setSlopcessful, { userId: user._id, slopId: slop.id, note: null });
-        return redirectWithFlash(here, { tone: "info", message: "Slopcessful badge removed." });
-      }
-
       case "money-add": {
         if (!isOwner) forbidden();
         const amount = parseAmount(formText(form, "amount"));
@@ -834,47 +813,6 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
       )}
 
       {isOwner && <GoOutside path={path} />}
-
-      {isOwner && (
-        <section id="slopcessful" className="scroll-mt-24" aria-labelledby="slopcessful-title">
-          <h2 id="slopcessful-title" className="caps">
-            Slopcessful?
-          </h2>
-          {slop.slopcessfulAt ? (
-            <Form method="post" className="mt-2">
-              <input type="hidden" name="intent" value="unslopcessful" />
-              <p>Marked {formatDay(new Date(slop.slopcessfulAt).toISOString().slice(0, 10))}.</p>
-              <button type="submit" className="min-h-11 text-sm text-muted underline hover:text-ink">
-                Remove the badge
-              </button>
-            </Form>
-          ) : (
-            <Form method="post" className="mt-2 grid gap-2.5">
-              <input type="hidden" name="intent" value="slopcessful" />
-              <p className="text-[0.9375rem] text-muted">
-                Did this one break out? Users, revenue, a post that blew up?
-              </p>
-              <input
-                name="note"
-                className="input"
-                required
-                maxLength={LIMITS.slopcessfulNoteLength}
-                placeholder="10k users in a week"
-                aria-label="What happened"
-              />
-              {loaderData.autopostCount > 0 && (
-                <label className="flex min-h-11 items-center gap-2">
-                  <input type="checkbox" name="autopost" defaultChecked className="size-4" />
-                  Auto-post it
-                </label>
-              )}
-              <button type="submit" className="btn btn-gold">
-                ★ Mark slopcessful
-              </button>
-            </Form>
-          )}
-        </section>
-      )}
 
       {isOwner && (
         <section aria-labelledby="yours-title">

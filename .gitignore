@@ -23,3 +23,6 @@ playwright-report/
 
 # monochange local cache (release records in .monochange/releases/ are committed)
 .monochange/local/
+
+# Built packages (packages/*)
+dist/

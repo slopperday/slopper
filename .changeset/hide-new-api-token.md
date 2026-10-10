@@ -1,6 +1,5 @@
 ---
-slopper:
-  type: user_fix
+slopper: user_fix
 ---
 
 # New API tokens stay hidden until you reveal them

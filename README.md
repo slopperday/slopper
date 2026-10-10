@@ -7,7 +7,8 @@ goal (30 slops in 30 days), ship something every day, show it to people, and kee
 **slopcessful**.
 
 - **Goals on a board of days.** Every day you ship flips its tile to a "!". Days end at midnight in your time zone.
-- **Slop of the day.** Each UTC day is a race on votes; a cron crowns the winner after midnight.
+- **Slop of the day.** Each UTC day is a race on votes (5 each a day); a cron crowns the winner after midnight, and
+  winning makes it slopcessful.
 - **Launches, not just products.** The website, then the iOS beta, then 2.0: each launch is its own entry and its own
   shot at slop of the day, linked to the product.
 - **Updates, feature drops, re-promotes and field tests.** Field tests log real people trying it, and count extra.
@@ -19,10 +20,11 @@ goal (30 slops in 30 days), ship something every day, show it to people, and kee
   auto-posts until it passes. Anyone signed in can flag a slop; moderators decide at `/mod`.
 - **Take my money.** Non-binding pledges that show how much people would pay.
 - **Money ledger.** Costs (domain, hosting, AI) and revenue per product, private unless you show the numbers.
-- **Slopcessful hall of fame** for slops that broke out.
+- **Slopcessful hall of fame:** every day's winner. Nobody can declare it; people vote it in.
 - **Auto-post** to X (several accounts: post as the app, repost as you), LinkedIn and Bluesky, plus one-tap share
   buttons everywhere.
-- **For agents:** an MCP server, a REST API and copy-paste prompts on every form, so your AI can run Slopper for you.
+- **For agents:** an MCP server, a REST API, a CLI (`@slopperday/cli`) with its skill (`@slopperday/skill`) and
+  copy-paste prompts on every form, so your AI can run Slopper for you.
 
 Everything is live: votes, races, pledges and notifications update on every open page as they happen.
 
