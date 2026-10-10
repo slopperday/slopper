@@ -20,7 +20,7 @@ goal (30 slops in 30 days), ship something every day, show it to people, and kee
   auto-posts until it passes. Anyone signed in can flag a slop; moderators decide at `/mod`.
 - **Take my money.** Non-binding pledges that show how much people would pay.
 - **Money ledger.** Costs (domain, hosting, AI) and revenue per product, private unless you show the numbers.
-- **Slopcessful hall of fame:** every day's winner. Nobody can declare it; people vote it in.
+- **Slopcessful hall of fame:** slops that earned it. Nobody can declare it: today it comes from winning the day.
 - **Auto-post** to X (several accounts: post as the app, repost as you), LinkedIn and Bluesky, plus one-tap share
   buttons everywhere.
 - **For agents:** an MCP server, a REST API, a CLI (`@slopperday/cli`) with its skill (`@slopperday/skill`) and

@@ -30,8 +30,9 @@ persistence, where launch sites are built around one big day.
 ## Operating Context
 
 - Goals run in the maker's own time zone; a day ends at midnight where they are.
-- Slop of the day is a race on votes for each UTC day, crowned just after midnight UTC. Everyone gets 5 votes a day,
-  and winning is the only way to go slopcessful.
+- Slop of the day is a race on votes for each UTC day, crowned just after midnight UTC. Everyone gets 5 votes a day.
+- Slopcessful is earned, never declared: by winning slop of the day, and (planned) by passing 1,000 users verified by
+  signups or $1,000 of revenue verified through integrations. It stays its own badge, separate from slop of the day.
 - Each launch (website, then iOS beta, then 2.0) is its own entry with its own shot at slop of the day.
 - Updates, new features, re-promotes and field tests keep a slop alive after launch day.
 - Agents can do everything through MCP (`/mcp`) and REST (`/api/v1`), with copy-paste prompts on every form.

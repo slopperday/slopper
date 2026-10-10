@@ -7,8 +7,8 @@ description: Ship to slopper.day from the terminal with the `slopper` CLI (npm @
 
 [slopper.day](https://slopper.day) is where people throw slop at the wall every day: they ship something small
 daily (a site, a TestFlight or Play beta, a repo), set a goal like 30 slops in 30 days, and keep slopping until one is
-slopcessful. Every UTC day the slops launched that day race on votes; the leader at midnight UTC wins slop of the day,
-which is the only way a slop goes slopcessful. Nobody can declare it.
+slopcessful. Every UTC day the slops launched that day race on votes; the leader at midnight UTC wins slop of the day
+and goes slopcessful. Slopcessful is earned, never declared: nobody can mark their own slop slopcessful.
 
 ## Setup
 

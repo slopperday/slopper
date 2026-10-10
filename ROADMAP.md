@@ -10,6 +10,17 @@ What's built is in the README. These come next, roughly in order.
 - **Verified revenue.** Read-only connections to Stripe, RevenueCat and Lemon Squeezy so revenue syncs itself and gets a
   "verified" badge, instead of being typed in.
 
+## Slopcessful by milestones
+
+Winning slop of the day is one way to go slopcessful. The others are milestones that integrations verify, never ones a
+maker types in:
+
+- **1,000 users**, counted from real signups: a connection to the product's auth provider, or a signed signup webhook.
+- **$1,000 of revenue**, in total, from the verified revenue connections above.
+
+Each sets `slopcessfulAt` with a note saying what was passed (the daily crown already does this). Slopcessful keeps its
+own badge, separate from slop of the day.
+
 ## Promo videos
 
 - A Remotion composition per launch (vertical, square, landscape) built from the slop's name, tagline, screenshots and

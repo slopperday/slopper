@@ -58,7 +58,8 @@ release. Add a tool name to select part of the graph. For example, run
   `npm login` with access to the `@slopperday` scope. A new package needs `vp exec monochange publish placeholder` once.
   Run monochange from the main checkout: in a worktree under `.claude/`, it discovers no packages.
 - **Votes and slopcessful:** everyone gets `LIMITS.votesPerDay` (5) votes per UTC day (`convex/slops.ts` `vote`).
-  Slopcessful is never declared: `race.crown` marks the day's winner slopcessful.
+  Slopcessful is earned, never declared: `race.crown` marks the day's winner slopcessful, and verified milestones
+  (1,000 users, $1,000 revenue; ROADMAP.md) will too. Keep its badge separate from slop of the day.
 - **Screenshots** go through `uploadImage` (`app/.server/media.ts`): checked before they're stored (blocked ones never
   are), then written to B2 (`app/.server/storage.ts`) or, without the B2 variables, Convex storage. Image URLs are
   built in Convex from `MEDIA_PUBLIC_URL` (a Convex env var). Mutations that drop screenshots return `orphaned`; call
