@@ -12,7 +12,7 @@ import { plural } from "../app/lib/display";
  * ranked by net votes (private downvotes count against). Ties go to more
  * updates, then more feedback, then the earlier launch. A cron crowns the
  * winner just after midnight UTC, and the badge never changes after that.
- * The winner also goes slopcessful: the hall of fame is every day's winner.
+ * The winner also goes slopcessful, one of the ways to earn it (see ROADMAP.md).
  */
 
 export function utcToday(): string {
@@ -88,7 +88,7 @@ export const crown = internalMutation({
     const winner = leader && net(leader) > 0 ? leader : null;
     await ctx.db.insert("dailyWinners", { date: target, slopId: winner?._id ?? null });
     if (!winner) return;
-    // Winning the day is what makes a slop slopcessful; nobody can declare it.
+    // Winning the day makes a slop slopcessful; nobody can declare it.
     const now = Date.now();
     const note = `Won slop of the day on ${formatDay(target)} with ${plural(winner.upvotes, "upvote", "upvotes")}.`;
     await ctx.db.patch(winner._id, {

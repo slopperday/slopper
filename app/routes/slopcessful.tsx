@@ -29,8 +29,8 @@ export default function Slopcessful({ loaderData }: Route.ComponentProps) {
         Slopcessful
       </h1>
       <p className="lede mt-4">
-        The hall of fame. Every slop that won its day: the most votes when the clock hit midnight UTC. Nobody can
-        declare it; people vote it in.
+        The hall of fame. Slopcessful is earned, never declared. Today that means winning your day: the most votes when
+        the clock hits midnight UTC.
       </p>
       <div className="mt-14">
         {items.length > 0 ? (
