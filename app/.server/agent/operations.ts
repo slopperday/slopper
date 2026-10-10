@@ -10,9 +10,9 @@ import {
   REVENUE_CATEGORIES,
 } from "~/lib/model";
 import { localDate } from "~/lib/dates";
-import { slopPath } from "~/lib/display";
+import { listWords, slopPath } from "~/lib/display";
 import { CURRENCIES } from "~/lib/money";
-import { absoluteUrl, config } from "../config";
+import { absoluteUrl, autopostNetworks, config } from "../config";
 import { convex, convexMessage } from "../convex";
 import { validateGoal, validateSlop } from "../forms";
 import { deleteOrphanedMedia, uploadImage } from "../media";
@@ -114,8 +114,7 @@ const LINKS_SCHEMA = {
 
 const AUTOPOST = {
   type: "boolean",
-  description:
-    "Post it to the user's connected X, LinkedIn and Bluesky accounts. Defaults to false. Held (with the reason) unless the slop passed the content check and nobody has flagged it.",
+  description: `Post it to the user's connected ${listWords(autopostNetworks(), "and")} accounts. Defaults to false. Held (with the reason) unless the slop passed the content check and nobody has flagged it.`,
 };
 
 export const OPERATIONS: Operation[] = [

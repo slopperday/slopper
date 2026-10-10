@@ -12,7 +12,7 @@ import { announce, retryFailed, summarize } from "~/.server/social/announce";
 import { modeFor } from "~/.server/social/crosspost";
 import { shareIntents } from "~/lib/compose";
 import { formatDay, localDate, timeAgo } from "~/lib/dates";
-import { dayLabel, launchTitle, numberLabel, plural, slopPath } from "~/lib/display";
+import { dayLabel, launchTitle, listWords, numberLabel, plural, slopPath } from "~/lib/display";
 import { parseAmount } from "~/lib/money";
 import {
   COST_CATEGORIES,
@@ -30,7 +30,7 @@ import { isIsoDate } from "~/lib/dates";
 import { seo } from "~/lib/seo";
 import { Avatar } from "~/components/Avatar";
 import { CrosspostReceipts } from "~/components/Autopost";
-import { Markdown, ShareBox } from "~/components/Shared";
+import { Markdown, ShareBox, useAutopostNetworks } from "~/components/Shared";
 import {
   CategoryLink,
   LaunchLabelTag,
@@ -613,6 +613,7 @@ const COMPOSER_HINTS: Record<PostableUpdateKind, string> = {
 };
 
 function UpdateComposer({ autopostCount }: { autopostCount: number }) {
+  const networks = useAutopostNetworks();
   const [search] = useSearchParams();
   const initial = search.get("kind");
   const [kind, setKind] = useState<PostableUpdateKind>(initial && isPostableUpdateKind(initial) ? initial : "update");
@@ -664,7 +665,7 @@ function UpdateComposer({ autopostCount }: { autopostCount: number }) {
             to="/settings/autopost"
             className="inline-flex min-h-11 items-center text-muted underline hover:text-ink"
           >
-            Connect X, LinkedIn or Bluesky
+            Connect {listWords(networks, "or")}
           </Link>
         )}
         <button type="submit" className="btn btn-slop">
