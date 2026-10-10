@@ -35,17 +35,19 @@ Everything is live: votes, races, pledges and notifications update on every open
 | Styles    | Tailwind CSS 4                                                                                                                   |
 | Data      | [Convex](https://convex.dev): realtime queries and crons                                                                         |
 | Media     | Screenshots and copied profile pictures in a [Backblaze B2](https://www.backblaze.com/cloud-storage) bucket (S3 API, aws4fetch)  |
-| Hosting   | [Deno Deploy](https://deno.com/deploy), one self-contained ESM server bundle                                                     |
+| Hosting   | [Netlify](https://www.netlify.com): static files on the CDN, the server as one Netlify Function, deployed from this machine      |
 | Auth      | GitHub, Google, X, LinkedIn and Facebook OAuth; the app signs ES256 JWTs that Convex verifies (`convex/auth.config.ts`)          |
 | Safety    | DeepSeek V4.1 Flash through [OpenRouter](https://openrouter.ai) reads text and screenshots; the policy is a fixed, cached prefix |
+| Secrets   | [Monosecret](https://ifiokjr.github.io/monosecret/) reads production secrets from one 1Password item and sets them on Netlify    |
 | Tests     | Vitest (logic, Convex functions) and Playwright (journeys against the production build)                                          |
 
-The free tiers are enough to launch: Deno Deploy gives 1M requests and 20 GB of egress a month; Convex gives 1M function
-calls and 0.5 GB of database; Backblaze B2 stores the first 10 GB free.
+Convex gives 1M function calls and 0.5 GB of database free; Backblaze B2 stores the first 10 GB free. Netlify's free
+plan is 300 credits a month, and each production deploy costs 15 of them (bandwidth is 20 per GB, 10k requests 2), so a
+busy month of releases wants the Personal plan.
 
 ## Develop
 
-Needs Node 24+, pnpm (or just `vp`), and Deno 2 for the production server.
+Needs Node 24+ and pnpm (or just `vp`).
 
 ```bash
 vp install
@@ -62,7 +64,7 @@ Locally there's a password-free **dev login** on `/login`. OAuth providers light
 vp check               # oxfmt, oxlint and type-aware checks
 vp test                # Vitest, including Convex functions via convex-test
 vp build               # production bundles in build/
-vp run start           # serve build/ with Deno, like production
+vp run start           # serve build/ like Netlify does (scripts/serve.ts), with .env.local
 vp run e2e             # build, then the Playwright journeys
 vp run ci              # everything CI does: typegen, check, test, build, e2e
 ```
@@ -71,9 +73,9 @@ CI runs locally, not on GitHub. `vp install` sets up git hooks: pre-commit runs 
 files) and pre-push runs `vp run ci`, so nothing broken gets pushed. If hooks aren't active in a fresh clone, run
 `vp hooks enable`.
 
-The Playwright journeys (`e2e/`) run against the production build under Deno, with a throwaway Convex backend, a
+The Playwright journeys (`e2e/`) run against the production build (the Netlify Function under Node), with a throwaway Convex backend, a
 fake content check and a fake B2 bucket that checks every request's signature, all started by `e2e/stack.ts`. They
-need Deno, Playwright's Chromium (`node_modules/.bin/playwright install chromium`), and the Convex backend binary, which
+need Playwright's Chromium (`node_modules/.bin/playwright install chromium`), and the Convex backend binary, which
 `vp run convex` downloads the first time. Your dev data on :3210 is never touched.
 
 ## Deploy
@@ -81,16 +83,22 @@ need Deno, Playwright's Chromium (`node_modules/.bin/playwright install chromium
 1. **Convex.** `npx convex login`, then `npx convex deploy` to create the production deployment. Run
    `APP_URL=https://slopper.day node scripts/convex-keys.ts --prod --print` to give Convex the public key and print the
    private key for the app.
-2. **Deno Deploy.** Create an app at [console.deno.com](https://console.deno.com) from this repository. Build settings
-   live in the app, not in a `deno.json`: a `deploy` section there caps the build at 1 GB, which the build outgrows on
-   Deno Deploy. Install `deno install`; build `deno run -A node_modules/@react-router/dev/dist/cli/index.js build`;
-   dynamic runtime with entrypoint `deploy/main.ts`; build memory 2048 MB; region US, next to Convex. Set the
-   environment variables from `.env.example`: `APP_URL=https://slopper.day`, `CONVEX_URL` (your `*.convex.cloud` URL),
-   `SLOPPER_JWT_ISSUER`, `SLOPPER_JWT_PRIVATE_KEY`, `SLOPPER_SECRET_KEY`, `ADMIN_USERNAMES` (the moderators),
-   `OPENROUTER_API_KEY` (the content check; without it nothing is ever auto-posted), the B2 variables below and the
-   OAuth keys (below). Leave `COMMENTS_ENABLED` unset: comments are off for V1.
-3. **Backblaze B2** for screenshots (see below).
-4. **Domain.** Add `slopper.day` to the Deno Deploy app.
+2. **Netlify.** `vp exec netlify login`, then `vp exec netlify sites:create --name slopper-day` (`slopper` is taken).
+   No Git connection: Netlify never builds, this machine does (`netlify.toml`). Functions run in Ohio (`cmh`), next to
+   Convex.
+3. **Environment.** `monosecret.toml` declares every production variable. Plain ones (`APP_URL`, `CONVEX_URL`, OAuth
+   client ids, the bucket, the VAPID public key) are defaults there; secrets are fields of the "production" section of
+   the 1Password item "Slopper" (Development vault), named after each variable: `SLOPPER_JWT_PRIVATE_KEY`,
+   `SLOPPER_SECRET_KEY`, `B2_KEY_ID`, `B2_APPLICATION_KEY`, the OAuth client secrets, and `OPENROUTER_API_KEY` (the
+   content check; without it nothing is ever auto-posted). Put a service account token that can read the item in
+   `.env.monosecret` as `OP_SERVICE_ACCOUNT_TOKEN=...`, then `vp run env:netlify` sets them all on Netlify (secrets as
+   Netlify secrets, production only). `vp run env:netlify --dry-run` lists them without reading 1Password. Leave
+   `COMMENTS_ENABLED` unset: comments are off for V1.
+4. **Backblaze B2** for screenshots (see below).
+5. **Deploy.** Add a Convex production deploy key (dashboard → Settings → Deploy keys) to the item's "deploy" section as
+   `CONVEX_DEPLOY_KEY`. `node scripts/release.ts deploy` deploys Convex with it, then builds here and deploys Netlify. Releases do the
+   same (see Release).
+6. **Domain.** Add `slopper.day` to the Netlify project (Domain management) and point its DNS at Netlify.
 
 ### Screenshots in Backblaze B2
 
@@ -105,7 +113,7 @@ straight from the bucket's public URL. Without these variables, screenshots go t
    access Read and Write. The app only needs `writeFiles` and `deleteFiles`, so with the B2 CLI:
    `b2 key create --bucket slopper-media slopper-app writeFiles,deleteFiles`. The account's master key doesn't work with
    the S3 API.
-3. **On Deno Deploy**, set `B2_ENDPOINT` (the bucket's S3 endpoint, e.g. `https://s3.us-west-004.backblazeb2.com`),
+3. **In `monosecret.toml` and 1Password**, set `B2_ENDPOINT` (the bucket's S3 endpoint, e.g. `https://s3.us-west-004.backblazeb2.com`),
    `B2_REGION` (the part after `s3.`, e.g. `us-west-004`), `B2_BUCKET`, `B2_KEY_ID` (the key's keyID) and
    `B2_APPLICATION_KEY` (its applicationKey, shown once). Set all five or none: a partial set stops the server.
 4. **On Convex**, set where images are served from. Convex builds the image URLs pages receive, so this one lives there:
@@ -141,7 +149,7 @@ Settings; on iPhone, Slopper has to be added to the Home Screen first.
 
 Run `node scripts/vapid-keys.ts --prod --print` once. It sets `VAPID_PUBLIC_KEY` and
 `VAPID_PRIVATE_KEY` on Convex, which signs and sends every push from a Node action (`convex/pushSend.ts`), and prints
-`VAPID_PUBLIC_KEY` for Deno Deploy, where browsers subscribe with it. New keys cut off every browser subscribed with the
+`VAPID_PUBLIC_KEY` for `monosecret.toml`, which sends it to Netlify, where browsers subscribe with it. New keys cut off every browser subscribed with the
 old ones. `VAPID_SUBJECT` (Convex) defaults to `mailto:hello@slopper.day`.
 
 Objects get random keys under `screenshots/` and `Cache-Control: public, max-age=31536000, immutable`. When a deleted
@@ -189,12 +197,12 @@ A change both audiences care about gets two changesets. Name each one with `--ou
 vp exec monochange create --package slopper --type user_feat --reason "Pin your best slop" --output .changeset/pin-slops.md
 vp exec monochange run release --dry-run   # the next version and its notes
 vp exec monochange run release             # on a clean, up-to-date main: bump, write both changelogs, commit
-vp exec monochange run publish             # tag v<version>, push main and the tag, wait for slopper.day
+vp exec monochange run publish             # tag v<version>, push main and the tag, deploy Convex and Netlify
 ```
 
-`publish` pushes `main` and the tag together, so the pre-push hook runs CI once and a failure pushes neither. Deno
-Deploy builds production from that push; `publish` returns once slopper.day answers with the new `x-slopper-version`
-header. Convex functions still deploy on their own (see Deploy).
+`publish` pushes `main` and the tag together, so the pre-push hook runs CI once and a failure pushes neither. Then it
+deploys from this machine, Convex functions first and then Netlify, and returns once slopper.day answers with the new
+`x-slopper-version` header. If a deploy fails after the push, fix it and run `node scripts/release.ts deploy`.
 
 ## For agents
 
@@ -207,9 +215,8 @@ header. Convex functions still deploy on their own (see Deploy).
 ```
 app/            React Router app: routes, components, shared lib, .server/ (server-only)
 convex/         schema, queries, mutations, crons, auth config
-server/app.ts   production request handler, bundled with the app
-deploy/main.ts  Deno Deploy entry: static assets + handler
-scripts/        key generators and release.ts (the git and deploy half of a release)
+scripts/        key generators, serve.ts (the production build, locally), netlify-env.ts, release.ts
+netlify.toml    the Netlify build; monosecret.toml lists its environment
 tests/          Vitest suites (pure logic and Convex functions)
 ```
 

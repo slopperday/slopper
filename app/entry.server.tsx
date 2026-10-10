@@ -15,7 +15,7 @@ function convexSources(): string {
 
 /**
  * Web-streams rendering so the same server bundle runs on Node in
- * development and on Deno Deploy in production. Bots get the full document.
+ * development and in Netlify Functions in production. Bots get the full document.
  */
 export default async function handleRequest(
   request: Request,

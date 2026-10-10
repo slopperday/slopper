@@ -21,7 +21,8 @@ export class MissingSecretKeyError extends Error {
 
 function secret(): string {
   if (config.secretKey) return config.secretKey;
-  if (config.isDeployed) throw new MissingSecretKeyError();
+  // A production build never falls back to the development key.
+  if (import.meta.env.PROD) throw new MissingSecretKeyError();
   return DEV_SECRET;
 }
 

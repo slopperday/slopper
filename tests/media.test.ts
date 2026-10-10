@@ -236,7 +236,7 @@ describe("upload check", () => {
     });
     const huge = new Uint8Array(LIMITS.mediaBytes + 1);
     huge.set(PNG);
-    expect(await upload(huge)).toEqual({ ok: false, error: "Images must be 5 MB or smaller." });
+    expect(await upload(huge)).toEqual({ ok: false, error: "Images must be 4 MB or smaller." });
     expect(check.bodies).toEqual([]);
   });
 });

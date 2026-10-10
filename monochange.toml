@@ -15,7 +15,7 @@
 #
 #   vp exec monochange run release --dry-run   # preview the next release
 #   vp exec monochange run release             # bump, write both changelogs, commit
-#   vp exec monochange run publish             # tag, push main, wait for slopper.day
+#   vp exec monochange run publish             # tag, push main, deploy Convex and Netlify
 
 [defaults]
 # The app is a private package; release it anyway.
@@ -27,7 +27,7 @@ type = "npm"
 # Tags are plain v1.2.3; this is the only release owner.
 tag = true
 version_format = "primary"
-# Deno Deploy ships the site; nothing goes to npm.
+# Netlify ships the site (scripts/release.ts); nothing goes to npm.
 publish = { enabled = false }
 changelog = { path = "CHANGELOG.md", format = "keep_a_changelog" }
 # The website reads the date back out of this title (app/.server/changelog.ts).
@@ -80,7 +80,7 @@ name = "commit release"
 when = "{{ number_of_changesets > 0 && not release.dry_run }}"
 
 [cli.publish]
-help_text = "Publish the release commit at HEAD: tag it, push main and the tag, and wait until slopper.day serves it"
+help_text = "Publish the release commit at HEAD: tag it, push main and the tag, deploy Convex and Netlify, and wait until slopper.day serves it"
 
 [[cli.publish.steps]]
 type = "TagRelease"

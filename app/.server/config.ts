@@ -2,12 +2,11 @@ import { existsSync, readFileSync } from "node:fs";
 import process from "node:process";
 import { parseEnv } from "node:util";
 
-// Local development keeps secrets and the Convex URL in `.env.local`
+// The Vite dev server reads secrets and the Convex URL from `.env.local`
 // (written by `convex dev` and scripts/convex-keys.ts). Variables already in
-// the environment win, as with Node's `--env-file`. Deno's
-// `process.loadEnvFile` overwrites them instead, which let a checkout's
-// `.env.local` replace the keys the e2e stack gives its production server.
-if (process.env.DENO_DEPLOY !== "true" && existsSync(".env.local")) {
+// the environment win, as with Node's `--env-file`. A production build never
+// reads it: Netlify sets the environment, and so do `vp run start` and the e2e stack.
+if (import.meta.env.DEV && existsSync(".env.local")) {
   for (const [key, value] of Object.entries(parseEnv(readFileSync(".env.local", "utf8")))) {
     process.env[key] ??= value;
   }
@@ -61,8 +60,6 @@ export interface B2Config {
 export interface Config {
   /** Public origin used for OAuth redirects and absolute links. */
   appUrl: URL;
-  /** True when running on Deno Deploy (`DENO_DEPLOY=true`). */
-  isDeployed: boolean;
   /**
    * Password-less local login. Only the Vite dev server can turn it on: a
    * production bundle compiles it out, whatever its environment says.
@@ -129,11 +126,9 @@ function b2Storage(env: Env): B2Config | null {
 }
 
 export function loadConfig(env: Env = process.env): Config {
-  const isDeployed = env.DENO_DEPLOY === "true";
   return {
     appUrl: new URL(env.APP_URL ?? "http://localhost:5173"),
-    isDeployed,
-    devLogin: import.meta.env.DEV && !isDeployed && env.DEV_LOGIN !== "false",
+    devLogin: import.meta.env.DEV && env.DEV_LOGIN !== "false",
     secretKey: env.SLOPPER_SECRET_KEY?.trim() || null,
     convexUrl: env.CONVEX_URL?.trim() || env.VITE_CONVEX_URL?.trim() || null,
     jwtIssuer: env.SLOPPER_JWT_ISSUER?.trim() || "https://slopper.day",

@@ -1,3 +1,4 @@
+import netlifyReactRouter from "@netlify/vite-plugin-react-router";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import process from "node:process";
@@ -6,24 +7,19 @@ import { defineConfig, lazyPlugins } from "vite-plus";
 const IGNORED = [
   "build/**",
   ".react-router/**",
-  "deploy/**",
+  ".netlify/**",
   "convex/_generated/**",
   ".e2e/**",
   "playwright-report/**",
   "test-results/**",
 ];
 
-export default defineConfig(({ command }) => ({
-  // React Router's plugin builds the app; tests import modules directly.
-  plugins: lazyPlugins(() => (process.env.VITEST ? [] : [tailwindcss(), reactRouter()])),
+export default defineConfig({
+  // React Router's plugin builds the app, and Netlify's turns the server build
+  // into one Netlify Function (.netlify/v1/functions). Tests import modules directly.
+  plugins: lazyPlugins(() => (process.env.VITEST ? [] : [tailwindcss(), reactRouter(), netlifyReactRouter()])),
   resolve: {
     tsconfigPaths: true,
-  },
-  // Production gets one self-contained ESM server bundle (server/app.ts), so
-  // Deno Deploy needs no node_modules. Dev keeps Vite's default externals.
-  ssr: command === "build" ? { noExternal: true } : undefined,
-  environments: {
-    ssr: { build: { rollupOptions: { input: "./server/app.ts" } } },
   },
   fmt: {
     printWidth: 120,
@@ -61,4 +57,4 @@ export default defineConfig(({ command }) => ({
   staged: {
     "*.{ts,tsx,js,json,css,md}": "vp check --fix",
   },
-}));
+});

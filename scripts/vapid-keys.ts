@@ -4,7 +4,7 @@
  * - Both halves go to the Convex deployment, which signs and sends every
  *   push, via `convex env set`.
  * - The public half goes into `.env.local` (or is printed with --print, for
- *   Deno Deploy): browsers subscribe with it.
+ *   monosecret.toml, which sends it to Netlify): browsers subscribe with it.
  *
  * A new pair cuts off every browser subscribed with the old one, so run it
  * once per deployment.
