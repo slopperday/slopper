@@ -1,6 +1,7 @@
 import { parseCookie, stringifySetCookie } from "cookie";
-import { redirect as routerRedirect } from "react-router";
+import { type MiddlewareFunction, redirect as routerRedirect } from "react-router";
 import type { Flash } from "~/lib/model";
+import { REDIRECT_MARKER } from "~/lib/redirect";
 import { config } from "./config";
 
 export type { Flash };
@@ -41,6 +42,31 @@ export function redirectWithFlash(location: string, flash?: Flash, headers = new
   if (flash) setCookie(headers, FLASH_COOKIE, encodeURIComponent(JSON.stringify(flash)), 60);
   return routerRedirect(location, { headers });
 }
+
+/**
+ * The Location to send instead when Netlify would copy the request's query
+ * string onto it (see ~/lib/redirect), or null when nothing needs to change.
+ */
+export function withOwnQuery(requestUrl: string, location: string): string | null {
+  if (!new URL(requestUrl).search) return null;
+  const hash = location.indexOf("#");
+  const path = hash === -1 ? location : location.slice(0, hash);
+  if (path.includes("?")) return null;
+  return `${path}?${REDIRECT_MARKER}${hash === -1 ? "" : location.slice(hash)}`;
+}
+
+/** Keeps a request's query string, OAuth codes included, out of the redirect it gets. */
+export const redirectQueryMiddleware: MiddlewareFunction<Response> = async ({ request }, next) => {
+  const response = await next();
+  const location = response.headers.get("location");
+  const isRedirect = response.status >= 300 && response.status < 400;
+  const replacement = isRedirect && location ? withOwnQuery(request.url, location) : null;
+  if (replacement === null) return response;
+  // Headers on some redirects are immutable (Response.redirect), so copy them.
+  const headers = new Headers(response.headers);
+  headers.set("location", replacement);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+};
 
 export function readFlash(request: Request): Flash | null {
   const raw = readCookie(request, FLASH_COOKIE);

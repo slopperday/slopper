@@ -154,8 +154,15 @@ test.describe("signing in", () => {
 
   test("a forged OAuth callback is turned away", async ({ page }) => {
     await page.goto("/auth/github/callback?code=stolen&state=made-up");
-    await expect(page).toHaveURL(/\/login/);
+    // Nothing from the callback's query survives the redirect (see ~/lib/redirect).
+    await expect(page).toHaveURL((url) => url.pathname === "/login" && url.search === "");
     await expect(page.getByRole("alert")).toBeVisible();
+  });
+
+  test("redirects carry a query of their own, so Netlify doesn't copy the request's", async ({ request }) => {
+    const response = await request.get("/auth/github/callback?code=stolen&state=made-up", { maxRedirects: 0 });
+    expect(response.status()).toBe(302);
+    expect(response.headers().location).toBe("/login?_");
   });
 
   test("production has no password-free dev login", async ({ page, request }) => {
