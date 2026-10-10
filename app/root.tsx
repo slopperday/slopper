@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -9,19 +8,23 @@ import {
   useLocation,
   useRouteLoaderData,
 } from "react-router";
+import { useEffect } from "react";
 import type { Route } from "./+types/root";
 import { config } from "./.server/config";
+import { redirectQueryMiddleware } from "./.server/http";
 import { csrfMiddleware, viewerContext, viewerMiddleware } from "./.server/session";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { FlashBanner } from "./components/FlashBanner";
 import { LiveProvider } from "./components/Live";
 import { Tiles } from "./components/Tiles";
+import { withoutRedirectMarker } from "./lib/redirect";
 import "./app.css";
 import bigShouldersLatin from "@fontsource-variable/big-shoulders/files/big-shoulders-latin-standard-normal.woff2?url";
 import schibstedGroteskLatin from "@fontsource-variable/schibsted-grotesk/files/schibsted-grotesk-latin-wght-normal.woff2?url";
 
-export const middleware: Route.MiddlewareFunction[] = [csrfMiddleware, viewerMiddleware];
+// redirectQueryMiddleware goes first so it sees every redirect, the others' included.
+export const middleware: Route.MiddlewareFunction[] = [redirectQueryMiddleware, csrfMiddleware, viewerMiddleware];
 
 export function loader({ context }: Route.LoaderArgs) {
   const viewer = context.get(viewerContext);
@@ -57,6 +60,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     document.cookie = `slopper_tz=${encodeURIComponent(zone)}; path=/; max-age=31536000; samesite=lax`;
   }, []);
+  useEffect(() => {
+    // Replacing the entry in place keeps React Router from loading the page again.
+    const clean = withoutRedirectMarker(window.location.href);
+    if (clean !== null) window.history.replaceState(window.history.state, "", clean);
+  }, [location.key]);
   return (
     <html lang="en">
       <head>
