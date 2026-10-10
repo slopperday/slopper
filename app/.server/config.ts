@@ -160,6 +160,14 @@ export function loadConfig(env: Env = process.env): Config {
 
 export const config: Config = loadConfig();
 
+/**
+ * Networks people can connect for auto-posting here, in the order copy names
+ * them. X and LinkedIn need this server's keys; Bluesky uses app passwords.
+ */
+export function autopostNetworks(): string[] {
+  return [...(config.x ? ["X"] : []), ...(config.linkedin ? ["LinkedIn"] : []), "Bluesky"];
+}
+
 /** Absolute URL for a path on this site. */
 export function absoluteUrl(path: string): string {
   return new URL(path, config.appUrl).href;

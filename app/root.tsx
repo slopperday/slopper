@@ -10,7 +10,7 @@ import {
 } from "react-router";
 import { useEffect } from "react";
 import type { Route } from "./+types/root";
-import { config } from "./.server/config";
+import { autopostNetworks, config } from "./.server/config";
 import { redirectQueryMiddleware } from "./.server/http";
 import { csrfMiddleware, viewerContext, viewerMiddleware } from "./.server/session";
 import { Header } from "./components/Header";
@@ -36,6 +36,7 @@ export function loader({ context }: Route.LoaderArgs) {
     origin: config.appUrl.origin,
     convexUrl: config.convexUrl,
     commentsEnabled: config.commentsEnabled,
+    autopostNetworks: autopostNetworks(),
   };
 }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { listWords } from "~/lib/display";
 import { parseGoalForm, parseLinks, parseSlopForm, validateSlop } from "~/.server/forms";
 import { deriveKey, seal, unseal } from "~/.server/crypto";
 import { safeReturnTo } from "~/.server/auth/oauth";
@@ -182,5 +183,13 @@ describe("names", () => {
     expect(usernameProblem("today")).toBe("That name is reserved.");
     expect(usernameProblem("ok_name")).toBeNull();
     expect(slugify("Tîlt Maze: 2.0!")).toBe("tilt-maze-2-0");
+  });
+});
+
+describe("copy", () => {
+  it("names one, two or three networks the way a person would", () => {
+    expect(listWords(["Bluesky"], "or")).toBe("Bluesky");
+    expect(listWords(["LinkedIn", "Bluesky"], "or")).toBe("LinkedIn or Bluesky");
+    expect(listWords(["X", "LinkedIn", "Bluesky"], "and")).toBe("X, LinkedIn and Bluesky");
   });
 });
