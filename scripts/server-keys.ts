@@ -1,4 +1,4 @@
-import { exportJWK, generateKeyPair } from "jose";
+import { exportJWK, generateKeyPair, type JWK } from "jose";
 
 /** What the app server and Convex each need to trust one another. */
 export interface ServerKeys {
@@ -6,7 +6,22 @@ export interface ServerKeys {
   privateKey: string;
   /** Goes to Convex as `SLOPPER_JWKS`: the public key set as a data URI. */
   jwks: string;
+  /** The public half alone, to add to a key set Convex already trusts. */
+  publicJwk: JWK;
   kid: string;
+}
+
+/** A public key set in the data URI shape `convex/auth.config.ts` reads. */
+export function jwksDataUri(keys: readonly JWK[]): string {
+  return `data:text/plain;charset=utf-8;base64,${Buffer.from(JSON.stringify({ keys })).toString("base64")}`;
+}
+
+/** The keys in a `SLOPPER_JWKS` data URI. */
+export function parseJwksDataUri(uri: string): JWK[] {
+  const { keys } = JSON.parse(Buffer.from(uri.slice(uri.indexOf(",") + 1), "base64").toString("utf8")) as {
+    keys: JWK[];
+  };
+  return keys;
 }
 
 /** Browser notifications' VAPID key pair (RFC 8292), both halves base64url. */
@@ -33,7 +48,8 @@ export async function generateServerKeys(): Promise<ServerKeys> {
   const publicJwk = { ...(await exportJWK(publicKey)), kid, alg: "ES256", use: "sig" };
   return {
     privateKey: Buffer.from(JSON.stringify(privateJwk)).toString("base64"),
-    jwks: `data:text/plain;charset=utf-8;base64,${Buffer.from(JSON.stringify({ keys: [publicJwk] })).toString("base64")}`,
+    jwks: jwksDataUri([publicJwk]),
+    publicJwk,
     kid,
   };
 }
