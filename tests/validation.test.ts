@@ -50,25 +50,60 @@ describe("slop validation", () => {
     expect(result.value.madeWith).toEqual(["Claude Code", "Flutter"]);
   });
 
-  it("falls back to the goal preset and guards start dates", () => {
+  it("turns days and a pace into a goal, lets typed numbers win and guards start dates", () => {
     const today = "2026-10-06";
-    const preset = parseGoalForm(form([["preset", "30/30"]]), today);
-    expect(preset).toEqual({
+    const hardcore = parseGoalForm(
+      form([
+        ["days", "30"],
+        ["pace", "hardcore"],
+      ]),
+      today,
+    );
+    expect(hardcore).toEqual({
       ok: true,
       value: { title: "30 slops in 30 days", target: 30, days: 30, startDate: today },
     });
+    const paced = (days: string, pace: string) => {
+      const result = parseGoalForm(
+        form([
+          ["days", days],
+          ["pace", pace],
+        ]),
+        today,
+      );
+      return result.ok ? result.value.target : null;
+    };
+    expect([paced("10", "safe"), paced("10", "steady"), paced("10", "impossible"), paced("7", "safe")]).toEqual([
+      2, 5, 20, 1,
+    ]);
+
     const custom = parseGoalForm(
       form([
-        ["preset", "30/30"],
+        ["days", "30"],
+        ["customDays", "14"],
+        ["pace", "hardcore"],
         ["target", "10"],
-        ["days", "14"],
       ]),
       today,
     );
     expect(custom.ok && [custom.value.target, custom.value.days]).toEqual([10, 14]);
+    // Other days still drive the pace.
+    const otherDays = parseGoalForm(
+      form([
+        ["days", "30"],
+        ["customDays", "12"],
+        ["pace", "steady"],
+      ]),
+      today,
+    );
+    expect(otherDays.ok && [otherDays.value.target, otherDays.value.days]).toEqual([6, 12]);
+
+    const noPace = parseGoalForm(form([["days", "30"]]), today);
+    expect(noPace.ok ? null : noPace.errors.target).toBe("Pick how many slops you will ship.");
     const past = parseGoalForm(
       form([
-        ["preset", "7/7"],
+        ["days", "7"],
+        ["pace", "hardcore"],
         ["startDate", "2026-10-01"],
       ]),
       today,

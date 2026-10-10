@@ -256,9 +256,9 @@ function ViewerStrip({
       ) : (
         <div className="panel flex flex-wrap items-center justify-between gap-6 p-6 sm:p-10">
           <div>
-            <h1 className="title-1">How many slops, how many days?</h1>
+            <h1 className="title-1">How many days are you in for?</h1>
             <p className="lede mt-4">
-              Pick a number and a deadline. Every day you ship flips a tile.{" "}
+              Commit to the days, then pick how hard you'll go. Every day you ship flips a tile.{" "}
               {streak > 0 ? `You're on a ${streak}-day streak already.` : ""}
             </p>
           </div>

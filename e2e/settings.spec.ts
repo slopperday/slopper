@@ -39,15 +39,46 @@ test.describe("settings", () => {
   test("a goal can be dropped and set again", async ({ seed }) => {
     const page = await seed.pageAs(await seed.user("quitter"));
     await page.goto("/goal");
-    await page.getByRole("radio", { name: /Warm-up/ }).check({ force: true });
+    await page.getByRole("radio", { name: "7 days" }).check({ force: true });
     await page.getByRole("button", { name: "Set the goal" }).click();
-    await expect(page.getByRole("status")).toHaveText("Goal set: 7 slops in 7 days. Start throwing.");
+    await expect(page.getByRole("status")).toHaveText("Goal set: 7 slops in 7 days.");
 
     await page.goto("/goal");
     await page.getByText("Drop this goal").click();
     await page.getByRole("button", { name: "Yes, drop it" }).click();
     await expect(page.getByRole("status")).toHaveText("Goal dropped. Set a new one when you're ready.");
     await expect(page.getByRole("heading", { name: "Set a goal" })).toBeVisible();
+  });
+
+  test("a goal starts with the days, then the pace, then asks to be shared", async ({ seed }) => {
+    const page = await seed.pageAs(await seed.user("committer"));
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/goal");
+    await expect(page.getByRole("heading", { name: "First, a goal." })).toBeVisible();
+
+    // Other days drive every pace card.
+    await page.getByLabel("Other number of days").fill("10");
+    await expect(page.getByRole("radio", { name: "30 days" })).not.toBeChecked();
+    await expect(page.getByText("How many slops in 10 days?")).toBeVisible();
+    const safe = page.getByRole("radio", { name: /Safe/ });
+    await expect(safe.locator("xpath=following-sibling::span")).toContainText("2/10");
+
+    // Picked by clicking the card, as people do; the mouse stays on it.
+    await page.getByText("One every five days.").click();
+    await expect(safe).toBeChecked();
+    const background = (radio: typeof safe) =>
+      radio.locator("xpath=following-sibling::span").evaluate((card) => getComputedStyle(card).backgroundColor);
+    const ink = await page.evaluate(() => getComputedStyle(document.body).color);
+    // Polled: the colour eases in.
+    await expect.poll(() => background(safe)).toBe(ink);
+    expect(await background(page.getByRole("radio", { name: /Hardcore/ }))).not.toBe(ink);
+    await expect(page.getByText("2 slops in 10 days", { exact: true })).toBeAttached();
+
+    await page.getByRole("button", { name: "Set the goal" }).click();
+    await expect(page.getByRole("status")).toHaveText("Goal set: 2 slops in 10 days.");
+    const share = page.getByRole("region", { name: "Share your goal" });
+    await expect(share).toContainText("I'm throwing 2 slops at the wall in 10 days. Hold me to it.");
+    await expect(share.getByRole("link", { name: "X" })).toHaveAttribute("href", /^https:\/\/x\.com\/intent\/post\?/);
   });
 
   test("sign-in methods can be linked and unlinked, but never the last one", async ({ seed, convex, stack }) => {

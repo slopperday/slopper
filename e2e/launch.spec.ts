@@ -7,10 +7,10 @@ test.describe("a maker's day", () => {
 
     // A goal first, so the launch counts as day 1.
     await page.goto("/goal");
-    await page.getByRole("radio", { name: /Classic/ }).check({ force: true });
+    // 30 days at one a day is where the form starts.
     await page.getByRole("button", { name: "Set the goal" }).click();
-    await expect(page).toHaveURL(`/@${maker.username}`);
-    await expect(page.getByRole("status")).toHaveText("Goal set: 30 slops in 30 days. Start throwing.");
+    await expect(page).toHaveURL("/goal");
+    await expect(page.getByRole("status")).toHaveText("Goal set: 30 slops in 30 days.");
 
     // Any real image will do as a screenshot: use one of the page itself.
     const screenshot = await page.screenshot();

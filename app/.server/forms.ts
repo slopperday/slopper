@@ -11,6 +11,7 @@ export interface SlopInput {
   madeWith: string[];
 }
 import { addDays, isIsoDate } from "~/lib/dates";
+import { findGoalPace, paceTarget } from "~/lib/goal";
 
 /** Form parsing and validation, shared by create and edit flows. */
 
@@ -196,17 +197,12 @@ export function validateGoal(draft: GoalDraft, today: string): Parsed<GoalForm> 
 }
 
 export function parseGoalForm(form: FormData, today: string): Parsed<GoalForm> {
-  // Typed numbers win over the chosen preset ("30/30").
-  const [presetTarget = "", presetDays = ""] = text(form, "preset").split("/");
-  return validateGoal(
-    {
-      title: text(form, "title"),
-      target: Number(text(form, "target") || presetTarget),
-      days: Number(text(form, "days") || presetDays),
-      startDate: text(form, "startDate"),
-    },
-    today,
-  );
+  // Typed numbers win over the buttons: other days over the day choices, exact slops over the pace.
+  const days = Number(text(form, "customDays") || text(form, "days"));
+  const pace = findGoalPace(text(form, "pace"));
+  const exact = text(form, "target");
+  const target = exact ? Number(exact) : pace && Number.isInteger(days) ? paceTarget(pace, days) : Number.NaN;
+  return validateGoal({ title: text(form, "title"), target, days, startDate: text(form, "startDate") }, today);
 }
 
 export function formText(form: FormData, name: string): string {

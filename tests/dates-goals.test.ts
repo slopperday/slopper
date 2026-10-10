@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vite-plus/test";
 import { addDays, currentStreak, daysBetween, isIsoDate, localDate } from "~/lib/dates";
-import { type Goal, goalDayFor, goalEndDate, goalProgress, type Launch } from "~/lib/goal";
+import {
+  GOAL_PACES,
+  type Goal,
+  goalDayFor,
+  goalEndDate,
+  goalProgress,
+  goalShareText,
+  type Launch,
+  paceTarget,
+} from "~/lib/goal";
 import { hotScore, rankHot } from "~/lib/ranking";
 
 describe("dates", () => {
@@ -93,5 +102,22 @@ describe("hot ranking", () => {
       now,
     );
     expect(ranked.map((slop) => slop.name)).toEqual(["fresh", "old"]);
+  });
+});
+
+describe("setting a goal", () => {
+  it("scales each pace to the days, never below one slop", () => {
+    expect(GOAL_PACES.map((pace) => paceTarget(pace, 10))).toEqual([2, 5, 10, 20]);
+    expect(GOAL_PACES.map((pace) => paceTarget(pace, 1))).toEqual([1, 1, 1, 2]);
+    expect(GOAL_PACES.map((pace) => paceTarget(pace, 365))).toEqual([73, 183, 365, 730]);
+  });
+
+  it("shares the goal in the maker's words when they named it", () => {
+    expect(goalShareText({ title: "30 slops in 30 days", target: 30, days: 30 })).toBe(
+      "I'm throwing 30 slops at the wall in 30 days. Hold me to it.",
+    );
+    expect(goalShareText({ title: "Slopvember", target: 1, days: 1 })).toBe(
+      "Slopvember: I'm throwing 1 slop at the wall in 1 day. Hold me to it.",
+    );
   });
 });

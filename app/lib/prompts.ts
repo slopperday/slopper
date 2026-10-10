@@ -25,7 +25,7 @@ Task: launch this project as today's slop.
 export function goalPrompt(origin: string): string {
   return `${preamble(origin)}
 
-Task: set my goal. Ask me how many slops and how many days (default 30 slops in 30 days) unless I've already said, then call set_goal. Afterwards tell me my end date and how many I need per day.`;
+Task: set my goal. Unless I've already said, ask me how many days I'm committing to first (7, 14, 30 or 100 are common), then how many slops in those days: safe is one every five days, getting there is one every other day, hardcore is one a day, impossible is two a day. Call set_goal, then tell me my end date and how many I need per day.`;
 }
 
 export function updatePrompt(origin: string, slop: string): string {

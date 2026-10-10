@@ -37,6 +37,39 @@ export interface GoalProgress {
   days: GoalDay[];
 }
 
+/** Commitments offered first when setting a goal; any length from 1 day up works too. */
+export const GOAL_DAY_CHOICES = [7, 14, 30, 100] as const;
+
+/** How hard to go once the days are picked, as slops per day. */
+export const GOAL_PACES = [
+  { id: "safe", label: "Safe", perDay: 0.2, blurb: "One every five days." },
+  { id: "steady", label: "Getting there", perDay: 0.5, blurb: "One every other day." },
+  { id: "hardcore", label: "Hardcore", perDay: 1, blurb: "One a day. Every day." },
+  { id: "impossible", label: "Impossible", perDay: 2, blurb: "Two a day. Good luck." },
+] as const;
+
+export type GoalPace = (typeof GOAL_PACES)[number];
+
+export const DEFAULT_GOAL_DAYS = 30;
+export const DEFAULT_GOAL_PACE: GoalPace = GOAL_PACES[2];
+
+export function findGoalPace(id: string): GoalPace | undefined {
+  return GOAL_PACES.find((pace) => pace.id === id);
+}
+
+/** Slops a pace asks for over `days`, never fewer than one. */
+export function paceTarget(pace: GoalPace, days: number): number {
+  return Math.max(1, Math.round(days * pace.perDay));
+}
+
+/** What someone posts when they share their goal, before the link. A custom name leads. */
+export function goalShareText(goal: Pick<Goal, "title" | "target" | "days">): string {
+  const slops = goal.target === 1 ? "1 slop" : `${goal.target} slops`;
+  const days = goal.days === 1 ? "1 day" : `${goal.days} days`;
+  const pledge = `I'm throwing ${slops} at the wall in ${days}. Hold me to it.`;
+  return goal.title === `${goal.target} slops in ${goal.days} days` ? pledge : `${goal.title}: ${pledge}`;
+}
+
 export function goalEndDate(goal: Goal): string {
   return addDays(goal.startDate, goal.days - 1);
 }
