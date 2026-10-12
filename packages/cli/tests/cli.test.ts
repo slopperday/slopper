@@ -213,6 +213,30 @@ describe("slopper", () => {
     ]);
   });
 
+  it("schedules launches and lists, releases and unschedules them", async () => {
+    const ok = { status: 201, body: {} };
+    const cli = await harness(
+      {
+        "POST /api/v1/slops": ok,
+        "GET /api/v1/scheduled": { body: { scheduled: [] } },
+        "POST /api/v1/scheduled/sched_1/release": ok,
+        "DELETE /api/v1/scheduled/sched_2": { body: { cancelled: "Marbles" } },
+      },
+      TOKEN,
+    );
+    await cli.run("launch", "--name", "TiltMaze", "--at", "next");
+    await cli.run("scheduled");
+    await cli.run("release", "sched_1");
+    const dropped = await cli.run("unschedule", "sched_2");
+    expect(JSON.parse(dropped.stdout)).toEqual({ cancelled: "Marbles" });
+    expect(cli.calls.map((call) => [call.method, new URL(call.url).pathname, call.body])).toEqual([
+      ["POST", "/api/v1/slops", { name: "TiltMaze", releaseAt: "next", autopost: false }],
+      ["GET", "/api/v1/scheduled", null],
+      ["POST", "/api/v1/scheduled/sched_1/release", {}],
+      ["DELETE", "/api/v1/scheduled/sched_2", null],
+    ]);
+  });
+
   it("prints validation problems field by field", async () => {
     const cli = await harness(
       {

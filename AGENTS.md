@@ -57,6 +57,10 @@ release. Add a tool name to select part of the graph. For example, run
   monochange group `cli` (tags `cli/v1.2.3`) and publish from this machine at the end of `run publish`, which needs
   `npm login` with access to the `@slopperday` scope. A new package needs `vp exec monochange publish placeholder` once.
   Run monochange from the main checkout: in a worktree under `.claude/`, it discovers no packages.
+- **Scheduled launches** wait in `scheduledLaunches` (`convex/schedule.ts`), never in `slops`, so no public query
+  needs to hide them. At `releaseAt` Convex puts one out with `insertLaunch` (shared with `slops.create`) and calls
+  `POST /api/scheduled/:id`; the app server claims it once and runs `finishLaunch` (`app/.server/launch.ts`): the
+  content check, then the auto-post.
 - **Votes and slopcessful:** everyone gets `LIMITS.votesPerDay` (5) votes per UTC day (`convex/slops.ts` `vote`).
   Slopcessful is earned, never declared: `race.crown` marks the day's winner slopcessful, and verified milestones
   (1,000 users, $1,000 revenue; ROADMAP.md) will too. Keep its badge separate from slop of the day.

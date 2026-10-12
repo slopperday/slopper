@@ -1,4 +1,5 @@
 import { api } from "@convex/_generated/api";
+import type { FunctionReturnType } from "convex/server";
 import type { Doc } from "@convex/_generated/dataModel";
 import type { Vote } from "@convex/lib/shape";
 import {
@@ -11,6 +12,7 @@ import {
   REVENUE_CATEGORIES,
 } from "~/lib/model";
 import { localDate } from "~/lib/dates";
+import { formatRelease, parseRelease, releaseProblem } from "~/lib/schedule";
 import { listWords, slopPath } from "~/lib/display";
 import { CURRENCIES } from "~/lib/money";
 import { absoluteUrl, autopostNetworks, config } from "../config";
@@ -18,6 +20,7 @@ import { convex, convexMessage } from "../convex";
 import { validateGoal, validateSlop } from "../forms";
 import { deleteOrphanedMedia, uploadImage } from "../media";
 import { checkedContent, checkSlop } from "../moderation";
+import { finishLaunch, releaseScheduled } from "../launch";
 import { announce } from "../social/announce";
 import type { User } from "../session";
 import {
@@ -124,6 +127,33 @@ const LINKS_SCHEMA = {
   },
   maxItems: LIMITS.links,
 };
+
+const SCHEDULED_REF = {
+  type: "string",
+  description: "The scheduled launch's id (from list_scheduled or create_slop).",
+};
+
+const RELEASE_AT = {
+  type: "string",
+  description:
+    "Schedule it instead of launching now. “next”: the next day with nothing out or scheduled, as that day's race starts (all 24 hours of votes). Or an ISO 8601 date-time within 100 days: with an offset, or without one for the user's own time zone. It counts towards the goal on the day it goes out.",
+};
+
+type ScheduledItem = FunctionReturnType<typeof api.schedule.mine>[number];
+
+function summarizeScheduled(item: ScheduledItem, user: User) {
+  return {
+    id: item.id,
+    name: item.name,
+    launchLabel: item.launchLabel,
+    releaseAt: new Date(item.releaseAt).toISOString(),
+    /** In the user's time zone. */
+    releaseAtLocal: formatRelease(item.releaseAt, user.timeZone),
+    autopost: item.autopost,
+    /** Out but not checked and auto-posted yet: release_scheduled finishes it. */
+    out: item.out ? absoluteUrl(slopPath(user.username, item.out.slug)) : null,
+  };
+}
 
 const AUTOPOST = {
   type: "boolean",
@@ -250,7 +280,7 @@ export const OPERATIONS: Operation[] = [
     name: "create_slop",
     title: "Launch a slop",
     description:
-      "Throw a new slop at the wall. It counts towards today's goal and enters today's slop of the day race. To launch an existing product again (new platform, new app, 2.0), pass relaunchOf and launchLabel.",
+      "Throw a new slop at the wall. It counts towards today's goal and enters today's slop of the day race. To launch an existing product again (new platform, new app, 2.0), pass relaunchOf and launchLabel. With releaseAt it's scheduled instead: nobody sees it until it goes out, then it counts and races like any launch.",
     inputSchema: {
       type: "object",
       properties: {
@@ -281,6 +311,7 @@ export const OPERATIONS: Operation[] = [
           maxLength: LIMITS.launchLabelLength,
           description: "Required with relaunchOf: what's launching, e.g. “iOS app” or “2.0”.",
         },
+        releaseAt: RELEASE_AT,
         autopost: AUTOPOST,
       },
       required: ["name", "tagline", "category", "links"],
@@ -308,23 +339,44 @@ export const OPERATIONS: Operation[] = [
           `launchLabel is required with relaunchOf (1 to ${LIMITS.launchLabelLength} characters).`,
         );
       }
+      const releaseText = optionalString(input, "releaseAt");
+      const release = releaseText === undefined ? { kind: "now" as const } : parseRelease(releaseText, user.timeZone);
+      if (!release) {
+        throw new ApiError(422, "releaseAt must be “next” or an ISO 8601 date-time, like 2026-10-15T09:00.");
+      }
+      if (release.kind === "at") {
+        const problem = releaseProblem(release.at, now.getTime());
+        if (problem) throw new ApiError(422, `releaseAt: ${problem}`);
+      }
       const { launchNote, ...fields } = parsed.value;
+      const autopost = optionalBoolean(input, "autopost") ?? false;
+      const relaunch = source ? { relaunchOf: source._id, launchLabel: label } : {};
+      if (release.kind !== "now") {
+        const queued = await convex.mutation(api.schedule.add, {
+          userId: user._id,
+          input: fields,
+          launchNote: launchNote || fields.tagline,
+          when: release,
+          autopost,
+          ...relaunch,
+        });
+        const queue = await convex.query(api.schedule.mine, { asUser: user._id });
+        const item = queue.find((entry) => entry.id === queued.id);
+        if (!item) throw new Error(`Scheduled launch ${queued.id} isn't in the queue.`);
+        return { scheduled: summarizeScheduled(item, user) };
+      }
       const created = await convex.mutation(api.slops.create, {
         userId: user._id,
         input: fields,
         launchNote: launchNote || fields.tagline,
         today: localDate(now, user.timeZone),
-        ...(source ? { relaunchOf: source._id, launchLabel: label } : {}),
+        ...relaunch,
       });
-      const check = await checkSlop(created.slopId, launchNote);
-      const autopost =
-        optionalBoolean(input, "autopost") && check?.verdict !== "blocked"
-          ? await announce(user, created.slopId, created.updateId)
-          : null;
+      const finished = await finishLaunch(user, created, launchNote, autopost);
       return {
         slop: summarizeSlop(await slopById(created.slopId), user.username),
-        contentCheck: check?.verdict ?? "unchecked",
-        autopost,
+        contentCheck: finished.check?.verdict ?? "unchecked",
+        autopost: finished.autopost,
       };
     },
   },
@@ -476,6 +528,49 @@ export const OPERATIONS: Operation[] = [
     async run({ user }) {
       const slops = await convex.query(api.slops.listForServer, { userId: user._id });
       return { slops: slops.map((slop) => summarizeSlop(slop, user.username)) };
+    },
+  },
+  {
+    name: "list_scheduled",
+    title: "List scheduled launches",
+    description:
+      "Launches waiting to go out, soonest first. Only the user sees them until they go out. One marked `out` went out but its content check and auto-post haven't run yet: release_scheduled finishes it.",
+    inputSchema: { type: "object", properties: {} },
+    readOnly: true,
+    async run({ user }) {
+      const queue = await convex.query(api.schedule.mine, { asUser: user._id });
+      return { scheduled: queue.map((item) => summarizeScheduled(item, user)) };
+    },
+  },
+  {
+    name: "release_scheduled",
+    title: "Launch a scheduled slop now",
+    description:
+      "Put a scheduled launch out now instead of at its time: it counts towards today's goal and enters today's race.",
+    inputSchema: { type: "object", properties: { scheduled: SCHEDULED_REF }, required: ["scheduled"] },
+    readOnly: false,
+    async run({ user }, input) {
+      const out = await releaseScheduled(user, requiredString(input, "scheduled").trim());
+      return {
+        slop: summarizeSlop(await slopById(out.slopId), user.username),
+        contentCheck: out.finished.check?.verdict ?? "unchecked",
+        autopost: out.finished.autopost,
+      };
+    },
+  },
+  {
+    name: "cancel_scheduled",
+    title: "Unschedule a launch",
+    description: "Drop a scheduled launch before it goes out. Nothing is posted.",
+    inputSchema: { type: "object", properties: { scheduled: SCHEDULED_REF }, required: ["scheduled"] },
+    readOnly: false,
+    async run({ user }, input) {
+      const cancelled = await convex.mutation(api.schedule.cancel, {
+        userId: user._id,
+        id: requiredString(input, "scheduled").trim(),
+      });
+      if (cancelled.orphaned > 0) await deleteOrphanedMedia();
+      return { cancelled: cancelled.name };
     },
   },
   {

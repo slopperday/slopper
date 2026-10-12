@@ -164,8 +164,8 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
       </div>
       <p className="mt-12 text-muted">
         Tools: whoami, list_categories, set_goal, upload_screenshot, create_slop, update_slop, post_update, log_money,
-        list_my_slops, todays_race, vote. Social accounts are connected in the browser (they need your approval on each
-        network); after that, agents can auto-post.
+        list_my_slops, list_scheduled, release_scheduled, cancel_scheduled, todays_race, vote. Social accounts are
+        connected in the browser (they need your approval on each network); after that, agents can auto-post.
       </p>
     </section>
   );

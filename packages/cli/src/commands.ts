@@ -245,12 +245,15 @@ export const COMMANDS: Command[] = [
   },
   {
     name: "launch",
-    summary: "Throw a new slop at the wall. It counts towards today's goal and enters today's race.",
+    summary:
+      "Throw a new slop at the wall. It counts towards today's goal and enters today's race, or with --at waits until then.",
     flags: {
       ...SLOP_FLAGS,
       "--note <text>": "The first update, also the auto-post text. Defaults to the tagline.",
       "--relaunch-of <slop>": "Launch an existing product again (a new platform, a 2.0): its id or slug.",
       "--label <label>": "With --relaunch-of: what's launching, like “iOS app” or “2.0”.",
+      "--at <when>":
+        "Schedule it: “next” (the next day with nothing out or scheduled, as its race starts) or a date-time like 2026-10-15T09:00 (your time zone unless it has an offset).",
       ...AUTOPOST_FLAG,
     },
     options: {
@@ -258,6 +261,7 @@ export const COMMANDS: Command[] = [
       note: { type: "string" },
       "relaunch-of": { type: "string" },
       label: { type: "string" },
+      at: { type: "string" },
       autopost: { type: "boolean" },
     },
     async run(context) {
@@ -267,9 +271,28 @@ export const COMMANDS: Command[] = [
         launchNote: text(values, "note"),
         relaunchOf: text(values, "relaunch-of"),
         launchLabel: text(values, "label"),
+        releaseAt: text(values, "at"),
         autopost: values.autopost === true,
       });
     },
+  },
+  {
+    name: "scheduled",
+    summary: "Your scheduled launches, soonest first. Nobody else sees them until they go out.",
+    run: ({ api }) => api.get("/scheduled"),
+  },
+  {
+    name: "release",
+    args: "<scheduled>",
+    summary: "Put a scheduled launch out now. It counts towards today's goal and enters today's race.",
+    run: (context) =>
+      context.api.post(`/scheduled/${encodeURIComponent(positional(context, 0, "scheduled"))}/release`, {}),
+  },
+  {
+    name: "unschedule",
+    args: "<scheduled>",
+    summary: "Drop a scheduled launch before it goes out.",
+    run: (context) => context.api.delete(`/scheduled/${encodeURIComponent(positional(context, 0, "scheduled"))}`),
   },
   {
     name: "edit",

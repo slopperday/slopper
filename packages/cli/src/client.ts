@@ -89,6 +89,7 @@ export interface Api {
   get(path: string): Promise<unknown>;
   post(path: string, body: object): Promise<unknown>;
   patch(path: string, body: object): Promise<unknown>;
+  delete(path: string): Promise<unknown>;
   /** Raw bytes, for screenshots. */
   upload(path: string, bytes: Uint8Array<ArrayBuffer>, contentType: string): Promise<unknown>;
 }
@@ -146,6 +147,7 @@ export function createApi({ url, token, fetch, userAgent }: ApiOptions): Api {
     get: (path) => request("GET", path),
     post: (path, body) => request("POST", path, JSON.stringify(body), "application/json"),
     patch: (path, body) => request("PATCH", path, JSON.stringify(body), "application/json"),
+    delete: (path) => request("DELETE", path),
     upload: (path, bytes, contentType) => request("POST", path, bytes, contentType),
   };
 }

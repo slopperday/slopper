@@ -30,6 +30,7 @@ import type * as oauth from "../oauth.js";
 import type * as push from "../push.js";
 import type * as pushSend from "../pushSend.js";
 import type * as race from "../race.js";
+import type * as schedule from "../schedule.js";
 import type * as slops from "../slops.js";
 import type * as tokens from "../tokens.js";
 import type * as users from "../users.js";
@@ -63,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   push: typeof push;
   pushSend: typeof pushSend;
   race: typeof race;
+  schedule: typeof schedule;
   slops: typeof slops;
   tokens: typeof tokens;
   users: typeof users;

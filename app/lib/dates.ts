@@ -68,15 +68,38 @@ function offsetAt(instant: number, timeZone: string): number {
   return wall - (instant - (instant % 1000));
 }
 
+/** The moment the clock in `timeZone` reads `minutes` past midnight on `date`. */
+export function localInstant(date: string, minutes: number, timeZone: string): number {
+  const wall = toUtcMidnight(date) + minutes * 60_000;
+  // Twice: the offset at the guess can differ from the offset at the answer across a DST change.
+  return wall - offsetAt(wall - offsetAt(wall, timeZone), timeZone);
+}
+
 /** The first moment after `now` when the clock in `timeZone` reads `hour`:00. */
 export function nextLocalHour(timeZone: string, hour: number, now: number): number {
   let date = localDate(new Date(now), timeZone);
   for (;;) {
-    const wall = toUtcMidnight(date) + hour * 3_600_000;
-    // Twice: the offset at the guess can differ from the offset at the answer across a DST change.
-    const at = wall - offsetAt(wall - offsetAt(wall, timeZone), timeZone);
+    const at = localInstant(date, hour * 60, timeZone);
     if (at > now) return at;
     date = addDays(date, 1);
+  }
+}
+
+/**
+ * The UTC midnight that falls on `date` in `timeZone`: a slop out then gets
+ * the whole of a slop of the day race and still counts for that local day.
+ * A day shortened by a clock change can miss every UTC midnight (the Azores
+ * in spring); it starts at its first whole hour instead, since its midnight
+ * may be the hour the clocks skipped.
+ */
+export function raceStartOn(date: string, timeZone: string): number {
+  for (const offset of [-1, 0, 1]) {
+    const midnight = toUtcMidnight(addDays(date, offset));
+    if (localDate(new Date(midnight), timeZone) === date) return midnight;
+  }
+  for (let hour = 0; ; hour++) {
+    const at = localInstant(date, hour * 60, timeZone);
+    if (localDate(new Date(at), timeZone) === date) return at;
   }
 }
 

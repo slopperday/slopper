@@ -21,7 +21,8 @@ export function loader() {
 
 ## Concepts
 - Slop: one shipped thing with links (website, App Store, TestFlight, Google Play, Android beta, source), screenshots, a tagline and a Markdown description.
-- Goal: N slops in M days. Days end at midnight in the user's time zone.
+- Goal: N slops in M days. Days end at midnight in the user's time zone. Every slop counts, so three out in one day are three.
+- Scheduled launches: a slop that's ready can wait and go out later, at a set time or on the next free day as its race starts. Only the user sees it until then; it counts towards the goal on the day it goes out.
 - Slop of the day: every UTC day, slops launched that day race on votes. The leader at midnight UTC wins.
 - Votes: everyone gets ${LIMITS.votesPerDay} a day (UTC), up or private down. Switching today's vote is free and clearing it gives it back.
 - Updates: update, feature, field (a real-world test: who tried it, what they said), repromote.
@@ -46,12 +47,15 @@ ${tools}
 - POST   ${origin}/api/v1/goal               { target, days, startDate?, title? }
 - POST   ${origin}/api/v1/media              raw image body (Content-Type: image/png…) or { base64 } → { id, url, contentCheck }
 - GET    ${origin}/api/v1/slops
-- POST   ${origin}/api/v1/slops              { name, tagline, category, links, description?, screenshots?, madeWith?, launchNote?, autopost? }
+- POST   ${origin}/api/v1/slops              { name, tagline, category, links, description?, screenshots?, madeWith?, launchNote?, releaseAt?, autopost? }
 - PATCH  ${origin}/api/v1/slops/{slop}       any create_slop field
 - POST   ${origin}/api/v1/slops/{slop}/updates      { kind, body, autopost? }
 - POST   ${origin}/api/v1/slops/{slop}/money        { kind: "cost" | "revenue", amount, currency?, category?, note?, date? }
 - POST   ${origin}/api/v1/slops/{slop}/vote         { vote: "up" | "down" | "clear" }
-{slop} is one of your slops' id or slug, or for vote any slop's id (from /today). Errors return { error, details }.
+- GET    ${origin}/api/v1/scheduled
+- POST   ${origin}/api/v1/scheduled/{scheduled}/release
+- DELETE ${origin}/api/v1/scheduled/{scheduled}
+{slop} is one of your slops' id or slug, or for vote any slop's id (from /today). releaseAt schedules a launch: "next" (the next free day, as its race starts) or an ISO 8601 date-time; {scheduled} is its id. Errors return { error, details }.
 
 ## CLI
 npx @slopperday/cli login --token slp_...   (or set SLOPPER_TOKEN)

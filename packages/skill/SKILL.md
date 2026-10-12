@@ -1,6 +1,6 @@
 ---
 name: slopper
-description: Ship to slopper.day from the terminal with the `slopper` CLI (npm @slopperday/cli). Use when the user wants to launch a project as today's slop, post an update or field test, set a daily shipping goal, log costs or revenue, check today's slop of the day race, or vote on slops.
+description: Ship to slopper.day from the terminal with the `slopper` CLI (npm @slopperday/cli). Use when the user wants to launch a project as today's slop or schedule launches for later days, post an update or field test, set a daily shipping goal, log costs or revenue, check today's slop of the day race, or vote on slops.
 ---
 
 # Slopper
@@ -65,6 +65,22 @@ two sentences at most.
 
 A new platform or a 2.0 is a new launch with its own shot at slop of the day:
 `slopper launch --relaunch-of <slop> --label "iOS app" ...`. A new feature is an update, not a launch.
+
+## Schedule launches
+
+When several things are ready at once, ask the user whether to put them all out now or line them up. Every launch
+counts towards the goal on the day it goes out: three today are three slops today, and three lined up fill three days,
+each with its own shot at slop of the day.
+
+```sh
+slopper launch --at next ...                 # the next day with nothing out or scheduled, as its race starts
+slopper launch --at 2026-10-15T09:00 ...     # the user's time zone, unless it has an offset
+slopper scheduled                            # what's waiting, soonest first
+slopper release <scheduled>                  # put it out now instead
+slopper unschedule <scheduled>               # drop it
+```
+
+Nobody else sees a scheduled launch until it goes out. `--autopost` posts it then.
 
 ## Keep it alive
 

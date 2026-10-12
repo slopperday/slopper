@@ -223,6 +223,7 @@ const SAMPLE_PROGRESS = goalProgress(
     launchDate: `2026-01-${String(day).padStart(2, "0")}`,
   })),
   "2026-01-12",
+  ["2026-01-13", "2026-01-14"],
 );
 
 function ViewerStrip({

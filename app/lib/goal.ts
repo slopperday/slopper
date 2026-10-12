@@ -23,6 +23,8 @@ export interface GoalDay {
   date: string;
   state: DayState;
   launches: Launch[];
+  /** Launches scheduled to go out this day. They count once they're out. */
+  queued: number;
 }
 
 export type GoalStatus = "upcoming" | "active" | "won" | "ended" | "abandoned";
@@ -86,9 +88,15 @@ export function isGoalOpen(goal: Goal, today: string): boolean {
 
 /**
  * Builds the goal grid: one cell per day of the goal with the slops
- * launched on it. `launches` may include slops outside the window.
+ * launched on it, and how many are scheduled for it (`queued`, local
+ * dates). Either list may include days outside the window.
  */
-export function goalProgress(goal: Goal, launches: readonly Launch[], today: string): GoalProgress {
+export function goalProgress(
+  goal: Goal,
+  launches: readonly Launch[],
+  today: string,
+  queued: readonly string[] = [],
+): GoalProgress {
   const endDate = goalEndDate(goal);
   const byDate = new Map<string, Launch[]>();
   for (const launch of launches) {
@@ -98,6 +106,9 @@ export function goalProgress(goal: Goal, launches: readonly Launch[], today: str
     list.push(launch);
     byDate.set(launch.launchDate, list);
   }
+
+  const queuedOn = new Map<string, number>();
+  for (const date of queued) queuedOn.set(date, (queuedOn.get(date) ?? 0) + 1);
 
   const days: GoalDay[] = [];
   let shipped = 0;
@@ -110,7 +121,7 @@ export function goalProgress(goal: Goal, launches: readonly Launch[], today: str
     else if (date === today) state = "today";
     else if (date < today) state = "missed";
     else state = "upcoming";
-    days.push({ day: index + 1, date, state, launches: dayLaunches });
+    days.push({ day: index + 1, date, state, launches: dayLaunches, queued: queuedOn.get(date) ?? 0 });
   }
 
   const elapsed = daysBetween(goal.startDate, today) + 1;

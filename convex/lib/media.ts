@@ -25,8 +25,9 @@ export async function mediaUrl(ctx: QueryCtx, media: Doc<"media">): Promise<stri
 
 /**
  * Lets go of images none of their owner's launches show any more, after a
- * slop is deleted or its screenshots change. Media is only ever attached to
- * its owner's slops, so their launches are the only places to look.
+ * slop is deleted, its screenshots change or a scheduled launch is
+ * cancelled. Media is only ever attached to its owner's slops and scheduled
+ * launches, so those are the only places to look.
  *
  * Convex-stored files go now, in this transaction. B2 objects can only be
  * deleted by the app server, which holds the bucket key, so they're marked
@@ -43,7 +44,11 @@ export async function releaseMedia(
     .query("slops")
     .withIndex("by_user", (q) => q.eq("userId", ownerId))
     .collect();
-  for (const launch of launches) for (const id of launch.screenshots) shown.add(id);
+  const queued = await ctx.db
+    .query("scheduledLaunches")
+    .withIndex("by_user_release", (q) => q.eq("userId", ownerId))
+    .collect();
+  for (const launch of [...launches, ...queued]) for (const id of launch.screenshots) shown.add(id);
 
   let waiting = 0;
   for (const id of new Set(ids)) {

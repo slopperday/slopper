@@ -9,6 +9,8 @@ goal (30 slops in 30 days), ship something every day, show it to people, and kee
 - **Goals on a board of days.** Every day you ship flips its tile to a "!". Days end at midnight in your time zone.
 - **Slop of the day.** Each UTC day is a race on votes (5 each a day); a cron crowns the winner after midnight, and
   winning makes it slopcessful.
+- **Scheduled launches.** Ready with three? Throw one now and line the others up: each goes out on its next free day
+  as that day's race starts, or at a time you pick, and counts towards the goal on the day it goes out.
 - **Launches, not just products.** The website, then the iOS beta, then 2.0: each launch is its own entry and its own
   shot at slop of the day, linked to the product.
 - **Updates, feature drops, re-promotes and field tests.** Field tests log real people trying it, and count extra.

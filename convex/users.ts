@@ -4,6 +4,7 @@ import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/s
 import { readerFor, requireServer } from "./lib/auth";
 import { firstEmail, nextDigestAt } from "./lib/digest";
 import { publicUser, toCards } from "./lib/shape";
+import { queuedDays } from "./schedule";
 import { currentStreak, isValidTimeZone, localDate } from "../app/lib/dates";
 import { goalProgress, type Launch } from "../app/lib/goal";
 import { LIMITS } from "../app/lib/model";
@@ -304,7 +305,7 @@ export const profile = query({
       upvotes: slops.reduce((sum, slop) => sum + slop.upvotes, 0),
       daysWon: slops.filter((slop) => slop.slopOfTheDay !== null).length,
       slopcessfulOnTry: firstHit === -1 ? null : firstHit + 1,
-      progress: current ? goalProgress(current, launches, today) : null,
+      progress: current ? goalProgress(current, launches, today, await queuedDays(ctx, owner)) : null,
       pastGoals: goals
         .filter((goal) => goal._id !== current?._id)
         .map((goal) => {
