@@ -18,11 +18,7 @@ export function GoalShare({ text, url, fresh }: { text: string; url: string; fre
       <h2 id="goal-share-title" className={fresh ? "title-2" : "caps"}>
         Share your goal
       </h2>
-      {fresh && (
-        <p className="lede mt-3">
-          Saying it out loud makes you far more likely to see it through. Tell people, then go throw day one.
-        </p>
-      )}
+      {fresh && <p className="lede mt-3">Say it out loud and you're likelier to see it through. Then throw day one.</p>}
       <blockquote className="mt-5 max-w-2xl border-l-2 border-line-strong pl-4 text-muted">
         {text} <span className="break-all">{url}</span>
       </blockquote>

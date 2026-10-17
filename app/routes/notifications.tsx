@@ -44,11 +44,9 @@ export default function Notifications({ loaderData }: Route.ComponentProps) {
   return (
     <section className="mx-auto max-w-2xl px-4 pt-14">
       <h1 className="title-1">Notifications</h1>
-      <p className="mt-3 text-muted">Live. Votes, feedback and pledges land here the moment they happen.</p>
+      <p className="mt-3 text-muted">Votes, pledges and wins, live.</p>
       <ol className="mt-10 grid gap-1">
-        {items.length === 0 && (
-          <EmptyState>Nothing yet. Throw something at the wall and people will start reacting.</EmptyState>
-        )}
+        {items.length === 0 && <EmptyState>Nothing yet. Throw something at the wall.</EmptyState>}
         {items.map((item) => (
           <li key={item.id}>
             <Link

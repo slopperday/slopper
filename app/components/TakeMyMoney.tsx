@@ -50,9 +50,7 @@ export function TakeMyMoney({
         </span>
       </p>
       {mode === "own" ? (
-        <p className="mt-2 text-[0.9375rem] text-muted">
-          How much people say they'd pay for this. Share it to find out.
-        </p>
+        <p className="mt-2 text-[0.9375rem] text-muted">What people say they'd pay. Share it to find out.</p>
       ) : mode === "login" ? (
         <Link to={loginHref} className="btn btn-ink mt-4 w-full">
           💸 Take my money
@@ -126,7 +124,7 @@ export function TakeMyMoney({
           )}
         </>
       )}
-      <p className="mt-3 text-sm text-muted">Pledges are non-binding for now. No money moves yet.</p>
+      <p className="mt-3 text-sm text-muted">Pledges are non-binding. No money moves yet.</p>
     </section>
   );
 }

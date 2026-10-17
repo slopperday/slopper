@@ -46,7 +46,7 @@ test.describe("settings", () => {
     await page.goto("/goal");
     await page.getByText("Drop this goal").click();
     await page.getByRole("button", { name: "Yes, drop it" }).click();
-    await expect(page.getByRole("status")).toHaveText("Goal dropped. Set a new one when you're ready.");
+    await expect(page.getByRole("status")).toHaveText("Goal dropped.");
     await expect(page.getByRole("heading", { name: "Set a goal" })).toBeVisible();
   });
 
@@ -117,7 +117,7 @@ test.describe("settings", () => {
     });
     await page.reload();
     await methods.getByRole("button", { name: "Unlink GitHub" }).click();
-    await expect(page.getByRole("status")).toHaveText("Unlinked GitHub. It won't sign you in any more.");
+    await expect(page.getByRole("status")).toHaveText("Unlinked GitHub.");
     await expect(methods.getByRole("link", { name: "Link GitHub", exact: true })).toBeVisible();
 
     // Down to one way in, it stays.

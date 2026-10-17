@@ -102,7 +102,7 @@ export async function action({ params, request, context }: Route.ActionArgs) {
   if (check?.verdict === "blocked") {
     return redirectWithFlash(here, {
       tone: "error",
-      message: "Saved, and held for review. A moderator will look at it.",
+      message: "Saved, and waiting for a moderator.",
     });
   }
   return redirectWithFlash(here, {
@@ -123,7 +123,7 @@ export default function EditSlop({ loaderData, actionData }: Route.ComponentProp
         <Icon name="left" className="size-4" /> {slop.name}
       </Link>
       <h1 className="title-1 mt-6">Edit {slop.name}</h1>
-      <p className="lede mt-4">The launch date and slop number stay put. Everything else is fair game.</p>
+      <p className="lede mt-4">The launch date and number stay. Change anything else.</p>
       <div className="mt-10">
         <AgentPrompt prompt={(origin) => editPrompt(origin, slop.slug)} />
       </div>
@@ -137,9 +137,7 @@ export default function EditSlop({ loaderData, actionData }: Route.ComponentProp
 
       <section id="autopost" className="mt-20 scroll-mt-24 border-t border-line pt-12">
         <h2 className="title-2">Auto-post for {slop.name}</h2>
-        <p className="mt-3 text-muted">
-          Choose who speaks for this slop. Give it its own account to post, and let your personal account repost it.
-        </p>
+        <p className="mt-3 text-muted">Pick who posts it: its own account to post, your personal one to repost.</p>
         {accounts.length === 0 ? (
           <Link to="/settings/autopost" className="btn mt-5">
             Connect accounts first

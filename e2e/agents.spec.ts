@@ -150,7 +150,7 @@ test.describe("agents run Slopper", () => {
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: stack.appUrl });
     for (const path of ["/new", "/goal"]) {
       await page.goto(path);
-      await page.getByText("🤖 Let your AI do it").click();
+      await page.getByText("🤖 Pass it to your agent").click();
       await expect(page.locator("pre").first()).toContainText(`${stack.appUrl}/mcp`);
       await page.getByRole("button", { name: "Copy prompt" }).click();
       await expect(page.getByRole("button", { name: "Copied ✓" })).toBeVisible();

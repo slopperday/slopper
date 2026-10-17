@@ -24,7 +24,7 @@ export default function Changelog({ loaderData }: Route.ComponentProps) {
       <p className="lede mt-4">Every release of Slopper, newest first.</p>
       {releases.length === 0 ? (
         <div className="mt-12">
-          <EmptyState>Nothing released yet. The first release lands here.</EmptyState>
+          <EmptyState>Nothing released yet.</EmptyState>
         </div>
       ) : (
         <ol className="mt-12 divide-y divide-line border-y border-line">

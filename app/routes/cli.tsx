@@ -76,8 +76,7 @@ export default function CliLogin({ loaderData }: Route.ComponentProps) {
             and set goals.
           </p>
           <p className="mt-2 text-[0.9375rem] text-muted">
-            Only approve a code you just asked for with <code className="font-mono">slopper login</code>. It gets an API
-            token of its own, which you can revoke any time in{" "}
+            Only approve a code you just asked for. Revoke its token any time in{" "}
             <a href="/settings/api" className="underline">
               Settings
             </a>
@@ -98,14 +97,14 @@ export default function CliLogin({ loaderData }: Route.ComponentProps) {
         <>
           <h1 className="title-1 mt-6">The CLI is signed in</h1>
           <p className="lede mt-3">
-            {view.name} now acts as @{username}. Head back to your terminal; you can close this tab.
+            {view.name} now acts as @{username}. You can close this tab.
           </p>
           <p className="mt-6 text-[0.9375rem] text-muted">
-            Its token is in{" "}
+            Revoke its token any time in{" "}
             <a href="/settings/api" className="underline">
               Settings
-            </a>{" "}
-            if you ever want to cut it off.
+            </a>
+            .
           </p>
         </>
       )}
@@ -113,8 +112,7 @@ export default function CliLogin({ loaderData }: Route.ComponentProps) {
         <>
           <h1 className="title-1 mt-6">Not signed in</h1>
           <p className="lede mt-3">
-            You denied {view.name}, so it got nothing. If that was a mistake, run{" "}
-            <code className="font-mono">slopper login</code> again.
+            {view.name} got nothing. Run <code className="font-mono">slopper login</code> to try again.
           </p>
         </>
       )}
@@ -126,7 +124,7 @@ export default function CliLogin({ loaderData }: Route.ComponentProps) {
           <p className="lede mt-3">
             {view.kind === "enter"
               ? "Type the code your terminal shows."
-              : "Codes last ten minutes and work once. Check it, or run slopper login again for a new one."}
+              : "Codes last ten minutes and work once. Run slopper login for a new one."}
           </p>
           <Form method="get" className="mt-8 flex gap-2">
             <label htmlFor="code" className="sr-only">

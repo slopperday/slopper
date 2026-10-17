@@ -19,8 +19,7 @@ export default function Streaks({ loaderData }: Route.ComponentProps) {
     <section className="mx-auto max-w-3xl px-4 pt-14">
       <h1 className="title-1">Streaks</h1>
       <p className="lede mt-4">
-        Everyone with a goal running. Ranked by goals hit, then current streak, then how close each person is to their
-        number.
+        Everyone with a goal running. Ranked by goals hit, then streak, then how close they are.
       </p>
       <div className="mt-10">
         <StreakList rows={rows} />
