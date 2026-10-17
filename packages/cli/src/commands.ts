@@ -433,7 +433,8 @@ export const COMMANDS: Command[] = [
   {
     name: "edit",
     args: "<slop>",
-    summary: "Change one of your slops. Only the flags you pass change; --link and --screenshot replace the lists.",
+    summary:
+      "Change one of your slops, until the end of its launch day (at least 12 hours after launch); then post updates instead. Only the flags you pass change; --link and --screenshot replace the lists.",
     flags: SLOP_FLAGS,
     options: SLOP_OPTIONS,
     async run(context) {
