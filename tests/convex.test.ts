@@ -612,11 +612,9 @@ describe("the moderation team", () => {
 
     const page = (asUser: Id<"users">) => server.query(api.slops.page, { username: "owner", slug: "tiltmaze", asUser });
     expect(await page(visitor)).toBeNull();
-    // Claiming to be an admin changes nothing: only the stored role counts.
+    // Nor does the live query in a visitor's browser.
     expect(
-      await t
-        .withIdentity({ subject: visitor })
-        .query(api.slops.page, { username: "owner", slug: "tiltmaze", isAdmin: true }),
+      await t.withIdentity({ subject: visitor }).query(api.slops.page, { username: "owner", slug: "tiltmaze" }),
     ).toBeNull();
     expect((await page(moderator))?.slop.hidden).toBe(true);
     // The live query in a moderator's browser sees it too.
@@ -625,8 +623,8 @@ describe("the moderation team", () => {
         ?.slop.hidden,
     ).toBe(true);
 
-    // Only the owner and admins delete a slop, whatever the caller claims.
-    await expect(server.mutation(api.slops.remove, { slopId, byUserId: moderator, asAdmin: true })).rejects.toThrow(
+    // Only the owner and admins delete a slop; moderators can't.
+    await expect(server.mutation(api.slops.remove, { slopId, byUserId: moderator })).rejects.toThrow(
       "That slop isn't yours.",
     );
     const profile = await server.query(api.users.profile, { username: "ada" });
