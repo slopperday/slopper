@@ -117,6 +117,34 @@ test.describe("visitors", () => {
     expect(card.ok()).toBe(true);
     expect(card.headers()["content-type"]).toBe("image/png");
   });
+
+  test("see a slop's own card, and the maker's, when they share either link", async ({ seed, request }) => {
+    const maker = await seed.user("carded");
+    const slop = await seed.slop(maker, { tagline: "A card of its own" });
+    const visitor = await seed.visitorPage();
+    for (const [path, type, card] of [
+      [slop.path, "article", `${slop.path}/card.png`],
+      [`/@${maker.username}`, "profile", `/@${maker.username}/card.png`],
+    ] as const) {
+      await visitor.goto(path);
+      const meta = (key: string) =>
+        visitor.locator(`meta[property="${key}"], meta[name="${key}"]`).getAttribute("content");
+      const image = await meta("og:image");
+      expect(new URL(image ?? "").pathname).toBe(card);
+      expect(await meta("twitter:image")).toBe(image);
+      expect(await meta("og:image:width")).toBe("1200");
+      expect(await meta("og:image:height")).toBe("630");
+      expect(await meta("og:image:alt")).toContain(`@${maker.username}`);
+      expect(await meta("og:type")).toBe(type);
+
+      const response = await request.get(new URL(image ?? "").pathname + new URL(image ?? "").search);
+      expect(response.ok()).toBe(true);
+      expect(response.headers()["content-type"]).toBe("image/png");
+      const png = await response.body();
+      expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1200, 630]);
+    }
+    expect((await request.get(`/@${maker.username}/no-such-slop/card.png`)).status()).toBe(404);
+  });
 });
 
 test("crawlers stay off the API and sign-in links, but not off profiles", async ({ request }) => {

@@ -70,6 +70,7 @@ test.describe("promo videos", () => {
     await visitor.goto(slop.path);
     await expect(visitor.getByRole("heading", { level: 1 })).toContainText(slop.name);
     await expect(visitor.locator("video")).toHaveCount(0);
+    await expect(visitor.locator('meta[property="og:video"]')).toHaveCount(0);
 
     const moderator = await seed.pageAs(await seed.admin());
     await moderator.goto("/mod");
@@ -86,6 +87,9 @@ test.describe("promo videos", () => {
       "src",
       /videos\/.+\.mp4$/,
     );
+    // Shared links carry it too, for previews that play video.
+    await expect(visitor.locator('meta[property="og:video"]')).toHaveAttribute("content", /videos\/.+\.mp4$/);
+    await expect(visitor.locator('meta[property="og:video:type"]')).toHaveAttribute("content", "video/mp4");
     await own.goto(slop.path);
     await expect(own.getByText("Your video is waiting for a moderator.")).toHaveCount(0);
   });
