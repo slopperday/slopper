@@ -1,0 +1,222 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-10-17T21:35:48Z",
+  "command": "release",
+  "version": "1.4.0",
+  "versions": {
+    "slopper": "1.4.0"
+  },
+  "release_targets": [
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.4.0",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.4.0",
+      "rendered_title": "v1.4.0 (2026-10-17)",
+      "rendered_changelog_title": "1.4.0 (2026-10-17)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["slopper"],
+  "changed_files": ["CHANGELOG.md", "app/changelog/1.4.0.json", "package.json"],
+  "package_publications": [],
+  "updated_changelogs": ["CHANGELOG.md", "app/changelog/1.4.0.json"],
+  "deleted_changesets": [".changeset/cli-slogan.md", ".changeset/too-much-slop.md"],
+  "changesets": [
+    {
+      "path": ".changeset/cli-slogan.md",
+      "summary": "The CLI's help leads with the new slogan",
+      "details": "`slopper help` and the README open with \"Too much slop? Not enough yet!\".",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "none",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "docs"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8d8d5208240158ede1c6275daa1ec13340624417",
+            "short_sha": "8d8d520",
+            "url": null,
+            "authored_at": "2026-10-17T21:35:37+01:00",
+            "committed_at": "2026-10-17T21:35:37+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8d8d5208240158ede1c6275daa1ec13340624417",
+            "short_sha": "8d8d520",
+            "url": null,
+            "authored_at": "2026-10-17T21:35:37+01:00",
+            "committed_at": "2026-10-17T21:35:37+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/too-much-slop.md",
+      "summary": "Too much slop? Not enough yet!",
+      "details": "Slopper has a new slogan. It leads the home page, the footer, page titles and the card that shows when you share a link. Throwing slop at the wall every day is still how it works.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8d8d5208240158ede1c6275daa1ec13340624417",
+            "short_sha": "8d8d520",
+            "url": null,
+            "authored_at": "2026-10-17T21:35:37+01:00",
+            "committed_at": "2026-10-17T21:35:37+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8d8d5208240158ede1c6275daa1ec13340624417",
+            "short_sha": "8d8d520",
+            "url": null,
+            "authored_at": "2026-10-17T21:35:37+01:00",
+            "committed_at": "2026-10-17T21:35:37+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.4.0 (2026-10-17)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Changed",
+            "collapsed": false,
+            "entries": ["- **No package-specific changes were recorded; `slopper` was updated to 1.4.0.**"]
+          }
+        ]
+      },
+      "rendered": "## 1.4.0 (2026-10-17)\n\n### Changed\n\n- **No package-specific changes were recorded; `slopper` was updated to 1.4.0.**"
+    },
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "user",
+      "stream": "user",
+      "path": "app/changelog/1.4.0.json",
+      "format": "json",
+      "notes": {
+        "title": "1.4.0 (2026-10-17)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "New",
+            "collapsed": false,
+            "entries": [
+              "- **Too much slop?** Not enough yet! Slopper has a new slogan. It leads the home page, the footer, page titles and the card that shows when you share a link. Throwing slop at the wall every day is still how it works.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 8d8d520"
+            ]
+          }
+        ]
+      },
+      "rendered": "{\n  \"title\": \"1.4.0 (2026-10-17)\",\n  \"summary\": [],\n  \"sections\": [\n    {\n      \"title\": \"New\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Too much slop? Not enough yet!\",\n          \"details_markdown\": \"Slopper has a new slogan. It leads the home page, the footer, page titles and the card that shows when you share a link. Throwing slop at the wall every day is still how it works.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/too-much-slop.md\",\n            \"changeset_path\": \".changeset/too-much-slop.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"8d8d520\"\n            }\n          }\n        }\n      ]\n    }\n  ]\n}"
+    }
+  ],
+  "provider": null
+}
