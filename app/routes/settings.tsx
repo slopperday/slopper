@@ -93,7 +93,7 @@ async function unlink(user: User, provider: string): Promise<Response> {
   const label = OAUTH_LABELS[provider];
   const result = await convex.mutation(api.users.unlinkIdentity, { userId: user._id, provider });
   if (result.ok) {
-    return redirectWithFlash(HERE, { tone: "info", message: `Unlinked ${label}. It won't sign you in any more.` });
+    return redirectWithFlash(HERE, { tone: "info", message: `Unlinked ${label}.` });
   }
   return redirectWithFlash(HERE, {
     tone: "error",
@@ -118,7 +118,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
       <Form method="post" className="mt-10 grid gap-7">
         <input type="hidden" name="intent" value="profile" />
         <div className="grid gap-6 sm:grid-cols-2">
-          <Field id="username" label="Username" hint="Your page lives at slopper.day/@username.">
+          <Field id="username" label="Username" hint="Your page: slopper.day/@username.">
             <input
               id="username"
               name="username"
@@ -157,11 +157,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
             placeholder="https://"
           />
         </Field>
-        <Field
-          id="timeZone"
-          label="Time zone"
-          hint="Your day ends at midnight here. It decides which day a slop counts for."
-        >
+        <Field id="timeZone" label="Time zone" hint="Your day ends at midnight here.">
           <select id="timeZone" name="timeZone" className="input" defaultValue={user.timeZone}>
             {timeZones.map((zone) => (
               <option key={zone} value={zone}>
@@ -175,9 +171,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
           <input type="checkbox" name="showNsfw" defaultChecked={user.showNsfw} className="mt-1 size-5" />
           <span>
             <span className="font-bold">Show NSFW slops</span>
-            <span className="block text-[0.9375rem] text-muted">
-              Off by default. When on, NSFW slops show in feeds without the blur.
-            </span>
+            <span className="block text-[0.9375rem] text-muted">Shows them in feeds without the blur.</span>
           </span>
         </label>
         <button type="submit" className="btn btn-slop btn-lg justify-self-start">
@@ -200,8 +194,8 @@ function EmailDigest({ address, enabled }: { address: string | null; enabled: bo
       {address ? (
         <>
           <p className="mt-2 text-muted">
-            One email at 9am your time, on days something happened to your slops: upvotes, pledges, wins. It goes to{" "}
-            <span className="font-bold text-ink">{address}</span>, from your sign-in.
+            One email at 9am your time, on days your slops got upvotes, pledges or a win. Sent to{" "}
+            <span className="font-bold text-ink">{address}</span>.
           </p>
           <Form method="post" className="mt-6 flex flex-wrap items-center gap-4">
             <input type="hidden" name="intent" value="digest" />
@@ -214,8 +208,8 @@ function EmailDigest({ address, enabled }: { address: string | null; enabled: bo
         </>
       ) : (
         <p className="mt-2 text-muted">
-          None of your sign-in methods shares a verified email, so there's nowhere to send it. Link Google, GitHub,
-          LinkedIn or Facebook below to get it.
+          None of your sign-in methods shares a verified email. Link Google, GitHub, LinkedIn or Facebook below to get
+          it.
         </p>
       )}
     </section>

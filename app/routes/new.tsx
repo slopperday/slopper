@@ -206,7 +206,7 @@ export default function NewSlop({ loaderData, actionData }: Route.ComponentProps
       </p>
       <p className="lede mt-2">
         {relaunch
-          ? "A new platform, a new app, a 2.0: every real launch is its own slop with its own shot at slop of the day. Features belong in updates."
+          ? "A new platform, app or 2.0 gets its own shot at slop of the day. Features go in updates."
           : "It doesn't need to be good. It needs to be live."}
         {!goal && (
           <>
@@ -236,7 +236,7 @@ export default function NewSlop({ loaderData, actionData }: Route.ComponentProps
               id="launchLabel"
               label="What's launching?"
               error={errors.launchLabel}
-              hint="A platform (iOS app, Android beta, desktop), a version (2.0), or a new app built from it."
+              hint="A platform, a version (2.0) or a new app built from it."
             >
               <input
                 id="launchLabel"
@@ -291,7 +291,7 @@ export default function NewSlop({ loaderData, actionData }: Route.ComponentProps
             </label>
           ) : (
             <p className="text-muted">
-              Want this posted to {listWords(networks, "or")} automatically?{" "}
+              Auto-post to {listWords(networks, "or")}?{" "}
               <Link to="/settings/autopost" className="link text-ink">
                 Connect accounts
               </Link>
@@ -343,7 +343,7 @@ function ReleaseChoice({
       id: "next",
       label: "Next free day",
       blurb: nextFree
-        ? `${formatRelease(nextFree, timeZone)}, as that day's race starts: all 24 hours of votes.`
+        ? `${formatRelease(nextFree, timeZone)}, when its race starts: a full day of votes.`
         : "The first day with nothing out or scheduled.",
     },
     { id: "at", label: "Pick a time", blurb: `Any time in the next ${LIMITS.scheduleDays} days.` },
@@ -386,9 +386,7 @@ function ReleaseChoice({
           />
         </Field>
       </div>
-      <p className="field-hint">
-        Scheduled slops count towards your goal on the day they go out. Throw three today and that's three.
-      </p>
+      <p className="field-hint">Each slop counts on the day it goes out. Three today is three.</p>
     </fieldset>
   );
 }
@@ -418,7 +416,7 @@ function Scheduled({ queue, timeZone }: { queue: QueueItem[]; timeZone: string }
                 <p className="font-bold break-words">{title}</p>
                 <p className="text-[0.9375rem] text-muted">
                   {item.out
-                    ? "Out now. Finishing the content check and auto-post."
+                    ? "Out now, finishing the check and auto-post."
                     : `Goes out ${formatRelease(item.releaseAt, timeZone)}`}
                   {!item.out && item.autopost ? " · Auto-posts" : ""}
                 </p>

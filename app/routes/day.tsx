@@ -5,7 +5,6 @@ import { viewerContext } from "~/.server/session";
 import { convex } from "~/.server/convex";
 import { notFound } from "~/.server/http";
 import { addDays, formatDay, isIsoDate } from "~/lib/dates";
-import { plural } from "~/lib/display";
 import { LIMITS } from "~/lib/model";
 import { seo } from "~/lib/seo";
 import { Countdown } from "~/components/Countdown";
@@ -39,8 +38,8 @@ function VotesLeft({ left }: { left: number }) {
   return (
     <p className="w-full font-bold" aria-live="polite">
       {left > 0
-        ? `${plural(left, "vote", "votes")} left today, out of ${LIMITS.votesPerDay}. Spend them on the slops that should win.`
-        : `You've cast all ${LIMITS.votesPerDay} of today's votes. Take one back to move it, or wait for midnight UTC.`}
+        ? `${left} of ${LIMITS.votesPerDay} votes left today.`
+        : `You've cast all ${LIMITS.votesPerDay} of today's votes. Take one back to move it.`}
     </p>
   );
 }
@@ -68,15 +67,11 @@ export default function Day({ loaderData }: Route.ComponentProps) {
       </nav>
       <h1 className="title-1 mt-8">{final ? `Slop of the day: ${formatDay(date)}` : "Today's race"}</h1>
       {final ? (
-        <p className="lede mt-4">
-          Final results. Days run midnight to midnight UTC. The winner is crowned just after midnight and never changes.
-        </p>
+        <p className="lede mt-4">Final results. Crowned at midnight UTC, for good.</p>
       ) : (
         <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
           <Countdown className="text-[2.25rem]" />
-          <p className="text-muted">
-            Live, ranked by votes. The top slop at midnight UTC wins slop of the day and goes slopcessful.
-          </p>
+          <p className="text-muted">Live, ranked by votes. The top slop at midnight UTC wins and goes slopcessful.</p>
           {votesLeft !== null && <VotesLeft left={votesLeft} />}
         </div>
       )}
@@ -85,7 +80,7 @@ export default function Day({ loaderData }: Route.ComponentProps) {
           <RaceList items={race.items} winnerId={race.winnerId} />
         ) : (
           <EmptyState>
-            {final ? "Nobody slopped this day." : "Nothing launched yet today. The first slop has the race to itself."}
+            {final ? "Nobody slopped this day." : "Nothing yet today. The first slop has the race to itself."}
             {!final && (
               <div>
                 <Link to="/new" className="btn btn-slop btn-lg mt-6">

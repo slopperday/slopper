@@ -12,6 +12,7 @@ import {
   REVENUE_CATEGORIES,
 } from "~/lib/model";
 import { localDate } from "~/lib/dates";
+import { editableUntil } from "~/lib/editing";
 import { formatRelease, parseRelease, releaseProblem } from "~/lib/schedule";
 import { listWords, slopPath } from "~/lib/display";
 import { CURRENCIES } from "~/lib/money";
@@ -19,7 +20,7 @@ import { absoluteUrl, autopostNetworks, config } from "../config";
 import { convex, convexMessage } from "../convex";
 import { validateGoal, validateSlop, validateUpdate } from "../forms";
 import { deleteOrphanedMedia, uploadImage, uploadVideo } from "../media";
-import { checkedContent, checkSlop } from "../moderation";
+import { checkedContent, checkSlop, checkVideo } from "../moderation";
 import { finishLaunch, releaseScheduled } from "../launch";
 import { announce } from "../social/announce";
 import { postUpdate } from "../updates";
@@ -64,7 +65,7 @@ export interface Operation {
   run(context: OperationContext, input: JsonObject): Promise<unknown>;
 }
 
-function summarizeSlop(slop: Doc<"slops">, username: string) {
+function summarizeSlop(slop: Doc<"slops">, owner: User) {
   return {
     id: slop._id,
     number: slop.number,
@@ -75,8 +76,12 @@ function summarizeSlop(slop: Doc<"slops">, username: string) {
     tagline: slop.tagline,
     /** Blurred by the content check, a mature screenshot, flags or a moderator. */
     nsfw: slop.nsfw,
-    url: absoluteUrl(slopPath(username, slop.slug)),
+    url: absoluteUrl(slopPath(owner.username, slop.slug)),
     launchDate: slop.launchDate,
+    /** When update_slop stops working; post_update is the way to add news after that. */
+    editableUntil: new Date(
+      editableUntil({ launchedAt: slop._creationTime, launchDate: slop.launchDate }, owner.timeZone),
+    ).toISOString(),
     goalDay: slop.goalDay,
     upvotes: slop.upvotes,
     updates: slop.updateCount,
@@ -286,7 +291,7 @@ export const OPERATIONS: Operation[] = [
   {
     name: "upload_video",
     title: "Upload a promo video",
-    description: `Upload an MP4 or WebM (max ${LIMITS.videoBytes / 1024 / 1024} MB) as base64, for set_video. The content check can't watch video, so once it's on a slop it plays for everyone only after a moderator approves it.`,
+    description: `Upload an MP4 or WebM (max ${LIMITS.videoBytes / 1024 / 1024} MB) as base64, for set_video. Once it's on a slop it plays for everyone after a moderator approves it; after your first approved video, the next ones are checked automatically.`,
     inputSchema: {
       type: "object",
       properties: { base64: { type: "string", description: "Video bytes, base64 encoded (no data: prefix)." } },
@@ -303,7 +308,7 @@ export const OPERATIONS: Operation[] = [
     name: "set_video",
     title: "Set a slop's promo video",
     description:
-      "Put a video from upload_video on one of your slops, replacing its last one, or pass null to take it off. A new video waits for a moderator before it plays for everyone: video is pending until then, then live.",
+      "Put a video from upload_video on one of your slops, replacing its last one, or pass null to take it off. Your first video waits for a moderator: video is pending until it's approved, then live. Once one is approved you're trusted, and each new video is checked as you set it: video is live at once if it passes, and pending (waiting for a moderator) if it doesn't.",
     inputSchema: {
       type: "object",
       properties: {
@@ -325,7 +330,8 @@ export const OPERATIONS: Operation[] = [
         mediaId: video,
       });
       if (result.orphaned > 0) await deleteOrphanedMedia();
-      return { slop: summarizeSlop(await slopById(slop._id), context.user.username) };
+      if (result.check) await checkVideo(slop._id, result.check);
+      return { slop: summarizeSlop(await slopById(slop._id), context.user) };
     },
   },
   {
@@ -426,7 +432,7 @@ export const OPERATIONS: Operation[] = [
       });
       const finished = await finishLaunch(user, created, launchNote, autopost);
       return {
-        slop: summarizeSlop(await slopById(created.slopId), user.username),
+        slop: summarizeSlop(await slopById(created.slopId), user),
         contentCheck: finished.check?.verdict ?? "unchecked",
         autopost: finished.autopost,
       };
@@ -435,7 +441,8 @@ export const OPERATIONS: Operation[] = [
   {
     name: "update_slop",
     title: "Edit a slop",
-    description: "Change a slop's details. Only the fields you pass change; the slug and launch date stay put.",
+    description:
+      "Change a slop's details. Only the fields you pass change; the slug and launch date stay put. Editing closes at the slop's editableUntil (the end of its launch day, or 12 hours after launch if that's later); after that, post_update is the way to share what's new.",
     inputSchema: {
       type: "object",
       properties: {
@@ -473,7 +480,7 @@ export const OPERATIONS: Operation[] = [
       const saved = await slopById(slop._id);
       const check = checkedContent(saved) !== checkedContent(slop) ? await checkSlop(slop._id) : null;
       return {
-        slop: summarizeSlop(await slopById(slop._id), context.user.username),
+        slop: summarizeSlop(await slopById(slop._id), context.user),
         ...(check ? { contentCheck: check.verdict } : {}),
       };
     },
@@ -624,7 +631,7 @@ export const OPERATIONS: Operation[] = [
     readOnly: true,
     async run({ user }) {
       const slops = await convex.query(api.slops.listForServer, { userId: user._id });
-      return { slops: slops.map((slop) => summarizeSlop(slop, user.username)) };
+      return { slops: slops.map((slop) => summarizeSlop(slop, user)) };
     },
   },
   {
@@ -649,7 +656,7 @@ export const OPERATIONS: Operation[] = [
     async run({ user }, input) {
       const out = await releaseScheduled(user, requiredString(input, "scheduled").trim());
       return {
-        slop: summarizeSlop(await slopById(out.slopId), user.username),
+        slop: summarizeSlop(await slopById(out.slopId), user),
         contentCheck: out.finished.check?.verdict ?? "unchecked",
         autopost: out.finished.autopost,
       };

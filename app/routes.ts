@@ -20,6 +20,7 @@ export default [
   route("settings/api", "routes/settings.api.tsx"),
   route("notifications", "routes/notifications.tsx"),
   route("mod", "routes/mod.tsx"),
+  route("mod/team", "routes/mod.team.tsx"),
   route("cli", "routes/cli.tsx"),
 
   route("auth/logout", "routes/auth.logout.ts"),

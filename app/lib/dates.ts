@@ -97,6 +97,14 @@ export function raceStartOn(date: string, timeZone: string): number {
     const midnight = toUtcMidnight(addDays(date, offset));
     if (localDate(new Date(midnight), timeZone) === date) return midnight;
   }
+  return localDayStart(date, timeZone);
+}
+
+/**
+ * The moment `date` begins in `timeZone`: its midnight, or its first whole
+ * hour when a clock change skips midnight (the Azores in spring).
+ */
+export function localDayStart(date: string, timeZone: string): number {
   for (let hour = 0; ; hour++) {
     const at = localInstant(date, hour * 60, timeZone);
     if (localDate(new Date(at), timeZone) === date) return at;

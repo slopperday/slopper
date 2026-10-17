@@ -31,7 +31,7 @@ export function Footer() {
         <div className="col-span-2 sm:col-span-1">
           <Wordmark className="text-[2.75rem]" />
           <p className="mt-5 max-w-sm text-muted">
-            Too much slop? Not enough yet! Throw it at the wall every day until one of them sticks.
+            Too much slop? Not enough yet! Keep slopping until one is slopcessful.
           </p>
         </div>
         {COLUMNS.map((column) => (

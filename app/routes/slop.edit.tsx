@@ -11,6 +11,7 @@ import { checkedContent, checkSlop } from "~/.server/moderation";
 import { modeFor } from "~/.server/social/crosspost";
 import { type CrosspostMode, NETWORK_LABELS } from "~/lib/model";
 import { slopPath } from "~/lib/display";
+import { editWindow } from "~/lib/editing";
 import { seo } from "~/lib/seo";
 import { SlopFields } from "~/components/SlopFields";
 import { ModePicker } from "~/components/Autopost";
@@ -37,6 +38,7 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
   const accounts = await convex.query(api.accounts.list, { userId: user._id });
   return {
     username: user.username,
+    editing: editWindow({ launchedAt: slop._creationTime, launchDate: slop.launchDate }, user.timeZone, Date.now()),
     slop: {
       id: slop._id,
       slug: slop.slug,
@@ -102,7 +104,7 @@ export async function action({ params, request, context }: Route.ActionArgs) {
   if (check?.verdict === "blocked") {
     return redirectWithFlash(here, {
       tone: "error",
-      message: "Saved, and held for review. A moderator will look at it.",
+      message: "Saved, and waiting for a moderator.",
     });
   }
   return redirectWithFlash(here, {
@@ -115,7 +117,7 @@ export const meta: Route.MetaFunction = ({ matches, loaderData }) =>
   seo(matches, { title: `Edit ${loaderData?.slop.name ?? "slop"}`, noindex: true });
 
 export default function EditSlop({ loaderData, actionData }: Route.ComponentProps) {
-  const { slop, username, accounts } = loaderData;
+  const { slop, username, accounts, editing } = loaderData;
   const path = slopPath(username, slop.slug);
   return (
     <section className="mx-auto max-w-3xl px-4 pt-10">
@@ -123,23 +125,37 @@ export default function EditSlop({ loaderData, actionData }: Route.ComponentProp
         <Icon name="left" className="size-4" /> {slop.name}
       </Link>
       <h1 className="title-1 mt-6">Edit {slop.name}</h1>
-      <p className="lede mt-4">The launch date and slop number stay put. Everything else is fair game.</p>
-      <div className="mt-10">
-        <AgentPrompt prompt={(origin) => editPrompt(origin, slop.slug)} />
-      </div>
-      <Form method="post" className="mt-12 grid gap-8">
-        <input type="hidden" name="intent" value="details" />
-        <SlopFields values={actionData?.values ?? slop.values} errors={actionData?.errors ?? {}} />
-        <button type="submit" className="btn btn-slop btn-lg justify-self-start">
-          Save changes
-        </button>
-      </Form>
+      {editing.open ? (
+        <>
+          <p className="lede mt-4">
+            {editing.label}, then it's locked and news goes in updates. The launch date and number stay.
+          </p>
+          <div className="mt-10">
+            <AgentPrompt prompt={(origin) => editPrompt(origin, slop.slug)} />
+          </div>
+          <Form method="post" className="mt-12 grid gap-8">
+            <input type="hidden" name="intent" value="details" />
+            <SlopFields values={actionData?.values ?? slop.values} errors={actionData?.errors ?? {}} />
+            <button type="submit" className="btn btn-slop btn-lg justify-self-start">
+              Save changes
+            </button>
+          </Form>
+        </>
+      ) : (
+        <div className="panel mt-8 grid justify-items-start gap-4">
+          <p className="text-[1.125rem]">
+            <span className="font-bold">Locked.</span> Launches can be edited on their launch day and for at least 12
+            hours. Post an update to share what's new.
+          </p>
+          <Link to={`${path}#updates`} className="btn btn-slop">
+            Post an update
+          </Link>
+        </div>
+      )}
 
       <section id="autopost" className="mt-20 scroll-mt-24 border-t border-line pt-12">
         <h2 className="title-2">Auto-post for {slop.name}</h2>
-        <p className="mt-3 text-muted">
-          Choose who speaks for this slop. Give it its own account to post, and let your personal account repost it.
-        </p>
+        <p className="mt-3 text-muted">Pick who posts it: its own account to post, your personal one to repost.</p>
         {accounts.length === 0 ? (
           <Link to="/settings/autopost" className="btn mt-5">
             Connect accounts first

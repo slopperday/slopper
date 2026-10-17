@@ -113,9 +113,12 @@ tried it and what they said), `repromote` (bump it back up). An update can carry
 `--image`s and 3 `--link`s; a feature takes its name (`--feature`), a field test how it went (`--outcome worked|mixed|broke`)
 and who tried it (`--who`). `--preview` shows a card read from each linked page: only pass it when the user wants one.
 `<slop>` is one of the user's slops, by id or slug (see
-`slopper slops`). `edit` changes only the flags passed; `--link` and `--screenshot` replace the whole list.
-`video` puts a promo (MP4 or WebM, up to 4 MB) on a slop, replacing its last; it says `pending` until a moderator
-approves it, because the content check can't watch video. `video <slop> --remove` takes it off.
+`slopper slops`). `edit` changes only the flags passed; `--link` and `--screenshot` replace the whole list. Editing
+closes at the end of the launch day, or 12 hours after launch if that's later (`editableUntil` in `slopper slops`).
+After that the original post is locked (its `video` isn't): share what's new with `slopper post`.
+`video` puts a promo (MP4 or WebM, up to 4 MB) on a slop, replacing its last. The user's first video says `pending`
+until a moderator approves it. After that they're trusted: each new video is checked as it's set, and says `live` if it
+passed or `pending` if it waits for a moderator. `video <slop> --remove` takes it off.
 
 ## Goals
 
@@ -145,4 +148,5 @@ judgement.
 
 - Don't launch ideas, waitlists or anything that isn't live: a slop is something people can try today.
 - Don't launch features as new slops; post them as updates.
+- Don't retry `edit` once a slop is past its `editableUntil`; post an update instead.
 - Don't put the token in files you commit. Use `slopper login` or `SLOPPER_TOKEN`.

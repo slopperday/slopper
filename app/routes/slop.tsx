@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
 import type { Route } from "./+types/slop";
 import { api } from "@convex/_generated/api";
+import { isAdmin } from "@convex/lib/auth";
 import { requireUser, viewerContext } from "~/.server/session";
 import { convex, convexMessage } from "~/.server/convex";
 import { absoluteUrl, config } from "~/.server/config";
@@ -13,6 +14,7 @@ import { missedPreviewsNote, postUpdate } from "~/.server/updates";
 import { modeFor } from "~/.server/social/crosspost";
 import { shareIntents } from "~/lib/compose";
 import { formatDay, localDate, timeAgo } from "~/lib/dates";
+import { editWindow } from "~/lib/editing";
 import { dayLabel, launchTitle, listWords, numberLabel, plural, slopPath } from "~/lib/display";
 import { parseAmount } from "~/lib/money";
 import {
@@ -66,7 +68,6 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     username,
     slug: params.slug,
     asUser: viewer.user?._id,
-    isAdmin: viewer.isAdmin,
     withComments: config.commentsEnabled,
   });
   if (!page) notFound();
@@ -82,16 +83,20 @@ export async function loader({ params, context }: Route.LoaderArgs) {
   }
   const url = absoluteUrl(slopPath(owner.username, slop.slug));
   const day = dayLabel(slop);
+  const now = Date.now();
   return {
     page,
     username,
     slug: params.slug,
     extras: {
       commentsEnabled: config.commentsEnabled,
-      isAdmin: viewer.isAdmin,
+      /** Moderators can see a hidden slop; only admins can hide, unhide or delete it. */
+      role: viewer.user?.role ?? null,
       signedIn: viewer.user !== null,
       autopostCount,
-      today: localDate(new Date(), page.ownerTimeZone),
+      /** Only the owner learns when editing closes. */
+      editing: page.isOwner ? editWindow(slop, page.ownerTimeZone, now) : null,
+      today: localDate(new Date(now), page.ownerTimeZone),
       url,
       intents: shareIntents(
         `${launchTitle(slop)}: ${slop.tagline}${day ? ` (${day} by @${owner.username})` : ""}`,
@@ -126,7 +131,6 @@ export async function action({ params, request, context }: Route.ActionArgs) {
     username,
     slug: params.slug,
     asUser: user._id,
-    isAdmin: viewer.isAdmin,
   });
   if (!page) notFound();
   const { slop, owner, isOwner } = page;
@@ -160,7 +164,6 @@ export async function action({ params, request, context }: Route.ActionArgs) {
         await convex.mutation(api.activity.deleteComment, {
           userId: user._id,
           commentId: formText(form, "id"),
-          asAdmin: viewer.isAdmin,
         });
         return redirectWithFlash(`${here}#feedback`, { tone: "info", message: "Removed." });
       }
@@ -282,13 +285,13 @@ export async function action({ params, request, context }: Route.ActionArgs) {
           slopId: slop.id,
           reason: details ? `${reason}: ${details}` : reason,
         });
-        return redirectWithFlash(here, { tone: "info", message: "Flagged. Thanks, a moderator will look at it." });
+        return redirectWithFlash(here, { tone: "info", message: "Flagged. A moderator will look at it." });
       }
 
       case "hide":
       case "unhide": {
-        if (!viewer.isAdmin) forbidden();
-        await convex.mutation(api.slops.setHidden, { slopId: slop.id, hidden: intent === "hide" });
+        if (!isAdmin(user)) forbidden();
+        await convex.mutation(api.slops.setHidden, { adminId: user._id, slopId: slop.id, hidden: intent === "hide" });
         return redirectWithFlash(here, {
           tone: "info",
           message: intent === "hide" ? "Hidden from Slopper." : "Visible again.",
@@ -296,7 +299,7 @@ export async function action({ params, request, context }: Route.ActionArgs) {
       }
 
       case "delete": {
-        if (!isOwner && !viewer.isAdmin) forbidden();
+        if (!isOwner && !isAdmin(user)) forbidden();
         if (formText(form, "confirm") !== slop.slug) {
           return redirectWithFlash(`${here}/edit#delete`, {
             tone: "error",
@@ -306,7 +309,6 @@ export async function action({ params, request, context }: Route.ActionArgs) {
         const removed = await convex.mutation(api.slops.remove, {
           slopId: slop.id,
           byUserId: user._id,
-          asAdmin: viewer.isAdmin,
         });
         if (removed.orphaned > 0) await deleteOrphanedMedia();
         return redirectWithFlash(`/@${owner.username}`, {
@@ -359,16 +361,14 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
       {slop.hidden && (
         <p className="bg-hot px-4 py-2.5 text-center font-bold text-hot-ink">
           {loaderData.heldForReview ? "Held for review" : "Hidden by a moderator"}. Only you
-          {loaderData.isAdmin ? " and mods" : ""} can see this.
+          {loaderData.role ? " and mods" : ""} can see this.
         </p>
       )}
 
       {search.get("new") === "1" && isOwner && (
         <section className="bg-slop text-slop-ink">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-5">
-            <p className="text-[1.125rem] font-bold">
-              It's on the wall. Now tell people. Anything not auto-posted is one tap away:
-            </p>
+            <p className="text-[1.125rem] font-bold">It's on the wall. Now tell people:</p>
             <div className="flex flex-wrap gap-2">
               {(["x", "linkedin", "bluesky", "threads"] as const).map((network) => (
                 <a
@@ -448,8 +448,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
 
         {isOwner && slop.videoPending && (
           <p role="status" className="panel mt-10 text-[0.9375rem]">
-            <span className="font-bold">Your video is waiting for a moderator.</span> The content check can't watch
-            video, so it plays here for everyone once it's approved.
+            <span className="font-bold">Your video is waiting for a moderator.</span> It plays here once approved.
           </p>
         )}
         {slop.video && reveal && (
@@ -740,7 +739,7 @@ function FieldTestFields() {
   return (
     <div className="mt-3 grid gap-3">
       <p className="text-[0.9375rem] text-muted">
-        Who tried it in real life, and what did they say? Field tests count extra in the rankings.
+        Who tried it in real life, and what did they say? Field tests count extra.
       </p>
       <fieldset className="flex flex-wrap items-center gap-1.5">
         <legend className="sr-only">How it went</legend>
@@ -780,7 +779,7 @@ function GoOutside({ path }: { path: string }) {
       <h2 id="outside-title" className="font-display text-[1.75rem] leading-none font-extrabold">
         Go outside
       </h2>
-      <p className="mt-2">Slop gets better when real people touch it. Today, try one:</p>
+      <p className="mt-2">Slop gets better when real people touch it. Try one today:</p>
       <ul className="mt-3 grid list-disc gap-1.5 pl-5 text-[0.9375rem] marker:text-muted">
         {OUTSIDE_IDEAS.map((idea) => (
           <li key={idea}>{idea}</li>
@@ -802,9 +801,7 @@ function Feedback({ loaderData, path }: { loaderData: LoaderData; path: string }
       </h2>
       <ol className="mt-6 grid gap-3">
         {comments.length === 0 && (
-          <li className="rounded-2xl bg-sunk p-5 text-muted">
-            Nothing yet. Tried it? Say what worked, what broke, or just tell them it's good.
-          </li>
+          <li className="rounded-2xl bg-sunk p-5 text-muted">Nothing yet. Tried it? Say what worked and what broke.</li>
         )}
         {comments.map((comment) => (
           <li key={comment.id} id={`comment-${comment.id}`} className="scroll-mt-24 rounded-2xl bg-sunk p-4 sm:p-5">
@@ -931,13 +928,30 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
           <h2 id="yours-title" className="caps">
             Your slop
           </h2>
+          {loaderData.editing && (
+            <p className="mt-2 text-sm text-muted">
+              {loaderData.editing.open ? (
+                loaderData.editing.label
+              ) : (
+                <>
+                  Details locked.{" "}
+                  <a href="#updates" className="link">
+                    Post an update
+                  </a>{" "}
+                  instead.
+                </>
+              )}
+            </p>
+          )}
           <div className="mt-3 grid gap-2">
             <Link to={`/new?from=${slop.id}`} className="btn btn-slop">
               🚀 Launch again
             </Link>
-            <Link to={`${path}/edit`} className="btn">
-              Edit details
-            </Link>
+            {loaderData.editing?.open && (
+              <Link to={`${path}/edit`} className="btn">
+                Edit details
+              </Link>
+            )}
             <Link to={`${path}/edit#autopost`} className="btn">
               Auto-post for this slop
             </Link>
@@ -948,7 +962,7 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
         </section>
       )}
 
-      {loaderData.isAdmin && (
+      {loaderData.role === "admin" && (
         <Form method="post" className="rounded-2xl bg-hot-tint p-5" aria-labelledby="moderation-title">
           <h2 id="moderation-title" className="caps text-ink">
             Moderation
@@ -959,7 +973,7 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
               {slop.hidden ? "Unhide" : "Hide from Slopper"}
             </button>
             <Link to="/mod" className="link inline-flex min-h-11 items-center">
-              Flag queue
+              Moderation
             </Link>
           </div>
         </Form>

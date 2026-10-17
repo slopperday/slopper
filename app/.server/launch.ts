@@ -33,7 +33,7 @@ export async function finishLaunch(
 /** The flash after a launch goes out. A mature screenshot blurs it whatever the launch check says. */
 export function launchFlash(title: string, finished: FinishedLaunch, blurred: boolean): Flash {
   if (finished.check?.verdict === "blocked") {
-    return { tone: "error", message: `${title} is held for review. A moderator will look at it.` };
+    return { tone: "error", message: `${title} is waiting for a moderator.` };
   }
   const nsfw = finished.check?.verdict === "mature" || blurred ? " It's marked NSFW, so it's blurred." : "";
   const autoposted = finished.autopost ? summarize(finished.autopost) : "";

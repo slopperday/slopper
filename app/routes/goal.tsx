@@ -40,7 +40,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   if (formText(form, "intent") === "abandon") {
     const goal = await convex.query(api.goals.open, { userId: user._id, today });
     if (goal) await convex.mutation(api.goals.abandon, { userId: user._id, goalId: goal._id });
-    return redirectWithFlash("/goal", { tone: "info", message: "Goal dropped. Set a new one when you're ready." });
+    return redirectWithFlash("/goal", { tone: "info", message: "Goal dropped." });
   }
 
   const parsed = parseGoalForm(form, today);
@@ -61,9 +61,7 @@ export default function GoalPage({ loaderData, actionData }: Route.ComponentProp
     return (
       <section className="mx-auto max-w-4xl px-4 pt-14 pb-10">
         <h1 className="title-1">{loaderData.firstGoal ? "First, a goal." : "Set a goal"}</h1>
-        <p className="lede mt-4">
-          Commit to a number of days, then pick how hard you'll go. Every day you ship flips a tile.
-        </p>
+        <p className="lede mt-4">Pick the days, then the pace. Every day you ship flips a tile.</p>
         <GoalSetup today={today} timeZone={loaderData.timeZone} errors={errors} />
         <div className="mt-16">
           <AgentPrompt prompt={goalPrompt} />

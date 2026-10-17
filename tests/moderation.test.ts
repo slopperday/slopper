@@ -1,11 +1,22 @@
 // @vitest-environment edge-runtime
 import { convexTest } from "convex-test";
-import { describe, expect, it } from "vite-plus/test";
+import type { FunctionReference } from "convex/server";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import schema from "@convex/schema";
 import { loadConfig } from "~/.server/config";
-import { checkContent, CONTENT_POLICY, parseVerdict, type Submission, uploadSubmission } from "~/.server/moderation";
+import type { ConvexCaller } from "~/.server/convex";
+import { encodeBase64 } from "~/.server/encoding";
+import {
+  checkContent,
+  checkVideo,
+  CONTENT_POLICY,
+  parseVerdict,
+  type Submission,
+  uploadSubmission,
+  type Verdict,
+} from "~/.server/moderation";
 import { FLAGS_TO_BLUR } from "~/lib/model";
 
 const modules = import.meta.glob("../convex/**/*.ts");
@@ -149,6 +160,143 @@ describe("content check request", () => {
         .contentCheck,
     ).toMatchObject({ model: "google/gemini-flash", provider: "google" });
   });
+
+  it("checks videos with the same key, on Gemini 3.1 Flash Lite unless told otherwise", () => {
+    expect(loadConfig({}).videoCheck).toBeNull();
+    expect(loadConfig({ OPENROUTER_API_KEY: "key", OPENROUTER_MODEL: "deepseek/other" }).videoCheck).toEqual({
+      apiKey: "key",
+      baseUrl: "https://openrouter.ai/api/v1",
+      model: "google/gemini-3.1-flash-lite",
+      provider: "google-ai-studio",
+    });
+    expect(
+      loadConfig({
+        OPENROUTER_API_KEY: "key",
+        OPENROUTER_VIDEO_MODEL: "google/gemini-2.5-flash-lite",
+        OPENROUTER_VIDEO_PROVIDER: "google-vertex",
+      }).videoCheck,
+    ).toMatchObject({ model: "google/gemini-2.5-flash-lite", provider: "google-vertex" });
+  });
+});
+
+describe("video check", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const settings = {
+    apiKey: "key",
+    baseUrl: "https://openrouter.test/api/v1",
+    model: "google/gemini-3.1-flash-lite",
+    provider: "google-ai-studio",
+  };
+  /** WebM magic bytes are all the check passes along. */
+  const WEBM = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3]);
+
+  interface CheckRequest {
+    model: string;
+    provider: unknown;
+    messages: { role: string; content: unknown }[];
+  }
+
+  /** OpenRouter answering every video with one verdict (null: it's down). Any other URL is the bucket. */
+  function fakeProvider(verdict: Verdict | null) {
+    const requests: CheckRequest[] = [];
+    const fetcher: typeof fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : input.toString();
+      if (!url.startsWith("https://openrouter.test/")) return new Response(WEBM);
+      requests.push(JSON.parse(typeof init?.body === "string" ? init.body : "{}") as CheckRequest);
+      if (verdict === null) return new Response("Service unavailable", { status: 503 });
+      const content = JSON.stringify({ verdict, reason: `Looks ${verdict}.` });
+      return Response.json({ choices: [{ message: { content } }] });
+    };
+    return { requests, fetcher };
+  }
+
+  /** The app server's line to Convex, answered by convex-test. */
+  function caller(server: Server): ConvexCaller {
+    return {
+      query: async (query, ...args) => await server.query<FunctionReference<"query">>(query, ...args),
+      mutation: async (mutation, ...args) => await server.mutation<FunctionReference<"mutation">>(mutation, ...args),
+    };
+  }
+
+  /** A maker whose first video a moderator approved, setting their next one. */
+  async function trustedVideo() {
+    const { t, server } = setup();
+    const owner = await makeUser(server, "maker");
+    const moderator = await makeUser(server, "mia");
+    await t.run(async (ctx) => await ctx.db.patch(moderator, { role: "moderator" }));
+    const slopId = await ship(server, owner);
+    const upload = async () => {
+      const storageId = await t.run(async (ctx) => await ctx.storage.store(new Blob([WEBM])));
+      const { mediaId } = await server.mutation(api.media.register, {
+        ownerId: owner,
+        location: { backend: "convex", storageId },
+        contentType: "video/webm",
+        size: WEBM.byteLength,
+        check: { verdict: "unchecked", reason: "Videos are checked on their slop." },
+      });
+      return mediaId;
+    };
+    const first = await upload();
+    await server.mutation(api.videos.set, { userId: owner, slopId, mediaId: first });
+    await server.mutation(api.videos.decide, { moderatorId: moderator, slopId, mediaId: first, approve: true });
+    const { check } = await server.mutation(api.videos.set, { userId: owner, slopId, mediaId: await upload() });
+    if (!check) throw new Error("A trusted maker's video should go to the check.");
+    const services = (fetcher: typeof fetch, configured = true) => ({
+      convex: caller(server),
+      settings: configured ? settings : null,
+      fetcher,
+    });
+    return { server, slopId, check, services };
+  }
+
+  it("sends the video inline after the same policy, and plays it when it passes", async () => {
+    const { server, slopId, check, services } = await trustedVideo();
+    const provider = fakeProvider("ok");
+
+    expect(await checkVideo(slopId, check, services(provider.fetcher))).toBe("live");
+    const [request] = provider.requests;
+    expect(request).toMatchObject({
+      model: "google/gemini-3.1-flash-lite",
+      provider: { order: ["google-ai-studio"], require_parameters: true },
+      response_format: { type: "json_object" },
+      reasoning: { enabled: false },
+    });
+    expect(request.messages[0]).toEqual({ role: "system", content: CONTENT_POLICY });
+    expect(request.messages[1].content).toEqual([
+      { type: "text", text: JSON.stringify({ upload: "video" }) },
+      { type: "video_url", video_url: { url: `data:video/webm;base64,${encodeBase64(WEBM)}` } },
+    ]);
+    expect(await server.query(api.videos.checks, {})).toMatchObject([
+      { verdict: "ok", reason: "Looks ok.", outcome: "live", showing: "live", checker: { model: settings.model } },
+    ]);
+  });
+
+  it("leaves the video for a moderator when the check says no, fails or isn't set up", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const cases = [
+      { verdict: "mature", configured: true, reason: "Looks mature." },
+      { verdict: "blocked", configured: true, reason: "Looks blocked." },
+      { verdict: null, configured: true, reason: "The video check couldn't run: The content check failed with 503" },
+      { verdict: "ok", configured: false, reason: "No video check is configured." },
+    ] as const;
+    for (const { verdict, configured, reason } of cases) {
+      const { server, slopId, check, services } = await trustedVideo();
+      const provider = fakeProvider(verdict);
+      expect(await checkVideo(slopId, check, services(provider.fetcher, configured))).toBe("pending");
+      const [row] = await server.query(api.videos.checks, {});
+      const recorded = configured && verdict ? verdict : "unchecked";
+      expect(row).toMatchObject({ verdict: recorded, outcome: "queued", showing: "pending" });
+      expect(row.reason.startsWith(reason)).toBe(true);
+      expect(row.checker).toEqual(configured ? { model: settings.model, provider: settings.provider } : null);
+      // Without a check configured, nothing is sent anywhere.
+      expect(provider.requests).toHaveLength(configured ? 1 : 0);
+      expect(await server.query(api.videos.queue, {})).toMatchObject([{ slopId, check: { verdict: row.verdict } }]);
+    }
+    expect(error).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("auto-post gate", () => {
@@ -219,7 +367,13 @@ describe("flags", () => {
       "flagger2",
     ]);
 
-    await server.mutation(api.moderation.decide, { slopId, decision: "fine" });
+    // Only someone on the team decides, whatever the server sends.
+    await expect(
+      server.mutation(api.moderation.decide, { moderatorId: people[0], slopId, decision: "fine" }),
+    ).rejects.toThrow("Only moderators can do that.");
+    const moderator = await makeUser(server, "moderator");
+    await t.run(async (ctx) => await ctx.db.patch(moderator, { role: "moderator" }));
+    await server.mutation(api.moderation.decide, { moderatorId: moderator, slopId, decision: "fine" });
     expect(await server.query(api.moderation.queue, {})).toEqual([]);
     expect(await server.query(api.moderation.autopostHoldFor, { slopId })).toBeNull();
     await expect(t.query(api.moderation.queue, {})).rejects.toThrow("Only the Slopper server");

@@ -122,9 +122,10 @@ export async function uploadImage(
 export type VideoUploadResult = { ok: true; id: Id<"media">; url: string | null } | { ok: false; error: string };
 
 /**
- * Stores a promo video. The content check reads images, not video, so it's
- * stored "unchecked" and only plays for everyone once a moderator approves it
- * on its slop (convex/videos.ts). The rate limit is shared with images.
+ * Stores a promo video, "unchecked". Nothing plays until it's on a slop and
+ * approved there: by a moderator, or for trusted uploaders by the video check
+ * (convex/videos.ts, `checkVideo` in ./moderation.ts). The rate limit is
+ * shared with images.
  */
 export async function uploadVideo(
   ownerId: Id<"users">,
@@ -149,7 +150,7 @@ export async function uploadVideo(
       location,
       contentType,
       size: bytes.byteLength,
-      check: { verdict: "unchecked", reason: "Videos wait for a moderator." },
+      check: { verdict: "unchecked", reason: "Videos are checked on their slop." },
     });
     return { ok: true, id: mediaId, url };
   } catch (error) {

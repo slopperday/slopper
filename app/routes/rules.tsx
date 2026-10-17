@@ -4,23 +4,23 @@ import { seo } from "~/lib/seo";
 const RULES = [
   {
     title: "Ship something real",
-    body: "A slop is a working thing someone can try today: a website, a TestFlight or Android beta, a published app, a repo with a demo. Ideas and waitlists don't count.",
+    body: "Something people can try today: a site, a beta, a published app, a repo with a demo. Ideas and waitlists don't count.",
   },
   {
     title: "Keep it safe for work",
-    body: "Slopper is for things you'd show anyone. Every launch, screenshot and auto-posted update gets an automated content check. Sexual or hateful screenshots are refused at upload, and anything sexual, hateful or illegal in a launch is held for a moderator and never auto-posted.",
+    body: "Things you'd show anyone. Every launch, screenshot and auto-post is checked, and so are promo videos once a moderator has approved one of yours. Sexual or hateful screenshots are refused, and launches with anything sexual, hateful or illegal wait for a moderator and never auto-post.",
   },
   {
     title: "No spam, malware or scams",
-    body: "No phishing, rug pulls, credential harvesting, or links that download something nasty. Promoting your own stuff is the point. Deceiving people isn't.",
+    body: "No phishing, rug pulls, credential harvesting or nasty downloads. Promoting your own stuff is the point. Deceiving people isn't.",
   },
   {
     title: "Be useful in feedback",
-    body: "Feedback should help the maker. Be specific and generous; everything here is supposed to be rough. Downvotes are private for a reason.",
+    body: "Help the maker. Be specific and generous: everything here is meant to be rough. Downvotes are private for a reason.",
   },
   {
     title: "Auto-posts are yours",
-    body: "Auto-post speaks as you. You're responsible for what it says, and for following each network's rules.",
+    body: "Auto-post speaks as you. You own what it says, and each network's rules apply.",
   },
 ];
 
@@ -45,8 +45,8 @@ export default function Rules() {
         ))}
       </ol>
       <p className="mt-10 text-muted">
-        See something that breaks these? Use “Flag as inappropriate” on its page. Flagged slops stop auto-posting
-        straight away, and moderators can hide anything.
+        See something that breaks these? Use “Flag as inappropriate” on its page. Flagged slops stop auto-posting at
+        once.
       </p>
     </section>
   );

@@ -27,7 +27,7 @@ export const UPDATE_KIND_TONES: Record<UpdateKind, string> = {
 /** Recent updates across every slop. */
 export function UpdatesList({ entries }: { entries: UpdateEntry[] }) {
   if (entries.length === 0) {
-    return <EmptyState>No updates yet. New features, fixes and re-promotes show up here.</EmptyState>;
+    return <EmptyState>No updates yet.</EmptyState>;
   }
   return (
     <ol className="divide-y divide-line border-y border-line">

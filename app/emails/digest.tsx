@@ -134,15 +134,13 @@ export function DigestEmail({ username, items, appUrl, unsubscribeUrl }: DigestE
 
             <Section style={styles.cta}>
               <Button href={url("/notifications")} style={styles.button}>
-                See it all on Slopper
+                See it on Slopper
               </Button>
             </Section>
           </Section>
 
           <Section style={styles.footer}>
-            <Text style={styles.footnote}>
-              You get this at 9am your time, only on days something happened. Keep slopping until one is slopcessful.
-            </Text>
+            <Text style={styles.footnote}>Sent at 9am your time, only on days something happened. Keep slopping.</Text>
             <Text style={styles.footnote}>
               <Link href={unsubscribeUrl} style={styles.footerLink}>
                 Stop these emails

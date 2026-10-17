@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
-import { requireServer } from "./lib/auth";
+import { isAdmin, requireServer } from "./lib/auth";
 import { releaseMedia, updateMedia } from "./lib/media";
 import { notify } from "./lib/notify";
 import { consume } from "./lib/rate";
@@ -146,14 +146,15 @@ export const addComment = mutation({
 
 /** Authors, the slop's owner and moderators may delete feedback. */
 export const deleteComment = mutation({
-  args: { userId: v.id("users"), commentId: v.string(), asAdmin: v.boolean() },
-  handler: async (ctx, { userId, commentId: rawId, asAdmin }) => {
+  // `asAdmin` is ignored, like `isAdmin` on `slops.page`: only the stored role counts.
+  args: { userId: v.id("users"), commentId: v.string(), asAdmin: v.optional(v.boolean()) },
+  handler: async (ctx, { userId, commentId: rawId }) => {
     await requireServer(ctx);
     const commentId = ctx.db.normalizeId("comments", rawId);
     const comment = commentId ? await ctx.db.get(commentId) : null;
     if (!comment) return;
     const slop = await ctx.db.get(comment.slopId);
-    if (comment.userId !== userId && slop?.userId !== userId && !asAdmin) {
+    if (comment.userId !== userId && slop?.userId !== userId && !isAdmin(await ctx.db.get(userId))) {
       throw new ConvexError("That isn't yours to delete.");
     }
     if (slop) await ctx.db.patch(slop._id, { commentCount: Math.max(0, slop.commentCount - 1) });

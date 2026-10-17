@@ -90,18 +90,18 @@ export function BrowserNotifications({ vapidPublicKey }: { vapidPublicKey: strin
         Browser notifications
       </h2>
       <p className="mt-2 text-muted">
-        A ping when someone upvotes or pledges, or your slop wins the day, even with Slopper closed. It's per browser:
-        turn it on wherever you want them.
+        A ping when someone upvotes or pledges, or your slop wins the day, even with Slopper closed. Turn it on in each
+        browser.
       </p>
       <div className="mt-6 flex flex-wrap items-center gap-4" aria-live="polite">
         {status === "unsupported" ? (
           <p className="text-[0.9375rem] text-muted">
-            This browser can't show them. On iPhone or iPad, add Slopper to your Home Screen first (Share, then Add to
-            Home Screen) and open it from there.
+            This browser can't show them. On iPhone or iPad, add Slopper to your Home Screen (Share, Add to Home Screen)
+            and open it from there.
           </p>
         ) : status === "blocked" ? (
           <p className="text-[0.9375rem] text-muted">
-            Your browser is blocking notifications from Slopper. Allow them in its site settings, then reload.
+            Your browser is blocking notifications from Slopper. Allow them in site settings, then reload.
           </p>
         ) : (
           <>

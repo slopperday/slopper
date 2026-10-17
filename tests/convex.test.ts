@@ -1,9 +1,10 @@
 // @vitest-environment edge-runtime
 import { convexTest } from "convex-test";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import schema from "@convex/schema";
+import { EDITING_CLOSED } from "~/lib/editing";
 
 const modules = import.meta.glob("../convex/**/*.ts");
 
@@ -23,6 +24,18 @@ async function makeUser(server: Server, name: string, timeZone = "UTC"): Promise
     avatarUrl: null,
     timeZone,
   });
+  return userId;
+}
+
+/** Someone on the moderation team, as /mod/team would make them. */
+async function makeStaff(
+  t: ReturnType<typeof setup>["t"],
+  server: Server,
+  name: string,
+  role: "admin" | "moderator",
+): Promise<Id<"users">> {
+  const userId = await makeUser(server, name);
+  await t.run(async (ctx) => await ctx.db.patch(userId, { role }));
   return userId;
 }
 
@@ -149,6 +162,57 @@ describe("launching", () => {
       ok: false,
       error: "Finish or drop your current goal first.",
     });
+  });
+});
+
+describe("editing a launch", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const edited = { ...input, tagline: "Tilt harder" };
+
+  it("stays open 12 hours after a late launch, then only takes updates", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse("2026-10-17T22:00:00Z"));
+    const { t, server } = setup();
+    const owner = await makeUser(server, "owner");
+    const flagger = await makeUser(server, "flagger");
+    const admin = await makeStaff(t, server, "admin", "admin");
+    const { slopId } = await ship(server, owner, "2026-10-17");
+    const edit = () => server.mutation(api.slops.edit, { userId: owner, slopId, input: edited });
+
+    vi.setSystemTime(Date.parse("2026-10-18T09:59:00Z"));
+    await expect(edit()).resolves.toEqual({ blurred: false, orphaned: 0 });
+
+    vi.setSystemTime(Date.parse("2026-10-18T10:01:00Z"));
+    await expect(edit()).rejects.toThrow(EDITING_CLOSED);
+    await server.mutation(api.activity.addUpdate, { userId: owner, slopId, kind: "feature", body: "Level editor" });
+    // The promo video and moderators aren't held to the window.
+    expect(await server.mutation(api.videos.set, { userId: owner, slopId, mediaId: null })).toMatchObject({
+      status: "none",
+    });
+    await server.mutation(api.moderation.flag, { userId: flagger, slopId, reason: "Spam" });
+    await server.mutation(api.moderation.decide, { moderatorId: admin, slopId, decision: "nsfw" });
+    await server.mutation(api.slops.setHidden, { adminId: admin, slopId, hidden: true });
+
+    const page = await server.query(api.slops.page, { username: "owner", slug: "tiltmaze", asUser: owner });
+    expect(page?.slop).toMatchObject({ tagline: "Tilt harder", updateCount: 2, nsfw: true, hidden: true });
+  });
+
+  it("stays open to the end of the owner's launch day after a morning launch", async () => {
+    // 8am in Los Angeles; the day ends at 07:00 UTC.
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse("2026-10-17T15:00:00Z"));
+    const { server } = setup();
+    const owner = await makeUser(server, "owner", "America/Los_Angeles");
+    const { slopId } = await ship(server, owner, "2026-10-17");
+    const edit = () => server.mutation(api.slops.edit, { userId: owner, slopId, input: edited });
+
+    vi.setSystemTime(Date.parse("2026-10-18T06:59:00Z"));
+    await expect(edit()).resolves.toEqual({ blurred: false, orphaned: 0 });
+    vi.setSystemTime(Date.parse("2026-10-18T07:00:00Z"));
+    await expect(edit()).rejects.toThrow(EDITING_CLOSED);
   });
 });
 
@@ -336,33 +400,40 @@ describe("feedback and kudos", () => {
     expect(comments.map((comment) => comment.canDelete)).toEqual([true, true, false]);
   });
 
-  it("lets the author, the maker and moderators delete it, and nobody else", async () => {
-    const { server } = setup();
+  it("lets the author, the maker and admins delete it, and nobody else", async () => {
+    const { t, server } = setup();
     const owner = await makeUser(server, "owner");
     const fan = await makeUser(server, "fan");
     const stranger = await makeUser(server, "stranger");
+    const moderator = await makeStaff(t, server, "mia", "moderator");
+    const admin = await makeStaff(t, server, "ada", "admin");
     const { slopId } = await ship(server, owner, "2026-10-06");
     const add = () => server.mutation(api.activity.addComment, { userId: fan, slopId, kind: "feedback", body: "Hm." });
     const [first, second, third] = [await add(), await add(), await add()];
 
-    await expect(
-      server.mutation(api.activity.deleteComment, { userId: stranger, commentId: first, asAdmin: false }),
-    ).rejects.toThrow("isn't yours");
-    await server.mutation(api.activity.deleteComment, { userId: fan, commentId: first, asAdmin: false });
-    await server.mutation(api.activity.deleteComment, { userId: owner, commentId: second, asAdmin: false });
-    await server.mutation(api.activity.deleteComment, { userId: stranger, commentId: third, asAdmin: true });
+    await expect(server.mutation(api.activity.deleteComment, { userId: stranger, commentId: first })).rejects.toThrow(
+      "isn't yours",
+    );
+    // Moderators only approve or reject what's queued.
+    await expect(server.mutation(api.activity.deleteComment, { userId: moderator, commentId: first })).rejects.toThrow(
+      "isn't yours",
+    );
+    await server.mutation(api.activity.deleteComment, { userId: fan, commentId: first });
+    await server.mutation(api.activity.deleteComment, { userId: owner, commentId: second });
+    await server.mutation(api.activity.deleteComment, { userId: admin, commentId: third });
     // Gone, or never an id at all: nothing to do.
-    await server.mutation(api.activity.deleteComment, { userId: fan, commentId: first, asAdmin: false });
-    await server.mutation(api.activity.deleteComment, { userId: fan, commentId: "not-an-id", asAdmin: false });
+    await server.mutation(api.activity.deleteComment, { userId: fan, commentId: first });
+    await server.mutation(api.activity.deleteComment, { userId: fan, commentId: "not-an-id" });
     expect((await server.query(api.slops.getForServer, { slopId }))?.commentCount).toBe(0);
   });
 
   it("refuses feedback on hidden slops", async () => {
-    const { server } = setup();
+    const { t, server } = setup();
     const owner = await makeUser(server, "owner");
     const fan = await makeUser(server, "fan");
+    const admin = await makeStaff(t, server, "ada", "admin");
     const { slopId } = await ship(server, owner, "2026-10-06");
-    await server.mutation(api.slops.setHidden, { slopId, hidden: true });
+    await server.mutation(api.slops.setHidden, { adminId: admin, slopId, hidden: true });
     await expect(
       server.mutation(api.activity.addComment, { userId: fan, slopId, kind: "feedback", body: "Hello?" }),
     ).rejects.toThrow("Slop not found");
@@ -456,6 +527,115 @@ describe("signing in the CLI from the browser", () => {
   });
 });
 
+describe("the moderation team", () => {
+  it("bootstraps admins, and only admins change roles", async () => {
+    const { t, server } = setup();
+    const ifiok = await makeUser(server, "ifiokjr");
+    const newcomer = await makeUser(server, "newcomer");
+    await server.mutation(api.team.bootstrap, { userId: ifiok });
+    // Running it again changes nothing.
+    await server.mutation(api.team.bootstrap, { userId: ifiok });
+    expect(await server.query(api.team.members, {})).toMatchObject([{ username: "ifiokjr", role: "admin" }]);
+
+    expect(
+      await server.mutation(api.team.setRole, { adminId: ifiok, username: "@NewComer", role: "moderator" }),
+    ).toMatchObject({ username: "newcomer", role: "moderator" });
+    // A moderator works the queues; the team is for admins.
+    await expect(
+      server.mutation(api.team.setRole, { adminId: newcomer, username: "ifiokjr", role: null }),
+    ).rejects.toThrow("Only admins can do that.");
+    await expect(
+      server.mutation(api.team.setRole, { adminId: ifiok, username: "nobody", role: "moderator" }),
+    ).rejects.toThrow("There's no account with that username.");
+    await expect(t.mutation(api.team.setRole, { adminId: ifiok, username: "newcomer", role: null })).rejects.toThrow(
+      "Only the Slopper server",
+    );
+    await expect(t.query(api.team.members, {})).rejects.toThrow("Only the Slopper server");
+    expect((await server.query(api.team.members, {})).map((member) => [member.username, member.role])).toEqual([
+      ["ifiokjr", "admin"],
+      ["newcomer", "moderator"],
+    ]);
+  });
+
+  it("never removes the last admin", async () => {
+    const { server } = setup();
+    const first = await makeUser(server, "first");
+    await makeUser(server, "second");
+    await server.mutation(api.team.bootstrap, { userId: first });
+
+    await expect(server.mutation(api.team.setRole, { adminId: first, username: "first", role: null })).rejects.toThrow(
+      "Slopper needs at least one admin.",
+    );
+    await expect(
+      server.mutation(api.team.setRole, { adminId: first, username: "first", role: "moderator" }),
+    ).rejects.toThrow("Slopper needs at least one admin.");
+
+    await server.mutation(api.team.setRole, { adminId: first, username: "second", role: "admin" });
+    expect(await server.mutation(api.team.setRole, { adminId: first, username: "first", role: null })).toMatchObject({
+      role: null,
+    });
+    // Now first is off the team, so they can't change anything.
+    await expect(
+      server.mutation(api.team.setRole, { adminId: first, username: "first", role: "admin" }),
+    ).rejects.toThrow("Only admins can do that.");
+    await expect(
+      server.mutation(api.team.setRole, {
+        adminId: (await server.query(api.team.members, {}))[0].id,
+        username: "second",
+        role: null,
+      }),
+    ).rejects.toThrow("Slopper needs at least one admin.");
+  });
+
+  it("finds accounts by the start of their username", async () => {
+    const { server } = setup();
+    for (const name of ["maya", "mayday", "marco"]) await makeUser(server, name);
+    const names = async (prefix: string) =>
+      (await server.query(api.team.search, { prefix })).map((member) => member.username);
+    expect(await names("@MAY")).toEqual(["maya", "mayday"]);
+    expect(await names("ma")).toEqual(["marco", "maya", "mayday"]);
+    expect(await names("  ")).toEqual([]);
+    expect(await names("zz")).toEqual([]);
+  });
+
+  it("lets moderators see hidden slops, and keeps roles out of public shapes", async () => {
+    const { t, server } = setup();
+    const owner = await makeUser(server, "owner");
+    const visitor = await makeUser(server, "visitor");
+    const moderator = await makeStaff(t, server, "mia", "moderator");
+    const admin = await makeStaff(t, server, "ada", "admin");
+    const { slopId } = await ship(server, owner, "2026-10-17");
+    await expect(server.mutation(api.slops.setHidden, { adminId: moderator, slopId, hidden: true })).rejects.toThrow(
+      "Only admins can do that.",
+    );
+    await server.mutation(api.slops.setHidden, { adminId: admin, slopId, hidden: true });
+
+    const page = (asUser: Id<"users">) => server.query(api.slops.page, { username: "owner", slug: "tiltmaze", asUser });
+    expect(await page(visitor)).toBeNull();
+    // Claiming to be an admin changes nothing: only the stored role counts.
+    expect(
+      await t
+        .withIdentity({ subject: visitor })
+        .query(api.slops.page, { username: "owner", slug: "tiltmaze", isAdmin: true }),
+    ).toBeNull();
+    expect((await page(moderator))?.slop.hidden).toBe(true);
+    // The live query in a moderator's browser sees it too.
+    expect(
+      (await t.withIdentity({ subject: moderator }).query(api.slops.page, { username: "owner", slug: "tiltmaze" }))
+        ?.slop.hidden,
+    ).toBe(true);
+
+    // Only the owner and admins delete a slop, whatever the caller claims.
+    await expect(server.mutation(api.slops.remove, { slopId, byUserId: moderator, asAdmin: true })).rejects.toThrow(
+      "That slop isn't yours.",
+    );
+    const profile = await server.query(api.users.profile, { username: "ada" });
+    expect(profile?.owner).not.toHaveProperty("role");
+    await server.mutation(api.slops.remove, { slopId, byUserId: admin });
+    expect(await server.query(api.slops.getForServer, { slopId })).toBeNull();
+  });
+});
+
 describe("promo videos", () => {
   async function upload(t: ReturnType<typeof setup>["t"], server: Server, ownerId: Id<"users">, contentType: string) {
     const storageId = await t.run(async (ctx) => await ctx.storage.store(new Blob([new Uint8Array([0, 0, 0, 24])])));
@@ -469,10 +649,13 @@ describe("promo videos", () => {
     return mediaId;
   }
 
+  const checker = { model: "google/gemini-3.1-flash-lite", provider: "google-ai-studio" };
+
   it("waits for a moderator before anyone can watch it, and never passes for a screenshot", async () => {
     const { t, server } = setup();
     const owner = await makeUser(server, "owner");
     const other = await makeUser(server, "other");
+    const moderator = await makeStaff(t, server, "mia", "moderator");
     const { slopId } = await ship(server, owner, "2026-10-17");
     const video = await upload(t, server, owner, "video/mp4");
     const image = await upload(t, server, owner, "image/png");
@@ -481,28 +664,37 @@ describe("promo videos", () => {
 
     await expect(setVideo(image)).rejects.toThrow("That isn't one of your uploaded videos.");
     await expect(setVideo(theirs)).rejects.toThrow("That isn't one of your uploaded videos.");
-    expect(await setVideo(video)).toEqual({ status: "pending", orphaned: 0 });
+    // Not trusted yet, so nothing for the video check.
+    expect(await setVideo(video)).toEqual({ status: "pending", orphaned: 0, check: null });
 
     const page = () => server.query(api.slops.page, { username: "owner", slug: "tiltmaze", asUser: other });
     expect((await page())?.slop).toMatchObject({ video: null, videoPending: true });
-    expect(await server.query(api.videos.queue, {})).toMatchObject([{ slopId, name: "TiltMaze", owner: "owner" }]);
+    expect(await server.query(api.videos.queue, {})).toMatchObject([
+      { slopId, mediaId: video, name: "TiltMaze", owner: "owner", trust: null, check: null },
+    ]);
 
     // A video id sent as a screenshot is dropped, not shown unreviewed.
     await server.mutation(api.slops.edit, { userId: owner, slopId, input: { ...input, screenshots: [video] } });
     expect((await page())?.slop.screenshots).toEqual([]);
 
-    expect(await server.mutation(api.videos.decide, { slopId, approve: true })).toEqual({ decided: true, orphaned: 0 });
+    const decide = (moderatorId: Id<"users">, mediaId: Id<"media">) =>
+      server.mutation(api.videos.decide, { moderatorId, slopId, mediaId, approve: true });
+    await expect(decide(other, video)).rejects.toThrow("Only moderators can do that.");
+    // Only the video the moderator watched.
+    expect(await decide(moderator, theirs)).toEqual({ decided: false, newlyTrusted: false, orphaned: 0 });
+    expect(await decide(moderator, video)).toEqual({ decided: true, newlyTrusted: true, orphaned: 0 });
     expect((await page())?.slop).toMatchObject({ video: expect.stringMatching(/^https?:\/\//), videoPending: false });
     expect(await server.query(api.videos.queue, {})).toEqual([]);
-    expect(await server.mutation(api.videos.decide, { slopId, approve: true })).toEqual({
-      decided: false,
-      orphaned: 0,
-    });
+    expect(await decide(moderator, video)).toEqual({ decided: false, newlyTrusted: false, orphaned: 0 });
+    expect(await server.query(api.videos.trustList, {})).toMatchObject([
+      { userId: owner, username: "owner", trusted: true, by: "mia" },
+    ]);
   });
 
   it("lets go of a replaced or removed video, and only the server takes part", async () => {
     const { t, server } = setup();
     const owner = await makeUser(server, "owner");
+    const moderator = await makeStaff(t, server, "mia", "moderator");
     const { slopId } = await ship(server, owner, "2026-10-17");
     const first = await upload(t, server, owner, "video/mp4");
     const second = await upload(t, server, owner, "video/webm");
@@ -516,16 +708,203 @@ describe("promo videos", () => {
     expect(await t.run(async (ctx) => await ctx.db.get(first))).toBeNull();
     expect(await server.query(api.videos.queue, {})).toHaveLength(1);
 
-    expect(await server.mutation(api.videos.decide, { slopId, approve: false })).toEqual({
-      decided: true,
-      orphaned: 0,
-    });
+    expect(
+      await server.mutation(api.videos.decide, { moderatorId: moderator, slopId, mediaId: second, approve: false }),
+    ).toEqual({ decided: true, newlyTrusted: false, orphaned: 0 });
     expect(await t.run(async (ctx) => await ctx.db.get(second))).toBeNull();
     const slop = await t.run(async (ctx) => await ctx.db.get(slopId));
     expect(slop?.video).toBeUndefined();
+    // Taking a video off trusts nobody.
+    expect(await server.query(api.videos.trustList, {})).toEqual([]);
     expect(await server.mutation(api.videos.set, { userId: owner, slopId, mediaId: null })).toEqual({
       status: "none",
       orphaned: 0,
+      check: null,
     });
+  });
+
+  /** A maker with one approved video, so trusted, and a second slop to put new ones on. */
+  async function trustedMaker() {
+    const { t, server } = setup();
+    const owner = await makeUser(server, "owner");
+    const other = await makeUser(server, "other");
+    const moderator = await makeStaff(t, server, "mia", "moderator");
+    const admin = await makeStaff(t, server, "ada", "admin");
+    const first = await ship(server, owner, "2026-10-16");
+    const approved = await upload(t, server, owner, "video/mp4");
+    await server.mutation(api.videos.set, { userId: owner, slopId: first.slopId, mediaId: approved });
+    await server.mutation(api.videos.decide, {
+      moderatorId: moderator,
+      slopId: first.slopId,
+      mediaId: approved,
+      approve: true,
+    });
+    const { slopId } = await server.mutation(api.slops.create, {
+      userId: owner,
+      input: { ...input, name: "TiltMaze 2" },
+      launchNote: "Day 2",
+      today: "2026-10-17",
+    });
+    const page = () => server.query(api.slops.page, { username: "owner", slug: "tiltmaze-2", asUser: other });
+    const setVideo = async () => {
+      const mediaId = await upload(t, server, owner, "video/webm");
+      return { mediaId, ...(await server.mutation(api.videos.set, { userId: owner, slopId, mediaId })) };
+    };
+    return { t, server, owner, other, moderator, admin, slopId, approved, page, setVideo };
+  }
+
+  it("plays a trusted maker's video at once when the check passes it", async () => {
+    const { t, server, slopId, page, setVideo } = await trustedMaker();
+    const { mediaId, status, check } = await setVideo();
+    // It waits like any video until the check answers.
+    expect(status).toBe("pending");
+    expect(check).toEqual({ mediaId, url: expect.stringMatching(/^https?:\/\//), contentType: "video/webm" });
+    expect((await page())?.slop.video).toBeNull();
+
+    expect(
+      await server.mutation(api.videos.recordCheck, {
+        slopId,
+        mediaId,
+        verdict: "ok",
+        reason: "A maze game.",
+        checker,
+      }),
+    ).toEqual({ status: "live" });
+    expect((await page())?.slop).toMatchObject({ video: expect.stringMatching(/^https?:\/\//), videoPending: false });
+    expect(await server.query(api.videos.queue, {})).toEqual([]);
+    expect(await server.query(api.videos.checks, {})).toMatchObject([
+      {
+        slopId,
+        mediaId,
+        owner: "owner",
+        verdict: "ok",
+        reason: "A maze game.",
+        checker,
+        outcome: "live",
+        showing: "live",
+      },
+    ]);
+    // Only the server records a check, and none of it reaches the public page.
+    await expect(
+      t.mutation(api.videos.recordCheck, { slopId, mediaId, verdict: "ok", reason: "Sneaky.", checker }),
+    ).rejects.toThrow("Only the Slopper server");
+    await expect(t.query(api.videos.checks, {})).rejects.toThrow("Only the Slopper server");
+    expect(JSON.stringify(await page())).not.toContain("A maze game.");
+  });
+
+  it("leaves a trusted maker's video for a moderator when the check doesn't pass it", async () => {
+    const { server, moderator, slopId, page, setVideo } = await trustedMaker();
+    const mature = await setVideo();
+    expect(
+      await server.mutation(api.videos.recordCheck, {
+        slopId,
+        mediaId: mature.mediaId,
+        verdict: "mature",
+        reason: "Strong language.",
+        checker,
+      }),
+    ).toEqual({ status: "pending" });
+    expect((await page())?.slop).toMatchObject({ video: null, videoPending: true });
+    expect(await server.query(api.videos.queue, {})).toMatchObject([
+      {
+        slopId,
+        mediaId: mature.mediaId,
+        trust: "trusted",
+        check: { verdict: "mature", reason: "Strong language.", checker },
+      },
+    ]);
+
+    // A check that couldn't run, with no check configured at all, falls back the same way.
+    const unchecked = await setVideo();
+    expect(
+      await server.mutation(api.videos.recordCheck, {
+        slopId,
+        mediaId: unchecked.mediaId,
+        verdict: "unchecked",
+        reason: "No video check is configured.",
+        checker: null,
+      }),
+    ).toEqual({ status: "pending" });
+    expect((await server.query(api.videos.checks, {})).map((row) => [row.verdict, row.outcome, row.showing])).toEqual([
+      ["unchecked", "queued", "pending"],
+      ["mature", "queued", "gone"],
+    ]);
+
+    // An answer about a video replaced since is skipped: the replacement gets its own check.
+    expect(
+      await server.mutation(api.videos.recordCheck, {
+        slopId,
+        mediaId: mature.mediaId,
+        verdict: "ok",
+        reason: "Late.",
+        checker,
+      }),
+    ).toEqual({ status: "pending" });
+    expect(await server.query(api.videos.checks, {})).toHaveLength(2);
+
+    // The moderator still decides as usual.
+    expect(
+      await server.mutation(api.videos.decide, {
+        moderatorId: moderator,
+        slopId,
+        mediaId: unchecked.mediaId,
+        approve: true,
+      }),
+    ).toEqual({ decided: true, newlyTrusted: false, orphaned: 0 });
+  });
+
+  it("lets admins revoke trust, take down what the check let through, and give trust back", async () => {
+    const { server, owner, moderator, admin, slopId, page, setVideo } = await trustedMaker();
+    const passed = await setVideo();
+    await server.mutation(api.videos.recordCheck, {
+      slopId,
+      mediaId: passed.mediaId,
+      verdict: "ok",
+      reason: "Fine.",
+      checker,
+    });
+
+    // Moderators only approve or reject what's queued.
+    await expect(
+      server.mutation(api.videos.takeDown, { adminId: moderator, slopId, mediaId: passed.mediaId }),
+    ).rejects.toThrow("Only admins can do that.");
+    await expect(
+      server.mutation(api.videos.setTrust, { adminId: moderator, userId: owner, trusted: false }),
+    ).rejects.toThrow("Only admins can do that.");
+    expect(await server.mutation(api.videos.takeDown, { adminId: admin, slopId, mediaId: passed.mediaId })).toEqual({
+      removed: true,
+      orphaned: 0,
+    });
+    expect((await page())?.slop).toMatchObject({ video: null, videoPending: false });
+    expect(await server.mutation(api.videos.setTrust, { adminId: admin, userId: owner, trusted: false })).toBe("owner");
+
+    // Revoked: no check, and approving a video doesn't trust them again.
+    const waiting = await setVideo();
+    expect(waiting.check).toBeNull();
+    expect(
+      await server.mutation(api.videos.recordCheck, {
+        slopId,
+        mediaId: waiting.mediaId,
+        verdict: "ok",
+        reason: "Raced the revoke.",
+        checker,
+      }),
+    ).toEqual({ status: "pending" });
+    expect(await server.query(api.videos.queue, {})).toMatchObject([{ mediaId: waiting.mediaId, trust: "revoked" }]);
+    expect(
+      await server.mutation(api.videos.decide, {
+        moderatorId: moderator,
+        slopId,
+        mediaId: waiting.mediaId,
+        approve: true,
+      }),
+    ).toEqual({ decided: true, newlyTrusted: false, orphaned: 0 });
+    expect((await setVideo()).check).toBeNull();
+    expect(await server.query(api.videos.trustList, {})).toMatchObject([
+      { username: "owner", trusted: false, by: "ada" },
+    ]);
+
+    await server.mutation(api.videos.setTrust, { adminId: admin, userId: owner, trusted: true });
+    expect((await setVideo()).check).not.toBeNull();
   });
 });

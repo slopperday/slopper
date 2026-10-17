@@ -1,8 +1,9 @@
 import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
 import { updateMedia } from "@convex/lib/media";
+import type { VideoStatus, VideoToCheck } from "@convex/videos";
 import { config, type ContentCheckConfig } from "./config";
-import { convex } from "./convex";
+import { convex, type ConvexCaller } from "./convex";
 import { encodeBase64 } from "./encoding";
 
 /**
@@ -10,7 +11,8 @@ import { encodeBase64 } from "./encoding";
  * launch (text and screenshots), every edit that changes them, and every
  * update that's about to be auto-posted goes past a model once (DeepSeek V4.1
  * Flash through OpenRouter by default), which sorts it into ok, mature or
- * blocked.
+ * blocked. Trusted uploaders' promo videos go past the same policy, with a
+ * model that watches video (Gemini 3.1 Flash Lite by default; `checkVideo`).
  *
  * The policy is the first message and never changes between calls, so the
  * provider's automatic prefix cache serves it (on DeepSeek a cache hit costs
@@ -29,11 +31,19 @@ export interface ContentCheck {
 /** An image to check: a URL the server can fetch, or bytes it already holds. */
 export type SubmissionImage = { url: string } | { bytes: Uint8Array; contentType: string };
 
+/** A video to check: where the server can fetch it, and its type (MP4 or WebM). */
+export interface SubmissionVideo {
+  url: string;
+  contentType: string;
+}
+
 export interface Submission {
   /** Text fields as they'll be shown or posted. */
   fields: Record<string, string | readonly string[]>;
   /** Sent inline as data URLs, so private hosts and images not stored yet work too. */
   images: readonly SubmissionImage[];
+  /** Sent inline too. Only a model that watches video can check one (`config.videoCheck`). */
+  video?: SubmissionVideo;
 }
 
 /** Screenshots beyond the first few rarely change the verdict, and each costs up to 1,024 tokens. */
@@ -76,6 +86,12 @@ async function inlineImage(image: SubmissionImage, fetcher: typeof fetch): Promi
   return `data:${type};base64,${encodeBase64(new Uint8Array(await response.arrayBuffer()))}`;
 }
 
+async function inlineVideo(video: SubmissionVideo, fetcher: typeof fetch): Promise<string> {
+  const response = await fetcher(video.url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!response.ok) throw new Error(`Couldn't load the video for the check (${response.status}).`);
+  return `data:${video.contentType};base64,${encodeBase64(new Uint8Array(await response.arrayBuffer()))}`;
+}
+
 /**
  * Asks the model for a verdict. Throws on any failure (network, timeout,
  * malformed reply), so callers decide what an unchecked submission means.
@@ -86,6 +102,7 @@ export async function checkContent(
   fetcher: typeof fetch = fetch,
 ): Promise<ContentCheck> {
   const images = await Promise.all(submission.images.slice(0, MAX_IMAGES).map((image) => inlineImage(image, fetcher)));
+  const video = submission.video ? await inlineVideo(submission.video, fetcher) : null;
   const response = await fetcher(`${settings.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
     method: "POST",
     signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -99,6 +116,7 @@ export async function checkContent(
           content: [
             { type: "text", text: JSON.stringify(submission.fields) },
             ...images.map((url) => ({ type: "image_url", image_url: { url } })),
+            ...(video ? [{ type: "video_url", video_url: { url: video } }] : []),
           ],
         },
       ],
@@ -144,6 +162,51 @@ export function uploadSubmission(
 ): Submission {
   const name = fileName?.split(/[\\/]/).pop()?.trim().slice(0, 200);
   return { fields: { upload: kind, ...(name ? { fileName: name } : {}) }, images: [{ bytes, contentType }] };
+}
+
+/** What the video check reads: the video, and that it's an upload. */
+export function videoSubmission(video: SubmissionVideo): Submission {
+  return { fields: { upload: "video" }, images: [], video };
+}
+
+/** What the video check talks to. Tests swap in fakes. */
+export interface VideoCheckServices {
+  convex: ConvexCaller;
+  settings: ContentCheckConfig | null;
+  fetcher: typeof fetch;
+}
+
+/**
+ * Checks a trusted uploader's new promo video, as `videos.set` hands it
+ * over, and records the decision for /mod. A pass plays it for everyone at
+ * once; a mature or blocked verdict, an error, or no configured check leaves
+ * it for a moderator. Returns where the video stands afterwards.
+ */
+export async function checkVideo(
+  slopId: Id<"slops">,
+  video: VideoToCheck,
+  services: VideoCheckServices = { convex, settings: config.videoCheck, fetcher: fetch },
+): Promise<VideoStatus> {
+  const { settings } = services;
+  let check: { verdict: Verdict | "unchecked"; reason: string };
+  if (!settings) {
+    check = { verdict: "unchecked", reason: "No video check is configured." };
+  } else {
+    try {
+      check = await checkContent(videoSubmission(video), settings, services.fetcher);
+    } catch (error) {
+      console.error("Video check failed", error);
+      const message = error instanceof Error ? error.message : String(error);
+      check = { verdict: "unchecked", reason: `The video check couldn't run: ${message}` };
+    }
+  }
+  const { status } = await services.convex.mutation(api.videos.recordCheck, {
+    slopId,
+    mediaId: video.mediaId,
+    ...check,
+    checker: settings ? { model: settings.model, provider: settings.provider } : null,
+  });
+  return status;
 }
 
 /** What the check reads from a slop: everything that's shown or posted. */

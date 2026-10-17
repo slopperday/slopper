@@ -433,7 +433,8 @@ export const COMMANDS: Command[] = [
   {
     name: "edit",
     args: "<slop>",
-    summary: "Change one of your slops. Only the flags you pass change; --link and --screenshot replace the lists.",
+    summary:
+      "Change one of your slops, until the end of its launch day (at least 12 hours after launch); then post updates instead. Only the flags you pass change; --link and --screenshot replace the lists.",
     flags: SLOP_FLAGS,
     options: SLOP_OPTIONS,
     async run(context) {
@@ -447,7 +448,7 @@ export const COMMANDS: Command[] = [
     name: "video",
     args: "<slop> [file|id]",
     summary:
-      "Put a promo video (MP4 or WebM, up to 4 MB) on one of your slops, replacing its last. It plays for everyone once a moderator approves it.",
+      "Put a promo video (MP4 or WebM, up to 4 MB) on one of your slops, replacing its last. Your first plays once a moderator approves it; after that, new ones that pass the video check play at once.",
     flags: { "--remove": "Take the slop's video off instead." },
     options: { remove: { type: "boolean" } },
     async run(context) {
