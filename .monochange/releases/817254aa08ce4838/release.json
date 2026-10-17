@@ -1,0 +1,1971 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-10-17T18:35:17Z",
+  "command": "release",
+  "version": null,
+  "versions": {
+    "cli": "0.1.0",
+    "slopper": "1.2.0"
+  },
+  "release_targets": [
+    {
+      "id": "cli",
+      "kind": "group",
+      "version": "0.1.0",
+      "version_format": "namespaced",
+      "tag": true,
+      "release": false,
+      "tag_name": "cli/v0.1.0",
+      "rendered_title": "cli v0.1.0 (2026-10-17)",
+      "rendered_changelog_title": "cli 0.1.0 (2026-10-17)",
+      "members": ["@slopperday/cli", "@slopperday/skill"]
+    },
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.2.0",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.2.0",
+      "rendered_title": "v1.2.0 (2026-10-17)",
+      "rendered_changelog_title": "1.2.0 (2026-10-17)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["@slopperday/cli", "@slopperday/skill", "slopper"],
+  "changed_files": [
+    "CHANGELOG.md",
+    "app/changelog/1.2.0.json",
+    "package.json",
+    "packages/cli/CHANGELOG.md",
+    "packages/cli/package.json",
+    "packages/skill/package.json"
+  ],
+  "package_publications": [
+    {
+      "package": "@slopperday/cli",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.0",
+      "mode": "builtin",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    },
+    {
+      "package": "@slopperday/skill",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.0",
+      "mode": "builtin",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    }
+  ],
+  "updated_changelogs": ["CHANGELOG.md", "app/changelog/1.2.0.json", "packages/cli/CHANGELOG.md"],
+  "deleted_changesets": [
+    ".changeset/agent-votes.md",
+    ".changeset/clean-sign-in-url.md",
+    ".changeset/cli-commands-on-site.md",
+    ".changeset/cli-every-runner.md",
+    ".changeset/cli-self-contained.md",
+    ".changeset/cli-usage-and-failures.md",
+    ".changeset/five-votes-a-day.md",
+    ".changeset/fonts-without-jank.md",
+    ".changeset/goal-days-first.md",
+    ".changeset/hide-new-api-token.md",
+    ".changeset/hide-unconfigured-autopost.md",
+    ".changeset/hide-unconfigured-networks-copy.md",
+    ".changeset/netlify-env-sync.md",
+    ".changeset/netlify-hosting.md",
+    ".changeset/og-image-robots.md",
+    ".changeset/one-utc-countdown.md",
+    ".changeset/release-pull-requests.md",
+    ".changeset/scheduled-launches-api.md",
+    ".changeset/scheduled-launches-cli.md",
+    ".changeset/scheduled-launches.md",
+    ".changeset/self-hosted-fonts.md",
+    ".changeset/share-card.md",
+    ".changeset/slopper-cli-on-site.md",
+    ".changeset/slopper-cli.md"
+  ],
+  "changesets": [
+    {
+      "path": ".changeset/agent-votes.md",
+      "summary": "Agents vote; mark_slopcessful is gone from MCP and REST",
+      "details": "The MCP server and REST API gain `vote` (`POST /api/v1/slops/:slop/vote`), and `whoami` and `todays_race` report the votes left today. `mark_slopcessful` and `POST /api/v1/slops/:slop/slopcessful` are removed: the daily crown marks the winner slopcessful. Votes record the UTC day they were cast (`castOn`) for the five-a-day allowance. Releases now use monochange 0.18.0.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/clean-sign-in-url.md",
+      "summary": "Signing in leaves a clean address",
+      "details": "After signing in, the address bar no longer keeps the sign-in provider's one-time code.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d051e96ff3f92ae7735eecc50f6ea88622fa0c1c",
+            "short_sha": "d051e96",
+            "url": null,
+            "authored_at": "2026-10-10T09:12:51+01:00",
+            "committed_at": "2026-10-10T09:12:51+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/cli-commands-on-site.md",
+      "summary": "CLI commands on the API page that agents can paste as they are",
+      "details": "The API page's CLI command now uses `npx -y`, so an agent in a terminal doesn't stop at npx's install question, and names the other runners (pnpm, Bun, Yarn, Deno). A second command passes your token in `SLOPPER_TOKEN` without saving it anywhere. /llms.txt lists the same.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "290c2593c89849b1a19c8e11cfe6dec48c0274cb",
+            "short_sha": "290c259",
+            "url": null,
+            "authored_at": "2026-10-17T18:27:56+01:00",
+            "committed_at": "2026-10-17T18:27:56+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "290c2593c89849b1a19c8e11cfe6dec48c0274cb",
+            "short_sha": "290c259",
+            "url": null,
+            "authored_at": "2026-10-17T18:27:56+01:00",
+            "committed_at": "2026-10-17T18:27:56+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/cli-every-runner.md",
+      "summary": "Run the CLI with any package runner",
+      "details": "The README and the skill show `npx -y`, `pnpm dlx`, `bunx`, `yarn dlx -q`, `deno run -A npm:` and a global install, why npx needs `-y` (it waits on \"Ok to proceed?\" in a terminal) and yarn `-q` (its install log lands on stdout), and `SLOPPER_TOKEN` for agents that shouldn't write a config file.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "none",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "docs"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "290c2593c89849b1a19c8e11cfe6dec48c0274cb",
+            "short_sha": "290c259",
+            "url": null,
+            "authored_at": "2026-10-17T18:27:56+01:00",
+            "committed_at": "2026-10-17T18:27:56+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "290c2593c89849b1a19c8e11cfe6dec48c0274cb",
+            "short_sha": "290c259",
+            "url": null,
+            "authored_at": "2026-10-17T18:27:56+01:00",
+            "committed_at": "2026-10-17T18:27:56+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/cli-self-contained.md",
+      "summary": "The CLI ships with the skill built in and depends on nothing",
+      "details": "`@slopperday/cli` no longer depends on `@slopperday/skill`. `vp pack` bundles SKILL.md into `dist/slopper.mjs`, so `slopper skill` prints and installs the same text with nothing else installed. npm publishes package.json as it is, so the old `workspace:^` dependency would have shipped literally and broken every `npx @slopperday/cli`.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "290c2593c89849b1a19c8e11cfe6dec48c0274cb",
+            "short_sha": "290c259",
+            "url": null,
+            "authored_at": "2026-10-17T18:27:56+01:00",
+            "committed_at": "2026-10-17T18:27:56+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "290c2593c89849b1a19c8e11cfe6dec48c0274cb",
+            "short_sha": "290c259",
+            "url": null,
+            "authored_at": "2026-10-17T18:27:56+01:00",
+            "committed_at": "2026-10-17T18:27:56+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/cli-usage-and-failures.md",
+      "summary": "The CLI catches mistakes before sending anything, and never crashes on a bad config or network",
+      "details": "- `logout` and `skill` work with a broken config or an invalid `SLOPPER_URL`, so `slopper logout` can clear the config its own error message points at.\n- An empty `SLOPPER_TOKEN` or `SLOPPER_URL` counts as unset instead of hiding the saved token or site.\n- A reply that isn't JSON is an error, even a 200 from a site that isn't Slopper, so `login` never saves a token it couldn't check.\n- `login` saves the site it checked the token on, `SLOPPER_URL` included, and makes an older, wider config owner-only before the token goes in.\n- A connection that drops mid-reply, a config it can't read or a directory it can't create exits 1 with one line, not a stack trace.\n- Stray words (`slopper post tiltmaze \"Fixed it\"`), `edit` with nothing to change, `post` without `--body`, `goal` without `--target` or `--days`, fractional or hex counts and amounts, and screenshots over 4 MB are usage mistakes (exit 2). Every usage mistake ends with the `slopper help` page to read.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "290c2593c89849b1a19c8e11cfe6dec48c0274cb",
+            "short_sha": "290c259",
+            "url": null,
+            "authored_at": "2026-10-17T18:27:56+01:00",
+            "committed_at": "2026-10-17T18:27:56+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "290c2593c89849b1a19c8e11cfe6dec48c0274cb",
+            "short_sha": "290c259",
+            "url": null,
+            "authored_at": "2026-10-17T18:27:56+01:00",
+            "committed_at": "2026-10-17T18:27:56+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/five-votes-a-day.md",
+      "summary": "Five votes a day, and winning makes it slopcessful",
+      "details": "Everyone now gets five votes per UTC day, up or down, so each one counts in the race for slop of the day. Switching today's vote is free, taking one back gives it back, and today's race shows how many you have left. Nobody marks their own slop slopcessful any more: the slop with the most votes when the day ends wins slop of the day and goes slopcessful, straight into the hall of fame.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/fonts-without-jank.md",
+      "summary": "Pages open without the text jumping",
+      "details": "Headings and text used to show up in a stand-in font, then jump to Slopper's own fonts a moment later and push the page around. The fonts now come from slopper.day itself and start loading with the page, so they're usually there before anything shows; on a slow connection the stand-in is sized to match, so the page stays put when they arrive.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "40a8a5fa8100f7830ac58ec8f00546debac0f5cc",
+            "short_sha": "40a8a5f",
+            "url": null,
+            "authored_at": "2026-10-10T08:43:40+01:00",
+            "committed_at": "2026-10-10T08:43:40+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/goal-days-first.md",
+      "summary": "Set a goal in one screen: days first, then your pace",
+      "details": "Setting a goal now starts with how many days you're in for (7, 14, 30, 100 or your own number), then offers four paces for those days: Safe, Getting there, Hardcore and Impossible, from one slop every five days to two a day. The goal is spelled out on flip tiles as you choose, and you can still type an exact number, name it or start another day. New accounts start here, and once the goal is set you're asked to share it, because saying it out loud makes you more likely to see it through.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "1768defec2f9d931d33468ac10636ea69d10e6b7",
+            "short_sha": "1768def",
+            "url": null,
+            "authored_at": "2026-10-10T09:46:21+01:00",
+            "committed_at": "2026-10-10T09:46:21+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/hide-new-api-token.md",
+      "summary": "New API tokens stay hidden until you reveal them",
+      "details": "A new token used to appear in full on Settings → API & MCP, and in the setup snippets below it, the moment you made it. It's now hidden behind dots, so it's safe to make one while sharing your screen or streaming. Copy it with the copy button, or press the eye to see it; the snippets show it only once it's revealed and always copy the real token.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "92ece866eac881eeff89e4b419f4668bddc6e822",
+            "short_sha": "92ece86",
+            "url": null,
+            "authored_at": "2026-10-10T09:50:48+01:00",
+            "committed_at": "2026-10-10T09:50:48+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/hide-unconfigured-autopost.md",
+      "summary": "Auto-post only offers networks you can connect",
+      "details": "Settings → Auto-post no longer shows X or LinkedIn with a \"Not set up on this server\" note. A network only appears once it can actually be connected.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "c3c2e88d0b72c77ad160e41fb5110c1caf12e509",
+            "short_sha": "c3c2e88",
+            "url": null,
+            "authored_at": "2026-10-10T09:15:18+01:00",
+            "committed_at": "2026-10-10T09:15:18+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/hide-unconfigured-networks-copy.md",
+      "summary": "Only networks you can connect are mentioned",
+      "details": "The homepage, the new-slop form, the update box and the agent guide said you could auto-post to X and LinkedIn even when they couldn't be connected. They now name only the networks that can be connected right now.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7feb46fd7a7a4ffd4b9c03fa0fa9520677db8bb4",
+            "short_sha": "7feb46f",
+            "url": null,
+            "authored_at": "2026-10-10T11:14:43+01:00",
+            "committed_at": "2026-10-10T11:14:43+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7feb46fd7a7a4ffd4b9c03fa0fa9520677db8bb4",
+            "short_sha": "7feb46f",
+            "url": null,
+            "authored_at": "2026-10-10T11:14:43+01:00",
+            "committed_at": "2026-10-10T11:14:43+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/netlify-env-sync.md",
+      "summary": "Netlify environment sync sets every variable",
+      "details": "netlify-cli 27 exits 0 without setting anything when `env:set` gets `--scope`, so the first sync reported 21 variables and set none. `vp run env:netlify` drops the flag, checks Netlify has every variable afterwards, and refuses a `SLOPPER_JWT_PRIVATE_KEY` that doesn't decode before it sets anything.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7ac42d0e05082bfcb4b54f5213012498f109a185",
+            "short_sha": "7ac42d0",
+            "url": null,
+            "authored_at": "2026-10-10T08:03:41+01:00",
+            "committed_at": "2026-10-10T08:03:41+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/netlify-hosting.md",
+      "summary": "Host on Netlify instead of Deno Deploy",
+      "details": "Deno Deploy is being shut down, so slopper.day moves to Netlify. The React Router server builds into one Netlify Function and static files go to Netlify's CDN; `scripts/release.ts deploy` deploys Convex and then Netlify from this machine, and `publish` ends with it. Production variables are declared in `monosecret.toml` and `vp run env:netlify` sets them on Netlify, secrets read from one 1Password item. Deno is gone: `vp run start` and the e2e stack serve the build with Node (`scripts/serve.ts`). Screenshots are capped at 4 MB to fit Netlify's request limit.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d6b9f039e4bddd3de9eccd9157f8939eb75ba811",
+            "short_sha": "d6b9f03",
+            "url": null,
+            "authored_at": "2026-10-10T07:12:29+01:00",
+            "committed_at": "2026-10-10T07:12:29+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/og-image-robots.md",
+      "summary": "Serve robots.txt and the default share image",
+      "details": "public/og.png, which every page without a screenshot names as its og:image, never existed, so shared links had no card. `node scripts/og-image.ts` now draws it from the site's fonts and colours. robots.txt keeps crawlers off /api/, /auth/ (each followed sign-in link starts a real OAuth flow) and /unsubscribe/; every rule ends in a slash so no profile URL is caught by a prefix.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "9fa8334b3c931857d274e1f3957e5e570452c01c",
+            "short_sha": "9fa8334",
+            "url": null,
+            "authored_at": "2026-10-17T16:58:43+01:00",
+            "committed_at": "2026-10-17T16:58:43+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "9fa8334b3c931857d274e1f3957e5e570452c01c",
+            "short_sha": "9fa8334",
+            "url": null,
+            "authored_at": "2026-10-17T16:58:43+01:00",
+            "committed_at": "2026-10-17T16:58:43+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/one-utc-countdown.md",
+      "summary": "One countdown, the same for everyone",
+      "details": "The header used to count down to midnight where you are while the race counted down to midnight UTC, so the same page showed two different times. Every clock now counts down to midnight UTC, when the race closes, so everyone sees the same time. Your goal days still end at your own midnight.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "c3c2e88d0b72c77ad160e41fb5110c1caf12e509",
+            "short_sha": "c3c2e88",
+            "url": null,
+            "authored_at": "2026-10-10T09:15:18+01:00",
+            "committed_at": "2026-10-10T09:15:18+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/release-pull-requests.md",
+      "summary": "Releases are pull requests, published from GitHub Actions",
+      "details": "`vp exec monochange run release` commits the release on `chore/release`, pushes it through the pre-push CI and opens its pull request. Merging it runs `.github/workflows/release.yml`, which tags the release, deploys Convex and Netlify when the site is in it, and publishes released npm packages with npm trusted publishing. Every other push to main skips the workflow, and `monochange run publish` refuses to run outside it.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "46faf0731319ee7c7558408d820939fed8a24f0a",
+            "short_sha": "46faf07",
+            "url": null,
+            "authored_at": "2026-10-17T18:17:26+01:00",
+            "committed_at": "2026-10-17T18:17:26+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "46faf0731319ee7c7558408d820939fed8a24f0a",
+            "short_sha": "46faf07",
+            "url": null,
+            "authored_at": "2026-10-17T18:17:26+01:00",
+            "committed_at": "2026-10-17T18:17:26+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/scheduled-launches-api.md",
+      "summary": "Scheduled launches for agents",
+      "details": "`create_slop` (and `POST /api/v1/slops`) takes `releaseAt`: \"next\" or an ISO 8601 date-time. New operations `list_scheduled`, `release_scheduled` and `cancel_scheduled` are on MCP and REST (`GET /api/v1/scheduled`, `POST /api/v1/scheduled/:id/release`, `DELETE /api/v1/scheduled/:id`). Queued launches live in the `scheduledLaunches` table; at `releaseAt` Convex puts each out through the same code as a launch made now, then calls `POST /api/scheduled/:id` so the app server runs the content check and the auto-post.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "2e31e85ebd27c7d770896671065da7281c177305",
+            "short_sha": "2e31e85",
+            "url": null,
+            "authored_at": "2026-10-17T16:37:42+01:00",
+            "committed_at": "2026-10-17T16:37:42+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "2e31e85ebd27c7d770896671065da7281c177305",
+            "short_sha": "2e31e85",
+            "url": null,
+            "authored_at": "2026-10-17T16:37:42+01:00",
+            "committed_at": "2026-10-17T16:37:42+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/scheduled-launches-cli.md",
+      "summary": "Schedule launches from the CLI",
+      "details": "`slopper launch --at next` (or `--at 2026-10-15T09:00`) schedules a launch instead of putting it out now. `slopper scheduled` lists what's waiting, `slopper release <id>` puts one out now and `slopper unschedule <id>` drops it. The skill explains when to line launches up.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "2e31e85ebd27c7d770896671065da7281c177305",
+            "short_sha": "2e31e85",
+            "url": null,
+            "authored_at": "2026-10-17T16:37:42+01:00",
+            "committed_at": "2026-10-17T16:37:42+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "2e31e85ebd27c7d770896671065da7281c177305",
+            "short_sha": "2e31e85",
+            "url": null,
+            "authored_at": "2026-10-17T16:37:42+01:00",
+            "committed_at": "2026-10-17T16:37:42+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/scheduled-launches.md",
+      "summary": "Schedule launches for later",
+      "details": "Got three things ready at once? Throw one now and line the rest up. Pick \"Next free day\" and each goes out on the next day with nothing out or scheduled, right as that day's race starts, so it gets all 24 hours of votes. Or pick a day and time yourself. Nobody sees a scheduled slop until it goes out; then it counts towards your goal on that day and auto-posts if you asked. Your goal grid shows the days with something coming, and the new slop page lists what's waiting, with buttons to throw one now or unschedule it.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "2e31e85ebd27c7d770896671065da7281c177305",
+            "short_sha": "2e31e85",
+            "url": null,
+            "authored_at": "2026-10-17T16:37:42+01:00",
+            "committed_at": "2026-10-17T16:37:42+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "2e31e85ebd27c7d770896671065da7281c177305",
+            "short_sha": "2e31e85",
+            "url": null,
+            "authored_at": "2026-10-17T16:37:42+01:00",
+            "committed_at": "2026-10-17T16:37:42+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/self-hosted-fonts.md",
+      "summary": "Self-host fonts with preloads and matched fallbacks",
+      "details": "Big Shoulders, Schibsted Grotesk and Atkinson Hyperlegible Mono come from `@fontsource-variable` packages and ship as hashed assets, instead of a render-blocking Google Fonts stylesheet that only then requested the files. The root route preloads the Latin faces of the two fonts every page opens with. `app.css` declares fallback faces built on Arial and Arial Narrow Bold with `size-adjust` and ascent/descent overrides (capitals, digits and the narrow 1 get their own), so a late swap measures at no layout shift on the homepage from 320px to 1440px. The content security policy no longer allows fonts.googleapis.com or fonts.gstatic.com.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "40a8a5fa8100f7830ac58ec8f00546debac0f5cc",
+            "short_sha": "40a8a5f",
+            "url": null,
+            "authored_at": "2026-10-10T08:43:40+01:00",
+            "committed_at": "2026-10-10T08:43:40+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/share-card.md",
+      "summary": "Shared links show a preview card",
+      "details": "Links to slopper.day on X, LinkedIn, Bluesky and in chat apps now show Slopper's card instead of a bare link. A slop's own page still shows its first screenshot.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "9fa8334b3c931857d274e1f3957e5e570452c01c",
+            "short_sha": "9fa8334",
+            "url": null,
+            "authored_at": "2026-10-17T16:58:43+01:00",
+            "committed_at": "2026-10-17T16:58:43+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "9fa8334b3c931857d274e1f3957e5e570452c01c",
+            "short_sha": "9fa8334",
+            "url": null,
+            "authored_at": "2026-10-17T16:58:43+01:00",
+            "committed_at": "2026-10-17T16:58:43+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/slopper-cli-on-site.md",
+      "summary": "Run Slopper from a terminal with the slopper CLI",
+      "details": "Agents (and people) can launch, post updates, log money, check today's race and vote from a terminal with `npx @slopperday/cli`. The API page shows the command to sign it in with your token, and `slopper skill install` teaches your agents how to use it.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/slopper-cli.md",
+      "summary": "Add the slopper CLI and its agent skill",
+      "details": "`@slopperday/cli` maps every agent operation onto a command (`login`, `whoami`, `today`, `launch`, `edit`, `post`, `money`, `vote`, `upload`, `goal`, ...) and prints JSON. `@slopperday/skill` is the SKILL.md that explains it; `slopper skill` prints it and `slopper skill install` copies it into an agent's skills directory.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ae3f691bb710bb90d63e843a6eebafb2053d0407",
+            "short_sha": "ae3f691",
+            "url": null,
+            "authored_at": "2026-10-10T11:18:05+01:00",
+            "committed_at": "2026-10-10T11:18:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.2.0 (2026-10-17)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "- **Agents vote; mark_slopcessful is gone from MCP and REST.** The MCP server and REST API gain `vote` (`POST /api/v1/slops/:slop/vote`), and `whoami` and `todays_race` report the votes left today. `mark_slopcessful` and `POST /api/v1/slops/:slop/slopcessful` are removed: the daily crown marks the winner slopcessful. Votes record the UTC day they were cast (`castOn`) for the five-a-day allowance. Releases now use monochange 0.18.0.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ ae3f691",
+              "- **Host on Netlify instead of Deno Deploy.** Deno Deploy is being shut down, so slopper.day moves to Netlify. The React Router server builds into one Netlify Function and static files go to Netlify's CDN; `scripts/release.ts deploy` deploys Convex and then Netlify from this machine, and `publish` ends with it. Production variables are declared in `monosecret.toml` and `vp run env:netlify` sets them on Netlify, secrets read from one 1Password item. Deno is gone: `vp run start` and the e2e stack serve the build with Node (`scripts/serve.ts`). Screenshots are capped at 4 MB to fit Netlify's request limit.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d6b9f03 · _Last updated in:_ ae3f691",
+              "- **Releases are pull requests, published from GitHub Actions.** `vp exec monochange run release` commits the release on `chore/release`, pushes it through the pre-push CI and opens its pull request. Merging it runs `.github/workflows/release.yml`, which tags the release, deploys Convex and Netlify when the site is in it, and publishes released npm packages with npm trusted publishing. Every other push to main skips the workflow, and `monochange run publish` refuses to run outside it.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 46faf07",
+              "- **Scheduled launches for agents.** `create_slop` (and `POST /api/v1/slops`) takes `releaseAt`: \"next\" or an ISO 8601 date-time. New operations `list_scheduled`, `release_scheduled` and `cancel_scheduled` are on MCP and REST (`GET /api/v1/scheduled`, `POST /api/v1/scheduled/:id/release`, `DELETE /api/v1/scheduled/:id`). Queued launches live in the `scheduledLaunches` table; at `releaseAt` Convex puts each out through the same code as a launch made now, then calls `POST /api/scheduled/:id` so the app server runs the content check and the auto-post.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 2e31e85"
+            ]
+          },
+          {
+            "title": "Fixes",
+            "collapsed": false,
+            "entries": [
+              "- **Netlify environment sync sets every variable.** netlify-cli 27 exits 0 without setting anything when `env:set` gets `--scope`, so the first sync reported 21 variables and set none. `vp run env:netlify` drops the flag, checks Netlify has every variable afterwards, and refuses a `SLOPPER_JWT_PRIVATE_KEY` that doesn't decode before it sets anything.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 7ac42d0 · _Last updated in:_ ae3f691",
+              "- **Serve robots.txt and the default share image.** public/og.png, which every page without a screenshot names as its og:image, never existed, so shared links had no card. `node scripts/og-image.ts` now draws it from the site's fonts and colours. robots.txt keeps crawlers off /api/, /auth/ (each followed sign-in link starts a real OAuth flow) and /unsubscribe/; every rule ends in a slash so no profile URL is caught by a prefix.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 9fa8334",
+              "- **Self-host fonts with preloads and matched fallbacks.** Big Shoulders, Schibsted Grotesk and Atkinson Hyperlegible Mono come from `@fontsource-variable` packages and ship as hashed assets, instead of a render-blocking Google Fonts stylesheet that only then requested the files. The root route preloads the Latin faces of the two fonts every page opens with. `app.css` declares fallback faces built on Arial and Arial Narrow Bold with `size-adjust` and ascent/descent overrides (capitals, digits and the narrow 1 get their own), so a late swap measures at no layout shift on the homepage from 320px to 1440px. The content security policy no longer allows fonts.googleapis.com or fonts.gstatic.com.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 40a8a5f · _Last updated in:_ ae3f691"
+            ]
+          }
+        ]
+      },
+      "rendered": "## 1.2.0 (2026-10-17)\n\n### Features\n\n- **Agents vote; mark_slopcessful is gone from MCP and REST.** The MCP server and REST API gain `vote` (`POST /api/v1/slops/:slop/vote`), and `whoami` and `todays_race` report the votes left today. `mark_slopcessful` and `POST /api/v1/slops/:slop/slopcessful` are removed: the daily crown marks the winner slopcessful. Votes record the UTC day they were cast (`castOn`) for the five-a-day allowance. Releases now use monochange 0.18.0.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ ae3f691\n- **Host on Netlify instead of Deno Deploy.** Deno Deploy is being shut down, so slopper.day moves to Netlify. The React Router server builds into one Netlify Function and static files go to Netlify's CDN; `scripts/release.ts deploy` deploys Convex and then Netlify from this machine, and `publish` ends with it. Production variables are declared in `monosecret.toml` and `vp run env:netlify` sets them on Netlify, secrets read from one 1Password item. Deno is gone: `vp run start` and the e2e stack serve the build with Node (`scripts/serve.ts`). Screenshots are capped at 4 MB to fit Netlify's request limit.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d6b9f03 · _Last updated in:_ ae3f691\n- **Releases are pull requests, published from GitHub Actions.** `vp exec monochange run release` commits the release on `chore/release`, pushes it through the pre-push CI and opens its pull request. Merging it runs `.github/workflows/release.yml`, which tags the release, deploys Convex and Netlify when the site is in it, and publishes released npm packages with npm trusted publishing. Every other push to main skips the workflow, and `monochange run publish` refuses to run outside it.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 46faf07\n- **Scheduled launches for agents.** `create_slop` (and `POST /api/v1/slops`) takes `releaseAt`: \"next\" or an ISO 8601 date-time. New operations `list_scheduled`, `release_scheduled` and `cancel_scheduled` are on MCP and REST (`GET /api/v1/scheduled`, `POST /api/v1/scheduled/:id/release`, `DELETE /api/v1/scheduled/:id`). Queued launches live in the `scheduledLaunches` table; at `releaseAt` Convex puts each out through the same code as a launch made now, then calls `POST /api/scheduled/:id` so the app server runs the content check and the auto-post.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 2e31e85\n\n### Fixes\n\n- **Netlify environment sync sets every variable.** netlify-cli 27 exits 0 without setting anything when `env:set` gets `--scope`, so the first sync reported 21 variables and set none. `vp run env:netlify` drops the flag, checks Netlify has every variable afterwards, and refuses a `SLOPPER_JWT_PRIVATE_KEY` that doesn't decode before it sets anything.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 7ac42d0 · _Last updated in:_ ae3f691\n- **Serve robots.txt and the default share image.** public/og.png, which every page without a screenshot names as its og:image, never existed, so shared links had no card. `node scripts/og-image.ts` now draws it from the site's fonts and colours. robots.txt keeps crawlers off /api/, /auth/ (each followed sign-in link starts a real OAuth flow) and /unsubscribe/; every rule ends in a slash so no profile URL is caught by a prefix.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 9fa8334\n- **Self-host fonts with preloads and matched fallbacks.** Big Shoulders, Schibsted Grotesk and Atkinson Hyperlegible Mono come from `@fontsource-variable` packages and ship as hashed assets, instead of a render-blocking Google Fonts stylesheet that only then requested the files. The root route preloads the Latin faces of the two fonts every page opens with. `app.css` declares fallback faces built on Arial and Arial Narrow Bold with `size-adjust` and ascent/descent overrides (capitals, digits and the narrow 1 get their own), so a late swap measures at no layout shift on the homepage from 320px to 1440px. The content security policy no longer allows fonts.googleapis.com or fonts.gstatic.com.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 40a8a5f · _Last updated in:_ ae3f691"
+    },
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "user",
+      "stream": "user",
+      "path": "app/changelog/1.2.0.json",
+      "format": "json",
+      "notes": {
+        "title": "1.2.0 (2026-10-17)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "New",
+            "collapsed": false,
+            "entries": [
+              "- **CLI commands on the API page that agents can paste as they are.** The API page's CLI command now uses `npx -y`, so an agent in a terminal doesn't stop at npx's install question, and names the other runners (pnpm, Bun, Yarn, Deno). A second command passes your token in `SLOPPER_TOKEN` without saving it anywhere. /llms.txt lists the same.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 290c259",
+              "- **Five votes a day, and winning makes it slopcessful.** Everyone now gets five votes per UTC day, up or down, so each one counts in the race for slop of the day. Switching today's vote is free, taking one back gives it back, and today's race shows how many you have left. Nobody marks their own slop slopcessful any more: the slop with the most votes when the day ends wins slop of the day and goes slopcessful, straight into the hall of fame.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ ae3f691",
+              "- **Set a goal in one screen: days first, then your pace.** Setting a goal now starts with how many days you're in for (7, 14, 30, 100 or your own number), then offers four paces for those days: Safe, Getting there, Hardcore and Impossible, from one slop every five days to two a day. The goal is spelled out on flip tiles as you choose, and you can still type an exact number, name it or start another day. New accounts start here, and once the goal is set you're asked to share it, because saying it out loud makes you more likely to see it through.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 1768def · _Last updated in:_ ae3f691",
+              "- **Schedule launches for later.** Got three things ready at once? Throw one now and line the rest up. Pick \"Next free day\" and each goes out on the next day with nothing out or scheduled, right as that day's race starts, so it gets all 24 hours of votes. Or pick a day and time yourself. Nobody sees a scheduled slop until it goes out; then it counts towards your goal on that day and auto-posts if you asked. Your goal grid shows the days with something coming, and the new slop page lists what's waiting, with buttons to throw one now or unschedule it.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 2e31e85",
+              "- **Run Slopper from a terminal with the slopper CLI.** Agents (and people) can launch, post updates, log money, check today's race and vote from a terminal with `npx @slopperday/cli`. The API page shows the command to sign it in with your token, and `slopper skill install` teaches your agents how to use it.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ ae3f691"
+            ]
+          },
+          {
+            "title": "Fixed",
+            "collapsed": false,
+            "entries": [
+              "- **Signing in leaves a clean address.** After signing in, the address bar no longer keeps the sign-in provider's one-time code.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d051e96 · _Last updated in:_ ae3f691",
+              "- **Pages open without the text jumping.** Headings and text used to show up in a stand-in font, then jump to Slopper's own fonts a moment later and push the page around. The fonts now come from slopper.day itself and start loading with the page, so they're usually there before anything shows; on a slow connection the stand-in is sized to match, so the page stays put when they arrive.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 40a8a5f · _Last updated in:_ ae3f691",
+              "- **New API tokens stay hidden until you reveal them.** A new token used to appear in full on Settings → API & MCP, and in the setup snippets below it, the moment you made it. It's now hidden behind dots, so it's safe to make one while sharing your screen or streaming. Copy it with the copy button, or press the eye to see it; the snippets show it only once it's revealed and always copy the real token.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 92ece86 · _Last updated in:_ ae3f691",
+              "- **Auto-post only offers networks you can connect.** Settings → Auto-post no longer shows X or LinkedIn with a \"Not set up on this server\" note. A network only appears once it can actually be connected.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ c3c2e88 · _Last updated in:_ ae3f691",
+              "- **Only networks you can connect are mentioned.** The homepage, the new-slop form, the update box and the agent guide said you could auto-post to X and LinkedIn even when they couldn't be connected. They now name only the networks that can be connected right now.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 7feb46f",
+              "- **One countdown, the same for everyone.** The header used to count down to midnight where you are while the race counted down to midnight UTC, so the same page showed two different times. Every clock now counts down to midnight UTC, when the race closes, so everyone sees the same time. Your goal days still end at your own midnight.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ c3c2e88 · _Last updated in:_ ae3f691",
+              "- **Shared links show a preview card.** Links to slopper.day on X, LinkedIn, Bluesky and in chat apps now show Slopper's card instead of a bare link. A slop's own page still shows its first screenshot.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 9fa8334"
+            ]
+          }
+        ]
+      },
+      "rendered": "{\n  \"title\": \"1.2.0 (2026-10-17)\",\n  \"summary\": [],\n  \"sections\": [\n    {\n      \"title\": \"New\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"CLI commands on the API page that agents can paste as they are\",\n          \"details_markdown\": \"The API page's CLI command now uses `npx -y`, so an agent in a terminal doesn't stop at npx's install question, and names the other runners (pnpm, Bun, Yarn, Deno). A second command passes your token in `SLOPPER_TOKEN` without saving it anywhere. /llms.txt lists the same.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/cli-commands-on-site.md\",\n            \"changeset_path\": \".changeset/cli-commands-on-site.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"290c259\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Five votes a day, and winning makes it slopcessful\",\n          \"details_markdown\": \"Everyone now gets five votes per UTC day, up or down, so each one counts in the race for slop of the day. Switching today's vote is free, taking one back gives it back, and today's race shows how many you have left. Nobody marks their own slop slopcessful any more: the slop with the most votes when the day ends wins slop of the day and goes slopcessful, straight into the hall of fame.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/five-votes-a-day.md\",\n            \"changeset_path\": \".changeset/five-votes-a-day.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"ae3f691\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Set a goal in one screen: days first, then your pace\",\n          \"details_markdown\": \"Setting a goal now starts with how many days you're in for (7, 14, 30, 100 or your own number), then offers four paces for those days: Safe, Getting there, Hardcore and Impossible, from one slop every five days to two a day. The goal is spelled out on flip tiles as you choose, and you can still type an exact number, name it or start another day. New accounts start here, and once the goal is set you're asked to share it, because saying it out loud makes you more likely to see it through.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/goal-days-first.md\",\n            \"changeset_path\": \".changeset/goal-days-first.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"1768def\"\n            },\n            \"last_updated_commit\": {\n              \"label\": \"ae3f691\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Schedule launches for later\",\n          \"details_markdown\": \"Got three things ready at once? Throw one now and line the rest up. Pick \\\"Next free day\\\" and each goes out on the next day with nothing out or scheduled, right as that day's race starts, so it gets all 24 hours of votes. Or pick a day and time yourself. Nobody sees a scheduled slop until it goes out; then it counts towards your goal on that day and auto-posts if you asked. Your goal grid shows the days with something coming, and the new slop page lists what's waiting, with buttons to throw one now or unschedule it.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/scheduled-launches.md\",\n            \"changeset_path\": \".changeset/scheduled-launches.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"2e31e85\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Run Slopper from a terminal with the slopper CLI\",\n          \"details_markdown\": \"Agents (and people) can launch, post updates, log money, check today's race and vote from a terminal with `npx @slopperday/cli`. The API page shows the command to sign it in with your token, and `slopper skill install` teaches your agents how to use it.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/slopper-cli-on-site.md\",\n            \"changeset_path\": \".changeset/slopper-cli-on-site.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"ae3f691\"\n            }\n          }\n        }\n      ]\n    },\n    {\n      \"title\": \"Fixed\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Signing in leaves a clean address\",\n          \"details_markdown\": \"After signing in, the address bar no longer keeps the sign-in provider's one-time code.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/clean-sign-in-url.md\",\n            \"changeset_path\": \".changeset/clean-sign-in-url.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"d051e96\"\n            },\n            \"last_updated_commit\": {\n              \"label\": \"ae3f691\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Pages open without the text jumping\",\n          \"details_markdown\": \"Headings and text used to show up in a stand-in font, then jump to Slopper's own fonts a moment later and push the page around. The fonts now come from slopper.day itself and start loading with the page, so they're usually there before anything shows; on a slow connection the stand-in is sized to match, so the page stays put when they arrive.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/fonts-without-jank.md\",\n            \"changeset_path\": \".changeset/fonts-without-jank.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"40a8a5f\"\n            },\n            \"last_updated_commit\": {\n              \"label\": \"ae3f691\"\n            }\n          }\n        },\n        {\n          \"summary\": \"New API tokens stay hidden until you reveal them\",\n          \"details_markdown\": \"A new token used to appear in full on Settings → API & MCP, and in the setup snippets below it, the moment you made it. It's now hidden behind dots, so it's safe to make one while sharing your screen or streaming. Copy it with the copy button, or press the eye to see it; the snippets show it only once it's revealed and always copy the real token.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/hide-new-api-token.md\",\n            \"changeset_path\": \".changeset/hide-new-api-token.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"92ece86\"\n            },\n            \"last_updated_commit\": {\n              \"label\": \"ae3f691\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Auto-post only offers networks you can connect\",\n          \"details_markdown\": \"Settings → Auto-post no longer shows X or LinkedIn with a \\\"Not set up on this server\\\" note. A network only appears once it can actually be connected.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/hide-unconfigured-autopost.md\",\n            \"changeset_path\": \".changeset/hide-unconfigured-autopost.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"c3c2e88\"\n            },\n            \"last_updated_commit\": {\n              \"label\": \"ae3f691\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Only networks you can connect are mentioned\",\n          \"details_markdown\": \"The homepage, the new-slop form, the update box and the agent guide said you could auto-post to X and LinkedIn even when they couldn't be connected. They now name only the networks that can be connected right now.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/hide-unconfigured-networks-copy.md\",\n            \"changeset_path\": \".changeset/hide-unconfigured-networks-copy.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"7feb46f\"\n            }\n          }\n        },\n        {\n          \"summary\": \"One countdown, the same for everyone\",\n          \"details_markdown\": \"The header used to count down to midnight where you are while the race counted down to midnight UTC, so the same page showed two different times. Every clock now counts down to midnight UTC, when the race closes, so everyone sees the same time. Your goal days still end at your own midnight.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/one-utc-countdown.md\",\n            \"changeset_path\": \".changeset/one-utc-countdown.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"c3c2e88\"\n            },\n            \"last_updated_commit\": {\n              \"label\": \"ae3f691\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Shared links show a preview card\",\n          \"details_markdown\": \"Links to slopper.day on X, LinkedIn, Bluesky and in chat apps now show Slopper's card instead of a bare link. A slop's own page still shows its first screenshot.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/share-card.md\",\n            \"changeset_path\": \".changeset/share-card.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"9fa8334\"\n            }\n          }\n        }\n      ]\n    }\n  ]\n}"
+    },
+    {
+      "owner_id": "cli",
+      "owner_kind": "group",
+      "output": "default",
+      "stream": "default",
+      "path": "packages/cli/CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "cli 0.1.0 (2026-10-17)",
+        "summary": ["Grouped release for `cli`."],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "- **Schedule launches from the CLI.** `slopper launch --at next` (or `--at 2026-10-15T09:00`) schedules a launch instead of putting it out now. `slopper scheduled` lists what's waiting, `slopper release <id>` puts one out now and `slopper unschedule <id>` drops it. The skill explains when to line launches up.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 2e31e85",
+              "- **Add the slopper CLI and its agent skill.** `@slopperday/cli` maps every agent operation onto a command (`login`, `whoami`, `today`, `launch`, `edit`, `post`, `money`, `vote`, `upload`, `goal`, ...) and prints JSON. `@slopperday/skill` is the SKILL.md that explains it; `slopper skill` prints it and `slopper skill install` copies it into an agent's skills directory.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ ae3f691"
+            ]
+          },
+          {
+            "title": "Fixes",
+            "collapsed": false,
+            "entries": [
+              "- **The CLI ships with the skill built in and depends on nothing.** `@slopperday/cli` no longer depends on `@slopperday/skill`. `vp pack` bundles SKILL.md into `dist/slopper.mjs`, so `slopper skill` prints and installs the same text with nothing else installed. npm publishes package.json as it is, so the old `workspace:^` dependency would have shipped literally and broken every `npx @slopperday/cli`.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 290c259",
+              "#### The CLI catches mistakes before sending anything, and never crashes on a bad config or network\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 290c259\n\n- `logout` and `skill` work with a broken config or an invalid `SLOPPER_URL`, so `slopper logout` can clear the config its own error message points at.\n- An empty `SLOPPER_TOKEN` or `SLOPPER_URL` counts as unset instead of hiding the saved token or site.\n- A reply that isn't JSON is an error, even a 200 from a site that isn't Slopper, so `login` never saves a token it couldn't check.\n- `login` saves the site it checked the token on, `SLOPPER_URL` included, and makes an older, wider config owner-only before the token goes in.\n- A connection that drops mid-reply, a config it can't read or a directory it can't create exits 1 with one line, not a stack trace.\n- Stray words (`slopper post tiltmaze \"Fixed it\"`), `edit` with nothing to change, `post` without `--body`, `goal` without `--target` or `--days`, fractional or hex counts and amounts, and screenshots over 4 MB are usage mistakes (exit 2). Every usage mistake ends with the `slopper help` page to read."
+            ]
+          },
+          {
+            "title": "Documentation",
+            "collapsed": false,
+            "entries": [
+              "- **Run the CLI with any package runner.** The README and the skill show `npx -y`, `pnpm dlx`, `bunx`, `yarn dlx -q`, `deno run -A npm:` and a global install, why npx needs `-y` (it waits on \"Ok to proceed?\" in a terminal) and yarn `-q` (its install log lands on stdout), and `SLOPPER_TOKEN` for agents that shouldn't write a config file.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 290c259"
+            ]
+          }
+        ]
+      },
+      "rendered": "## cli 0.1.0 (2026-10-17)\n\nGrouped release for `cli`.\n\n### Features\n\n- **Schedule launches from the CLI.** `slopper launch --at next` (or `--at 2026-10-15T09:00`) schedules a launch instead of putting it out now. `slopper scheduled` lists what's waiting, `slopper release <id>` puts one out now and `slopper unschedule <id>` drops it. The skill explains when to line launches up.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 2e31e85\n- **Add the slopper CLI and its agent skill.** `@slopperday/cli` maps every agent operation onto a command (`login`, `whoami`, `today`, `launch`, `edit`, `post`, `money`, `vote`, `upload`, `goal`, ...) and prints JSON. `@slopperday/skill` is the SKILL.md that explains it; `slopper skill` prints it and `slopper skill install` copies it into an agent's skills directory.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ ae3f691\n\n### Fixes\n\n- **The CLI ships with the skill built in and depends on nothing.** `@slopperday/cli` no longer depends on `@slopperday/skill`. `vp pack` bundles SKILL.md into `dist/slopper.mjs`, so `slopper skill` prints and installs the same text with nothing else installed. npm publishes package.json as it is, so the old `workspace:^` dependency would have shipped literally and broken every `npx @slopperday/cli`.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 290c259\n#### The CLI catches mistakes before sending anything, and never crashes on a bad config or network\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 290c259\n\n- `logout` and `skill` work with a broken config or an invalid `SLOPPER_URL`, so `slopper logout` can clear the config its own error message points at.\n- An empty `SLOPPER_TOKEN` or `SLOPPER_URL` counts as unset instead of hiding the saved token or site.\n- A reply that isn't JSON is an error, even a 200 from a site that isn't Slopper, so `login` never saves a token it couldn't check.\n- `login` saves the site it checked the token on, `SLOPPER_URL` included, and makes an older, wider config owner-only before the token goes in.\n- A connection that drops mid-reply, a config it can't read or a directory it can't create exits 1 with one line, not a stack trace.\n- Stray words (`slopper post tiltmaze \"Fixed it\"`), `edit` with nothing to change, `post` without `--body`, `goal` without `--target` or `--days`, fractional or hex counts and amounts, and screenshots over 4 MB are usage mistakes (exit 2). Every usage mistake ends with the `slopper help` page to read.\n\n### Documentation\n\n- **Run the CLI with any package runner.** The README and the skill show `npx -y`, `pnpm dlx`, `bunx`, `yarn dlx -q`, `deno run -A npm:` and a global install, why npx needs `-y` (it waits on \"Ok to proceed?\" in a terminal) and yarn `-q` (its install log lands on stdout), and `SLOPPER_TOKEN` for agents that shouldn't write a config file.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 290c259"
+    }
+  ],
+  "provider": null
+}

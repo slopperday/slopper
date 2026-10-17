@@ -1,0 +1,252 @@
+{
+  "title": "1.2.0 (2026-10-17)",
+  "summary": [],
+  "sections": [
+    {
+      "title": "New",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "CLI commands on the API page that agents can paste as they are",
+          "details_markdown": "The API page's CLI command now uses `npx -y`, so an agent in a terminal doesn't stop at npx's install question, and names the other runners (pnpm, Bun, Yarn, Deno). A second command passes your token in `SLOPPER_TOKEN` without saving it anywhere. /llms.txt lists the same.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/cli-commands-on-site.md",
+            "changeset_path": ".changeset/cli-commands-on-site.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "290c259"
+            }
+          }
+        },
+        {
+          "summary": "Five votes a day, and winning makes it slopcessful",
+          "details_markdown": "Everyone now gets five votes per UTC day, up or down, so each one counts in the race for slop of the day. Switching today's vote is free, taking one back gives it back, and today's race shows how many you have left. Nobody marks their own slop slopcessful any more: the slop with the most votes when the day ends wins slop of the day and goes slopcessful, straight into the hall of fame.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/five-votes-a-day.md",
+            "changeset_path": ".changeset/five-votes-a-day.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "ae3f691"
+            }
+          }
+        },
+        {
+          "summary": "Set a goal in one screen: days first, then your pace",
+          "details_markdown": "Setting a goal now starts with how many days you're in for (7, 14, 30, 100 or your own number), then offers four paces for those days: Safe, Getting there, Hardcore and Impossible, from one slop every five days to two a day. The goal is spelled out on flip tiles as you choose, and you can still type an exact number, name it or start another day. New accounts start here, and once the goal is set you're asked to share it, because saying it out loud makes you more likely to see it through.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/goal-days-first.md",
+            "changeset_path": ".changeset/goal-days-first.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "1768def"
+            },
+            "last_updated_commit": {
+              "label": "ae3f691"
+            }
+          }
+        },
+        {
+          "summary": "Schedule launches for later",
+          "details_markdown": "Got three things ready at once? Throw one now and line the rest up. Pick \"Next free day\" and each goes out on the next day with nothing out or scheduled, right as that day's race starts, so it gets all 24 hours of votes. Or pick a day and time yourself. Nobody sees a scheduled slop until it goes out; then it counts towards your goal on that day and auto-posts if you asked. Your goal grid shows the days with something coming, and the new slop page lists what's waiting, with buttons to throw one now or unschedule it.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/scheduled-launches.md",
+            "changeset_path": ".changeset/scheduled-launches.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "2e31e85"
+            }
+          }
+        },
+        {
+          "summary": "Run Slopper from a terminal with the slopper CLI",
+          "details_markdown": "Agents (and people) can launch, post updates, log money, check today's race and vote from a terminal with `npx @slopperday/cli`. The API page shows the command to sign it in with your token, and `slopper skill install` teaches your agents how to use it.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/slopper-cli-on-site.md",
+            "changeset_path": ".changeset/slopper-cli-on-site.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "ae3f691"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Fixed",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Signing in leaves a clean address",
+          "details_markdown": "After signing in, the address bar no longer keeps the sign-in provider's one-time code.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/clean-sign-in-url.md",
+            "changeset_path": ".changeset/clean-sign-in-url.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "d051e96"
+            },
+            "last_updated_commit": {
+              "label": "ae3f691"
+            }
+          }
+        },
+        {
+          "summary": "Pages open without the text jumping",
+          "details_markdown": "Headings and text used to show up in a stand-in font, then jump to Slopper's own fonts a moment later and push the page around. The fonts now come from slopper.day itself and start loading with the page, so they're usually there before anything shows; on a slow connection the stand-in is sized to match, so the page stays put when they arrive.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/fonts-without-jank.md",
+            "changeset_path": ".changeset/fonts-without-jank.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "40a8a5f"
+            },
+            "last_updated_commit": {
+              "label": "ae3f691"
+            }
+          }
+        },
+        {
+          "summary": "New API tokens stay hidden until you reveal them",
+          "details_markdown": "A new token used to appear in full on Settings → API & MCP, and in the setup snippets below it, the moment you made it. It's now hidden behind dots, so it's safe to make one while sharing your screen or streaming. Copy it with the copy button, or press the eye to see it; the snippets show it only once it's revealed and always copy the real token.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/hide-new-api-token.md",
+            "changeset_path": ".changeset/hide-new-api-token.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "92ece86"
+            },
+            "last_updated_commit": {
+              "label": "ae3f691"
+            }
+          }
+        },
+        {
+          "summary": "Auto-post only offers networks you can connect",
+          "details_markdown": "Settings → Auto-post no longer shows X or LinkedIn with a \"Not set up on this server\" note. A network only appears once it can actually be connected.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/hide-unconfigured-autopost.md",
+            "changeset_path": ".changeset/hide-unconfigured-autopost.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "c3c2e88"
+            },
+            "last_updated_commit": {
+              "label": "ae3f691"
+            }
+          }
+        },
+        {
+          "summary": "Only networks you can connect are mentioned",
+          "details_markdown": "The homepage, the new-slop form, the update box and the agent guide said you could auto-post to X and LinkedIn even when they couldn't be connected. They now name only the networks that can be connected right now.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/hide-unconfigured-networks-copy.md",
+            "changeset_path": ".changeset/hide-unconfigured-networks-copy.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "7feb46f"
+            }
+          }
+        },
+        {
+          "summary": "One countdown, the same for everyone",
+          "details_markdown": "The header used to count down to midnight where you are while the race counted down to midnight UTC, so the same page showed two different times. Every clock now counts down to midnight UTC, when the race closes, so everyone sees the same time. Your goal days still end at your own midnight.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/one-utc-countdown.md",
+            "changeset_path": ".changeset/one-utc-countdown.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "c3c2e88"
+            },
+            "last_updated_commit": {
+              "label": "ae3f691"
+            }
+          }
+        },
+        {
+          "summary": "Shared links show a preview card",
+          "details_markdown": "Links to slopper.day on X, LinkedIn, Bluesky and in chat apps now show Slopper's card instead of a bare link. A slop's own page still shows its first screenshot.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/share-card.md",
+            "changeset_path": ".changeset/share-card.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "9fa8334"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
