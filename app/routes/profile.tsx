@@ -4,6 +4,8 @@ import { api } from "@convex/_generated/api";
 import { viewerContext } from "~/.server/session";
 import { convex } from "~/.server/convex";
 import { notFound } from "~/.server/http";
+import { CARD_SIZE, profileCardData, profileCardPath } from "~/lib/cards";
+import { plural } from "~/lib/display";
 import { seo } from "~/lib/seo";
 import { Avatar } from "~/components/Avatar";
 import { GoalGrid } from "~/components/GoalGrid";
@@ -22,10 +24,23 @@ export async function loader({ params, context }: Route.LoaderArgs) {
 
 export const meta: Route.MetaFunction = ({ matches, loaderData }) => {
   if (!loaderData) return seo(matches);
-  const { owner, totalShipped } = loaderData.profile;
+  const card = profileCardData(loaderData.profile);
+  const { owner } = loaderData.profile;
+  const title = `${owner.displayName} (@${owner.username})`;
+  const going = card.goal ? `${card.goal.title}: ${card.goal.shipped} of ${card.goal.target} slopped.` : null;
   return seo(matches, {
-    title: `${owner.displayName} (@${owner.username})`,
-    description: owner.bio || `${totalShipped} slops thrown on Slopper.`,
+    title,
+    description: owner.bio || going || `${plural(card.slops, "slop", "slops")} thrown on Slopper.`,
+    image: {
+      url: profileCardPath(card),
+      ...CARD_SIZE,
+      alt: `${title} on Slopper. ${going ?? plural(card.slops, "slop", "slops")}`,
+    },
+    type: { kind: "profile", properties: { "profile:username": owner.username } },
+    labels: [
+      ["Slops", String(card.slops)],
+      ["Streak", plural(card.streak, "day", "days")],
+    ],
     path: `/@${owner.username}`,
   });
 };
