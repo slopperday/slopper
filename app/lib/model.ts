@@ -185,6 +185,9 @@ export const LIMITS = {
    */
   mediaBytes: 4 * 1024 * 1024,
   goalDays: 365,
+  /** Launches waiting to go out at once, and how far ahead one can be set. */
+  scheduled: 30,
+  scheduleDays: 100,
   /**
    * Votes (up or private down) each person can cast per UTC day, the race's
    * day. Taking one back today returns it.

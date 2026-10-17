@@ -16,7 +16,8 @@ const STATUS_COPY = {
 /**
  * The goal as a board of days. Every day you ship flips its tile to a lime
  * check (with a count when you shipped more than once); a missed day keeps a
- * full stop; today waits on the lime "now" bar.
+ * full stop; today waits on the lime "now" bar; a day with a launch
+ * scheduled shows a clock, so everyone can see something's coming.
  */
 export function GoalGrid({
   progress,
@@ -70,8 +71,19 @@ export function GoalGrid({
 const CELL =
   "relative grid aspect-[4/5] w-full place-items-center rounded-md font-display text-[1.15rem] font-extrabold";
 
+/** "2 scheduled" in a corner, beside a clock. */
+function Queued({ count }: { count: number }) {
+  return (
+    <span aria-hidden="true" className="absolute top-1 right-1 flex items-center gap-0.5 text-[0.7rem] text-slop">
+      <Icon name="clock" className="size-3" />
+      {count > 1 && <span className="leading-none">×{count}</span>}
+    </span>
+  );
+}
+
 function Cell({ day, username, index, demo }: { day: GoalDay; username: string; index: number; demo: boolean }) {
   const label = `Day ${day.day}, ${formatDay(day.date)}`;
+  const scheduled = day.queued > 0 ? `, ${day.queued} scheduled` : "";
 
   if (day.state === "shipped") {
     const names = day.launches.map((launch) => launch.name).join(", ");
@@ -113,6 +125,7 @@ function Cell({ day, username, index, demo }: { day: GoalDay; username: string; 
     const content = (
       <>
         <span>{day.day}</span>
+        {day.queued > 0 && <Queued count={day.queued} />}
         <span aria-hidden="true" className="now-pulse absolute inset-x-1.5 bottom-1 h-[3px] rounded-full bg-slop" />
       </>
     );
@@ -125,8 +138,8 @@ function Cell({ day, username, index, demo }: { day: GoalDay; username: string; 
         ) : (
           <Link
             to="/new"
-            title={`${label}: today. Ship something!`}
-            aria-label={`${label}: today, nothing yet`}
+            title={day.queued > 0 ? `${label}: today${scheduled}` : `${label}: today. Ship something!`}
+            aria-label={`${label}: today, nothing out yet${scheduled}`}
             className={`${tile} outline-1 outline-slop hover:outline-2`}
             style={tileOrder(index)}
           >
@@ -141,6 +154,19 @@ function Cell({ day, username, index, demo }: { day: GoalDay; username: string; 
     return (
       <li title={`${label}: missed`} aria-label={`${label}: missed`} className={`${CELL} bg-tile/50`}>
         <span aria-hidden="true" className="size-1.5 rounded-full bg-board-muted" />
+      </li>
+    );
+  }
+
+  if (day.queued > 0) {
+    return (
+      <li
+        title={`${label}${scheduled}`}
+        aria-label={`${label}: upcoming${scheduled}`}
+        className={`${CELL} border border-dashed border-slop/70 text-board-ink`}
+      >
+        {day.day}
+        <Queued count={day.queued} />
       </li>
     );
   }

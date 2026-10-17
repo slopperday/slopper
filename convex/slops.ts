@@ -1,6 +1,6 @@
-import { ConvexError, v } from "convex/values";
+import { ConvexError, type Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
 import { readerFor, requireServer } from "./lib/auth";
 import { notify } from "./lib/notify";
 import { consume, nextCounter } from "./lib/rate";
@@ -17,7 +17,7 @@ import { rankHot } from "../app/lib/ranking";
 import { moneyTotals } from "../app/lib/money";
 import { slugify } from "../app/lib/username";
 
-const slopInput = v.object({
+export const slopInput = v.object({
   name: v.string(),
   tagline: v.string(),
   description: v.string(),
@@ -29,7 +29,7 @@ const slopInput = v.object({
 });
 
 /** Keeps only media the user uploaded (or already attached), in order. Orphaned media is on its way out. */
-async function ownedMedia(
+export async function ownedMedia(
   ctx: QueryCtx,
   userId: Id<"users">,
   ids: readonly string[],
@@ -61,10 +61,76 @@ async function freeSlug(ctx: QueryCtx, userId: Id<"users">, base: string): Promi
   return `${base.slice(0, 30)}-${Date.now().toString(36)}`;
 }
 
-async function ownSlop(ctx: QueryCtx, userId: Id<"users">, slopId: Id<"slops">): Promise<Doc<"slops">> {
+export async function ownSlop(ctx: QueryCtx, userId: Id<"users">, slopId: Id<"slops">): Promise<Doc<"slops">> {
   const slop = await ctx.db.get(slopId);
   if (!slop || slop.userId !== userId) throw new ConvexError("That slop isn't yours.");
   return slop;
+}
+
+export type SlopInput = Infer<typeof slopInput>;
+
+/** A launch ready to go out, its screenshots already checked as the owner's. */
+export interface LaunchDraft {
+  userId: Id<"users">;
+  input: Omit<SlopInput, "screenshots">;
+  screenshots: Id<"media">[];
+  launchNote: string;
+  /** For another launch of a product: one of its earlier launches. */
+  source: Doc<"slops"> | null;
+  launchLabel: string | null;
+  /** Calendar date in the owner's time zone. */
+  today: string;
+}
+
+/**
+ * Puts a launch out: counts it towards the open goal, enters it in today's
+ * race and posts its launch note as the first update.
+ */
+export async function insertLaunch(ctx: MutationCtx, draft: LaunchDraft) {
+  const { userId, input, screenshots, launchNote, source, launchLabel, today } = draft;
+  const goal = await openGoal(ctx, userId, today);
+  const goalDay = goal ? goalDayFor(goal, today) : null;
+  const slug = await freeSlug(ctx, userId, slugify(source ? `${input.name} ${launchLabel}` : input.name));
+  const now = Date.now();
+  const slopId = await ctx.db.insert("slops", {
+    userId,
+    productId: source ? productIdOf(source) : null,
+    launchLabel: source ? (launchLabel ?? "").trim().slice(0, LIMITS.launchLabelLength) : null,
+    slug,
+    ...input,
+    // Set by the content check, flags or moderators; never by the maker.
+    nsfw: false,
+    screenshots,
+    launchDate: today,
+    raceDate: new Date(now).toISOString().slice(0, 10),
+    goalId: goalDay && goal ? goal._id : null,
+    goalDay,
+    goalLength: goalDay && goal ? goal.days : null,
+    number: await nextCounter(ctx, "slops"),
+    upvotes: 0,
+    downvotes: 0,
+    commentCount: 0,
+    updateCount: 1,
+    fieldTests: 0,
+    backers: 0,
+    pledged: 0,
+    lastActivityAt: now,
+    slopOfTheDay: null,
+    slopcessfulAt: null,
+    slopcessfulNote: null,
+    crosspost: {},
+    moneyPublic: false,
+    hidden: false,
+  });
+  const updateId = await ctx.db.insert("updates", {
+    slopId,
+    userId,
+    kind: "launch",
+    body: launchNote,
+    crossposts: [],
+  });
+  const blurred = await checkScreenshots(ctx, slopId, screenshots);
+  return { slopId, updateId, slug, blurred };
 }
 
 /**
@@ -87,51 +153,16 @@ export const create = mutation({
     const source = relaunchOf ? await ownSlop(ctx, userId, relaunchOf) : null;
     if (source && !launchLabel?.trim())
       throw new ConvexError("Say what's launching: a platform, a version, a new app.");
-
-    const goal = await openGoal(ctx, userId, today);
-    const goalDay = goal ? goalDayFor(goal, today) : null;
-    const slug = await freeSlug(ctx, userId, slugify(source ? `${input.name} ${launchLabel}` : input.name));
-    const now = Date.now();
-    const screenshots = await ownedMedia(ctx, userId, input.screenshots, source?.screenshots);
-    const slopId = await ctx.db.insert("slops", {
+    const { screenshots, ...fields } = input;
+    return await insertLaunch(ctx, {
       userId,
-      productId: source ? productIdOf(source) : null,
-      launchLabel: source ? (launchLabel ?? "").trim().slice(0, LIMITS.launchLabelLength) : null,
-      slug,
-      ...input,
-      // Set by the content check, flags or moderators; never by the maker.
-      nsfw: false,
-      screenshots,
-      launchDate: today,
-      raceDate: new Date(now).toISOString().slice(0, 10),
-      goalId: goalDay && goal ? goal._id : null,
-      goalDay,
-      goalLength: goalDay && goal ? goal.days : null,
-      number: await nextCounter(ctx, "slops"),
-      upvotes: 0,
-      downvotes: 0,
-      commentCount: 0,
-      updateCount: 1,
-      fieldTests: 0,
-      backers: 0,
-      pledged: 0,
-      lastActivityAt: now,
-      slopOfTheDay: null,
-      slopcessfulAt: null,
-      slopcessfulNote: null,
-      crosspost: {},
-      moneyPublic: false,
-      hidden: false,
+      input: fields,
+      screenshots: await ownedMedia(ctx, userId, screenshots, source?.screenshots),
+      launchNote,
+      source,
+      launchLabel: launchLabel ?? null,
+      today,
     });
-    const updateId = await ctx.db.insert("updates", {
-      slopId,
-      userId,
-      kind: "launch",
-      body: launchNote,
-      crossposts: [],
-    });
-    const blurred = await checkScreenshots(ctx, slopId, screenshots);
-    return { slopId, updateId, slug, blurred };
   },
 });
 
@@ -190,6 +221,11 @@ export const remove = mutation({
       .withIndex("by_product", (q) => q.eq("productId", slopId))
       .first();
     if (later) throw new ConvexError("Delete this product's later launches first.");
+    const queued = await ctx.db
+      .query("scheduledLaunches")
+      .withIndex("by_product", (q) => q.eq("productId", slopId))
+      .first();
+    if (queued) throw new ConvexError("Cancel this product's scheduled launches first.");
 
     const updates = await ctx.db
       .query("updates")

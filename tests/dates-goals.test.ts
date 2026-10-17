@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { addDays, currentStreak, daysBetween, isIsoDate, localDate } from "~/lib/dates";
+import { addDays, currentStreak, daysBetween, isIsoDate, localDate, localInstant, raceStartOn } from "~/lib/dates";
 import {
   GOAL_PACES,
   type Goal,
@@ -11,6 +11,7 @@ import {
   paceTarget,
 } from "~/lib/goal";
 import { hotScore, rankHot } from "~/lib/ranking";
+import { formatRelease, localDateTimeValue, nextFreeRelease, parseRelease, releaseProblem } from "~/lib/schedule";
 
 describe("dates", () => {
   it("uses the owner's time zone, not UTC", () => {
@@ -69,6 +70,18 @@ describe("goal grid", () => {
     expect(progress.status).toBe("active");
   });
 
+  it("counts every slop on a day, and shows what's scheduled without counting it", () => {
+    const progress = goalProgress(
+      goal,
+      [launch("a", "2026-10-01"), launch("b", "2026-10-01"), launch("c", "2026-10-01")],
+      "2026-10-01",
+      ["2026-10-02", "2026-10-04", "2026-10-04", "2026-10-09"],
+    );
+    expect(progress.shipped).toBe(3);
+    expect(progress.days.map((day) => day.queued)).toEqual([0, 1, 0, 2, 0]);
+    expect(progress.days[1].state).toBe("upcoming");
+  });
+
   it("wins early when the target is hit, and reports other statuses", () => {
     expect(
       goalProgress({ ...goal, target: 2 }, [launch("a", "2026-10-01"), launch("b", "2026-10-02")], "2026-10-02").status,
@@ -119,5 +132,81 @@ describe("setting a goal", () => {
     expect(goalShareText({ title: "Slopvember", target: 1, days: 1 })).toBe(
       "Slopvember: I'm throwing 1 slop at the wall in 1 day. Hold me to it.",
     );
+  });
+});
+
+describe("scheduled launches", () => {
+  it("turns a wall time in a zone into an instant, across clock changes", () => {
+    expect(new Date(localInstant("2026-10-15", 9 * 60, "America/Los_Angeles")).toISOString()).toBe(
+      "2026-10-15T16:00:00.000Z",
+    );
+    // London leaves summer time on 25 Oct 2026.
+    expect(new Date(localInstant("2026-10-24", 60, "Europe/London")).toISOString()).toBe("2026-10-24T00:00:00.000Z");
+    expect(new Date(localInstant("2026-10-26", 60, "Europe/London")).toISOString()).toBe("2026-10-26T01:00:00.000Z");
+  });
+
+  it("starts each local day's release at the UTC midnight inside it", () => {
+    // In Los Angeles, UTC midnight falls at 5pm the evening before the UTC date.
+    expect(new Date(raceStartOn("2026-10-15", "America/Los_Angeles")).toISOString()).toBe("2026-10-16T00:00:00.000Z");
+    // In Tokyo it falls at 9am on the same date.
+    expect(new Date(raceStartOn("2026-10-15", "Asia/Tokyo")).toISOString()).toBe("2026-10-15T00:00:00.000Z");
+    expect(new Date(raceStartOn("2026-10-15", "UTC")).toISOString()).toBe("2026-10-15T00:00:00.000Z");
+    // The Azores' spring-forward day runs 01:00 to 24:00 UTC and holds no UTC midnight.
+    const azores = raceStartOn("2026-03-29", "Atlantic/Azores");
+    expect(localDate(new Date(azores), "Atlantic/Azores")).toBe("2026-03-29");
+  });
+
+  it("lines launches up on the next free days, skipping ones already taken", () => {
+    const now = Date.parse("2026-10-15T12:00:00Z");
+    // Today's UTC midnight has passed in UTC, so today isn't free any more.
+    expect(new Date(nextFreeRelease(new Set(), "2026-10-15", "UTC", now)).toISOString()).toBe(
+      "2026-10-16T00:00:00.000Z",
+    );
+    const taken = new Set(["2026-10-16", "2026-10-17"]);
+    expect(new Date(nextFreeRelease(taken, "2026-10-15", "UTC", now)).toISOString()).toBe("2026-10-18T00:00:00.000Z");
+    // 5am in Los Angeles: today's race start (5pm) is still ahead, so today is free.
+    expect(new Date(nextFreeRelease(new Set(), "2026-10-15", "America/Los_Angeles", now)).toISOString()).toBe(
+      "2026-10-16T00:00:00.000Z",
+    );
+    expect(
+      localDate(
+        new Date(nextFreeRelease(new Set(["2026-10-15"]), "2026-10-15", "America/Los_Angeles", now)),
+        "America/Los_Angeles",
+      ),
+    ).toBe("2026-10-16");
+  });
+
+  it("reads now, next, wall times in the owner's zone and zoned times", () => {
+    expect(parseRelease("now", "UTC")).toEqual({ kind: "now" });
+    expect(parseRelease(" next ", "UTC")).toEqual({ kind: "next" });
+    expect(parseRelease("2026-10-15T09:30", "America/New_York")).toEqual({
+      kind: "at",
+      at: Date.parse("2026-10-15T13:30:00Z"),
+    });
+    expect(parseRelease("2026-10-15T09:30:00+02:00", "America/New_York")).toEqual({
+      kind: "at",
+      at: Date.parse("2026-10-15T07:30:00Z"),
+    });
+    expect(parseRelease("2026-10-15T09:30:00Z", "Asia/Tokyo")).toEqual({
+      kind: "at",
+      at: Date.parse("2026-10-15T09:30:00Z"),
+    });
+    for (const bad of ["tomorrow", "2026-10-15", "2026-02-30T09:00", "2026-10-15T25:00", ""]) {
+      expect(parseRelease(bad, "UTC")).toBeNull();
+    }
+  });
+
+  it("keeps release times in the future and within reach", () => {
+    const now = Date.parse("2026-10-15T12:00:00Z");
+    expect(releaseProblem(now, now)).toBe("Pick a time that hasn't happened yet.");
+    expect(releaseProblem(now + 60_000, now)).toBeNull();
+    expect(releaseProblem(now + 101 * 86_400_000, now)).toBe("Pick a time in the next 100 days.");
+  });
+
+  it("shows release times in the owner's zone", () => {
+    const at = Date.parse("2026-10-16T00:00:00Z");
+    expect(formatRelease(at, "America/Los_Angeles")).toBe("Thu 15 Oct, 17:00");
+    expect(localDateTimeValue(at, "America/Los_Angeles")).toBe("2026-10-15T17:00");
+    expect(localDateTimeValue(at, "Asia/Tokyo")).toBe("2026-10-16T09:00");
   });
 });

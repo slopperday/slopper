@@ -205,6 +205,34 @@ export default defineSchema({
     .index("by_product", ["productId"])
     .index("by_slopcessful", ["slopcessfulAt"]),
 
+  /**
+   * Launches waiting to go out (see app/lib/schedule.ts). Nobody but the
+   * owner sees one until `releaseAt`, when it becomes a slop like any other.
+   */
+  scheduledLaunches: defineTable({
+    userId: v.id("users"),
+    releaseAt: v.number(),
+    name: v.string(),
+    tagline: v.string(),
+    description: v.string(),
+    category: v.string(),
+    links: v.array(linkValidator),
+    screenshots: v.array(v.id("media")),
+    madeWith: v.array(v.string()),
+    launchNote: v.string(),
+    /** For another launch of a product: its first launch. */
+    productId: v.union(v.id("slops"), v.null()),
+    launchLabel: v.union(v.string(), v.null()),
+    autopost: v.boolean(),
+    /**
+     * Set when it goes out, until the app server has run the content check
+     * and auto-posted it (`schedule.claim`), which deletes the row.
+     */
+    released: v.optional(v.object({ slopId: v.id("slops"), updateId: v.id("updates") })),
+  })
+    .index("by_user_release", ["userId", "releaseAt"])
+    .index("by_product", ["productId"]),
+
   updates: defineTable({
     slopId: v.id("slops"),
     userId: v.id("users"),

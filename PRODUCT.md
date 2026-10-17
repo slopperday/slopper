@@ -34,6 +34,8 @@ persistence, where launch sites are built around one big day.
 - Slopcessful is earned, never declared: by winning slop of the day, and (planned) by passing 1,000 users verified by
   signups or $1,000 of revenue verified through integrations. It stays its own badge, separate from slop of the day.
 - Each launch (website, then iOS beta, then 2.0) is its own entry with its own shot at slop of the day.
+- Launches can be scheduled: a slop that's ready waits, private, until its time (the next free day as its race starts,
+  or a time the maker picks), then counts towards the goal on the day it goes out. Three out in one day are three.
 - Updates, new features, re-promotes and field tests keep a slop alive after launch day.
 - Agents can do everything through MCP (`/mcp`) and REST (`/api/v1`), with copy-paste prompts on every form.
 

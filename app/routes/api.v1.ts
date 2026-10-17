@@ -20,11 +20,15 @@ import { findOperation, runOperation } from "~/.server/agent/operations";
  *   POST   /api/v1/slops/:slop/updates
  *   POST   /api/v1/slops/:slop/money
  *   POST   /api/v1/slops/:slop/vote
+ *   GET    /api/v1/scheduled
+ *   POST   /api/v1/scheduled/:scheduled/release
+ *   DELETE /api/v1/scheduled/:scheduled
  */
 
 interface Match {
   operation: string;
   slop?: string;
+  scheduled?: string;
 }
 
 function route(method: string, path: string): Match | null {
@@ -35,6 +39,14 @@ function route(method: string, path: string): Match | null {
   if (method === "GET" && parts.length === 1 && resource === "today") return { operation: "todays_race" };
   if (method === "POST" && parts.length === 1 && resource === "goal") return { operation: "set_goal" };
   if (method === "POST" && parts.length === 1 && resource === "media") return { operation: "upload_screenshot" };
+  if (resource === "scheduled") {
+    if (method === "GET" && parts.length === 1) return { operation: "list_scheduled" };
+    if (method === "POST" && parts.length === 3 && action === "release") {
+      return { operation: "release_scheduled", scheduled: ref };
+    }
+    if (method === "DELETE" && parts.length === 2) return { operation: "cancel_scheduled", scheduled: ref };
+    return null;
+  }
   if (resource !== "slops") return null;
   if (parts.length === 1) {
     if (method === "GET") return { operation: "list_my_slops" };
@@ -85,6 +97,7 @@ async function handle(request: Request, path: string): Promise<Response> {
       }
     }
     if (match.slop) input = { ...input, slop: decodeURIComponent(match.slop) };
+    if (match.scheduled) input = { ...input, scheduled: decodeURIComponent(match.scheduled) };
 
     const operation = findOperation(match.operation);
     if (!operation) throw new ApiError(404, "Unknown operation.");
