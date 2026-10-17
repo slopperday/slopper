@@ -1,7 +1,8 @@
 import { Form, Link } from "react-router";
 import type { Route } from "./+types/mod";
 import { api } from "@convex/_generated/api";
-import { isAdmin } from "@convex/lib/auth";
+import type { Id } from "@convex/_generated/dataModel";
+import { can, mayJudge } from "@convex/lib/permissions";
 import { requireStaff, type User, viewerContext } from "~/.server/session";
 import { convex, convexMessage } from "~/.server/convex";
 import { formText } from "~/.server/forms";
@@ -14,8 +15,9 @@ import { EmptyState } from "~/components/Shared";
 
 /**
  * Moderation. Moderators approve or reject what waits here: promo videos and
- * flagged slops. Admins also see what the video check decided on its own,
- * take down videos it let through, and revoke or restore trust.
+ * flagged slops, except their own. Admins also see what the video check
+ * decided on its own, take down videos it let through, and revoke or restore
+ * trust (the permissions in convex/lib/permissions.ts).
  */
 
 const DECISIONS = {
@@ -38,15 +40,24 @@ const VERDICTS = {
 } as const;
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  const user = requireStaff(context.get(viewerContext), request, "moderator");
-  const admin = isAdmin(user);
+  const user = requireStaff(context.get(viewerContext), request, "queue.decide");
+  const allowed = {
+    takeDown: can(user, "videos.takeDown"),
+    trust: can(user, "videos.trust"),
+    team: can(user, "team.manage"),
+  };
   const [items, videos, checks, trust] = await Promise.all([
     convex.query(api.moderation.queue, {}),
     convex.query(api.videos.queue, {}),
-    admin ? convex.query(api.videos.checks, {}) : [],
-    admin ? convex.query(api.videos.trustList, {}) : [],
+    allowed.takeDown || allowed.trust ? convex.query(api.videos.checks, {}) : [],
+    allowed.trust ? convex.query(api.videos.trustList, {}) : [],
   ]);
-  return { items, videos, checks, trust, admin };
+  // Someone else decides on a moderator's own slops.
+  const judged = <T extends { ownerId: Id<"users"> }>({ ownerId, ...item }: T) => ({
+    ...item,
+    decidable: mayJudge(user, ownerId),
+  });
+  return { items: items.map(judged), videos: videos.map(judged), checks, trust, allowed };
 }
 
 /** Runs one decision, turning a Convex business-rule error into a flash. */
@@ -134,7 +145,7 @@ async function setTrust(user: User, form: FormData): Promise<Response> {
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
-  const user = requireStaff(context.get(viewerContext), request, "moderator");
+  const user = requireStaff(context.get(viewerContext), request, "queue.decide");
   const form = await request.formData();
   const intent = formText(form, "intent");
   return await attempt(async () => {
@@ -144,10 +155,10 @@ export async function action({ request, context }: Route.ActionArgs) {
       case "flag":
         return await decideFlag(user, form);
       case "takedown":
-        if (!isAdmin(user)) forbidden();
+        if (!can(user, "videos.takeDown")) forbidden();
         return await takeDown(user, form);
       case "trust":
-        if (!isAdmin(user)) forbidden();
+        if (!can(user, "videos.trust")) forbidden();
         return await setTrust(user, form);
       default:
         return outOfDateForm("/mod");
@@ -160,12 +171,12 @@ export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "
 type LoaderData = Route.ComponentProps["loaderData"];
 
 export default function Moderation({ loaderData }: Route.ComponentProps) {
-  const { items, videos, checks, trust, admin } = loaderData;
+  const { items, videos, checks, trust, allowed } = loaderData;
   return (
     <section className="mx-auto max-w-4xl px-4 pt-14">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="title-1">Moderation</h1>
-        {admin && (
+        {allowed.team && (
           <Link to="/mod/team" className="btn btn-sm bg-raised">
             Moderation team
           </Link>
@@ -184,8 +195,8 @@ export default function Moderation({ loaderData }: Route.ComponentProps) {
           ))}
         </div>
       </section>
-      {admin && checks.length > 0 && <AutomaticChecks checks={checks} />}
-      {admin && trust.length > 0 && <TrustedUploaders trust={trust} />}
+      {checks.length > 0 && <AutomaticChecks checks={checks} allowed={allowed} />}
+      {trust.length > 0 && <TrustedUploaders trust={trust} />}
     </section>
   );
 }
@@ -222,17 +233,21 @@ function VideoQueue({ videos }: { videos: LoaderData["videos"] }) {
               preload="metadata"
               className="mt-4 max-h-[60vh] w-full rounded-xl bg-board"
             />
-            <Form method="post" className="mt-5 flex flex-wrap gap-2">
-              <input type="hidden" name="intent" value="video" />
-              <input type="hidden" name="id" value={video.slopId} />
-              <input type="hidden" name="media" value={video.mediaId} />
-              <button type="submit" name="decision" value="approve" className="btn btn-sm btn-slop">
-                Approve video
-              </button>
-              <button type="submit" name="decision" value="remove" className="btn btn-sm bg-raised">
-                Take it off
-              </button>
-            </Form>
+            {video.decidable ? (
+              <Form method="post" className="mt-5 flex flex-wrap gap-2">
+                <input type="hidden" name="intent" value="video" />
+                <input type="hidden" name="id" value={video.slopId} />
+                <input type="hidden" name="media" value={video.mediaId} />
+                <button type="submit" name="decision" value="approve" className="btn btn-sm btn-slop">
+                  Approve video
+                </button>
+                <button type="submit" name="decision" value="remove" className="btn btn-sm bg-raised">
+                  Take it off
+                </button>
+              </Form>
+            ) : (
+              <YourOwn />
+            )}
           </article>
         ))}
       </div>
@@ -268,26 +283,35 @@ function FlaggedSlop({ item }: { item: LoaderData["items"][number] }) {
           </li>
         ))}
       </ul>
-      <Form method="post" className="mt-5 flex flex-wrap gap-2">
-        <input type="hidden" name="intent" value="flag" />
-        <input type="hidden" name="id" value={item.id} />
-        {(Object.keys(DECISIONS) as Decision[]).map((decision) => (
-          <button
-            key={decision}
-            type="submit"
-            name="decision"
-            value={decision}
-            className={`btn btn-sm ${decision === "fine" ? "btn-slop" : "bg-raised"}`}
-          >
-            {DECISIONS[decision].label}
-          </button>
-        ))}
-      </Form>
+      {item.decidable ? (
+        <Form method="post" className="mt-5 flex flex-wrap gap-2">
+          <input type="hidden" name="intent" value="flag" />
+          <input type="hidden" name="id" value={item.id} />
+          {(Object.keys(DECISIONS) as Decision[]).map((decision) => (
+            <button
+              key={decision}
+              type="submit"
+              name="decision"
+              value={decision}
+              className={`btn btn-sm ${decision === "fine" ? "btn-slop" : "bg-raised"}`}
+            >
+              {DECISIONS[decision].label}
+            </button>
+          ))}
+        </Form>
+      ) : (
+        <YourOwn />
+      )}
     </article>
   );
 }
 
-function AutomaticChecks({ checks }: { checks: LoaderData["checks"] }) {
+/** In place of the decision buttons on a moderator's own slop. */
+function YourOwn() {
+  return <p className="mt-5 font-bold text-muted">It's your slop, so another moderator decides on it.</p>;
+}
+
+function AutomaticChecks({ checks, allowed }: { checks: LoaderData["checks"]; allowed: LoaderData["allowed"] }) {
   return (
     <section className="mt-12" aria-labelledby="checks-title">
       <h2 id="checks-title" className="title-2">
@@ -326,7 +350,7 @@ function AutomaticChecks({ checks }: { checks: LoaderData["checks"] }) {
               />
             )}
             <div className="mt-4 flex flex-wrap gap-2">
-              {check.showing === "live" && (
+              {allowed.takeDown && check.showing === "live" && (
                 <Form method="post">
                   <input type="hidden" name="intent" value="takedown" />
                   <input type="hidden" name="id" value={check.slopId} />
@@ -336,7 +360,9 @@ function AutomaticChecks({ checks }: { checks: LoaderData["checks"] }) {
                   </button>
                 </Form>
               )}
-              {check.trust === "trusted" && <TrustButton userId={check.ownerId} username={check.owner} trusted />}
+              {allowed.trust && check.trust === "trusted" && (
+                <TrustButton userId={check.ownerId} username={check.owner} trusted />
+              )}
             </div>
           </li>
         ))}

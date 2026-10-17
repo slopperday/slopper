@@ -1,8 +1,7 @@
 import type { Auth } from "convex/server";
-import { ConvexError, type Infer } from "convex/values";
+import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import type { staffRoleValidator } from "../schema";
 
 /**
  * Two kinds of caller, both proven by JWTs that only the Slopper app server
@@ -51,38 +50,4 @@ export async function requireViewer(ctx: QueryCtx): Promise<Doc<"users">> {
 export async function readerFor(ctx: QueryCtx, asUser: Id<"users"> | null | undefined): Promise<Doc<"users"> | null> {
   if (asUser && (await isServer(ctx))) return await ctx.db.get(asUser);
   return await viewer(ctx);
-}
-
-export type StaffRole = Infer<typeof staffRoleValidator>;
-
-/**
- * Whether this person works the moderation queues: approving or rejecting
- * flagged slops and promo videos. Admins and moderators do, and both can see
- * hidden slops to judge them.
- */
-export function canModerate(user: Doc<"users"> | null): boolean {
-  return user?.role === "admin" || user?.role === "moderator";
-}
-
-/**
- * Whether this person is an admin. Everything beyond the queues is theirs:
- * the team, trusting uploaders, and taking down or deleting anyone's slops,
- * videos and comments.
- */
-export function isAdmin(user: Doc<"users"> | null): boolean {
-  return user?.role === "admin";
-}
-
-/**
- * The staff member making a moderation write, checked against their stored
- * role. The app server checks first; this makes a role that was just taken
- * away stop working at once, whatever the server saw when the page loaded.
- */
-export async function requireRole(ctx: QueryCtx, userId: Id<"users">, role: StaffRole): Promise<Doc<"users">> {
-  const user = await ctx.db.get(userId);
-  const allowed = role === "admin" ? isAdmin(user) : canModerate(user);
-  if (!user || !allowed) {
-    throw new ConvexError(role === "admin" ? "Only admins can do that." : "Only moderators can do that.");
-  }
-  return user;
 }

@@ -2,7 +2,7 @@ import type { Route } from "./+types/auth.dev";
 import { api } from "@convex/_generated/api";
 import { config } from "~/.server/config";
 import { convex } from "~/.server/convex";
-import { startSession } from "~/.server/session";
+import { grantListedAdmin, startSession } from "~/.server/session";
 import { safeReturnTo } from "~/.server/auth/oauth";
 import { formText } from "~/.server/forms";
 import { notFound, readCookie, redirectWithFlash, TZ_COOKIE } from "~/.server/http";
@@ -23,6 +23,7 @@ export async function action({ request }: Route.ActionArgs) {
     avatarUrl: null,
     timeZone: decodeURIComponent(readCookie(request, TZ_COOKIE) ?? "UTC"),
   });
+  await grantListedAdmin({ provider: "dev", providerId: username });
   const response = redirectWithFlash(safeReturnTo(formText(form, "returnTo")));
   await startSession(userId, response.headers);
   return response;

@@ -79,12 +79,16 @@ release. Add a tool name to select part of the graph. For example, run
   `checkVideo` (`app/.server/moderation.ts`) as they're set: same policy prompt, the video inline as `video_url` to
   `OPENROUTER_VIDEO_MODEL` (Gemini 3.1 Flash Lite on Google AI Studio by default). Only an `ok` plays at once; any other
   verdict, an error or no key leaves it queued. Every automatic decision goes in `videoChecks`, which stays server-side.
-- **Moderation team:** roles are `users.role` in Convex (`convex/team.ts`). Moderators only approve or reject what's
-  queued at /mod (videos, flagged slops) and can see hidden slops; everything else (/mod/team, video trust, taking down
-  or deleting anyone's slops, videos and comments) is for admins. ADMIN_USERNAMES are always admins: the server stores
-  the role when it first sees them (`viewerMiddleware`) and won't demote them while they're listed. Gate routes with
-  `requireStaff`, and pass the acting `moderatorId`/`adminId` so Convex checks the stored role (`requireRole`); never
-  trust a role flag from the caller. Roles and trust never go into a public shape.
+- **Moderation team:** roles are `users.role` in Convex (`convex/team.ts`); what each role may do is one table in
+  `convex/lib/permissions.ts`. Check permissions, never role names: `can(user, "slops.hide")`, `requireStaff(viewer,
+request, permission)` on routes, and `requirePermission(ctx, actorId, permission)` in Convex with the acting
+  `moderatorId`/`adminId`, so Convex checks the stored role; never trust a role flag from the caller. Loaders send
+  `permissionsOf(user)`, not the role. Moderators only approve or reject what's queued at /mod (videos, flagged slops),
+  never their own slops (`mayJudge`), and can see hidden slops; everything else is for admins. Every use of a staff
+  power is written to `staffActions` with `logStaffAction` in the same mutation, and admins read it at /mod/team.
+  ADMIN_IDENTITIES lists sign-in accounts (`github:1160934`), never usernames, which anyone can take: whoever signs in
+  with one is made an admin (`grantListedAdmin`) and can't be demoted while it's listed. Roles, permissions, trust and
+  the staff log never go into a public shape.
 - **Promo video:** the source of the one on slop #0001 is `packages/promo` (Remotion, private, never released), and
   its README says how to render it. Its music is licensed for use, not redistribution.
 - **Emails:** `users.email` holds a sign-in provider's verified address, for the daily digest only. Keep it out of

@@ -1,9 +1,11 @@
 import { ConvexError, type Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
-import { requireRole, requireServer } from "./lib/auth";
+import { requireServer } from "./lib/auth";
+import { requireMayJudge, requirePermission } from "./lib/permissions";
 import { consume } from "./lib/rate";
-import { checkVerdictValidator } from "./schema";
+import { logStaffAction } from "./lib/staffLog";
+import { checkVerdictValidator, flagDecisionValidator } from "./schema";
 import { FLAGS_TO_BLUR } from "../app/lib/model";
 
 /**
@@ -171,6 +173,7 @@ export const queue = query({
         tagline: slop.tagline,
         slug: slop.slug,
         owner: owner.username,
+        ownerId: owner._id,
         nsfw: slop.nsfw,
         hidden: slop.hidden,
         flags: rows.map((row, index) => ({
@@ -188,22 +191,20 @@ export const queue = query({
 /**
  * A moderator's decision on a flagged slop: "fine" clears the blur and
  * hiding, "nsfw" keeps it up but blurred, "hide" takes it down. Each one
- * closes the open flags.
+ * closes the open flags. Moderators don't decide on their own slops.
  */
 export const decide = mutation({
-  args: {
-    moderatorId: v.id("users"),
-    slopId: v.id("slops"),
-    decision: v.union(v.literal("fine"), v.literal("nsfw"), v.literal("hide")),
-  },
+  args: { moderatorId: v.id("users"), slopId: v.id("slops"), decision: flagDecisionValidator },
   handler: async (ctx, { moderatorId, slopId, decision }) => {
     await requireServer(ctx);
-    await requireRole(ctx, moderatorId, "moderator");
+    const moderator = await requirePermission(ctx, moderatorId, "queue.decide");
     const slop = await ctx.db.get(slopId);
     if (!slop) return;
+    requireMayJudge(moderator, slop);
     if (decision === "fine") await ctx.db.patch(slopId, { nsfw: false, hidden: false });
     if (decision === "nsfw") await ctx.db.patch(slopId, { nsfw: true, hidden: false });
     if (decision === "hide") await ctx.db.patch(slopId, { hidden: true });
     await clearFlags(ctx, slopId);
+    await logStaffAction(ctx, moderatorId, { type: "flags", slopId, decision }, slop);
   },
 });

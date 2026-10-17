@@ -43,7 +43,8 @@ export const PORTS = {
 /** Written by `e2e/stack.ts`, read by the fixtures. */
 export const STACK_FILE = ".e2e/stack.json";
 
-/** The username the stack makes an admin (ADMIN_USERNAMES). */
+/** The admin the stack lists in ADMIN_IDENTITIES: how they sign in, and the username they get. */
+export const E2E_ADMIN_IDENTITY = { provider: "e2e", providerId: "admin" } as const;
 export const E2E_ADMIN = "e2e-admin";
 
 export interface Stack {

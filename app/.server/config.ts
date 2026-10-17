@@ -19,6 +19,12 @@ if (import.meta.env.DEV && existsSync(".env.local")) {
  * offered in the UI, so a fresh checkout runs with nothing but `vp dev`.
  */
 
+/** A sign-in provider ("github", "x"…) and that provider's id for an account. */
+export interface SignInIdentity {
+  provider: string;
+  providerId: string;
+}
+
 export interface OAuthClientCredentials {
   clientId: string;
   clientSecret: string;
@@ -73,10 +79,10 @@ export interface Config {
   jwtIssuer: string;
   jwtPrivateKey: string | null;
   /**
-   * Lower-cased usernames that are always admins (ADMIN_USERNAMES). Everyone
-   * else on the moderation team has a role stored in Convex (convex/team.ts).
+   * Sign-in accounts that are always admins (ADMIN_IDENTITIES). Everyone else
+   * on the moderation team has a role stored in Convex (convex/team.ts).
    */
-  adminUsernames: ReadonlySet<string>;
+  adminIdentities: readonly SignInIdentity[];
   github: OAuthClientCredentials | null;
   google: OAuthClientCredentials | null;
   x: OAuthClientCredentials | null;
@@ -115,6 +121,36 @@ function credentials(env: Env, prefix: string): OAuthClientCredentials | null {
   return { clientId, clientSecret };
 }
 
+/**
+ * ADMIN_IDENTITIES: comma-separated `provider:id` pairs, like `github:1160934`.
+ * A provider's id for an account never changes and nobody else can take it,
+ * unlike a username, which is why admins aren't listed by username. A
+ * malformed entry stops the server: it's a deployment mistake that would
+ * otherwise quietly leave someone without the role they were meant to have.
+ */
+function adminIdentities(env: Env): SignInIdentity[] {
+  return (env.ADMIN_IDENTITIES ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const separator = entry.indexOf(":");
+      const provider = entry.slice(0, separator).trim().toLowerCase();
+      const providerId = entry.slice(separator + 1).trim();
+      if (separator < 0 || !provider || !providerId) {
+        throw new Error(`ADMIN_IDENTITIES entries are provider:id, like github:1160934. Got "${entry}".`);
+      }
+      return { provider, providerId };
+    });
+}
+
+/** Whether `identity` is one of the listed sign-in accounts. */
+export function isListed(identities: readonly SignInIdentity[], identity: SignInIdentity): boolean {
+  return identities.some(
+    (listed) => listed.provider === identity.provider && listed.providerId === identity.providerId,
+  );
+}
+
 const B2_VARIABLES = ["B2_ENDPOINT", "B2_REGION", "B2_BUCKET", "B2_KEY_ID", "B2_APPLICATION_KEY"] as const;
 
 /**
@@ -142,12 +178,7 @@ export function loadConfig(env: Env = process.env): Config {
     convexUrl: env.CONVEX_URL?.trim() || env.VITE_CONVEX_URL?.trim() || null,
     jwtIssuer: env.SLOPPER_JWT_ISSUER?.trim() || "https://slopper.day",
     jwtPrivateKey: env.SLOPPER_JWT_PRIVATE_KEY?.trim() || null,
-    adminUsernames: new Set(
-      (env.ADMIN_USERNAMES ?? "")
-        .split(",")
-        .map((name) => name.trim().toLowerCase())
-        .filter(Boolean),
-    ),
+    adminIdentities: adminIdentities(env),
     github: credentials(env, "GITHUB"),
     google: credentials(env, "GOOGLE"),
     x: credentials(env, "X"),
