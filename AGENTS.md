@@ -33,6 +33,8 @@ release. Add a tool name to select part of the graph. For example, run
 - **E2E:** `e2e/stack.ts` runs the production build against a throwaway Convex backend and a fake content check. Tests
   seed people and slops through Convex as the server (`e2e/fixtures.ts`) unless the journey is about that step. Assert
   only on data the test created: the database is shared by parallel workers.
+  Each checkout gets its own block of e2e ports from its path (`e2e/ports.ts`), so worktrees can run CI at the same
+  time; `E2E_PORT_BASE` moves one by hand.
 - **CI is local only.** The pre-push hook runs `vp run ci`; never add remote CI without asking (cost). The one
   workflow, `.github/workflows/release.yml`, only publishes merged release pull requests and skips every other push.
 - **Hosting:** Netlify runs the build (`netlify.toml`): static files from `build/client`, the server as one Netlify
