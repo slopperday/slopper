@@ -6,7 +6,7 @@ import { requireStaff, type User, viewerContext } from "~/.server/session";
 import { convex, convexMessage } from "~/.server/convex";
 import { formText } from "~/.server/forms";
 import { deleteOrphanedMedia } from "~/.server/media";
-import { badRequest, forbidden, redirectWithFlash } from "~/.server/http";
+import { forbidden, outOfDateForm, redirectWithFlash } from "~/.server/http";
 import { timeAgo } from "~/lib/dates";
 import { slopPath } from "~/lib/display";
 import { seo } from "~/lib/seo";
@@ -65,7 +65,7 @@ const handled = () => redirectWithFlash("/mod", { tone: "info", message: "Alread
 /** Approve or take off a waiting video: the one the moderator watched, never a newer one. */
 async function decideVideo(user: User, form: FormData): Promise<Response> {
   const decision = formText(form, "decision");
-  if (decision !== "approve" && decision !== "remove") badRequest("Unknown decision");
+  if (decision !== "approve" && decision !== "remove") return outOfDateForm("/mod");
   const slopId = formText(form, "id");
   const mediaId = formText(form, "media");
   const item = (await convex.query(api.videos.queue, {})).find(
@@ -91,7 +91,7 @@ async function decideVideo(user: User, form: FormData): Promise<Response> {
 
 async function decideFlag(user: User, form: FormData): Promise<Response> {
   const decision = formText(form, "decision");
-  if (!isDecision(decision)) badRequest("Unknown decision");
+  if (!isDecision(decision)) return outOfDateForm("/mod");
   const slopId = formText(form, "id");
   const item = (await convex.query(api.moderation.queue, {})).find((entry) => entry.id === slopId);
   if (!item) return handled();
@@ -152,7 +152,7 @@ export async function action({ request, context }: Route.ActionArgs) {
         if (!isAdmin(user)) forbidden();
         return await setTrust(user, form);
       default:
-        badRequest("Unknown action");
+        return outOfDateForm("/mod");
     }
   });
 }
