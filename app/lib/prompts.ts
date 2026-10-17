@@ -33,7 +33,7 @@ export function updatePrompt(origin: string, slop: string): string {
 
 Task: post an update for my slop "${slop}".
 1. Look at what changed since the last release: git log, the diff, the changelog.
-2. Call post_update with kind "feature" for something new, "update" for fixes, or "field" if I tested it with real people (ask me who tried it and what they said).
+2. Call post_update with kind "feature" for something new (with its featureName), "update" for fixes, or "field" if I tested it with real people (ask me who tried it and how it went, for who and outcome). Set version if one shipped, and add screenshots of what changed as images (upload them first with upload_screenshot).
 3. Keep the body short, concrete and in my voice. Set autopost: true.`;
 }
 

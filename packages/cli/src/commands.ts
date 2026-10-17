@@ -471,17 +471,49 @@ export const COMMANDS: Command[] = [
       "--kind <kind>":
         "update (fixes, news; the default), feature (something new shipped), field (a real-world test: who tried it, what they said) or repromote.",
       "--body <markdown>": "Required: what happened.",
+      "--version <version>": "What shipped, like v1.3.",
+      "--image <file|id>": "An image file (uploaded for you) or an id from `slopper upload`; repeat for up to 4.",
+      "--link <kind=url>": "A link to go with it, kinds as for launch; repeat for up to 3.",
+      "--preview": "Show a preview card (the page's title, description and image) for every --link.",
+      "--feature <name>": "With --kind feature: what it's called.",
+      "--outcome <worked|mixed|broke>": "With --kind field: how it went.",
+      "--who <text>": "With --kind field and --outcome: who tried it.",
       ...AUTOPOST_FLAG,
     },
-    options: { kind: { type: "string" }, body: { type: "string" }, autopost: { type: "boolean" } },
-    run(context) {
+    options: {
+      kind: { type: "string" },
+      body: { type: "string" },
+      version: { type: "string" },
+      image: { type: "string", multiple: true },
+      link: { type: "string", multiple: true },
+      preview: { type: "boolean" },
+      feature: { type: "string" },
+      outcome: { type: "string" },
+      who: { type: "string" },
+      autopost: { type: "boolean" },
+    },
+    async run(context) {
       const { api, values } = context;
       const slop = positional(context, 0, "slop");
-      return api.post(`${slopPath(slop)}/updates`, {
+      const body = required(text(values, "body"), "--body <markdown>");
+      const links = list(values, "link");
+      if (values.preview === true && !links) throw usageError("--preview needs a --link to preview.");
+      const images = list(values, "image");
+      const fields: Record<string, unknown> = {
         kind: text(values, "kind") ?? "update",
-        body: required(text(values, "body"), "--body <markdown>"),
+        body,
+        version: text(values, "version"),
+        images: images ? await screenshotIds(api, images) : undefined,
+        links: links?.map((link) => ({ ...parseLink(link), preview: values.preview === true })),
+        featureName: text(values, "feature"),
+        outcome: text(values, "outcome"),
+        who: text(values, "who"),
         autopost: values.autopost === true,
-      });
+      };
+      return api.post(
+        `${slopPath(slop)}/updates`,
+        Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)),
+      );
     },
   },
   {

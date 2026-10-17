@@ -5,7 +5,7 @@ import type { Vote } from "@convex/lib/shape";
 import {
   CATEGORIES,
   COST_CATEGORIES,
-  isPostableUpdateKind,
+  FIELD_OUTCOMES,
   LIMITS,
   LINK_KINDS,
   POSTABLE_UPDATE_KINDS,
@@ -17,11 +17,12 @@ import { listWords, slopPath } from "~/lib/display";
 import { CURRENCIES } from "~/lib/money";
 import { absoluteUrl, autopostNetworks, config } from "../config";
 import { convex, convexMessage } from "../convex";
-import { validateGoal, validateSlop } from "../forms";
+import { validateGoal, validateSlop, validateUpdate } from "../forms";
 import { deleteOrphanedMedia, uploadImage, uploadVideo } from "../media";
 import { checkedContent, checkSlop } from "../moderation";
 import { finishLaunch, releaseScheduled } from "../launch";
 import { announce } from "../social/announce";
+import { postUpdate } from "../updates";
 import type { User } from "../session";
 import {
   ApiError,
@@ -32,6 +33,7 @@ import {
   optionalNumber,
   optionalString,
   optionalStrings,
+  optionalUpdateLinks,
   requiredString,
 } from "./input";
 
@@ -268,7 +270,7 @@ export const OPERATIONS: Operation[] = [
   {
     name: "upload_screenshot",
     title: "Upload a screenshot",
-    description: `Upload a PNG, JPEG, WebP or GIF (max ${LIMITS.mediaBytes / 1024 / 1024} MB) as base64. It's checked first: explicit or hateful images are refused, and a mature one blurs any slop that shows it. Returns an id to pass in create_slop or update_slop screenshots, and the check's verdict (ok, mature, or unchecked when it couldn't run).`,
+    description: `Upload a PNG, JPEG, WebP or GIF (max ${LIMITS.mediaBytes / 1024 / 1024} MB) as base64. It's checked first: explicit or hateful images are refused, and a mature one blurs any slop that shows it. Returns an id to pass in create_slop or update_slop screenshots or post_update images, and the check's verdict (ok, mature, or unchecked when it couldn't run).`,
     inputSchema: {
       type: "object",
       properties: { base64: { type: "string", description: "Image bytes, base64 encoded (no data: prefix)." } },
@@ -480,13 +482,56 @@ export const OPERATIONS: Operation[] = [
     name: "post_update",
     title: "Post an update",
     description:
-      "Add to a slop's updates. Kinds: update (fixes, news), feature (something new shipped), field (a real-world test: who tried it and what they said), repromote (bump it back up).",
+      "Add to a slop's updates. Kinds: update (fixes, news), feature (something new shipped), field (a real-world test: who tried it and what they said), repromote (bump it back up). It can carry the version that shipped, images from upload_screenshot, and links, each with an optional preview card.",
     inputSchema: {
       type: "object",
       properties: {
         slop: SLOP_REF,
         kind: { type: "string", enum: [...POSTABLE_UPDATE_KINDS] },
         body: { type: "string", maxLength: LIMITS.updateLength, description: "Markdown." },
+        version: {
+          type: "string",
+          maxLength: LIMITS.versionLength,
+          description: "What shipped, like v1.3 or 2.0 beta.",
+        },
+        images: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: LIMITS.updateImages,
+          description: "Media ids from upload_screenshot, in order.",
+        },
+        links: {
+          type: "array",
+          maxItems: LIMITS.updateLinks,
+          items: {
+            type: "object",
+            properties: {
+              kind: { type: "string", enum: Object.keys(LINK_KINDS), description: "Defaults to website." },
+              url: { type: "string" },
+              preview: {
+                type: "boolean",
+                description:
+                  "Show a card with the page's title, description and image. Off by default; only ask for one when the user wants it.",
+              },
+            },
+            required: ["url"],
+          },
+        },
+        featureName: {
+          type: "string",
+          maxLength: LIMITS.featureNameLength,
+          description: "For a feature: what it's called, like Level editor.",
+        },
+        outcome: {
+          type: "string",
+          enum: Object.keys(FIELD_OUTCOMES),
+          description: "For a field test: how it went.",
+        },
+        who: {
+          type: "string",
+          maxLength: LIMITS.fieldWhoLength,
+          description: "For a field test (with outcome): who tried it, like 5 people at the bus stop.",
+        },
         autopost: AUTOPOST,
       },
       required: ["slop", "kind", "body"],
@@ -494,23 +539,25 @@ export const OPERATIONS: Operation[] = [
     readOnly: false,
     async run(context, input) {
       const slop = await ownSlop(context, requiredString(input, "slop"));
-      const kind = requiredString(input, "kind");
-      if (!isPostableUpdateKind(kind))
-        throw new ApiError(400, `kind must be one of ${POSTABLE_UPDATE_KINDS.join(", ")}.`);
-      const body = requiredString(input, "body").trim();
-      if (body.length > LIMITS.updateLength) throw new ApiError(422, `body is over ${LIMITS.updateLength} characters.`);
-      const updateId = await convex.mutation(api.activity.addUpdate, {
-        userId: context.user._id,
-        slopId: slop._id,
-        kind,
-        body,
+      const parsed = validateUpdate({
+        kind: requiredString(input, "kind"),
+        body: requiredString(input, "body"),
+        version: optionalString(input, "version"),
+        images: optionalStrings(input, "images"),
+        links: optionalUpdateLinks(input, "links"),
+        featureName: optionalString(input, "featureName"),
+        outcome: optionalString(input, "outcome"),
+        who: optionalString(input, "who"),
       });
+      if (!parsed.ok) throw new ApiError(422, "The update needs fixing.", parsed.errors);
+      const { updateId, missedPreviews } = await postUpdate(context.user._id, slop._id, parsed.value);
       const autopost = optionalBoolean(input, "autopost") ? await announce(context.user, slop._id, updateId) : null;
       return {
         update: {
           id: updateId,
-          kind,
+          kind: parsed.value.kind,
           url: `${absoluteUrl(slopPath(context.user.username, slop.slug))}#update-${updateId}`,
+          ...(missedPreviews > 0 ? { missedPreviews } : {}),
         },
         autopost,
       };

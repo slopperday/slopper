@@ -9,18 +9,46 @@ import { v } from "convex/values";
 
 const crosspostMode = v.union(v.literal("post"), v.literal("amplify"), v.literal("off"));
 
-export const linkValidator = v.object({
-  kind: v.union(
-    v.literal("website"),
-    v.literal("app_store"),
-    v.literal("testflight"),
-    v.literal("play_store"),
-    v.literal("play_beta"),
-    v.literal("source"),
-    v.literal("other"),
-  ),
+const linkKindValidator = v.union(
+  v.literal("website"),
+  v.literal("app_store"),
+  v.literal("testflight"),
+  v.literal("play_store"),
+  v.literal("play_beta"),
+  v.literal("source"),
+  v.literal("other"),
+);
+
+export const linkValidator = v.object({ kind: linkKindValidator, url: v.string() });
+
+/**
+ * A link on an update, with the card read from its page when the maker
+ * asked for one (app/.server/preview.ts). The card's image was checked and
+ * stored like any upload.
+ */
+export const updateLinkValidator = v.object({
+  kind: linkKindValidator,
   url: v.string(),
+  preview: v.union(
+    v.object({
+      title: v.string(),
+      description: v.string(),
+      siteName: v.string(),
+      imageId: v.union(v.id("media"), v.null()),
+    }),
+    v.null(),
+  ),
 });
+
+/** What only some kinds of update carry (see `UpdateDetails` in app/lib/model.ts). */
+export const updateDetailsValidator = v.union(
+  v.object({ kind: v.literal("feature"), name: v.string() }),
+  v.object({
+    kind: v.literal("field"),
+    outcome: v.union(v.literal("worked"), v.literal("mixed"), v.literal("broke")),
+    who: v.union(v.string(), v.null()),
+  }),
+);
 
 export const crosspostResultValidator = v.object({
   accountId: v.string(),
@@ -250,7 +278,16 @@ export default defineSchema({
     kind: updateKindValidator,
     body: v.string(),
     crossposts: v.array(crosspostResultValidator),
-  }).index("by_slop", ["slopId"]),
+    /** What shipped, like "v1.3". The fields below are absent on updates from before they existed. */
+    version: v.optional(v.union(v.string(), v.null())),
+    /** Images checked at upload, like screenshots (convex/media.ts). */
+    images: v.optional(v.array(v.id("media"))),
+    links: v.optional(v.array(updateLinkValidator)),
+    details: v.optional(v.union(updateDetailsValidator, v.null())),
+  })
+    .index("by_slop", ["slopId"])
+    // Which of an owner's images updates still show (`releaseMedia`).
+    .index("by_user", ["userId"]),
 
   comments: defineTable({
     slopId: v.id("slops"),

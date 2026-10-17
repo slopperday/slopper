@@ -19,14 +19,16 @@ async function holdReason(slopId: Id<"slops">, update: Doc<"updates">): Promise<
   const held = await convex.query(api.moderation.autopostHoldFor, { slopId });
   if (held) return held;
   if (update.kind === "launch") return null;
-  const check = await checkUpdate(slopId, update.body);
+  const check = await checkUpdate(slopId, update);
   if (!check) return "the content check couldn't run";
   return check.verdict === "ok" ? null : "the content check flagged this update";
 }
 
+/** The post carries the update's first image, or the slop's cover when it has none. */
 async function postContent(slop: Doc<"slops">, update: Doc<"updates">, username: string) {
+  const image = update.images?.[0] ?? slop.screenshots[0];
   const screenshots = await Promise.all(
-    slop.screenshots.slice(0, 1).map((mediaId) => convex.query(api.media.url, { mediaId })),
+    (image ? [image] : []).map((mediaId) => convex.query(api.media.url, { mediaId })),
   );
   return buildPostContent(
     { ...slop, screenshots: screenshots.filter((url): url is string => url !== null) },

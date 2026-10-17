@@ -52,7 +52,25 @@ async function prepare(file: File): Promise<Blob> {
   throw new Error(`That image is too big even compressed. Try one under ${LIMITS.mediaBytes / 1024 / 1024} MB.`);
 }
 
-export function ScreenshotPicker({ initial, max }: { initial: readonly Screenshot[]; max: number }) {
+interface ScreenshotPickerProps {
+  initial: readonly Screenshot[];
+  max: number;
+  /** The form field each media id is sent as. */
+  name?: string;
+  /** What one image is called: "screenshot" on a slop, "image" on an update. */
+  noun?: string;
+  /** Whether the first image is the cover and others can be made it. */
+  cover?: boolean;
+}
+
+export function ScreenshotPicker({
+  initial,
+  max,
+  name = "screenshot",
+  noun = "screenshot",
+  cover = true,
+}: ScreenshotPickerProps) {
+  const capitalized = noun[0].toUpperCase() + noun.slice(1);
   const [shots, setShots] = useState<Screenshot[]>([...initial]);
   const [pending, setPending] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +82,7 @@ export function ScreenshotPicker({ initial, max }: { initial: readonly Screensho
     setNotice(null);
     const room = max - shots.length;
     const chosen = Array.from(files).slice(0, room);
-    if (files.length > room) setError(`Up to ${max} screenshots.`);
+    if (files.length > room) setError(`Up to ${max} ${noun}s.`);
     setPending((count) => count + chosen.length);
     for (const file of chosen) {
       try {
@@ -89,19 +107,19 @@ export function ScreenshotPicker({ initial, max }: { initial: readonly Screensho
   return (
     <div>
       {shots.map((shot) => (
-        <input key={shot.id} type="hidden" name="screenshot" value={shot.id} />
+        <input key={shot.id} type="hidden" name={name} value={shot.id} />
       ))}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {shots.map((shot, index) => (
           <figure key={shot.id} className="relative overflow-hidden rounded-xl bg-sunk">
             <img
               src={shot.url}
-              alt={`Screenshot ${index + 1}`}
+              alt={`${capitalized} ${index + 1}`}
               className="aspect-[16/10] w-full object-cover object-top"
             />
-            {index === 0 && <span className="tag absolute top-2 left-2 bg-ink text-ground">Cover</span>}
+            {cover && index === 0 && <span className="tag absolute top-2 left-2 bg-ink text-ground">Cover</span>}
             <figcaption className="absolute inset-x-0 bottom-0 flex justify-end gap-1 bg-gradient-to-t from-black/55 p-2">
-              {index > 0 && (
+              {cover && index > 0 && (
                 <button
                   type="button"
                   className="btn btn-sm min-h-9 bg-raised px-2.5 text-sm"
@@ -114,7 +132,7 @@ export function ScreenshotPicker({ initial, max }: { initial: readonly Screensho
                 type="button"
                 className="btn btn-sm min-h-9 bg-raised px-2.5"
                 onClick={() => setShots((current) => current.filter((value) => value.id !== shot.id))}
-                aria-label={`Remove screenshot ${index + 1}`}
+                aria-label={`Remove ${noun} ${index + 1}`}
               >
                 <Icon name="close" className="size-4" />
               </button>
@@ -133,7 +151,7 @@ export function ScreenshotPicker({ initial, max }: { initial: readonly Screensho
           <label className="grid aspect-[16/10] cursor-pointer place-items-center rounded-xl border border-dashed border-line-strong text-center font-bold text-muted transition-colors focus-within:border-(--focus) hover:border-ink hover:text-ink">
             <span className="grid justify-items-center gap-1">
               <Icon name="plus" className="size-6" />
-              Add screenshots
+              Add {noun}s
             </span>
             <input
               ref={input}

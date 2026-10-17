@@ -4,11 +4,11 @@ import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/s
 import { readerFor, requireServer } from "./lib/auth";
 import { notify } from "./lib/notify";
 import { consume, nextCounter } from "./lib/rate";
-import { isVisibleTo, productIdOf, publicSlop, publicUser, toCards, voteOf } from "./lib/shape";
+import { isVisibleTo, productIdOf, publicSlop, publicUpdate, publicUser, toCards, voteOf } from "./lib/shape";
 import { linkValidator } from "./schema";
 import { openGoal } from "./goals";
 import { utcToday } from "./race";
-import { isVideo, releaseMedia } from "./lib/media";
+import { isVideo, releaseMedia, updateMedia } from "./lib/media";
 import { checkScreenshots } from "./moderation";
 import { goalDayFor } from "../app/lib/goal";
 import { LIMITS } from "../app/lib/model";
@@ -28,12 +28,16 @@ export const slopInput = v.object({
   madeWith: v.array(v.string()),
 });
 
-/** Keeps only media the user uploaded (or already attached), in order. Orphaned media is on its way out. */
+/**
+ * Keeps only media the user uploaded (or already attached), in order, up to
+ * `max`. Orphaned media is on its way out.
+ */
 export async function ownedMedia(
   ctx: QueryCtx,
   userId: Id<"users">,
   ids: readonly string[],
   alreadyAttached: readonly Id<"media">[] = [],
+  max: number = LIMITS.screenshots,
 ): Promise<Id<"media">[]> {
   const kept: Id<"media">[] = [];
   for (const raw of new Set(ids)) {
@@ -47,7 +51,7 @@ export async function ownedMedia(
     // Videos go through set_video and a moderator, never in as screenshots.
     if (media?.ownerId === userId && media.orphanedAt === undefined && !isVideo(media)) kept.push(id);
   }
-  return kept.slice(0, LIMITS.screenshots);
+  return kept.slice(0, max);
 }
 
 async function freeSlug(ctx: QueryCtx, userId: Id<"users">, base: string): Promise<string> {
@@ -233,6 +237,7 @@ export const remove = mutation({
       .withIndex("by_slop", (q) => q.eq("slopId", slopId))
       .collect();
     for (const row of updates) await ctx.db.delete(row._id);
+    const updateImages = updates.flatMap(updateMedia);
     const comments = await ctx.db
       .query("comments")
       .withIndex("by_slop", (q) => q.eq("slopId", slopId))
@@ -264,7 +269,7 @@ export const remove = mutation({
       await ctx.db.delete(review._id);
     }
     await ctx.db.delete(slopId);
-    const media = slop.video ? [...slop.screenshots, slop.video.mediaId] : slop.screenshots;
+    const media = [...slop.screenshots, ...(slop.video ? [slop.video.mediaId] : []), ...updateImages];
     return { orphaned: await releaseMedia(ctx, slop.userId, media) };
   },
 });
@@ -490,14 +495,13 @@ export const page = query({
       ownerTimeZone: owner.timeZone,
       slop: await publicSlop(ctx, slop),
       descriptionHtml: renderMarkdown(slop.description),
-      updates: updates.map((update) => ({
-        id: update._id,
-        kind: update.kind,
-        html: renderMarkdown(update.body),
-        createdAt: update._creationTime,
-        // Where it was auto-posted is the owner's business only.
-        crossposts: isOwner ? update.crossposts : [],
-      })),
+      updates: await Promise.all(
+        updates.map(async (update) => ({
+          ...(await publicUpdate(ctx, update)),
+          // Where it was auto-posted is the owner's business only.
+          crossposts: isOwner ? update.crossposts : [],
+        })),
+      ),
       comments: comments.map((comment) => {
         const author = authors.get(comment.userId);
         return {

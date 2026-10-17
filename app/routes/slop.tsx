@@ -5,10 +5,11 @@ import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
 import { convex, convexMessage } from "~/.server/convex";
 import { absoluteUrl, config } from "~/.server/config";
-import { formText } from "~/.server/forms";
+import { formText, updateDraftFromForm, validateUpdate } from "~/.server/forms";
 import { badRequest, forbidden, notFound, redirectWithFlash } from "~/.server/http";
 import { deleteOrphanedMedia } from "~/.server/media";
 import { announce, retryFailed, summarize } from "~/.server/social/announce";
+import { missedPreviewsNote, postUpdate } from "~/.server/updates";
 import { modeFor } from "~/.server/social/crosspost";
 import { shareIntents } from "~/lib/compose";
 import { formatDay, localDate, timeAgo } from "~/lib/dates";
@@ -16,6 +17,8 @@ import { dayLabel, launchTitle, listWords, numberLabel, plural, slopPath } from 
 import { parseAmount } from "~/lib/money";
 import {
   COST_CATEGORIES,
+  FIELD_OUTCOMES,
+  type FieldOutcome,
   FLAG_REASONS,
   isPostableUpdateKind,
   LIMITS,
@@ -40,6 +43,9 @@ import {
   SlopOfTheDayTag,
 } from "~/components/SlopBits";
 import { UPDATE_KIND_TONES } from "~/components/UpdatesList";
+import { UpdateDetailsLine, UpdateImages, UpdateLinks, VersionTag } from "~/components/UpdateBits";
+import { LinkFields } from "~/components/LinkFields";
+import { ScreenshotPicker } from "~/components/ScreenshotPicker";
 import { Icon } from "~/components/Icon";
 import { VoteButtons } from "~/components/VoteButtons";
 import { TakeMyMoney } from "~/components/TakeMyMoney";
@@ -161,26 +167,31 @@ export async function action({ params, request, context }: Route.ActionArgs) {
 
       case "update": {
         if (!isOwner) forbidden();
-        const kind = formText(form, "kind");
-        const body = formText(form, "body");
-        if (!isPostableUpdateKind(kind)) badRequest("Unknown update kind");
-        if (!body || body.length > LIMITS.updateLength) {
+        const parsed = validateUpdate(updateDraftFromForm(form));
+        if (!parsed.ok) {
           return redirectWithFlash(`${here}#updates`, {
             tone: "error",
-            message: `Updates are 1 to ${LIMITS.updateLength} characters.`,
+            message: Object.values(parsed.errors).join(" "),
           });
         }
-        const updateId = await convex.mutation(api.activity.addUpdate, {
-          userId: user._id,
-          slopId: slop.id,
-          kind,
-          body,
-        });
+        const { updateId, missedPreviews } = await postUpdate(user._id, slop.id, parsed.value);
         const autoposted = form.get("autopost") === "on" ? summarize(await announce(ownerRef, slop.id, updateId)) : "";
         return redirectWithFlash(`${here}#update-${updateId}`, {
           tone: "success",
-          message: `${UPDATE_KINDS[kind].label} posted.${autoposted}`,
+          message: `${UPDATE_KINDS[parsed.value.kind].label} posted.${missedPreviewsNote(missedPreviews)}${autoposted}`,
         });
+      }
+
+      case "remove-preview": {
+        if (!isOwner) forbidden();
+        const updateId = formText(form, "id");
+        const removed = await convex.mutation(api.activity.removePreview, {
+          userId: user._id,
+          updateId,
+          url: formText(form, "url"),
+        });
+        if (removed.orphaned > 0) await deleteOrphanedMedia();
+        return redirectWithFlash(`${here}#update-${updateId}`, { tone: "info", message: "Preview removed." });
       }
 
       case "money-add": {
@@ -254,10 +265,11 @@ export async function action({ params, request, context }: Route.ActionArgs) {
 
       case "delete-update": {
         if (!isOwner) forbidden();
-        await convex.mutation(api.activity.deleteUpdate, {
+        const deleted = await convex.mutation(api.activity.deleteUpdate, {
           userId: user._id,
           updateId: formText(form, "id"),
         });
+        if (deleted.orphaned > 0) await deleteOrphanedMedia();
         return redirectWithFlash(`${here}#updates`, { tone: "info", message: "Removed." });
       }
 
@@ -496,7 +508,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
             )}
 
             {loaderData.launches.length > 1 && <LaunchHistory loaderData={loaderData} />}
-            <Updates loaderData={loaderData} />
+            <Updates loaderData={loaderData} reveal={reveal} />
             {loaderData.commentsEnabled && <Feedback loaderData={loaderData} path={path} />}
           </div>
 
@@ -553,8 +565,8 @@ function LaunchHistory({ loaderData }: { loaderData: LoaderData }) {
   );
 }
 
-function Updates({ loaderData }: { loaderData: LoaderData }) {
-  const { updates, isOwner } = loaderData;
+function Updates({ loaderData, reveal }: { loaderData: LoaderData; reveal: boolean }) {
+  const { updates, isOwner, slop } = loaderData;
   return (
     <section id="updates" className="mt-16 scroll-mt-24" aria-labelledby="updates-title">
       <div className="flex items-baseline justify-between gap-4">
@@ -566,7 +578,8 @@ function Updates({ loaderData }: { loaderData: LoaderData }) {
       {isOwner && (
         <div className="mt-6 grid gap-3">
           <AgentPrompt prompt={(origin) => updatePrompt(origin, loaderData.slop.slug)} />
-          <UpdateComposer autopostCount={loaderData.autopostCount} />
+          {/* Keyed on the newest update so a posted one clears the form, its images and links. */}
+          <UpdateComposer key={updates[0]?.id} autopostCount={loaderData.autopostCount} />
         </div>
       )}
       <ol className="mt-8 grid gap-0">
@@ -582,11 +595,17 @@ function Updates({ loaderData }: { loaderData: LoaderData }) {
                 update.kind === "launch" ? "bg-slop" : update.kind === "slopcessful" ? "bg-gold" : "bg-ink"
               }`}
             />
-            <p className="flex flex-wrap items-baseline gap-x-2.5">
+            <p className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
               <span className={`caps ${UPDATE_KIND_TONES[update.kind]}`}>{UPDATE_KINDS[update.kind].label}</span>
+              {update.version && <VersionTag version={update.version} />}
               <span className="text-sm text-muted">{timeAgo(update.createdAt)}</span>
             </p>
+            {update.details && <UpdateDetailsLine details={update.details} />}
             {update.html && <Markdown html={update.html} className="mt-2 max-w-[68ch]" />}
+            {update.images.length > 0 && <UpdateImages images={update.images} name={slop.name} reveal={reveal} />}
+            {update.links.length > 0 && (
+              <UpdateLinks updateId={update.id} links={update.links} isOwner={isOwner} reveal={reveal} />
+            )}
             {isOwner && update.crossposts.length > 0 && <CrosspostReceipts update={update} />}
             {isOwner && update.kind !== "launch" && (
               <Form method="post" className="mt-1">
@@ -637,11 +656,21 @@ function UpdateComposer({ autopostCount }: { autopostCount: number }) {
           </label>
         ))}
       </fieldset>
-      {kind === "field" && (
-        <p className="mt-3 text-[0.9375rem] text-muted">
-          Who tried it in real life, and what did they say? Field tests count extra in the rankings.
-        </p>
+      {kind === "feature" && (
+        <div className="mt-3">
+          <label htmlFor="update-feature" className="sr-only">
+            Feature name
+          </label>
+          <input
+            id="update-feature"
+            name="featureName"
+            maxLength={LIMITS.featureNameLength}
+            className="input font-display text-[1.25rem] font-extrabold"
+            placeholder="Name it: Level editor"
+          />
+        </div>
       )}
+      {kind === "field" && <FieldTestFields />}
       <label htmlFor="update-body" className="sr-only">
         Update
       </label>
@@ -653,6 +682,37 @@ function UpdateComposer({ autopostCount }: { autopostCount: number }) {
         className="input mt-3 min-h-24"
         placeholder={COMPOSER_HINTS[kind]}
       />
+      <details className="group mt-3">
+        <summary className="flex min-h-11 cursor-pointer items-center gap-1.5 font-bold text-muted hover:text-ink">
+          <Icon name="plus" className="size-4 transition-transform group-open:rotate-45" />
+          Version, images and links
+        </summary>
+        <div className="mt-2 grid gap-5">
+          <div className="grid gap-1.5 sm:max-w-[14rem]">
+            <label htmlFor="update-version" className="field-label">
+              Version
+            </label>
+            <input
+              id="update-version"
+              name="version"
+              maxLength={LIMITS.versionLength}
+              className="input font-mono"
+              placeholder="v1.3"
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <span className="field-label">Images</span>
+            <ScreenshotPicker initial={[]} max={LIMITS.updateImages} name="image" noun="image" cover={false} />
+          </div>
+          <div className="grid gap-1.5">
+            <span className="field-label">Links</span>
+            <LinkFields initial={[]} max={LIMITS.updateLinks} optional previews />
+            <p className="field-hint">
+              A preview card reads the page's title, description and image. You can remove it later.
+            </p>
+          </div>
+        </div>
+      </details>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         {autopostCount > 0 ? (
           <label className="flex min-h-11 items-center gap-2">
@@ -672,6 +732,38 @@ function UpdateComposer({ autopostCount }: { autopostCount: number }) {
         </button>
       </div>
     </Form>
+  );
+}
+
+/** How a field test went and who tried it. Saying who means saying how it went too. */
+function FieldTestFields() {
+  return (
+    <div className="mt-3 grid gap-3">
+      <p className="text-[0.9375rem] text-muted">
+        Who tried it in real life, and what did they say? Field tests count extra in the rankings.
+      </p>
+      <fieldset className="flex flex-wrap items-center gap-1.5">
+        <legend className="sr-only">How it went</legend>
+        {(Object.keys(FIELD_OUTCOMES) as FieldOutcome[]).map((outcome) => (
+          <label key={outcome} className="cursor-pointer">
+            <input type="radio" name="outcome" value={outcome} className="peer sr-only" />
+            <span className="flex min-h-10 items-center rounded-lg border border-line-strong px-3 font-bold text-muted transition-colors peer-checked:border-ink peer-checked:bg-ink peer-checked:text-ground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--focus) hover:text-ink">
+              {FIELD_OUTCOMES[outcome].label}
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <label htmlFor="update-who" className="sr-only">
+        Who tried it
+      </label>
+      <input
+        id="update-who"
+        name="who"
+        maxLength={LIMITS.fieldWhoLength}
+        className="input"
+        placeholder="Who tried it? 5 people at the bus stop"
+      />
+    </div>
   );
 }
 
