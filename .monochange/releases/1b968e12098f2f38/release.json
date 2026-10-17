@@ -1,0 +1,281 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-10-17T18:56:37Z",
+  "command": "release",
+  "version": "1.2.1",
+  "versions": {
+    "slopper": "1.2.1"
+  },
+  "release_targets": [
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.2.1",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.2.1",
+      "rendered_title": "v1.2.1 (2026-10-17)",
+      "rendered_changelog_title": "1.2.1 (2026-10-17)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["slopper"],
+  "changed_files": ["CHANGELOG.md", "package.json"],
+  "package_publications": [],
+  "updated_changelogs": ["CHANGELOG.md"],
+  "deleted_changesets": [
+    ".changeset/netlify-monorepo-deploy.md",
+    ".changeset/release-branch-lease.md",
+    ".changeset/release-workflow-retry.md"
+  ],
+  "changesets": [
+    {
+      "path": ".changeset/netlify-monorepo-deploy.md",
+      "summary": "Release deploys reach Netlify from the monorepo root",
+      "details": "netlify-cli saw packages/cli and packages/skill as workspace projects, asked which one to deploy and failed in the release workflow after Convex was deployed. `release.ts deploy` now starts it in scripts/ and points --cwd at the app, which skips the question. A manual run of the release workflow can also publish only the npm packages, for a release whose site is already live.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "74f3e8a45f21e73f069e3155ce0303e7bcdb1c37",
+            "short_sha": "74f3e8a",
+            "url": null,
+            "authored_at": "2026-10-17T18:48:57+01:00",
+            "committed_at": "2026-10-17T18:48:57+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "74f3e8a45f21e73f069e3155ce0303e7bcdb1c37",
+            "short_sha": "74f3e8a",
+            "url": null,
+            "authored_at": "2026-10-17T18:48:57+01:00",
+            "committed_at": "2026-10-17T18:48:57+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/release-branch-lease.md",
+      "summary": "A new release pull request can replace a merged one",
+      "details": "GitHub deletes chore/release when a release pull request merges, so the next `run release` pushed with a stale origin/chore/release and `--force-with-lease` refused it. `release.ts pr` now fetches with --prune before pushing.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "dc67e1d01c30a08790b5e9286e148194ae5aa958",
+            "short_sha": "dc67e1d",
+            "url": null,
+            "authored_at": "2026-10-17T18:56:28+01:00",
+            "committed_at": "2026-10-17T18:56:28+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "dc67e1d01c30a08790b5e9286e148194ae5aa958",
+            "short_sha": "dc67e1d",
+            "url": null,
+            "authored_at": "2026-10-17T18:56:28+01:00",
+            "committed_at": "2026-10-17T18:56:28+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/release-workflow-retry.md",
+      "summary": "The release workflow pushes tags without the local git hooks, and can retry an older release",
+      "details": "`vp install` in the workflow installs the repo's git hooks, so pushing the release tags ran the pre-push CI on the runner, which can't start its Convex backend, and the v1.2.0 publish stopped before tagging. The publish step now runs without hooks (CI ran before the release commit was pushed). A manual run takes a release commit to check out, so a failed publish can be retried once newer commits are on main, and `release.ts ci` refuses to publish anything that isn't a release commit on main.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7f21cb8534b2eceee0c3d11a9d776e58ac0db022",
+            "short_sha": "7f21cb8",
+            "url": null,
+            "authored_at": "2026-10-17T18:41:25+01:00",
+            "committed_at": "2026-10-17T18:41:25+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7f21cb8534b2eceee0c3d11a9d776e58ac0db022",
+            "short_sha": "7f21cb8",
+            "url": null,
+            "authored_at": "2026-10-17T18:41:25+01:00",
+            "committed_at": "2026-10-17T18:41:25+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.2.1 (2026-10-17)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Fixes",
+            "collapsed": false,
+            "entries": [
+              "- **Release deploys reach Netlify from the monorepo root.** netlify-cli saw packages/cli and packages/skill as workspace projects, asked which one to deploy and failed in the release workflow after Convex was deployed. `release.ts deploy` now starts it in scripts/ and points --cwd at the app, which skips the question. A manual run of the release workflow can also publish only the npm packages, for a release whose site is already live.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 74f3e8a",
+              "- **A new release pull request can replace a merged one.** GitHub deletes chore/release when a release pull request merges, so the next `run release` pushed with a stale origin/chore/release and `--force-with-lease` refused it. `release.ts pr` now fetches with --prune before pushing.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ dc67e1d",
+              "- **The release workflow pushes tags without the local git hooks, and can retry an older release.** `vp install` in the workflow installs the repo's git hooks, so pushing the release tags ran the pre-push CI on the runner, which can't start its Convex backend, and the v1.2.0 publish stopped before tagging. The publish step now runs without hooks (CI ran before the release commit was pushed). A manual run takes a release commit to check out, so a failed publish can be retried once newer commits are on main, and `release.ts ci` refuses to publish anything that isn't a release commit on main.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 7f21cb8"
+            ]
+          }
+        ]
+      },
+      "rendered": "## 1.2.1 (2026-10-17)\n\n### Fixes\n\n- **Release deploys reach Netlify from the monorepo root.** netlify-cli saw packages/cli and packages/skill as workspace projects, asked which one to deploy and failed in the release workflow after Convex was deployed. `release.ts deploy` now starts it in scripts/ and points --cwd at the app, which skips the question. A manual run of the release workflow can also publish only the npm packages, for a release whose site is already live.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 74f3e8a\n- **A new release pull request can replace a merged one.** GitHub deletes chore/release when a release pull request merges, so the next `run release` pushed with a stale origin/chore/release and `--force-with-lease` refused it. `release.ts pr` now fetches with --prune before pushing.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ dc67e1d\n- **The release workflow pushes tags without the local git hooks, and can retry an older release.** `vp install` in the workflow installs the repo's git hooks, so pushing the release tags ran the pre-push CI on the runner, which can't start its Convex backend, and the v1.2.0 publish stopped before tagging. The publish step now runs without hooks (CI ran before the release commit was pushed). A manual run takes a release commit to check out, so a failed publish can be retried once newer commits are on main, and `release.ts ci` refuses to publish anything that isn't a release commit on main.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 7f21cb8"
+    }
+  ],
+  "provider": null
+}
