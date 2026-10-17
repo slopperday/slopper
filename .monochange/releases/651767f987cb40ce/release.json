@@ -1,0 +1,453 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-10-18T00:06:25Z",
+  "command": "release",
+  "version": null,
+  "versions": {
+    "cli": "0.1.3",
+    "slopper": "1.6.0"
+  },
+  "release_targets": [
+    {
+      "id": "cli",
+      "kind": "group",
+      "version": "0.1.3",
+      "version_format": "namespaced",
+      "tag": true,
+      "release": false,
+      "tag_name": "cli/v0.1.3",
+      "rendered_title": "cli v0.1.3 (2026-10-18)",
+      "rendered_changelog_title": "cli 0.1.3 (2026-10-18)",
+      "members": ["@slopperday/cli", "@slopperday/skill"]
+    },
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.6.0",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.6.0",
+      "rendered_title": "v1.6.0 (2026-10-18)",
+      "rendered_changelog_title": "1.6.0 (2026-10-18)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["@slopperday/cli", "@slopperday/skill", "slopper"],
+  "changed_files": [
+    "CHANGELOG.md",
+    "app/changelog/1.6.0.json",
+    "package.json",
+    "packages/cli/CHANGELOG.md",
+    "packages/cli/package.json",
+    "packages/skill/package.json"
+  ],
+  "package_publications": [
+    {
+      "package": "@slopperday/cli",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.3",
+      "mode": "builtin",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    },
+    {
+      "package": "@slopperday/skill",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.3",
+      "mode": "builtin",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    }
+  ],
+  "updated_changelogs": ["CHANGELOG.md", "app/changelog/1.6.0.json", "packages/cli/CHANGELOG.md"],
+  "deleted_changesets": [
+    ".changeset/cli-video-trust.md",
+    ".changeset/moderation-team.md",
+    ".changeset/roles-and-video-check.md",
+    ".changeset/tighter-copy.md"
+  ],
+  "changesets": [
+    {
+      "path": ".changeset/cli-video-trust.md",
+      "summary": "slopper video explains trusted makers' automatic checks",
+      "details": "`slopper video` and the skill now say what happens after a maker's first approved video: later ones are checked as they're set, and report `live` straight away when they pass, or `pending` when they wait for a moderator.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "0e764fc9237f63e423defb7e6d6ba7a2d87f622d",
+            "short_sha": "0e764fc",
+            "url": null,
+            "authored_at": "2026-10-18T00:05:53+01:00",
+            "committed_at": "2026-10-18T00:05:53+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "0e764fc9237f63e423defb7e6d6ba7a2d87f622d",
+            "short_sha": "0e764fc",
+            "url": null,
+            "authored_at": "2026-10-18T00:05:53+01:00",
+            "committed_at": "2026-10-18T00:05:53+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/moderation-team.md",
+      "summary": "A moderation team, and videos that skip the queue",
+      "details": "Slopper has a moderation team now. Moderators approve or reject promo videos and flagged slops; admins do that too, and run the team from the moderation page.\n\nOnce a moderator approves one of your promo videos, you're trusted: your next videos are checked automatically and play straight away when they pass. A video the check doesn't pass, or can't check, waits for a moderator as before.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "0e764fc9237f63e423defb7e6d6ba7a2d87f622d",
+            "short_sha": "0e764fc",
+            "url": null,
+            "authored_at": "2026-10-18T00:05:53+01:00",
+            "committed_at": "2026-10-18T00:05:53+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "0e764fc9237f63e423defb7e6d6ba7a2d87f622d",
+            "short_sha": "0e764fc",
+            "url": null,
+            "authored_at": "2026-10-18T00:05:53+01:00",
+            "committed_at": "2026-10-18T00:05:53+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/roles-and-video-check.md",
+      "summary": "Moderator and admin roles, and an automatic video check",
+      "details": "- **Roles live in Convex** (`users.role`, `convex/team.ts`): moderators only approve or reject what's queued at /mod (videos and flagged slops); admins also manage the team at /mod/team, revoke or restore video trust, take down videos the check let through, hide or unhide slops from their page, and delete anyone's slops and comments. Every moderation write names its moderator or admin, and Convex checks their stored role (`requireRole`). `slops.page`, `slops.remove` and `activity.deleteComment` read the caller's role instead of trusting an `isAdmin`/`asAdmin` argument, which also stops a browser from asking `slops.page` for hidden slops.\n- **ADMIN_USERNAMES bootstraps admins**: the app server stores the role the first time it sees a listed person (`team.bootstrap`), and won't let anyone demote them while they're listed. Convex never lets the last admin go.\n- **Trusted makers** (`videoTrust`): a moderator's first approval of someone's video trusts them; a revoke sticks until an admin restores it. A trusted maker's new video goes past `checkVideo` (`app/.server/moderation.ts`) as it's set: the same policy prompt, with the video sent inline as `video_url` to `OPENROUTER_VIDEO_MODEL` (default `google/gemini-3.1-flash-lite` on `OPENROUTER_VIDEO_PROVIDER`, default `google-ai-studio`) through the existing `OPENROUTER_API_KEY`. A pass plays at once; anything else stays in `videoReviews`. Every automatic decision is recorded in `videoChecks` (verdict, reason, model, provider, time) and shown to admins at /mod.\n- **Moderators decide on the video they watched**: `videos.decide` takes the media id, so a replacement uploaded meanwhile waits for its own review.\n- **Deploys stay smooth**: `slops.page` still accepts `isAdmin`, and `slops.remove` and `activity.deleteComment` still accept `asAdmin`, but ignore them, so the app server from the last release keeps serving slop pages while Convex deploys ahead of Netlify. They can go in the next release.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "0e764fc9237f63e423defb7e6d6ba7a2d87f622d",
+            "short_sha": "0e764fc",
+            "url": null,
+            "authored_at": "2026-10-18T00:05:53+01:00",
+            "committed_at": "2026-10-18T00:05:53+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "0e764fc9237f63e423defb7e6d6ba7a2d87f622d",
+            "short_sha": "0e764fc",
+            "url": null,
+            "authored_at": "2026-10-18T00:05:53+01:00",
+            "committed_at": "2026-10-18T00:05:53+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/tighter-copy.md",
+      "summary": "Shorter, plainer words across the site",
+      "details": "Every page says the same in fewer words. The prompt box on the new slop, goal, edit and update forms now reads \"Pass it to your agent\", and \"your agent\" replaces \"your AI\" everywhere.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "24f221676e634611a1d79785df9a62bd795b4c24",
+            "short_sha": "24f2216",
+            "url": null,
+            "authored_at": "2026-10-18T00:02:05+01:00",
+            "committed_at": "2026-10-18T00:02:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "24f221676e634611a1d79785df9a62bd795b4c24",
+            "short_sha": "24f2216",
+            "url": null,
+            "authored_at": "2026-10-18T00:02:05+01:00",
+            "committed_at": "2026-10-18T00:02:05+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.6.0 (2026-10-18)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "#### Moderator and admin roles, and an automatic video check\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 0e764fc\n\n- **Roles live in Convex** (`users.role`, `convex/team.ts`): moderators only approve or reject what's queued at /mod (videos and flagged slops); admins also manage the team at /mod/team, revoke or restore video trust, take down videos the check let through, hide or unhide slops from their page, and delete anyone's slops and comments. Every moderation write names its moderator or admin, and Convex checks their stored role (`requireRole`). `slops.page`, `slops.remove` and `activity.deleteComment` read the caller's role instead of trusting an `isAdmin`/`asAdmin` argument, which also stops a browser from asking `slops.page` for hidden slops.\n- **ADMIN_USERNAMES bootstraps admins**: the app server stores the role the first time it sees a listed person (`team.bootstrap`), and won't let anyone demote them while they're listed. Convex never lets the last admin go.\n- **Trusted makers** (`videoTrust`): a moderator's first approval of someone's video trusts them; a revoke sticks until an admin restores it. A trusted maker's new video goes past `checkVideo` (`app/.server/moderation.ts`) as it's set: the same policy prompt, with the video sent inline as `video_url` to `OPENROUTER_VIDEO_MODEL` (default `google/gemini-3.1-flash-lite` on `OPENROUTER_VIDEO_PROVIDER`, default `google-ai-studio`) through the existing `OPENROUTER_API_KEY`. A pass plays at once; anything else stays in `videoReviews`. Every automatic decision is recorded in `videoChecks` (verdict, reason, model, provider, time) and shown to admins at /mod.\n- **Moderators decide on the video they watched**: `videos.decide` takes the media id, so a replacement uploaded meanwhile waits for its own review.\n- **Deploys stay smooth**: `slops.page` still accepts `isAdmin`, and `slops.remove` and `activity.deleteComment` still accept `asAdmin`, but ignore them, so the app server from the last release keeps serving slop pages while Convex deploys ahead of Netlify. They can go in the next release."
+            ]
+          }
+        ]
+      },
+      "rendered": "## 1.6.0 (2026-10-18)\n\n### Features\n\n#### Moderator and admin roles, and an automatic video check\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 0e764fc\n\n- **Roles live in Convex** (`users.role`, `convex/team.ts`): moderators only approve or reject what's queued at /mod (videos and flagged slops); admins also manage the team at /mod/team, revoke or restore video trust, take down videos the check let through, hide or unhide slops from their page, and delete anyone's slops and comments. Every moderation write names its moderator or admin, and Convex checks their stored role (`requireRole`). `slops.page`, `slops.remove` and `activity.deleteComment` read the caller's role instead of trusting an `isAdmin`/`asAdmin` argument, which also stops a browser from asking `slops.page` for hidden slops.\n- **ADMIN_USERNAMES bootstraps admins**: the app server stores the role the first time it sees a listed person (`team.bootstrap`), and won't let anyone demote them while they're listed. Convex never lets the last admin go.\n- **Trusted makers** (`videoTrust`): a moderator's first approval of someone's video trusts them; a revoke sticks until an admin restores it. A trusted maker's new video goes past `checkVideo` (`app/.server/moderation.ts`) as it's set: the same policy prompt, with the video sent inline as `video_url` to `OPENROUTER_VIDEO_MODEL` (default `google/gemini-3.1-flash-lite` on `OPENROUTER_VIDEO_PROVIDER`, default `google-ai-studio`) through the existing `OPENROUTER_API_KEY`. A pass plays at once; anything else stays in `videoReviews`. Every automatic decision is recorded in `videoChecks` (verdict, reason, model, provider, time) and shown to admins at /mod.\n- **Moderators decide on the video they watched**: `videos.decide` takes the media id, so a replacement uploaded meanwhile waits for its own review.\n- **Deploys stay smooth**: `slops.page` still accepts `isAdmin`, and `slops.remove` and `activity.deleteComment` still accept `asAdmin`, but ignore them, so the app server from the last release keeps serving slop pages while Convex deploys ahead of Netlify. They can go in the next release."
+    },
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "user",
+      "stream": "user",
+      "path": "app/changelog/1.6.0.json",
+      "format": "json",
+      "notes": {
+        "title": "1.6.0 (2026-10-18)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "New",
+            "collapsed": false,
+            "entries": [
+              "#### A moderation team, and videos that skip the queue\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 0e764fc\n\nSlopper has a moderation team now. Moderators approve or reject promo videos and flagged slops; admins do that too, and run the team from the moderation page.\n\nOnce a moderator approves one of your promo videos, you're trusted: your next videos are checked automatically and play straight away when they pass. A video the check doesn't pass, or can't check, waits for a moderator as before."
+            ]
+          },
+          {
+            "title": "Fixed",
+            "collapsed": false,
+            "entries": [
+              "- **Shorter, plainer words across the site.** Every page says the same in fewer words. The prompt box on the new slop, goal, edit and update forms now reads \"Pass it to your agent\", and \"your agent\" replaces \"your AI\" everywhere.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 24f2216"
+            ]
+          }
+        ]
+      },
+      "rendered": "{\n  \"title\": \"1.6.0 (2026-10-18)\",\n  \"summary\": [],\n  \"sections\": [\n    {\n      \"title\": \"New\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"A moderation team, and videos that skip the queue\",\n          \"details_markdown\": \"Slopper has a moderation team now. Moderators approve or reject promo videos and flagged slops; admins do that too, and run the team from the moderation page.\\n\\nOnce a moderator approves one of your promo videos, you're trusted: your next videos are checked automatically and play straight away when they pass. A video the check doesn't pass, or can't check, waits for a moderator as before.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"expanded\",\n          \"provenance\": {\n            \"source_path\": \".changeset/moderation-team.md\",\n            \"changeset_path\": \".changeset/moderation-team.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"0e764fc\"\n            }\n          }\n        }\n      ]\n    },\n    {\n      \"title\": \"Fixed\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Shorter, plainer words across the site\",\n          \"details_markdown\": \"Every page says the same in fewer words. The prompt box on the new slop, goal, edit and update forms now reads \\\"Pass it to your agent\\\", and \\\"your agent\\\" replaces \\\"your AI\\\" everywhere.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/tighter-copy.md\",\n            \"changeset_path\": \".changeset/tighter-copy.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"24f2216\"\n            }\n          }\n        }\n      ]\n    }\n  ]\n}"
+    },
+    {
+      "owner_id": "cli",
+      "owner_kind": "group",
+      "output": "default",
+      "stream": "default",
+      "path": "packages/cli/CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "cli 0.1.3 (2026-10-18)",
+        "summary": ["Grouped release for `cli`."],
+        "sections": [
+          {
+            "title": "Fixes",
+            "collapsed": false,
+            "entries": [
+              "- **slopper video explains trusted makers' automatic checks.** `slopper video` and the skill now say what happens after a maker's first approved video: later ones are checked as they're set, and report `live` straight away when they pass, or `pending` when they wait for a moderator.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 0e764fc"
+            ]
+          }
+        ]
+      },
+      "rendered": "## cli 0.1.3 (2026-10-18)\n\nGrouped release for `cli`.\n\n### Fixes\n\n- **slopper video explains trusted makers' automatic checks.** `slopper video` and the skill now say what happens after a maker's first approved video: later ones are checked as they're set, and report `live` straight away when they pass, or `pending` when they wait for a moderator.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 0e764fc"
+    }
+  ],
+  "provider": null
+}

@@ -1,0 +1,54 @@
+{
+  "title": "1.6.0 (2026-10-18)",
+  "summary": [],
+  "sections": [
+    {
+      "title": "New",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "A moderation team, and videos that skip the queue",
+          "details_markdown": "Slopper has a moderation team now. Moderators approve or reject promo videos and flagged slops; admins do that too, and run the team from the moderation page.\n\nOnce a moderator approves one of your promo videos, you're trusted: your next videos are checked automatically and play straight away when they pass. A video the check doesn't pass, or can't check, waits for a moderator as before.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "expanded",
+          "provenance": {
+            "source_path": ".changeset/moderation-team.md",
+            "changeset_path": ".changeset/moderation-team.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "0e764fc"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Fixed",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Shorter, plainer words across the site",
+          "details_markdown": "Every page says the same in fewer words. The prompt box on the new slop, goal, edit and update forms now reads \"Pass it to your agent\", and \"your agent\" replaces \"your AI\" everywhere.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/tighter-copy.md",
+            "changeset_path": ".changeset/tighter-copy.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "24f2216"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
