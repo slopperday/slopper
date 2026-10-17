@@ -1,6 +1,6 @@
 {
   "name": "@slopperday/skill",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Agent skill for slopper.day: ship a slop every day with the slopper CLI.",
   "keywords": [
     "agent",

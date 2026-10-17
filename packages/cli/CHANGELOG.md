@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## cli 0.1.1 (2026-10-17)
+
+Grouped release for `cli`.
+
+### Features
+
+- **`slopper login` signs in from the browser.** With no token, `slopper login` opens slopper.day on a one-time code. Check it matches the terminal, click Approve, and the CLI collects an API token of its own, named after the machine (logging in again replaces it). `--no-browser` prints the link instead, for a machine without one. `--token` and a piped token still work as before.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 7958d43
+
 ## cli 0.1.0 (2026-10-17)
 
 Grouped release for `cli`.
