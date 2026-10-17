@@ -25,6 +25,10 @@ on:
         description: "Release commit to publish (a retry, once newer commits are on main). Empty: the commit this runs on."
         type: string
         default: ""
+      npm_only:
+        description: "Only publish the npm packages: the release is tagged and the site already serves it"
+        type: boolean
+        default: false
 
 concurrency:
   group: release
@@ -56,7 +60,7 @@ jobs:
       - run: vp install --frozen-lockfile
 
       - name: Publish
-        run: vp exec monochange run publish ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: vp exec monochange ${{ inputs.npm_only && 'publish packages' || 'run publish' }} ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}

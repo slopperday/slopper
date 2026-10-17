@@ -167,9 +167,9 @@ async function servedVersion(): Promise<string | null> {
 }
 
 /** Runs one deploy step with its output in the terminal; stops at the first failure. */
-function step(what: string, args: string[]): void {
+function step(what: string, args: string[], cwd = "."): void {
   console.log(`Deploying ${what}…`);
-  const result = spawnSync("pnpm", ["exec", ...args], { stdio: "inherit" });
+  const result = spawnSync("pnpm", ["exec", ...args], { cwd, stdio: "inherit" });
   if (result.status !== 0) fail(`Deploying ${what} failed. Fix it, then run \`node scripts/release.ts deploy\`.`);
 }
 
@@ -189,7 +189,23 @@ async function deploy(ifReleased: boolean, dryRun: boolean): Promise<void> {
     ? []
     : ["monosecret", "--reason", `Deploy slopper.day v${current} to Convex`, "run", "--profile", "deploy", "--"];
   step("Convex", [...withDeployKey, "convex", "deploy"]);
-  step("Netlify", ["netlify", "deploy", "--build", "--prod", "--site", NETLIFY_SITE, "--message", `v${current}`]);
+  // From the repo root, netlify-cli sees the workspace packages (packages/*), asks which one to deploy, and fails
+  // in CI. It skips that question when --cwd names a directory it wasn't started in, so it starts in scripts/ and
+  // --cwd points it back at the app.
+  const app = process.cwd();
+  const netlify = [
+    "netlify",
+    "deploy",
+    "--build",
+    "--prod",
+    "--site",
+    NETLIFY_SITE,
+    "--cwd",
+    app,
+    "--message",
+    `v${current}`,
+  ];
+  step("Netlify", netlify, "scripts");
 
   const deadline = Date.now() + SERVE_TIMEOUT_MS;
   let served = await servedVersion();
