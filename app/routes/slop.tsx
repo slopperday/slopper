@@ -32,7 +32,8 @@ import {
 } from "~/lib/model";
 import { CURRENCIES } from "~/lib/money";
 import { isIsoDate } from "~/lib/dates";
-import { seo } from "~/lib/seo";
+import { CARD_SIZE, slopCardPath } from "~/lib/cards";
+import { originFrom, seo } from "~/lib/seo";
 import { Avatar } from "~/components/Avatar";
 import { CrosspostReceipts } from "~/components/Autopost";
 import { Markdown, ShareBox, useAutopostNetworks } from "~/components/Shared";
@@ -323,19 +324,30 @@ export async function action({ params, request, context }: Route.ActionArgs) {
   });
 }
 
-export const meta: Route.MetaFunction = ({ matches, loaderData }) =>
-  loaderData
-    ? seo(matches, {
-        title: `${launchTitle(loaderData.page.slop)} by @${loaderData.page.owner.username}`,
-        description: loaderData.page.slop.tagline,
-        image:
-          loaderData.page.slop.screenshots[0] && !loaderData.page.slop.nsfw
-            ? loaderData.page.slop.screenshots[0]
-            : null,
-        path: slopPath(loaderData.page.owner.username, loaderData.page.slop.slug),
-        noindex: loaderData.page.slop.hidden || loaderData.page.slop.nsfw,
-      })
-    : seo(matches);
+export const meta: Route.MetaFunction = ({ matches, loaderData }) => {
+  if (!loaderData) return seo(matches);
+  const { slop, owner } = loaderData.page;
+  const title = `${launchTitle(slop)} by @${owner.username}`;
+  return seo(matches, {
+    title,
+    description: slop.tagline,
+    image: { url: slopCardPath(owner.username, slop), ...CARD_SIZE, alt: `${title}: ${slop.tagline}` },
+    video: slop.nsfw ? null : slop.video,
+    type: {
+      kind: "article",
+      properties: {
+        "article:published_time": new Date(slop.launchedAt).toISOString(),
+        "article:author": new URL(`/@${owner.username}`, originFrom(matches)).href,
+      },
+    },
+    labels: [
+      ["Slop", [numberLabel(slop), dayLabel(slop)].filter((part) => part !== null).join(" · ")],
+      ["Upvotes", String(slop.upvotes)],
+    ],
+    path: slopPath(owner.username, slop.slug),
+    noindex: slop.hidden || slop.nsfw,
+  });
+};
 
 type PageData = NonNullable<Route.ComponentProps["loaderData"]["page"]>;
 type View = PageData & Route.ComponentProps["loaderData"]["extras"];

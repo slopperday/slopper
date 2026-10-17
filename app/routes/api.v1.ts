@@ -12,6 +12,7 @@ import { findOperation, runOperation } from "~/.server/agent/operations";
  *   GET    /api/v1/me
  *   GET    /api/v1/categories
  *   GET    /api/v1/today
+ *   GET    /api/v1/search?q=…&category=…   (category repeats; optional limit)
  *   POST   /api/v1/goal
  *   POST   /api/v1/media                    (raw image body, or JSON { base64 })
  *   POST   /api/v1/videos                   (raw MP4 or WebM body, or JSON { base64 })
@@ -39,6 +40,7 @@ function route(method: string, path: string): Match | null {
   if (method === "GET" && parts.length === 1 && resource === "me") return { operation: "whoami" };
   if (method === "GET" && parts.length === 1 && resource === "categories") return { operation: "list_categories" };
   if (method === "GET" && parts.length === 1 && resource === "today") return { operation: "todays_race" };
+  if (method === "GET" && parts.length === 1 && resource === "search") return { operation: "search_slops" };
   if (method === "POST" && parts.length === 1 && resource === "goal") return { operation: "set_goal" };
   if (method === "POST" && parts.length === 1 && resource === "media") return { operation: "upload_screenshot" };
   if (method === "POST" && parts.length === 1 && resource === "videos") return { operation: "upload_video" };
@@ -61,6 +63,16 @@ function route(method: string, path: string): Match | null {
   if (parts.length === 3 && method === "POST" && action === "money") return { operation: "log_money", slop: ref };
   if (parts.length === 3 && method === "POST" && action === "vote") return { operation: "vote", slop: ref };
   return null;
+}
+
+/** A search's query string, as the operation's input: `?q=budget&category=money&category=ai&limit=10`. */
+function searchInput(params: URLSearchParams): JsonObject {
+  const limit = params.get("limit");
+  return {
+    query: params.get("q") ?? "",
+    categories: params.getAll("category"),
+    ...(limit === null ? {} : { limit: /^\d+$/.test(limit) ? Number(limit) : limit }),
+  };
 }
 
 function errorResponse(error: ApiError): Response {
@@ -96,6 +108,7 @@ async function handle(request: Request, path: string): Promise<Response> {
     }
 
     let input: JsonObject = {};
+    if (match.operation === "search_slops") input = searchInput(new URL(request.url).searchParams);
     if (request.method !== "GET") {
       const text = await request.text();
       try {

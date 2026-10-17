@@ -70,6 +70,7 @@ test.describe("promo videos", () => {
     await visitor.goto(slop.path);
     await expect(visitor.getByRole("heading", { level: 1 })).toContainText(slop.name);
     await expect(visitor.locator("video")).toHaveCount(0);
+    await expect(visitor.locator('meta[property="og:video"]')).toHaveCount(0);
 
     const moderator = await seed.pageAs(await seed.admin());
     await moderator.goto("/mod");
@@ -86,8 +87,46 @@ test.describe("promo videos", () => {
       "src",
       /videos\/.+\.mp4$/,
     );
+    // Shared links carry it too, for previews that play video.
+    await expect(visitor.locator('meta[property="og:video"]')).toHaveAttribute("content", /videos\/.+\.mp4$/);
+    await expect(visitor.locator('meta[property="og:video:type"]')).toHaveAttribute("content", "video/mp4");
     await own.goto(slop.path);
     await expect(own.getByText("Your video is waiting for a moderator.")).toHaveCount(0);
+  });
+
+  test("a moderation page from before a deploy says so instead of breaking", async ({ seed, stack, request }) => {
+    const maker = await seed.user("stale");
+    const slop = await seed.slop(maker);
+    await sendVideo(request, stack, await seed.apiToken(maker), slop, MP4);
+    const moderator = await seed.pageAs(await seed.moderator());
+    await moderator.goto("/mod");
+
+    // v1.5.0's approve button posted the slop and `video`, with no intent or media.
+    await moderator.evaluate((slopId) => {
+      const form = document.createElement("form");
+      form.method = "post";
+      form.action = "/mod";
+      for (const [name, value] of [
+        ["id", slopId],
+        ["video", "approve"],
+      ]) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value;
+        form.append(input);
+      }
+      document.body.append(form);
+      form.submit();
+    }, slop.id);
+    await expect(moderator.getByRole("alert")).toHaveText("That page was out of date, so nothing changed. Try again.");
+
+    // Nothing was decided, and the current page works.
+    const review = moderator
+      .getByRole("region", { name: "Videos to review" })
+      .getByRole("article", { name: slop.name });
+    await review.getByRole("button", { name: "Approve video" }).click();
+    await expect(moderator.getByRole("status")).toContainText(`${slop.name}: its video plays for everyone now.`);
   });
 
   test("a video can't be shown as a screenshot, and only its owner can set it", async ({ seed, stack, request }) => {

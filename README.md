@@ -125,6 +125,19 @@ straight from the bucket's public URL. Without these variables, screenshots go t
    any file in the bucket, minus the file name). Put a CDN in front later by changing only this; uploads are refused
    until it's set.
 
+### Search
+
+The wall's search box (and agents' `search_slops`) matches words and meaning. Convex full-text search ranks matches in
+each slop's name, tagline and description; vector search finds slops that mean what was asked without sharing its words
+("budget" finds an expense tracker). Both rankings merge into one (`convex/search.ts`). The vectors come from
+`openai/text-embedding-3-small` through OpenRouter, made by a Convex action when a slop launches or its text changes.
+
+1. On Convex: `npx convex env set --prod OPENROUTER_API_KEY sk-or-…` (the same key as the content check).
+2. Once, to embed the slops launched before: `npx convex run --prod search:backfill`. Run it again if it stops; it
+   skips slops that are done.
+
+Without the key, search matches words only.
+
 ### Daily digest email
 
 Once a day, at 9am in each person's time zone, Slopper emails what happened to their slops since the last digest:

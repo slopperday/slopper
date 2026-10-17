@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { EMBEDDING_DIMENSIONS } from "./lib/embeddings";
 
 /**
  * Slopper's data. Convex gives every query live updates, so votes, the
@@ -251,13 +252,36 @@ export default defineSchema({
     hidden: v.boolean(),
     /** The latest automated content check; absent until one has run. */
     check: v.optional(v.object({ verdict: checkVerdictValidator, reason: v.string(), checkedAt: v.number() })),
+    /** Its vector for search by meaning (convex/search.ts); absent until one is made. */
+    embeddingId: v.optional(v.id("slopEmbeddings")),
   })
     .index("by_user", ["userId"])
     .index("by_user_slug", ["userId", "slug"])
     .index("by_category", ["category"])
     .index("by_race_date", ["raceDate"])
     .index("by_product", ["productId"])
-    .index("by_slopcessful", ["slopcessfulAt"]),
+    .index("by_slopcessful", ["slopcessfulAt"])
+    .index("by_embedding", ["embeddingId"])
+    // Search by words (convex/search.ts): one index per field, so each ranks on its own.
+    .searchIndex("search_name", { searchField: "name", filterFields: ["hidden", "category"] })
+    .searchIndex("search_tagline", { searchField: "tagline", filterFields: ["hidden", "category"] })
+    .searchIndex("search_description", { searchField: "description", filterFields: ["hidden", "category"] }),
+
+  /**
+   * Vectors for search by meaning, one per slop (`slops.embeddingId`). They
+   * live apart from slops so reading a slop never reads 1,536 numbers.
+   */
+  slopEmbeddings: defineTable({
+    /** The slop's category, to filter by. It's part of the embedded text, so it never trails it. */
+    category: v.string(),
+    /** What was embedded (app/lib/search.ts `embeddingText`), to skip edits that don't change it. */
+    text: v.string(),
+    embedding: v.array(v.float64()),
+  }).vectorIndex("by_embedding", {
+    vectorField: "embedding",
+    dimensions: EMBEDDING_DIMENSIONS,
+    filterFields: ["category"],
+  }),
 
   /** Videos waiting for a moderator, oldest first (convex/videos.ts). */
   videoReviews: defineTable({

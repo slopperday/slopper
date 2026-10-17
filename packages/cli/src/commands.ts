@@ -340,6 +340,23 @@ export const COMMANDS: Command[] = [
     run: ({ api }) => api.get("/today"),
   },
   {
+    name: "search",
+    args: "<query>",
+    summary: "Find slops by name or by what they do. It matches meaning as well as words; best match first.",
+    flags: {
+      "--category <id>": "Only this category. Repeat it for several; ids from `slopper categories`.",
+      "--limit <n>": "How many, up to 48. Defaults to 20.",
+    },
+    options: { category: { type: "string", multiple: true }, limit: { type: "string" } },
+    run(context) {
+      const params = new URLSearchParams({ q: positional(context, 0, "query") });
+      for (const category of list(context.values, "category") ?? []) params.append("category", category);
+      const limit = wholeNumber(context.values, "limit");
+      if (limit !== undefined) params.set("limit", String(limit));
+      return context.api.get(`/search?${params.toString()}`);
+    },
+  },
+  {
     name: "categories",
     summary: "Valid categories, link kinds, currencies and money categories.",
     run: ({ api }) => api.get("/categories"),

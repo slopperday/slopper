@@ -1,3 +1,4 @@
+import type { Auth } from "convex/server";
 import { ConvexError, type Infer } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
@@ -15,12 +16,17 @@ import type { staffRoleValidator } from "../schema";
 
 export const SERVER_SUBJECT = "server";
 
-export async function isServer(ctx: QueryCtx): Promise<boolean> {
+/** Any function's context: queries, mutations and actions all carry the caller's identity. */
+interface WithAuth {
+  auth: Auth;
+}
+
+export async function isServer(ctx: WithAuth): Promise<boolean> {
   const identity = await ctx.auth.getUserIdentity();
   return identity?.subject === SERVER_SUBJECT;
 }
 
-export async function requireServer(ctx: QueryCtx): Promise<void> {
+export async function requireServer(ctx: WithAuth): Promise<void> {
   if (!(await isServer(ctx))) throw new ConvexError("Only the Slopper server can do that.");
 }
 

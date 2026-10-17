@@ -1,6 +1,6 @@
 ---
 name: slopper
-description: Ship to slopper.day from the terminal with the `slopper` CLI (npm @slopperday/cli). Use when the user wants to launch a project as today's slop or schedule launches for later days, post an update or field test, set a daily shipping goal, log costs or revenue, check today's slop of the day race, or vote on slops.
+description: Ship to slopper.day from the terminal with the `slopper` CLI (npm @slopperday/cli). Use when the user wants to launch a project as today's slop or schedule launches for later days, post an update or field test, set a daily shipping goal, log costs or revenue, check today's slop of the day race, search slops, or vote on slops.
 ---
 
 # Slopper
@@ -130,6 +130,17 @@ slopper goal --days 30 --target 30
 ```
 
 Only one goal can be open at a time.
+
+## Find slops
+
+```sh
+slopper search "budget tracker"                              # by words and by meaning, best match first
+slopper search "maze" --category games --category creative   # only these categories
+```
+
+It matches what a slop does as well as its words, so "budget" finds an expense tracker. Each result has the slop's
+`id` (for `vote`), `url` and whether it's the user's (`yours`). Hidden slops never show, NSFW ones only for users
+who turned them on.
 
 ## The race and votes
 

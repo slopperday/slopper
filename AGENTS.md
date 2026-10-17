@@ -33,6 +33,8 @@ release. Add a tool name to select part of the graph. For example, run
 - **E2E:** `e2e/stack.ts` runs the production build against a throwaway Convex backend and a fake content check. Tests
   seed people and slops through Convex as the server (`e2e/fixtures.ts`) unless the journey is about that step. Assert
   only on data the test created: the database is shared by parallel workers.
+  Each checkout gets its own block of e2e ports from its path (`e2e/ports.ts`), so worktrees can run CI at the same
+  time; `E2E_PORT_BASE` moves one by hand.
 - **CI is local only.** The pre-push hook runs `vp run ci`; never add remote CI without asking (cost). The one
   workflow, `.github/workflows/release.yml`, only publishes merged release pull requests and skips every other push.
 - **Hosting:** Netlify runs the build (`netlify.toml`): static files from `build/client`, the server as one Netlify
@@ -95,6 +97,10 @@ release. Add a tool name to select part of the graph. For example, run
 - **Sign-in:** every OAuth provider is one spec in `app/.server/auth/oauth.ts` with one redirect URI; the flow (`login`,
   `link`, `connect`) is stored with the pending authorization, never put in the URL. Linking rules live in
   `convex/users.ts` (`linkIdentity`/`unlinkIdentity`): one identity per provider, never the last one removed.
+- **Search** (`convex/search.ts`) fuses Convex full-text matches (one search index per field) with vector search on
+  `slopEmbeddings`, made by a Convex action through OpenRouter when a slop launches or its text changes. Results go
+  through `toCards`, so hidden and NSFW slops follow the wall's rules. The wall keeps search and picked categories in the
+  URL (`app/lib/wall.ts`).
 - **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
   gate anything that shows or writes comments on the switch.
 - **Releases:** every change worth releasing gets a changeset, made with `vp exec monochange create` and named with

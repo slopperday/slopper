@@ -25,6 +25,37 @@ test.describe("visitors", () => {
     expect(errors).toEqual([]);
   });
 
+  test("see the race clock in hours and minutes through the last hour, and the seconds on hover", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-10-18T22:58:30Z") });
+    await page.goto("/rules");
+    const clock = page.getByRole("banner").getByTitle("Time left in today's race (midnight UTC)");
+    const board = clock.locator(".tiles");
+    // Steps stop on whole seconds, which the once-a-second tick reads the same whatever its phase.
+    const expectClock = async (text: string, words: string, lastHour: boolean) => {
+      await expect(board).toHaveText(text);
+      await expect(clock.getByText(/^Time left/)).toHaveText(`Time left in today's race: ${words}`);
+      if (lastHour) await expect(board).toHaveClass(/tiles-urgent/);
+      else await expect(board).not.toHaveClass(/tiles-urgent/);
+    };
+
+    await page.clock.pauseAt(new Date("2026-10-18T22:59:30Z"));
+    await expectClock("01:00", "1 hour", false);
+    await page.clock.runFor(60_000);
+    await expectClock("00:59", "59 minutes", true);
+    await page.clock.pauseAt(new Date("2026-10-18T23:59:30Z"));
+    await expectClock("00:01", "1 minute", true);
+    await clock.hover();
+    await expect(board).toHaveText("00:00:30");
+    await page.mouse.move(0, 0);
+    await expect(board).toHaveText("00:01");
+
+    // Midnight starts the next race without a reload.
+    await page.clock.runFor(60_000);
+    await expectClock("23:59", "23 hours 59 minutes", false);
+    await clock.hover();
+    await expect(board).toHaveText("23:59:30");
+  });
+
   test("see the rules without an invitation to post NSFW", async ({ page }) => {
     await page.goto("/rules");
     await expect(page.getByRole("heading", { name: "Keep it safe for work" })).toBeVisible();
@@ -85,6 +116,34 @@ test.describe("visitors", () => {
     const card = await request.get(new URL(image ?? "").pathname);
     expect(card.ok()).toBe(true);
     expect(card.headers()["content-type"]).toBe("image/png");
+  });
+
+  test("see a slop's own card, and the maker's, when they share either link", async ({ seed, request }) => {
+    const maker = await seed.user("carded");
+    const slop = await seed.slop(maker, { tagline: "A card of its own" });
+    const visitor = await seed.visitorPage();
+    for (const [path, type, card] of [
+      [slop.path, "article", `${slop.path}/card.png`],
+      [`/@${maker.username}`, "profile", `/@${maker.username}/card.png`],
+    ] as const) {
+      await visitor.goto(path);
+      const meta = (key: string) =>
+        visitor.locator(`meta[property="${key}"], meta[name="${key}"]`).getAttribute("content");
+      const image = await meta("og:image");
+      expect(new URL(image ?? "").pathname).toBe(card);
+      expect(await meta("twitter:image")).toBe(image);
+      expect(await meta("og:image:width")).toBe("1200");
+      expect(await meta("og:image:height")).toBe("630");
+      expect(await meta("og:image:alt")).toContain(`@${maker.username}`);
+      expect(await meta("og:type")).toBe(type);
+
+      const response = await request.get(new URL(image ?? "").pathname + new URL(image ?? "").search);
+      expect(response.ok()).toBe(true);
+      expect(response.headers()["content-type"]).toBe("image/png");
+      const png = await response.body();
+      expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1200, 630]);
+    }
+    expect((await request.get(`/@${maker.username}/no-such-slop/card.png`)).status()).toBe(404);
   });
 });
 
@@ -209,11 +268,11 @@ test.describe("signing in", () => {
 });
 
 test.describe("production hardening", () => {
-  test("pages carry security headers", async ({ request }) => {
+  test("pages carry security headers", async ({ request, stack }) => {
     const response = await request.get("/");
     const headers = response.headers();
     expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
-    expect(headers["content-security-policy"]).toContain("ws://127.0.0.1:3410");
+    expect(headers["content-security-policy"]).toContain(stack.convexUrl.replace(/^http/, "ws"));
     expect(headers["x-content-type-options"]).toBe("nosniff");
   });
 

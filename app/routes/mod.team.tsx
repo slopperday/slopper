@@ -6,7 +6,7 @@ import type { TeamMember } from "@convex/team";
 import { config } from "~/.server/config";
 import { convex, convexMessage } from "~/.server/convex";
 import { formText } from "~/.server/forms";
-import { badRequest, redirectWithFlash } from "~/.server/http";
+import { outOfDateForm, redirectWithFlash } from "~/.server/http";
 import { requireStaff, viewerContext } from "~/.server/session";
 import { seo } from "~/lib/seo";
 import { Avatar } from "~/components/Avatar";
@@ -54,10 +54,10 @@ export async function action({ request, context }: Route.ActionArgs) {
   const admin = requireStaff(context.get(viewerContext), request, "admin");
   const form = await request.formData();
   const change = formText(form, "role");
-  if (!isRoleChange(change)) badRequest("Unknown role");
   const username = formText(form, "username");
   const query = formText(form, "q");
   const back = query ? `/mod/team?q=${encodeURIComponent(query)}` : "/mod/team";
+  if (!isRoleChange(change)) return outOfDateForm(back);
   if (listed(username) && change !== "admin") {
     return redirectWithFlash(back, {
       tone: "error",

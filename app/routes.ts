@@ -42,6 +42,8 @@ export default [
   route("api/slops/:id/pledge", "routes/api.pledge.ts"),
   route("feed.xml", "routes/feed.ts"),
 
+  route(":handle/card.png", "routes/card.profile.ts"),
+  route(":handle/:slug/card.png", "routes/card.slop.ts"),
   route(":handle", "routes/profile.tsx"),
   route(":handle/:slug", "routes/slop.tsx"),
   route(":handle/:slug/edit", "routes/slop.edit.tsx"),
