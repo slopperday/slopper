@@ -5,6 +5,7 @@ import { fonts as fontData, resvgWasm } from "virtual:og-assets";
 import { CARD_SIZE, type ProfileCardData, type SlopCardSlop } from "~/lib/cards";
 import { dayLabel, numberLabel } from "~/lib/display";
 import type { DayState } from "~/lib/goal";
+import { LIMITS } from "~/lib/model";
 
 /**
  * Share cards: the 1200×630 images links to slops and profiles show on X,
@@ -14,6 +15,7 @@ import type { DayState } from "~/lib/goal";
 
 const { width: CARD_WIDTH, height: CARD_HEIGHT } = CARD_SIZE;
 
+/** The light theme's colours (app/app.css). */
 const C = {
   ground: "#f4f5f0",
   ink: "#161a13",
@@ -23,13 +25,10 @@ const C = {
   boardMuted: "#9aa18f",
   tile: "#262b22",
   slop: "#9be22d",
-  slopInk: "#10140b",
   gold: "#ffc21a",
 };
 const DISPLAY = "Big Shoulders";
 const SANS = "Schibsted Grotesk";
-
-let ready: Promise<unknown> | null = null;
 
 function fonts() {
   const decode = (base64: string) => Buffer.from(base64, "base64");
@@ -40,12 +39,14 @@ function fonts() {
     { name: SANS, data: decode(fontData.sans600), weight: 600 as const, style: "normal" as const },
   ];
 }
+// Both are set up once per server, on the first card.
+let resvgReady: Promise<void> | null = null;
 let fontList: ReturnType<typeof fonts> | null = null;
 
 /** Draws a card as a PNG. */
 export async function renderCard(card: ReactNode): Promise<Uint8Array<ArrayBuffer>> {
-  ready ??= initWasm(Buffer.from(resvgWasm, "base64"));
-  await ready;
+  resvgReady ??= initWasm(Buffer.from(resvgWasm, "base64"));
+  await resvgReady;
   fontList ??= fonts();
   const svg = await satori(card, { width: CARD_WIDTH, height: CARD_HEIGHT, fonts: fontList });
   return new Uint8Array(new Resvg(svg, { fitTo: { mode: "width", value: CARD_WIDTH } }).render().asPng());
@@ -73,7 +74,7 @@ export async function cardImage(url: string, fetcher: typeof fetch = fetch): Pro
     const type = response.headers.get("content-type")?.split(";")[0] ?? "";
     if (!response.ok || (type !== "image/png" && type !== "image/jpeg")) return null;
     const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > 6 * 1024 * 1024) return null;
+    if (bytes.byteLength > LIMITS.mediaBytes) return null;
     return `data:${type};base64,${Buffer.from(bytes).toString("base64")}`;
   } catch (error) {
     console.warn(`Couldn't fetch ${url} for a share card`, error);
@@ -140,10 +141,9 @@ function Wordmark({ ink }: { ink: string }) {
   );
 }
 
-function Chip({ children, tone }: { children: ReactNode; tone: "board" | "lime" | "gold" }) {
+function Chip({ children, tone }: { children: ReactNode; tone: "board" | "gold" }) {
   const colors = {
     board: { background: C.board, color: C.boardInk },
-    lime: { background: C.slop, color: C.slopInk },
     gold: { background: C.gold, color: C.ink },
   }[tone];
   return (
