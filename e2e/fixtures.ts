@@ -10,6 +10,7 @@ import { importJWK, type JWK, SignJWT } from "jose";
 import { api } from "../convex/_generated/api.js";
 import type { Id } from "../convex/_generated/dataModel";
 import { hashToken, randomToken } from "../app/.server/encoding.ts";
+import type { CategoryId } from "../app/lib/model.ts";
 import type { FakeObject } from "./fake-s3.ts";
 import { E2E_ADMIN, type FakeCheckRequest, type FakeEmail, STACK_FILE, type Stack } from "./ports.ts";
 
@@ -40,6 +41,8 @@ interface SlopOptions {
   name?: string;
   tagline?: string;
   description?: string;
+  /** "games" unless a test says otherwise. */
+  category?: CategoryId;
   /** The content check verdict to record; "ok" unless a test says otherwise. */
   verdict?: "ok" | "mature" | "blocked" | null;
 }
@@ -213,7 +216,10 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
         await convex.mutation(api.videos.setTrust, { adminId: admin.id, userId: user.id, trusted: true });
       },
 
-      async slop(owner, { name, tagline = "Made for the e2e tests", description = "", verdict = "ok" } = {}) {
+      async slop(
+        owner,
+        { name, tagline = "Made for the e2e tests", description = "", category = "games", verdict = "ok" } = {},
+      ) {
         const title = name ?? `Slop ${unique()}`;
         const created = await convex.mutation(api.slops.create, {
           userId: owner.id,
@@ -221,7 +227,7 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
             name: title,
             tagline,
             description,
-            category: "games",
+            category,
             links: [{ kind: "website", url: "https://example.com/" }],
             screenshots: [],
             madeWith: [],

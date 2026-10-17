@@ -71,10 +71,16 @@ export const convex = {
   ): Promise<FunctionReturnType<Mutation>> {
     return await (await client()).mutation(mutation, ...args);
   },
+  async action<Action extends FunctionReference<"action">>(
+    action: Action,
+    ...args: OptionalRestArgs<Action>
+  ): Promise<FunctionReturnType<Action>> {
+    return await (await client()).action(action, ...args);
+  },
 };
 
 /** Something that calls Convex as the app server: `convex`, or a test's stand-in. */
-export type ConvexCaller = typeof convex;
+export type ConvexCaller = Pick<typeof convex, "query" | "mutation">;
 
 /** The message from a business-rule error thrown in Convex, if that's what this is. */
 export function convexMessage(error: unknown): string | null {

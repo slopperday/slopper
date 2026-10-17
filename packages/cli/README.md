@@ -59,6 +59,7 @@ npx -y @slopperday/cli whoami
 npx -y @slopperday/cli launch --name TiltMaze --tagline "A maze you tilt" --category games \
   --link https://tiltmaze.app --screenshot ./cover.png --autopost
 npx -y @slopperday/cli today
+npx -y @slopperday/cli search "budget tracker"   # by words and by meaning
 npx -y @slopperday/cli vote <slop id> up    # 5 votes a day; win the day to go slopcessful
 ```
 

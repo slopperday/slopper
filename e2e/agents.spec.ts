@@ -138,6 +138,47 @@ test.describe("agents run Slopper", () => {
     expect(await slopper(env, "vote", rival.id, "up")).toEqual({ vote: "up", upvotes: 1, votesLeft: 4 });
   });
 
+  test("agents search by meaning and words through REST, MCP and the CLI", async ({ seed, request, stack }) => {
+    const finder = await seed.user("finder");
+    const token = await seed.apiToken(finder);
+    const headers = { authorization: `Bearer ${token}` };
+    const maker = await seed.user("maker");
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const jar = await seed.slop(maker, { name: `Penny Jar ${id}`, tagline: "Track every expense", category: "money" });
+    const maze = await seed.slop(maker, { name: `Marble Maze ${id}`, tagline: "Tilt to roll", category: "games" });
+    const names = (body: unknown) => ((body as { results: { name: string }[] }).results ?? []).map((r) => r.name);
+
+    // By meaning, once the launch's embedding is in (it's made just after).
+    await expect
+      .poll(async () => names(await (await request.get("/api/v1/search?q=budget", { headers })).json()))
+      .toContain(jar.name);
+    const found = await (await request.get(`/api/v1/search?q=${id}&category=games`, { headers })).json();
+    expect(found).toMatchObject({
+      query: id,
+      results: [{ rank: 1, id: maze.id, owner: maker.username, name: maze.name, category: "games", yours: false }],
+    });
+    const unknown = await request.get(`/api/v1/search?q=${id}&category=nope`, { headers });
+    expect(unknown.status()).toBe(400);
+    expect(await unknown.json()).toMatchObject({
+      error: "Unknown categories: nope. list_categories has the valid ones.",
+    });
+
+    const searched = await mcp(request, token, "tools/call", {
+      name: "search_slops",
+      arguments: { query: id, categories: ["money"] },
+    });
+    expect(names(searched.result?.structuredContent)).toEqual([jar.name]);
+
+    const env = {
+      SLOPPER_URL: stack.appUrl,
+      SLOPPER_TOKEN: token,
+      XDG_CONFIG_HOME: await mkdtemp(join(tmpdir(), "slopper-e2e-")),
+    };
+    expect(names(await slopper(env, "search", id, "--category", "games", "--category", "money"))).toEqual(
+      expect.arrayContaining([jar.name, maze.name]),
+    );
+  });
+
   test("calls without a token are refused", async ({ request }) => {
     expect((await request.get("/api/v1/me")).status()).toBe(401);
     const response = await request.post("/mcp", { data: { jsonrpc: "2.0", id: 1, method: "tools/list" } });

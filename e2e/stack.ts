@@ -7,7 +7,8 @@
  * - a fake OpenRouter that answers the content check by marker
  *   (`[e2e:mature]`, `[e2e:blocked]`, in a launch's text, an uploaded
  *   file's name or a video's bytes; `[e2e:error]` fails the call) and logs
- *   what it was sent;
+ *   what it was sent, and makes embeddings for search by meaning
+ *   (e2e/fake-embeddings.ts);
  * - a fake B2 bucket that checks every write's signature (e2e/fake-s3.ts),
  *   so screenshots take the production path;
  * - the production build: build/client and the Netlify Function, served by
@@ -24,6 +25,8 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import process from "node:process";
 import { generateServerKeys, generateVapidKeys } from "../scripts/server-keys.ts";
+import { EMBEDDING_MODEL } from "../convex/lib/embeddings.ts";
+import { fakeEmbedding } from "./fake-embeddings.ts";
 import { sha256Hex, startFakeS3 } from "./fake-s3.ts";
 import { E2E_ADMIN, type FakeCheckRequest, type FakeEmail, PORTS, STACK_FILE, type Stack } from "./ports.ts";
 
@@ -108,6 +111,18 @@ function startFakeCheck(): void {
       response
         .writeHead(200, { "content-type": "application/json" })
         .end(JSON.stringify({ data: batch.map((_, n) => ({ id: `email-${emails.length - batch.length + n}` })) }));
+      return;
+    }
+    // Embeddings, which Convex asks for when a slop is launched or edited, and for each search.
+    if (request.method === "POST" && request.url === "/embeddings") {
+      const { model, input } = JSON.parse(await readBody(request)) as { model?: string; input?: unknown };
+      const texts = Array.isArray(input) && input.every((text) => typeof text === "string") ? input : null;
+      if (request.headers.authorization !== "Bearer e2e-key" || model !== EMBEDDING_MODEL || !texts) {
+        response.writeHead(400, { "content-type": "application/json" }).end('{"error":"malformed embeddings request"}');
+        return;
+      }
+      const data = texts.map((text, index) => ({ object: "embedding", index, embedding: fakeEmbedding(text) }));
+      response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ data }));
       return;
     }
     const body = JSON.parse(await readBody(request)) as {
@@ -216,6 +231,8 @@ async function main(): Promise<void> {
   setEnv("APP_URL", APP_URL);
   setEnv("RESEND_API_KEY", "e2e-resend");
   setEnv("RESEND_BASE_URL", CHECK_URL);
+  setEnv("OPENROUTER_API_KEY", "e2e-key");
+  setEnv("OPENROUTER_BASE_URL", CHECK_URL);
   const vapid = await generateVapidKeys();
   setEnv("VAPID_PUBLIC_KEY", vapid.publicKey);
   setEnv("VAPID_PRIVATE_KEY", vapid.privateKey);

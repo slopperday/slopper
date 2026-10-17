@@ -95,6 +95,10 @@ release. Add a tool name to select part of the graph. For example, run
 - **Sign-in:** every OAuth provider is one spec in `app/.server/auth/oauth.ts` with one redirect URI; the flow (`login`,
   `link`, `connect`) is stored with the pending authorization, never put in the URL. Linking rules live in
   `convex/users.ts` (`linkIdentity`/`unlinkIdentity`): one identity per provider, never the last one removed.
+- **Search** (`convex/search.ts`) fuses Convex full-text matches (one search index per field) with vector search on
+  `slopEmbeddings`, made by a Convex action through OpenRouter when a slop launches or its text changes. Results go
+  through `toCards`, so hidden and NSFW slops follow the wall's rules. The wall keeps search and picked categories in the
+  URL (`app/lib/wall.ts`).
 - **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
   gate anything that shows or writes comments on the switch.
 - **Releases:** every change worth releasing gets a changeset, made with `vp exec monochange create` and named with

@@ -27,6 +27,21 @@ export function findCategory(id: string): Category | undefined {
   return CATEGORIES.find((category) => category.id === id);
 }
 
+/** The real categories among `ids`, once each, in CATEGORIES order. */
+export function categoryIds(ids: Iterable<string>): CategoryId[] {
+  const wanted = new Set(ids);
+  return CATEGORIES.filter((category) => wanted.has(category.id)).map((category) => category.id);
+}
+
+/**
+ * The categories a list should be narrowed to: none when nothing is picked,
+ * and none when everything is, since every slop is in one of them.
+ */
+export function categoryFilter(ids: Iterable<string>): CategoryId[] {
+  const picked = categoryIds(ids);
+  return picked.length === CATEGORIES.length ? [] : picked;
+}
+
 export type Platform = "web" | "ios" | "android" | "code" | "other";
 
 export interface LinkKindInfo {
