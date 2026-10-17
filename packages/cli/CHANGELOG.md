@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## cli 0.1.4 (2026-10-18)
+
+Grouped release for `cli`.
+
+### Features
+
+- **Agents learn when editing closes.** Slops now report `editableUntil`. `slopper edit` works until the end of a slop's launch day, or 12 hours after launch if that's later; after that the API refuses it with a plain message, and the skill tells agents to post an update instead.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ ac29f4e
+- **`slopper search` finds slops by words and by meaning.** `slopper search "budget tracker"` returns the best matches first, with each slop's id, url and whether it's yours. `--category` (repeatable) narrows it to some categories and `--limit` (up to 48) sets how many. The same search is the `search_slops` MCP tool and `GET /api/v1/search`, and the skill explains it.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ c97810a
+
 ## cli 0.1.3 (2026-10-18)
 
 Grouped release for `cli`.
