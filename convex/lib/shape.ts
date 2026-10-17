@@ -45,6 +45,10 @@ export interface PublicSlop {
   links: SlopLink[];
   /** Screenshot URLs, cover first. */
   screenshots: string[];
+  /** The promo video's URL, once a moderator has approved it. */
+  video: string | null;
+  /** A video is waiting for a moderator (convex/videos.ts). */
+  videoPending: boolean;
   madeWith: string[];
   launchDate: string;
   raceDate: string;
@@ -79,6 +83,11 @@ export async function screenshotUrls(ctx: QueryCtx, ids: readonly Id<"media">[])
   return urls;
 }
 
+async function approvedVideoUrl(ctx: QueryCtx, id: Id<"media">): Promise<string | null> {
+  const media = await ctx.db.get(id);
+  return media ? await mediaUrl(ctx, media) : null;
+}
+
 export async function publicSlop(ctx: QueryCtx, slop: Doc<"slops">): Promise<PublicSlop> {
   return {
     id: slop._id,
@@ -93,6 +102,8 @@ export async function publicSlop(ctx: QueryCtx, slop: Doc<"slops">): Promise<Pub
     nsfw: slop.nsfw,
     links: slop.links,
     screenshots: await screenshotUrls(ctx, slop.screenshots),
+    video: slop.video?.approvedAt ? await approvedVideoUrl(ctx, slop.video.mediaId) : null,
+    videoPending: slop.video !== undefined && slop.video.approvedAt === null,
     madeWith: slop.madeWith,
     launchDate: slop.launchDate,
     raceDate: slop.raceDate,

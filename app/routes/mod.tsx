@@ -4,6 +4,7 @@ import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
 import { convex } from "~/.server/convex";
 import { formText } from "~/.server/forms";
+import { deleteOrphanedMedia } from "~/.server/media";
 import { badRequest, notFound, redirectWithFlash } from "~/.server/http";
 import { timeAgo } from "~/lib/dates";
 import { slopPath } from "~/lib/display";
@@ -29,7 +30,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   requireUser(viewer, request);
   // Not a 403: nobody else needs to know this page exists.
   if (!viewer.isAdmin) notFound();
-  return { items: await convex.query(api.moderation.queue, {}) };
+  const [items, videos] = await Promise.all([
+    convex.query(api.moderation.queue, {}),
+    convex.query(api.videos.queue, {}),
+  ]);
+  return { items, videos };
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -37,6 +42,16 @@ export async function action({ request, context }: Route.ActionArgs) {
   requireUser(viewer, request);
   if (!viewer.isAdmin) notFound();
   const form = await request.formData();
+  const video = formText(form, "video");
+  if (video === "approve" || video === "remove") {
+    const slopId = formText(form, "id");
+    const item = (await convex.query(api.videos.queue, {})).find((entry) => entry.slopId === slopId);
+    if (!item) return redirectWithFlash("/mod", { tone: "info", message: "Already handled." });
+    const result = await convex.mutation(api.videos.decide, { slopId: item.slopId, approve: video === "approve" });
+    if (result.orphaned > 0) await deleteOrphanedMedia();
+    const message = video === "approve" ? "its video plays for everyone now." : "its video is gone.";
+    return redirectWithFlash("/mod", { tone: "success", message: `${item.name}: ${message}` });
+  }
   const decision = formText(form, "decision");
   if (!isDecision(decision)) badRequest("Unknown decision");
   const slopId = formText(form, "id");
@@ -49,7 +64,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "Flag queue", noindex: true });
 
 export default function Moderation({ loaderData }: Route.ComponentProps) {
-  const { items } = loaderData;
+  const { items, videos } = loaderData;
   return (
     <section className="mx-auto max-w-4xl px-4 pt-14">
       <h1 className="title-1">Flag queue</h1>
@@ -57,6 +72,47 @@ export default function Moderation({ loaderData }: Route.ComponentProps) {
         Flagged slops stop auto-posting straight away. Three flags from different people, or a mature verdict from the
         content check, blur them; a blocked verdict hides them. Each decision clears the flags.
       </p>
+      {videos.length > 0 && (
+        <section className="mt-12" aria-labelledby="videos-title">
+          <h2 id="videos-title" className="title-2">
+            Videos to review
+          </h2>
+          <p className="mt-2 max-w-2xl text-muted">
+            The content check can't watch video, so each one waits here. Approve it and it plays on its slop for
+            everyone.
+          </p>
+          <div className="mt-6 grid gap-4">
+            {videos.map((video) => (
+              <article key={video.slopId} className="panel sm:p-6" aria-labelledby={`video-${video.slopId}`}>
+                <h3 id={`video-${video.slopId}`} className="font-display text-[1.75rem] leading-none font-extrabold">
+                  <Link to={slopPath(video.owner, video.slug)} className="hover:underline">
+                    {video.name}
+                  </Link>
+                </h3>
+                <p className="mt-1.5 text-muted">
+                  @{video.owner} · sent {timeAgo(video.submittedAt)}
+                </p>
+                <video
+                  src={video.url}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="mt-4 max-h-[60vh] w-full rounded-xl bg-board"
+                />
+                <Form method="post" className="mt-5 flex flex-wrap gap-2">
+                  <input type="hidden" name="id" value={video.slopId} />
+                  <button type="submit" name="video" value="approve" className="btn btn-sm btn-slop">
+                    Approve video
+                  </button>
+                  <button type="submit" name="video" value="remove" className="btn btn-sm bg-raised">
+                    Take it off
+                  </button>
+                </Form>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       <div className="mt-12 grid gap-4">
         {items.length === 0 && <EmptyState>Nothing flagged. The wall is clean.</EmptyState>}
         {items.map((item) => (

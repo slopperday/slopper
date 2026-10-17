@@ -16,12 +16,12 @@ import { randomToken } from "./encoding";
 
 export type MediaLocation = Infer<typeof mediaLocationValidator>;
 
-/** Screenshots go on slops; avatars are copies of sign-in pictures that expire. */
-export type MediaKind = "screenshot" | "avatar";
+/** Screenshots and promo videos go on slops; avatars are copies of sign-in pictures that expire. */
+export type MediaKind = "screenshot" | "avatar" | "video";
 
 export interface MediaStore {
   readonly backend: MediaLocation["backend"];
-  /** Stores an image the server has already checked. Throws when the store refuses it. */
+  /** Stores an image the server has checked, or a video. Throws when the store refuses it. */
   put(bytes: Uint8Array<ArrayBuffer>, contentType: string, kind: MediaKind): Promise<MediaLocation>;
 }
 
@@ -30,13 +30,15 @@ const TIMEOUT_MS = 20_000;
 /** A new upload always gets a new key, so an object never changes and caches can keep it for a year. */
 const CACHE_CONTROL = "public, max-age=31536000, immutable";
 
-const FOLDERS: Readonly<Record<MediaKind, string>> = { screenshot: "screenshots", avatar: "avatars" };
+const FOLDERS: Readonly<Record<MediaKind, string>> = { screenshot: "screenshots", avatar: "avatars", video: "videos" };
 
 const EXTENSIONS: Readonly<Record<string, string>> = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/webp": "webp",
   "image/gif": "gif",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
 };
 
 /** SHA-256 of no bytes: every request signs its payload, even an empty one. */

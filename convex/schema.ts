@@ -170,6 +170,11 @@ export default defineSchema({
     nsfw: v.boolean(),
     links: v.array(linkValidator),
     screenshots: v.array(v.id("media")),
+    /**
+     * One promo video. The content check can't watch video, so it only plays
+     * for everyone once a moderator approves it (convex/videos.ts).
+     */
+    video: v.optional(v.object({ mediaId: v.id("media"), approvedAt: v.union(v.number(), v.null()) })),
     madeWith: v.array(v.string()),
     /** Calendar date in the owner's zone (goal accounting). */
     launchDate: v.string(),
@@ -204,6 +209,12 @@ export default defineSchema({
     .index("by_race_date", ["raceDate"])
     .index("by_product", ["productId"])
     .index("by_slopcessful", ["slopcessfulAt"]),
+
+  /** Videos waiting for a moderator, oldest first (convex/videos.ts). */
+  videoReviews: defineTable({
+    slopId: v.id("slops"),
+    mediaId: v.id("media"),
+  }).index("by_slop", ["slopId"]),
 
   /**
    * Launches waiting to go out (see app/lib/schedule.ts). Nobody but the

@@ -88,6 +88,9 @@ export type Command = LocalCommand | SiteCommand;
  */
 export const MEDIA_BYTES = 4 * 1024 * 1024;
 
+/** The site's LIMITS.videoBytes, for promo videos. */
+export const VIDEO_BYTES = 4 * 1024 * 1024;
+
 function text(values: Values, key: string): string | undefined {
   const value = values[key];
   return typeof value === "string" ? value : undefined;
@@ -151,6 +154,32 @@ async function uploadImage(api: Api, file: string): Promise<{ id: string }> {
     throw usageError(`${file} is bigger than ${MEDIA_BYTES / 1024 / 1024} MB, the most a screenshot can be.`);
   }
   const uploaded = await api.upload("/media", bytes, contentType);
+  if (typeof uploaded !== "object" || uploaded === null || typeof (uploaded as { id?: unknown }).id !== "string") {
+    throw new SlopperError(`Uploading ${file} returned no media id.`);
+  }
+  return uploaded as { id: string };
+}
+
+const VIDEO_TYPES: Record<string, string> = {
+  ".mp4": "video/mp4",
+  ".m4v": "video/mp4",
+  ".webm": "video/webm",
+};
+
+async function uploadVideoFile(api: Api, file: string): Promise<{ id: string }> {
+  const contentType = VIDEO_TYPES[extname(file).toLowerCase()];
+  if (!contentType) throw usageError(`${file} isn't an MP4 or WebM video.`);
+  let bytes: Uint8Array<ArrayBuffer>;
+  try {
+    bytes = new Uint8Array(await readFile(resolve(file)));
+  } catch (error) {
+    if (!isSystemError(error)) throw error;
+    throw usageError(`Couldn't read ${file} (${error.code}).`);
+  }
+  if (bytes.byteLength > VIDEO_BYTES) {
+    throw usageError(`${file} is bigger than ${VIDEO_BYTES / 1024 / 1024} MB, the most a video can be.`);
+  }
+  const uploaded = await api.upload("/videos", bytes, contentType);
   if (typeof uploaded !== "object" || uploaded === null || typeof (uploaded as { id?: unknown }).id !== "string") {
     throw new SlopperError(`Uploading ${file} returned no media id.`);
   }
@@ -412,6 +441,26 @@ export const COMMANDS: Command[] = [
       const fields = await slopFields(context);
       if (Object.keys(fields).length === 0) throw usageError("Nothing to change: pass a flag, like --tagline.");
       return context.api.patch(slopPath(slop), fields);
+    },
+  },
+  {
+    name: "video",
+    args: "<slop> [file|id]",
+    summary:
+      "Put a promo video (MP4 or WebM, up to 4 MB) on one of your slops, replacing its last. It plays for everyone once a moderator approves it.",
+    flags: { "--remove": "Take the slop's video off instead." },
+    options: { remove: { type: "boolean" } },
+    async run(context) {
+      const { api, values, positionals } = context;
+      const slop = positional(context, 0, "slop");
+      if (values.remove === true) {
+        if (positionals[1] !== undefined) throw usageError("Pass a video or --remove, not both.");
+        return api.put(`${slopPath(slop)}/video`, { video: null });
+      }
+      const video = positional(context, 1, "file|id");
+      const isFile = video.includes("/") || video.includes("\\") || extname(video).toLowerCase() in VIDEO_TYPES;
+      const id = isFile ? (await uploadVideoFile(api, video)).id : video;
+      return api.put(`${slopPath(slop)}/video`, { video: id });
     },
   },
   {

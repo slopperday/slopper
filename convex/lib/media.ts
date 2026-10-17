@@ -11,7 +11,12 @@ export function mediaPublicBase(): string | null {
   return process.env.MEDIA_PUBLIC_URL?.trim().replace(/\/+$/, "") || null;
 }
 
-/** The public URL of an image, or null when nothing should show it. */
+/** Whether a media row holds a video rather than an image. */
+export function isVideo(media: Doc<"media">): boolean {
+  return media.contentType.startsWith("video/");
+}
+
+/** The public URL of an image or video, or null when nothing should show it. */
 export async function mediaUrl(ctx: QueryCtx, media: Doc<"media">): Promise<string | null> {
   if (media.orphanedAt !== undefined) return null;
   if (media.backend !== "b2") return await ctx.storage.getUrl(media.storageId);
@@ -49,6 +54,7 @@ export async function releaseMedia(
     .withIndex("by_user_release", (q) => q.eq("userId", ownerId))
     .collect();
   for (const launch of [...launches, ...queued]) for (const id of launch.screenshots) shown.add(id);
+  for (const launch of launches) if (launch.video) shown.add(launch.video.mediaId);
 
   let waiting = 0;
   for (const id of new Set(ids)) {

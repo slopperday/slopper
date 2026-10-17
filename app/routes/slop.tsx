@@ -434,6 +434,26 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
           </dl>
         </header>
 
+        {isOwner && slop.videoPending && (
+          <p role="status" className="panel mt-10 text-[0.9375rem]">
+            <span className="font-bold">Your video is waiting for a moderator.</span> The content check can't watch
+            video, so it plays here for everyone once it's approved.
+          </p>
+        )}
+        {slop.video && reveal && (
+          <section className="mt-10" aria-label="Promo video">
+            <video
+              src={slop.video}
+              poster={slop.screenshots[0]}
+              controls
+              playsInline
+              preload="metadata"
+              className="max-h-[75vh] w-full rounded-2xl bg-board object-contain"
+            >
+              <a href={slop.video}>Watch the {slop.name} video</a>
+            </video>
+          </section>
+        )}
         {slop.screenshots.length > 0 && (
           <section className="relative mt-10" aria-label="Screenshots">
             <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2">

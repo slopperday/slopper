@@ -455,3 +455,77 @@ describe("signing in the CLI from the browser", () => {
     expect(await server.mutation(api.tokens.use, { hash: "old-hash" })).toBeNull();
   });
 });
+
+describe("promo videos", () => {
+  async function upload(t: ReturnType<typeof setup>["t"], server: Server, ownerId: Id<"users">, contentType: string) {
+    const storageId = await t.run(async (ctx) => await ctx.storage.store(new Blob([new Uint8Array([0, 0, 0, 24])])));
+    const { mediaId } = await server.mutation(api.media.register, {
+      ownerId,
+      location: { backend: "convex", storageId },
+      contentType,
+      size: 4,
+      check: { verdict: "unchecked", reason: "test" },
+    });
+    return mediaId;
+  }
+
+  it("waits for a moderator before anyone can watch it, and never passes for a screenshot", async () => {
+    const { t, server } = setup();
+    const owner = await makeUser(server, "owner");
+    const other = await makeUser(server, "other");
+    const { slopId } = await ship(server, owner, "2026-10-17");
+    const video = await upload(t, server, owner, "video/mp4");
+    const image = await upload(t, server, owner, "image/png");
+    const theirs = await upload(t, server, other, "video/mp4");
+    const setVideo = (mediaId: string | null) => server.mutation(api.videos.set, { userId: owner, slopId, mediaId });
+
+    await expect(setVideo(image)).rejects.toThrow("That isn't one of your uploaded videos.");
+    await expect(setVideo(theirs)).rejects.toThrow("That isn't one of your uploaded videos.");
+    expect(await setVideo(video)).toEqual({ status: "pending", orphaned: 0 });
+
+    const page = () => server.query(api.slops.page, { username: "owner", slug: "tiltmaze", asUser: other });
+    expect((await page())?.slop).toMatchObject({ video: null, videoPending: true });
+    expect(await server.query(api.videos.queue, {})).toMatchObject([{ slopId, name: "TiltMaze", owner: "owner" }]);
+
+    // A video id sent as a screenshot is dropped, not shown unreviewed.
+    await server.mutation(api.slops.edit, { userId: owner, slopId, input: { ...input, screenshots: [video] } });
+    expect((await page())?.slop.screenshots).toEqual([]);
+
+    expect(await server.mutation(api.videos.decide, { slopId, approve: true })).toEqual({ decided: true, orphaned: 0 });
+    expect((await page())?.slop).toMatchObject({ video: expect.stringMatching(/^https?:\/\//), videoPending: false });
+    expect(await server.query(api.videos.queue, {})).toEqual([]);
+    expect(await server.mutation(api.videos.decide, { slopId, approve: true })).toEqual({
+      decided: false,
+      orphaned: 0,
+    });
+  });
+
+  it("lets go of a replaced or removed video, and only the server takes part", async () => {
+    const { t, server } = setup();
+    const owner = await makeUser(server, "owner");
+    const { slopId } = await ship(server, owner, "2026-10-17");
+    const first = await upload(t, server, owner, "video/mp4");
+    const second = await upload(t, server, owner, "video/webm");
+    await expect(t.mutation(api.videos.set, { userId: owner, slopId, mediaId: first })).rejects.toThrow(
+      "Only the Slopper server",
+    );
+
+    await server.mutation(api.videos.set, { userId: owner, slopId, mediaId: first });
+    await server.mutation(api.videos.set, { userId: owner, slopId, mediaId: second });
+    // Convex-stored media goes at once; the first video is gone, and only the second waits for review.
+    expect(await t.run(async (ctx) => await ctx.db.get(first))).toBeNull();
+    expect(await server.query(api.videos.queue, {})).toHaveLength(1);
+
+    expect(await server.mutation(api.videos.decide, { slopId, approve: false })).toEqual({
+      decided: true,
+      orphaned: 0,
+    });
+    expect(await t.run(async (ctx) => await ctx.db.get(second))).toBeNull();
+    const slop = await t.run(async (ctx) => await ctx.db.get(slopId));
+    expect(slop?.video).toBeUndefined();
+    expect(await server.mutation(api.videos.set, { userId: owner, slopId, mediaId: null })).toEqual({
+      status: "none",
+      orphaned: 0,
+    });
+  });
+});

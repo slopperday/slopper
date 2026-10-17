@@ -184,6 +184,8 @@ export const LIMITS = {
    * and base64-encode binary ones, so an upload has about 4.5 MB to work with.
    */
   mediaBytes: 4 * 1024 * 1024,
+  /** Under Netlify's request cap, like images: a 20 s 1080p promo at CRF 23 is about 2 MB. */
+  videoBytes: 4 * 1024 * 1024,
   goalDays: 365,
   /** Launches waiting to go out at once, and how far ahead one can be set. */
   scheduled: 30,

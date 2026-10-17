@@ -1,6 +1,6 @@
 import type { Route } from "./+types/api.v1";
 import { absoluteUrl } from "~/.server/config";
-import { uploadImage } from "~/.server/media";
+import { uploadImage, uploadVideo } from "~/.server/media";
 import { allowAction, userForBearer } from "~/.server/tokens";
 import { ApiError, asObject, type JsonObject } from "~/.server/agent/input";
 import { findOperation, runOperation } from "~/.server/agent/operations";
@@ -14,9 +14,11 @@ import { findOperation, runOperation } from "~/.server/agent/operations";
  *   GET    /api/v1/today
  *   POST   /api/v1/goal
  *   POST   /api/v1/media                    (raw image body, or JSON { base64 })
+ *   POST   /api/v1/videos                   (raw MP4 or WebM body, or JSON { base64 })
  *   GET    /api/v1/slops
  *   POST   /api/v1/slops
  *   PATCH  /api/v1/slops/:slop
+ *   PUT    /api/v1/slops/:slop/video        ({ video: id } or { video: null })
  *   POST   /api/v1/slops/:slop/updates
  *   POST   /api/v1/slops/:slop/money
  *   POST   /api/v1/slops/:slop/vote
@@ -39,6 +41,7 @@ function route(method: string, path: string): Match | null {
   if (method === "GET" && parts.length === 1 && resource === "today") return { operation: "todays_race" };
   if (method === "POST" && parts.length === 1 && resource === "goal") return { operation: "set_goal" };
   if (method === "POST" && parts.length === 1 && resource === "media") return { operation: "upload_screenshot" };
+  if (method === "POST" && parts.length === 1 && resource === "videos") return { operation: "upload_video" };
   if (resource === "scheduled") {
     if (method === "GET" && parts.length === 1) return { operation: "list_scheduled" };
     if (method === "POST" && parts.length === 3 && action === "release") {
@@ -53,6 +56,7 @@ function route(method: string, path: string): Match | null {
     if (method === "POST") return { operation: "create_slop" };
   }
   if (parts.length === 2 && method === "PATCH") return { operation: "update_slop", slop: ref };
+  if (parts.length === 3 && method === "PUT" && action === "video") return { operation: "set_video", slop: ref };
   if (parts.length === 3 && method === "POST" && action === "updates") return { operation: "post_update", slop: ref };
   if (parts.length === 3 && method === "POST" && action === "money") return { operation: "log_money", slop: ref };
   if (parts.length === 3 && method === "POST" && action === "vote") return { operation: "vote", slop: ref };
@@ -84,6 +88,11 @@ async function handle(request: Request, path: string): Promise<Response> {
       const result = await uploadImage(user._id, { bytes: new Uint8Array(await request.arrayBuffer()) });
       if (!result.ok) throw new ApiError(400, result.error);
       return Response.json({ id: result.id, url: result.url, contentCheck: result.contentCheck }, { status: 201 });
+    }
+    if (match.operation === "upload_video" && contentType.startsWith("video/")) {
+      const result = await uploadVideo(user._id, new Uint8Array(await request.arrayBuffer()));
+      if (!result.ok) throw new ApiError(400, result.error);
+      return Response.json({ id: result.id }, { status: 201 });
     }
 
     let input: JsonObject = {};

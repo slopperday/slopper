@@ -8,7 +8,7 @@ import { isVisibleTo, productIdOf, publicSlop, publicUser, toCards, voteOf } fro
 import { linkValidator } from "./schema";
 import { openGoal } from "./goals";
 import { utcToday } from "./race";
-import { releaseMedia } from "./lib/media";
+import { isVideo, releaseMedia } from "./lib/media";
 import { checkScreenshots } from "./moderation";
 import { goalDayFor } from "../app/lib/goal";
 import { LIMITS } from "../app/lib/model";
@@ -44,7 +44,8 @@ export async function ownedMedia(
       continue;
     }
     const media = await ctx.db.get(id);
-    if (media?.ownerId === userId && media.orphanedAt === undefined) kept.push(id);
+    // Videos go through set_video and a moderator, never in as screenshots.
+    if (media?.ownerId === userId && media.orphanedAt === undefined && !isVideo(media)) kept.push(id);
   }
   return kept.slice(0, LIMITS.screenshots);
 }
@@ -256,8 +257,15 @@ export const remove = mutation({
         .collect();
       for (const entry of ledger) await ctx.db.delete(entry._id);
     }
+    for (const review of await ctx.db
+      .query("videoReviews")
+      .withIndex("by_slop", (q) => q.eq("slopId", slopId))
+      .collect()) {
+      await ctx.db.delete(review._id);
+    }
     await ctx.db.delete(slopId);
-    return { orphaned: await releaseMedia(ctx, slop.userId, slop.screenshots) };
+    const media = slop.video ? [...slop.screenshots, slop.video.mediaId] : slop.screenshots;
+    return { orphaned: await releaseMedia(ctx, slop.userId, media) };
   },
 });
 
