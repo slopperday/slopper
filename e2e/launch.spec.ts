@@ -1,4 +1,4 @@
-import { checkRequests, expect, test } from "./fixtures.ts";
+import { checkRequests, choose, expect, test } from "./fixtures.ts";
 
 test.describe("a maker's day", () => {
   test("sets a goal, throws a slop with a screenshot, and it enters the race", async ({ seed, stack }) => {
@@ -62,7 +62,7 @@ test.describe("a maker's day", () => {
     await page.goto(slop.path);
 
     // A field test.
-    await page.getByRole("radio", { name: "Field test" }).check({ force: true });
+    await choose(page, "Field test");
     await expect(page.getByText("Who tried it in real life")).toBeVisible();
     await page.getByRole("textbox", { name: "Update" }).fill("Showed it to 5 people at the bus stop. 3 got hooked.");
     await page.getByRole("button", { name: "Post update" }).click();

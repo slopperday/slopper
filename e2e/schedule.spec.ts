@@ -1,6 +1,6 @@
 import { api } from "../convex/_generated/api.js";
 import { addDays } from "../app/lib/dates.ts";
-import { checkRequests, expect, test } from "./fixtures.ts";
+import { checkRequests, choose, expect, test } from "./fixtures.ts";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -30,14 +30,14 @@ test.describe("scheduled launches", () => {
     // The next free day: nothing is out tomorrow yet.
     await page.goto("/new");
     await fill(first);
-    await page.getByRole("radio", { name: /Next free day/ }).check({ force: true });
+    await choose(page, /Next free day/);
     await page.getByRole("button", { name: "Schedule it" }).click();
     await expect(page).toHaveURL("/new");
     await expect(page.getByRole("status")).toContainText(`${first} goes out`);
 
     // A picked time, two days out at 9am (the maker's zone is UTC).
     await fill(second);
-    await page.getByRole("radio", { name: /Pick a time/ }).check({ force: true });
+    await choose(page, /Pick a time/);
     await page.getByLabel("Day and time").fill(`${addDays(today(), 2)}T09:00`);
     await page.getByRole("button", { name: "Schedule it" }).click();
     await expect(page.getByRole("status")).toContainText(`${second} goes out`);
@@ -76,7 +76,7 @@ test.describe("scheduled launches", () => {
     await page.getByLabel("Tagline").fill("Too late");
     await page.getByLabel("Link 1 address").fill("https://example.com/");
     await page.getByLabel("Category").selectOption("games");
-    await page.getByRole("radio", { name: /Pick a time/ }).check({ force: true });
+    await choose(page, /Pick a time/);
     await page.getByLabel("Day and time").fill(`${addDays(today(), -1)}T09:00`);
     await page.getByRole("button", { name: "Schedule it" }).click();
     await expect(page.getByText("Pick a time that hasn't happened yet.")).toBeVisible();

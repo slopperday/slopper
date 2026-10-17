@@ -74,6 +74,16 @@ async function serverClient(stack: Stack): Promise<ConvexHttpClient> {
 }
 
 /** Runs an internal Convex function with the stack's admin key, like the cron would. */
+/**
+ * Picks a radio drawn as a card. The input itself is visually hidden (`sr-only`), so a forced click on it lands on
+ * whatever sits under its 1px box and sometimes changes nothing. Click the card, as people do, and check it took.
+ */
+export async function choose(page: Page, name: string | RegExp): Promise<void> {
+  const radio = page.getByRole("radio", { name });
+  await radio.locator("xpath=ancestor::label[1]").click();
+  await expect(radio).toBeChecked();
+}
+
 export function runInternal(stack: Stack, name: string, args: Record<string, unknown>): void {
   execFileSync("node_modules/.bin/convex", ["run", name, JSON.stringify(args)], {
     stdio: "ignore",
