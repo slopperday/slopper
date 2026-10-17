@@ -1,0 +1,25 @@
+{
+  "name": "@slopperday/promo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Slopper's promo video, made with Remotion.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts vision-portrait out/slopper-promo.mp4 --codec h264 --crf 20 --audio-bitrate 192k --concurrency 50%",
+    "render:landscape": "remotion render src/index.ts vision-landscape out/slopper-promo-landscape.mp4 --codec h264 --crf 20 --audio-bitrate 192k --concurrency 50%",
+    "beats": "node scripts/beats.ts",
+    "review": "node scripts/review.ts"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.532",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "4.0.532"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0"
+  }
+}
