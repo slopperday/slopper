@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.2.1 (2026-10-17)
+
+### Fixes
+
+- **Release deploys reach Netlify from the monorepo root.** netlify-cli saw packages/cli and packages/skill as workspace projects, asked which one to deploy and failed in the release workflow after Convex was deployed. `release.ts deploy` now starts it in scripts/ and points --cwd at the app, which skips the question. A manual run of the release workflow can also publish only the npm packages, for a release whose site is already live.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 74f3e8a
+- **A new release pull request can replace a merged one.** GitHub deletes chore/release when a release pull request merges, so the next `run release` pushed with a stale origin/chore/release and `--force-with-lease` refused it. `release.ts pr` now fetches with --prune before pushing.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ dc67e1d
+- **The release workflow pushes tags without the local git hooks, and can retry an older release.** `vp install` in the workflow installs the repo's git hooks, so pushing the release tags ran the pre-push CI on the runner, which can't start its Convex backend, and the v1.2.0 publish stopped before tagging. The publish step now runs without hooks (CI ran before the release commit was pushed). A manual run takes a release commit to check out, so a failed publish can be retried once newer commits are on main, and `release.ts ci` refuses to publish anything that isn't a release commit on main.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 7f21cb8
+
 ## 1.2.0 (2026-10-17)
 
 ### Features
