@@ -1,7 +1,7 @@
 import { ConvexError, type Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
-import { readerFor, requireServer } from "./lib/auth";
+import { canModerate, isAdmin, readerFor, requireRole, requireServer } from "./lib/auth";
 import { notify } from "./lib/notify";
 import { consume, nextCounter } from "./lib/rate";
 import { isVisibleTo, productIdOf, publicSlop, publicUser, toCards, voteOf } from "./lib/shape";
@@ -195,9 +195,10 @@ export const setCrosspost = mutation({
 
 /** Moderation: the server checks the caller is an admin. */
 export const setHidden = mutation({
-  args: { slopId: v.id("slops"), hidden: v.boolean() },
-  handler: async (ctx, { slopId, hidden }) => {
+  args: { adminId: v.id("users"), slopId: v.id("slops"), hidden: v.boolean() },
+  handler: async (ctx, { adminId, slopId, hidden }) => {
     await requireServer(ctx);
+    await requireRole(ctx, adminId, "admin");
     await ctx.db.patch(slopId, { hidden });
     if (hidden) {
       const reports = await ctx.db
@@ -211,12 +212,15 @@ export const setHidden = mutation({
 
 /** Scrapes a launch off the wall with everything attached to it. */
 export const remove = mutation({
-  args: { slopId: v.id("slops"), byUserId: v.id("users"), asAdmin: v.boolean() },
-  handler: async (ctx, { slopId, byUserId, asAdmin }) => {
+  // `asAdmin` is ignored, like `isAdmin` on `page`: only the remover's stored role counts.
+  args: { slopId: v.id("slops"), byUserId: v.id("users"), asAdmin: v.optional(v.boolean()) },
+  handler: async (ctx, { slopId, byUserId }) => {
     await requireServer(ctx);
     const slop = await ctx.db.get(slopId);
     if (!slop) return { orphaned: 0 };
-    if (slop.userId !== byUserId && !asAdmin) throw new ConvexError("That slop isn't yours.");
+    if (slop.userId !== byUserId && !isAdmin(await ctx.db.get(byUserId))) {
+      throw new ConvexError("That slop isn't yours.");
+    }
     const later = await ctx.db
       .query("slops")
       .withIndex("by_product", (q) => q.eq("productId", slopId))
@@ -420,10 +424,15 @@ export const page = query({
     username: v.string(),
     slug: v.string(),
     asUser: v.optional(v.id("users")),
-    isAdmin: v.optional(v.boolean()),
     withComments: v.optional(v.boolean()),
+    /**
+     * Ignored: moderators are told apart by their stored role. A release
+     * deploys Convex before Netlify, and the app server from before roles
+     * still sends it until its replacement is live. Drop it next release.
+     */
+    isAdmin: v.optional(v.boolean()),
   },
-  handler: async (ctx, { username, slug, asUser, isAdmin = false, withComments = false }) => {
+  handler: async (ctx, { username, slug, asUser, withComments = false }) => {
     const owner = await ctx.db
       .query("users")
       .withIndex("by_username", (q) => q.eq("username", username.toLowerCase()))
@@ -436,7 +445,8 @@ export const page = query({
     if (!slop) return null;
     const reader = await readerFor(ctx, asUser);
     const isOwner = reader?._id === owner._id;
-    if (slop.hidden && !isOwner && !isAdmin) return null;
+    // Moderators see hidden slops too, to judge them.
+    if (slop.hidden && !isOwner && !canModerate(reader)) return null;
 
     const updates = await ctx.db
       .query("updates")
@@ -506,7 +516,7 @@ export const page = query({
           html: renderMarkdown(comment.body),
           createdAt: comment._creationTime,
           author: author ? publicUser(author) : null,
-          canDelete: reader !== null && (reader._id === comment.userId || isOwner || isAdmin),
+          canDelete: reader !== null && (reader._id === comment.userId || isOwner || isAdmin(reader)),
         };
       }),
       launches: launches

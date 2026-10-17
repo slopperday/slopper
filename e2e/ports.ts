@@ -10,7 +10,7 @@ export const PORTS = {
 /** Written by `e2e/stack.ts`, read by the fixtures. */
 export const STACK_FILE = ".e2e/stack.json";
 
-/** The username the stack makes a moderator. */
+/** The username the stack makes an admin (ADMIN_USERNAMES). */
 export const E2E_ADMIN = "e2e-admin";
 
 export interface Stack {
@@ -38,9 +38,12 @@ export interface FakeEmail {
 }
 
 export interface FakeCheckRequest {
+  model: string;
   text: string;
   images: number;
+  videos: number;
   /** SHA-256 of each image's bytes, to match against what the bucket stored. */
   imageHashes: string[];
-  verdict: "ok" | "mature" | "blocked";
+  /** Null when a marker made the call fail. */
+  verdict: "ok" | "mature" | "blocked" | null;
 }

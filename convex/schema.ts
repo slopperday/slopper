@@ -58,6 +58,24 @@ export const mediaCheckValidator = v.object({
   reason: v.string(),
 });
 
+/**
+ * The moderation team. Moderators work the queues at /mod; admins also run
+ * the team at /mod/team. ADMIN_USERNAMES makes people admins too (see
+ * app/.server/session.ts).
+ */
+export const staffRoleValidator = v.union(v.literal("admin"), v.literal("moderator"));
+
+/**
+ * What the video check said about a trusted uploader's video: a verdict, or
+ * "unchecked" when it couldn't run (convex/videos.ts).
+ */
+export const videoVerdictValidator = v.union(
+  v.literal("ok"),
+  v.literal("mature"),
+  v.literal("blocked"),
+  v.literal("unchecked"),
+);
+
 /** Where an image's bytes live. Media rows from before B2 have no `backend`: they're in Convex. */
 export const mediaLocationValidator = v.union(
   v.object({ backend: v.literal("convex"), storageId: v.id("_storage") }),
@@ -100,8 +118,11 @@ export default defineSchema({
     nextDigestAt: v.optional(v.number()),
     /** Notifications after this went into no digest yet. */
     digestSentAt: v.optional(v.number()),
+    /** On the moderation team. Server-side: it never goes into a public shape. */
+    role: v.optional(staffRoleValidator),
   })
     .index("by_username", ["username"])
+    .index("by_role", ["role"])
     .index("by_next_digest", ["nextDigestAt"])
     .index("by_email_token", ["emailToken"]),
 
@@ -214,6 +235,35 @@ export default defineSchema({
   videoReviews: defineTable({
     slopId: v.id("slops"),
     mediaId: v.id("media"),
+  }).index("by_slop", ["slopId"]),
+
+  /**
+   * Whose promo videos are checked automatically. A moderator approving
+   * someone's video trusts them; revoking keeps the row, so later approvals
+   * don't trust them again until a moderator does (convex/videos.ts).
+   */
+  videoTrust: defineTable({
+    userId: v.id("users"),
+    trusted: v.boolean(),
+    /** The moderator who last trusted or revoked them, and when. */
+    by: v.id("users"),
+    at: v.number(),
+  }).index("by_user", ["userId"]),
+
+  /**
+   * Every automatic decision on a trusted uploader's video, for moderators at
+   * /mod. Server-side only: none of it reaches a public shape.
+   */
+  videoChecks: defineTable({
+    slopId: v.id("slops"),
+    mediaId: v.id("media"),
+    ownerId: v.id("users"),
+    verdict: videoVerdictValidator,
+    reason: v.string(),
+    /** The model that was asked and the OpenRouter provider tried first; null when no check is configured. */
+    checker: v.union(v.object({ model: v.string(), provider: v.string() }), v.null()),
+    /** Live when the check passed; anything else left it in the queue. */
+    outcome: v.union(v.literal("live"), v.literal("queued")),
   }).index("by_slop", ["slopId"]),
 
   /**

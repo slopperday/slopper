@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
 import type { Route } from "./+types/slop";
 import { api } from "@convex/_generated/api";
+import { isAdmin } from "@convex/lib/auth";
 import { requireUser, viewerContext } from "~/.server/session";
 import { convex, convexMessage } from "~/.server/convex";
 import { absoluteUrl, config } from "~/.server/config";
@@ -60,7 +61,6 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     username,
     slug: params.slug,
     asUser: viewer.user?._id,
-    isAdmin: viewer.isAdmin,
     withComments: config.commentsEnabled,
   });
   if (!page) notFound();
@@ -82,7 +82,8 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     slug: params.slug,
     extras: {
       commentsEnabled: config.commentsEnabled,
-      isAdmin: viewer.isAdmin,
+      /** Moderators can see a hidden slop; only admins can hide, unhide or delete it. */
+      role: viewer.user?.role ?? null,
       signedIn: viewer.user !== null,
       autopostCount,
       today: localDate(new Date(), page.ownerTimeZone),
@@ -120,7 +121,6 @@ export async function action({ params, request, context }: Route.ActionArgs) {
     username,
     slug: params.slug,
     asUser: user._id,
-    isAdmin: viewer.isAdmin,
   });
   if (!page) notFound();
   const { slop, owner, isOwner } = page;
@@ -154,7 +154,6 @@ export async function action({ params, request, context }: Route.ActionArgs) {
         await convex.mutation(api.activity.deleteComment, {
           userId: user._id,
           commentId: formText(form, "id"),
-          asAdmin: viewer.isAdmin,
         });
         return redirectWithFlash(`${here}#feedback`, { tone: "info", message: "Removed." });
       }
@@ -275,8 +274,8 @@ export async function action({ params, request, context }: Route.ActionArgs) {
 
       case "hide":
       case "unhide": {
-        if (!viewer.isAdmin) forbidden();
-        await convex.mutation(api.slops.setHidden, { slopId: slop.id, hidden: intent === "hide" });
+        if (!isAdmin(user)) forbidden();
+        await convex.mutation(api.slops.setHidden, { adminId: user._id, slopId: slop.id, hidden: intent === "hide" });
         return redirectWithFlash(here, {
           tone: "info",
           message: intent === "hide" ? "Hidden from Slopper." : "Visible again.",
@@ -284,7 +283,7 @@ export async function action({ params, request, context }: Route.ActionArgs) {
       }
 
       case "delete": {
-        if (!isOwner && !viewer.isAdmin) forbidden();
+        if (!isOwner && !isAdmin(user)) forbidden();
         if (formText(form, "confirm") !== slop.slug) {
           return redirectWithFlash(`${here}/edit#delete`, {
             tone: "error",
@@ -294,7 +293,6 @@ export async function action({ params, request, context }: Route.ActionArgs) {
         const removed = await convex.mutation(api.slops.remove, {
           slopId: slop.id,
           byUserId: user._id,
-          asAdmin: viewer.isAdmin,
         });
         if (removed.orphaned > 0) await deleteOrphanedMedia();
         return redirectWithFlash(`/@${owner.username}`, {
@@ -347,7 +345,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
       {slop.hidden && (
         <p className="bg-hot px-4 py-2.5 text-center font-bold text-hot-ink">
           {loaderData.heldForReview ? "Held for review" : "Hidden by a moderator"}. Only you
-          {loaderData.isAdmin ? " and mods" : ""} can see this.
+          {loaderData.role ? " and mods" : ""} can see this.
         </p>
       )}
 
@@ -851,7 +849,7 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
         </section>
       )}
 
-      {loaderData.isAdmin && (
+      {loaderData.role === "admin" && (
         <Form method="post" className="rounded-2xl bg-hot-tint p-5" aria-labelledby="moderation-title">
           <h2 id="moderation-title" className="caps text-ink">
             Moderation
@@ -862,7 +860,7 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
               {slop.hidden ? "Unhide" : "Hide from Slopper"}
             </button>
             <Link to="/mod" className="link inline-flex min-h-11 items-center">
-              Flag queue
+              Moderation
             </Link>
           </div>
         </Form>

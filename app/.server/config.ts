@@ -32,7 +32,7 @@ export interface ContentCheckConfig {
   apiKey: string;
   /** OpenRouter, or anything that speaks its chat completions API (the e2e fake). */
   baseUrl: string;
-  /** Any OpenRouter model that reads images and supports JSON mode. */
+  /** Any OpenRouter model that reads images (video, for the video check) and supports JSON mode. */
   model: string;
   /**
    * The provider OpenRouter tries first. DeepSeek serves the full model with
@@ -72,7 +72,10 @@ export interface Config {
   /** Issuer and private key for the JWTs Convex trusts. */
   jwtIssuer: string;
   jwtPrivateKey: string | null;
-  /** Lower-cased usernames allowed to moderate content. */
+  /**
+   * Lower-cased usernames that are always admins (ADMIN_USERNAMES). Everyone
+   * else on the moderation team has a role stored in Convex (convex/team.ts).
+   */
   adminUsernames: ReadonlySet<string>;
   github: OAuthClientCredentials | null;
   google: OAuthClientCredentials | null;
@@ -81,6 +84,12 @@ export interface Config {
   facebook: OAuthClientCredentials | null;
   /** Automated content check. Without it, nothing is ever auto-posted. */
   contentCheck: ContentCheckConfig | null;
+  /**
+   * The check on trusted uploaders' promo videos: the same key and policy,
+   * with a model that watches video (Gemini 3.1 Flash Lite on Google AI
+   * Studio by default). Without it, every video waits for a moderator.
+   */
+  videoCheck: ContentCheckConfig | null;
   /**
    * Feedback and kudos on slops (`COMMENTS_ENABLED=true`). Off for V1: they
    * come back with heavier moderation. The data and code stay, so turning
@@ -150,6 +159,15 @@ export function loadConfig(env: Env = process.env): Config {
           baseUrl: env.OPENROUTER_BASE_URL?.trim() || "https://openrouter.ai/api/v1",
           model: env.OPENROUTER_MODEL?.trim() || "deepseek/deepseek-v4.1-flash",
           provider: env.OPENROUTER_PROVIDER?.trim() || "deepseek",
+        }
+      : null,
+    // Vertex AI serves the model too, but ignores temperature, so JSON-mode routing skips it.
+    videoCheck: env.OPENROUTER_API_KEY?.trim()
+      ? {
+          apiKey: env.OPENROUTER_API_KEY.trim(),
+          baseUrl: env.OPENROUTER_BASE_URL?.trim() || "https://openrouter.ai/api/v1",
+          model: env.OPENROUTER_VIDEO_MODEL?.trim() || "google/gemini-3.1-flash-lite",
+          provider: env.OPENROUTER_VIDEO_PROVIDER?.trim() || "google-ai-studio",
         }
       : null,
     commentsEnabled: env.COMMENTS_ENABLED?.trim() === "true",

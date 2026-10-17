@@ -52,7 +52,7 @@ ${tools}
 - GET    ${origin}/api/v1/slops
 - POST   ${origin}/api/v1/slops              { name, tagline, category, links, description?, screenshots?, madeWith?, launchNote?, releaseAt?, autopost? }
 - PATCH  ${origin}/api/v1/slops/{slop}       any create_slop field
-- PUT    ${origin}/api/v1/slops/{slop}/video        { video: id | null }; a new video is pending until a moderator approves it, then live
+- PUT    ${origin}/api/v1/slops/{slop}/video        { video: id | null }; your first video is pending until a moderator approves it, then live; later ones are live at once if they pass the video check
 - POST   ${origin}/api/v1/slops/{slop}/updates      { kind, body, autopost? }
 - POST   ${origin}/api/v1/slops/{slop}/money        { kind: "cost" | "revenue", amount, currency?, category?, note?, date? }
 - POST   ${origin}/api/v1/slops/{slop}/vote         { vote: "up" | "down" | "clear" }
