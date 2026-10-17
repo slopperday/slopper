@@ -80,7 +80,7 @@ test.describe("screenshots", () => {
       .locator('input[type="file"]')
       .setInputFiles({ name: fileName, mimeType: "image/png", buffer: await page.screenshot() });
     await expect(page.getByRole("img", { name: "Screenshot 1" })).toBeVisible();
-    await expect(page.getByText("The content check marked that one NSFW, so this slop will be blurred.")).toBeVisible();
+    await expect(page.getByText("That one looks NSFW, so this slop will be blurred.")).toBeVisible();
     expect((await checkRequests(stack)).find((request) => request.text.includes(fileName))).toMatchObject({
       images: 1,
       verdict: "mature",

@@ -178,6 +178,9 @@ test.describe("the moderation team", () => {
     await admin.goto("/mod");
     await admin.getByRole("link", { name: "Moderation team" }).click();
     await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Moderation team");
+    // Admins from the server's settings show as plain admins.
+    await expect(admin.getByRole("region", { name: "The team" })).toContainText("Admin");
+    await expect(admin.getByRole("main")).not.toContainText("ADMIN_USERNAMES");
     await admin.getByLabel("Username").fill(`@${helper.username}`);
     await admin.getByRole("button", { name: "Find" }).click();
     const found = admin
@@ -241,9 +244,10 @@ test.describe("the moderation team", () => {
       .getByRole("region", { name: "Checked automatically" })
       .getByRole("listitem", { name: slop.name });
     await expect(decision).toContainText("Went live");
-    await expect(decision).toContainText("google/gemini-3.1-flash-lite via google-ai-studio");
+    // Which model checked it stays out of sight.
+    await expect(decision).not.toContainText("gemini");
     await decision.getByRole("button", { name: `Revoke @${maker.username}'s trust` }).click();
-    await expect(admin.getByRole("status")).toHaveText(`@${maker.username}'s videos wait for a moderator again.`);
+    await expect(admin.getByRole("status")).toHaveText(`@${maker.username} isn't trusted any more.`);
 
     const next = await seed.slop(maker);
     expect(await sendVideo(request, stack, token, next, MP4)).toMatchObject({ slop: { video: "pending" } });

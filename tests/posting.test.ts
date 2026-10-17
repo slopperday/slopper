@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import type { Id } from "@convex/_generated/dataModel";
 import {
   composeFor,
@@ -15,6 +15,7 @@ import {
   linkFacets,
   type PublishedPost,
   type SocialAdapter,
+  SocialError,
 } from "~/.server/social/adapters";
 import { buildPostContent, planCrossposts, runCrossposts } from "~/.server/social/crosspost";
 
@@ -129,13 +130,17 @@ function account(id: string, provider: SocialProvider, defaultMode: ConnectedAcc
   };
 }
 
-/** Records calls; publishing fails for handles in `failing`. */
-function fakeAdapters(failing: ReadonlySet<string> = new Set()) {
+/**
+ * Records calls. Publishing is refused, as a network refuses, for handles in
+ * `failing`, and breaks some other way for handles in `broken`.
+ */
+function fakeAdapters(failing: ReadonlySet<string> = new Set(), broken: ReadonlySet<string> = new Set()) {
   const calls: string[] = [];
   const make = (provider: SocialProvider, canAmplify: boolean): SocialAdapter => ({
     publish(acct): Promise<PublishedPost> {
       calls.push(`publish:${acct.handle}`);
-      if (failing.has(acct.handle)) return Promise.reject(new Error(`${acct.handle} is down`));
+      if (failing.has(acct.handle)) return Promise.reject(new SocialError(`${acct.handle} is down`, 503));
+      if (broken.has(acct.handle)) return Promise.reject(new TypeError("fetch failed"));
       return Promise.resolve({
         provider,
         remoteId: `post-${acct.handle}`,
@@ -172,11 +177,13 @@ describe("auto-posting", () => {
     expect(plans.map((plan) => [plan.account.handle, plan.mode])).toEqual([["b", "post"]]);
   });
 
-  it("never lets one failing network stop the others", async () => {
-    const { adapters } = fakeAdapters(new Set(["broken"]));
+  it("never lets one failing network stop the others, and words each failure plainly", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { adapters } = fakeAdapters(new Set(["refused"]), new Set(["glitch"]));
     const results = await runCrossposts(
       planCrossposts({ crosspost: {} }, [
-        account("broken", "x", "post"),
+        account("refused", "x", "post"),
+        account("glitch", "linkedin", "post"),
         account("sky", "bluesky", "post"),
         account("fan", "x", "amplify"),
       ]),
@@ -184,10 +191,14 @@ describe("auto-posting", () => {
       adapters,
     );
     expect(results.map((result) => [result.handle, result.status, result.message])).toEqual([
-      ["broken", "error", "broken is down"],
+      ["refused", "error", "refused is down"],
+      // Anything but a network's refusal stays out of the maker's sight; the logs have it.
+      ["glitch", "error", "Something went wrong. Try again later."],
       ["sky", "ok", null],
       ["fan", "skipped", "No post on this network to repost."],
     ]);
+    expect(logged).toHaveBeenCalledWith("Posting failed", expect.any(TypeError));
+    logged.mockRestore();
   });
 
   it("skips LinkedIn reposts, which have no API", async () => {

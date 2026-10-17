@@ -84,7 +84,7 @@ async function decideVideo(user: User, form: FormData): Promise<Response> {
     decision === "remove"
       ? `${item.name}: its video is gone.`
       : `${item.name}: its video plays for everyone now.${
-          result.newlyTrusted ? ` @${item.owner} is trusted: their next videos are checked automatically.` : ""
+          result.newlyTrusted ? ` @${item.owner} is trusted now.` : ""
         }`;
   return redirectWithFlash("/mod", { tone: "success", message });
 }
@@ -129,9 +129,7 @@ async function setTrust(user: User, form: FormData): Promise<Response> {
     trust.find((entry) => entry.userId === userId)?.userId ?? checks.find((entry) => entry.ownerId === userId)?.ownerId;
   if (!target) return handled();
   const username = await convex.mutation(api.videos.setTrust, { adminId: user._id, userId: target, trusted });
-  const message = trusted
-    ? `@${username}'s videos are checked automatically again.`
-    : `@${username}'s videos wait for a moderator again.`;
+  const message = trusted ? `@${username} is trusted again.` : `@${username} isn't trusted any more.`;
   return redirectWithFlash("/mod", { tone: "success", message });
 }
 
@@ -173,19 +171,12 @@ export default function Moderation({ loaderData }: Route.ComponentProps) {
           </Link>
         )}
       </div>
-      <p className="lede mt-4 max-w-2xl">
-        Approve or reject what waits here. Flagged slops stop auto-posting straight away, and each decision clears their
-        flags.
-      </p>
+      <p className="lede mt-4 max-w-2xl">Approve or reject what waits here.</p>
       {videos.length > 0 && <VideoQueue videos={videos} />}
       <section className="mt-12" aria-labelledby="flags-title">
         <h2 id="flags-title" className="title-2">
           Flagged slops
         </h2>
-        <p className="mt-2 max-w-2xl text-muted">
-          Three flags from different people, or a mature verdict from the content check, blur a slop; a blocked verdict
-          hides it.
-        </p>
         <div className="mt-6 grid gap-4">
           {items.length === 0 && <EmptyState>Nothing flagged. The wall is clean.</EmptyState>}
           {items.map((item) => (
@@ -205,10 +196,6 @@ function VideoQueue({ videos }: { videos: LoaderData["videos"] }) {
       <h2 id="videos-title" className="title-2">
         Videos to review
       </h2>
-      <p className="mt-2 max-w-2xl text-muted">
-        Approve one and it plays on its slop for everyone. A maker's first approved video trusts them: their next ones
-        go live by themselves when the video check passes them, and come here when it doesn't.
-      </p>
       <div className="mt-6 grid gap-4">
         {videos.map((video) => (
           <article key={video.slopId} className="panel sm:p-6" aria-labelledby={`video-${video.slopId}`}>
@@ -306,10 +293,6 @@ function AutomaticChecks({ checks }: { checks: LoaderData["checks"] }) {
       <h2 id="checks-title" className="title-2">
         Checked automatically
       </h2>
-      <p className="mt-2 max-w-2xl text-muted">
-        What the video check decided on trusted makers' videos, newest first. A pass went live without waiting; anything
-        else went to the queue above.
-      </p>
       <ul className="mt-6 grid gap-4">
         {checks.map((check) => (
           <li key={check.id} className="panel sm:p-6" aria-labelledby={`check-${check.id}`}>
@@ -321,8 +304,7 @@ function AutomaticChecks({ checks }: { checks: LoaderData["checks"] }) {
                   </Link>
                 </h3>
                 <p className="mt-1.5 text-muted">
-                  @{check.owner} · {timeAgo(check.at)} ·{" "}
-                  {check.checker ? `${check.checker.model} via ${check.checker.provider}` : "no check configured"}
+                  @{check.owner} · {timeAgo(check.at)}
                 </p>
               </div>
               <p className="flex flex-wrap gap-1.5">
@@ -386,10 +368,6 @@ function TrustedUploaders({ trust }: { trust: LoaderData["trust"] }) {
       <h2 id="trust-title" className="title-2">
         Trusted makers
       </h2>
-      <p className="mt-2 max-w-2xl text-muted">
-        Their videos are checked automatically. Revoke it and every video of theirs waits for a moderator again, however
-        many get approved, until you trust them again.
-      </p>
       <ul className="mt-6 divide-y divide-line border-y border-line">
         {trust.map((entry) => (
           <li key={entry.userId} className="flex flex-wrap items-center justify-between gap-3 py-3">

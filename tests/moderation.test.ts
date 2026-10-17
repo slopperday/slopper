@@ -279,8 +279,9 @@ describe("video check", () => {
     const cases = [
       { verdict: "mature", configured: true, reason: "Looks mature." },
       { verdict: "blocked", configured: true, reason: "Looks blocked." },
-      { verdict: null, configured: true, reason: "The video check couldn't run: The content check failed with 503" },
-      { verdict: "ok", configured: false, reason: "No video check is configured." },
+      // Why it couldn't run goes to the logs, not to moderators.
+      { verdict: null, configured: true, reason: "Couldn't check this video." },
+      { verdict: "ok", configured: false, reason: "Couldn't check this video." },
     ] as const;
     for (const { verdict, configured, reason } of cases) {
       const { server, slopId, check, services } = await trustedVideo();
@@ -289,7 +290,7 @@ describe("video check", () => {
       const [row] = await server.query(api.videos.checks, {});
       const recorded = configured && verdict ? verdict : "unchecked";
       expect(row).toMatchObject({ verdict: recorded, outcome: "queued", showing: "pending" });
-      expect(row.reason.startsWith(reason)).toBe(true);
+      expect(row.reason).toBe(reason);
       expect(row.checker).toEqual(configured ? { model: settings.model, provider: settings.provider } : null);
       // Without a check configured, nothing is sent anywhere.
       expect(provider.requests).toHaveLength(configured ? 1 : 0);

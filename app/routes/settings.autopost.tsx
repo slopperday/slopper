@@ -163,7 +163,7 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
           {loaderData.xEnabled && (
             <ConnectCard
               title="X"
-              body="To add another account, switch accounts on x.com, then connect again. X charges per post, billed to whoever runs this Slopper."
+              body="To add another account, switch accounts on x.com, then connect again."
               href="/auth/x?intent=connect"
             />
           )}
@@ -185,7 +185,7 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
           <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener" className="underline">
             app password
           </a>
-          , never your real one. It's encrypted before it's stored.
+          , never your real one.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <input
@@ -221,8 +221,7 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
       </Form>
 
       <p className="mt-10 max-w-2xl text-muted">
-        TikTok, Instagram, Threads and YouTube Shorts come once their app reviews pass. Until then, every slop page has
-        share buttons.{" "}
+        TikTok, Instagram, Threads and YouTube Shorts are coming. Until then, every slop page has share buttons.{" "}
         <Link to="/rules" className="link">
           Rules
         </Link>{" "}

@@ -415,9 +415,7 @@ function Scheduled({ queue, timeZone }: { queue: QueueItem[]; timeZone: string }
               <div className="min-w-0 flex-1">
                 <p className="font-bold break-words">{title}</p>
                 <p className="text-[0.9375rem] text-muted">
-                  {item.out
-                    ? "Out now, finishing the check and auto-post."
-                    : `Goes out ${formatRelease(item.releaseAt, timeZone)}`}
+                  {item.out ? "Going out now." : `Goes out ${formatRelease(item.releaseAt, timeZone)}`}
                   {!item.out && item.autopost ? " · Auto-posts" : ""}
                 </p>
               </div>

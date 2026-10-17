@@ -233,7 +233,7 @@ function SignInMethods({ methods, canUnlink }: { methods: SignInMethod[]; canUnl
                 <p className="font-bold">{label}</p>
                 <p className="text-sm text-muted">
                   {linked ? "Linked" : "Not linked"}
-                  {!available && " · not set up on this server"}
+                  {!available && " · not available right now"}
                 </p>
               </div>
               {linked ? (

@@ -93,8 +93,7 @@ export function ScreenshotPicker({
         const { id, url } = result;
         if (!response.ok || !id || !url) throw new Error(result.error ?? "Upload failed");
         setShots((current) => [...current, { id, url }]);
-        if (result.contentCheck === "mature")
-          setNotice("The content check marked that one NSFW, so this slop will be blurred.");
+        if (result.contentCheck === "mature") setNotice("That one looks NSFW, so this slop will be blurred.");
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Upload failed");
       } finally {

@@ -5,7 +5,7 @@ import { FIELD_OUTCOMES, UPDATE_KINDS } from "~/lib/model";
 import { slopPath } from "~/lib/display";
 import { markdownToPlain, type PostContent } from "~/lib/compose";
 import { absoluteUrl } from "../config";
-import type { ConnectedAccount, PublishedPost, SocialAdapter } from "./adapters";
+import { type ConnectedAccount, type PublishedPost, type SocialAdapter, SocialError } from "./adapters";
 
 export interface CrosspostPlan {
   account: ConnectedAccount;
@@ -67,8 +67,11 @@ export function buildPostContent(
   };
 }
 
+/** What the maker sees for a failed post: a network's refusal as it was worded, anything else plainly. */
 function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof SocialError) return error.message;
+  console.error("Posting failed", error);
+  return "Something went wrong. Try again later.";
 }
 
 /**
@@ -102,7 +105,7 @@ export async function runCrossposts(
 
     const original = firstPost.get(account.provider);
     if (!adapter.amplify) {
-      results.push({ ...base, status: "skipped", url: null, message: "This network has no repost API.", at: at() });
+      results.push({ ...base, status: "skipped", url: null, message: "This network doesn't do reposts.", at: at() });
     } else if (!original) {
       results.push({ ...base, status: "skipped", url: null, message: "No post on this network to repost.", at: at() });
     } else {

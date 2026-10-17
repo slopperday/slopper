@@ -61,7 +61,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   if (listed(username) && change !== "admin") {
     return redirectWithFlash(back, {
       tone: "error",
-      message: `@${username} is always an admin: they're in ADMIN_USERNAMES. Take them off that list first.`,
+      message: `@${username} stays an admin.`,
     });
   }
   try {
@@ -98,8 +98,7 @@ export default function Team({ loaderData }: Route.ComponentProps) {
       </p>
       <h1 className="title-1 mt-2">Moderation team</h1>
       <p className="lede mt-4 max-w-2xl">
-        Moderators approve or reject videos and flagged slops. Admins do that too, and everything else: this team,
-        trusting makers, and taking down anyone's slops, videos and comments.
+        Moderators approve or reject videos and flagged slops. Admins can do everything.
       </p>
 
       <section className="mt-12" aria-labelledby="team-title">
@@ -160,10 +159,7 @@ function MemberRow({ member, query }: { member: Member; query: string }) {
           <Link to={`/@${member.username}`} className="font-bold hover:underline">
             @{member.username}
           </Link>
-          <span className="ml-2 text-muted">
-            {member.role ? ROLE_NAMES[member.role] : "Not on the team"}
-            {member.listed && " · always, through ADMIN_USERNAMES"}
-          </span>
+          <span className="ml-2 text-muted">{member.role ? ROLE_NAMES[member.role] : "Not on the team"}</span>
         </span>
       </p>
       {!member.listed && (

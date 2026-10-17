@@ -14,7 +14,8 @@ import { isPushEndpoint, parseSubscription } from "~/.server/push";
 export async function action({ request, context }: Route.ActionArgs) {
   const user = context.get(viewerContext).user;
   if (!user) return data({ error: "Sign in to turn on notifications." }, { status: 401 });
-  if (!config.vapidPublicKey) return data({ error: "Browser notifications aren't set up here." }, { status: 404 });
+  if (!config.vapidPublicKey)
+    return data({ error: "Browser notifications aren't available right now." }, { status: 404 });
   const body: unknown = await request.json().catch(() => null);
 
   if (request.method === "POST") {
