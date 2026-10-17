@@ -8,7 +8,8 @@
 #
 # CI itself stays local (the pre-push hook): every other push to main skips the
 # job, so it uses no minutes. Run it by hand on chore/release with "dry run" to
-# rehearse a release before merging, or on main without it to retry a publish.
+# rehearse a release before merging. To retry a publish, run it on main without
+# "dry run", naming the release commit when it's no longer the newest one.
 name: release
 
 on:
@@ -20,6 +21,10 @@ on:
         description: "Dry run: tag, deploy and publish nothing"
         type: boolean
         default: true
+      commit:
+        description: "Release commit to publish (a retry, once newer commits are on main). Empty: the commit this runs on."
+        type: string
+        default: ""
 
 concurrency:
   group: release
@@ -39,6 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.commit || github.sha }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -54,6 +60,11 @@ jobs:
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          # The pre-push hook ran CI before the release commit reached GitHub. Here it would run again, without the
+          # Convex backend its journeys need, and stop the tag push, so no hooks.
+          GIT_CONFIG_COUNT: "1"
+          GIT_CONFIG_KEY_0: core.hooksPath
+          GIT_CONFIG_VALUE_0: /dev/null
           # The tagger on the release tags.
           GIT_COMMITTER_NAME: github-actions[bot]
           GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
