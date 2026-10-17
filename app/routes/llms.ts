@@ -46,6 +46,7 @@ ${tools}
 - GET    ${origin}/api/v1/me
 - GET    ${origin}/api/v1/categories
 - GET    ${origin}/api/v1/today
+- GET    ${origin}/api/v1/search?q=…        &category=… (repeat for several) &limit=… (up to 48): best match first, by words and meaning
 - POST   ${origin}/api/v1/goal               { target, days, startDate?, title? }
 - POST   ${origin}/api/v1/media              raw image body (Content-Type: image/png…) or { base64 } → { id, url, contentCheck }
 - POST   ${origin}/api/v1/videos             raw MP4 or WebM body (Content-Type: video/mp4…, up to 4 MB) or { base64 } → { id }

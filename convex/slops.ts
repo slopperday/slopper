@@ -10,11 +10,13 @@ import { openGoal } from "./goals";
 import { utcToday } from "./race";
 import { isVideo, releaseMedia } from "./lib/media";
 import { checkScreenshots } from "./moderation";
+import { scheduleEmbedding } from "./search";
 import { EDITING_CLOSED, editableUntil } from "../app/lib/editing";
 import { goalDayFor } from "../app/lib/goal";
-import { LIMITS } from "../app/lib/model";
+import { categoryFilter, LIMITS } from "../app/lib/model";
 import { renderMarkdown } from "../app/lib/markdown";
 import { rankHot } from "../app/lib/ranking";
+import { embeddingText } from "../app/lib/search";
 import { moneyTotals } from "../app/lib/money";
 import { slugify } from "../app/lib/username";
 
@@ -132,6 +134,7 @@ export async function insertLaunch(ctx: MutationCtx, draft: LaunchDraft) {
     crossposts: [],
   });
   const blurred = await checkScreenshots(ctx, slopId, screenshots);
+  await scheduleEmbedding(ctx, slopId);
   return { slopId, updateId, slug, blurred };
 }
 
@@ -185,6 +188,7 @@ export const edit = mutation({
     if (Date.now() >= until) throw new ConvexError(EDITING_CLOSED);
     const screenshots = await ownedMedia(ctx, userId, input.screenshots, slop.screenshots);
     await ctx.db.patch(slopId, { ...input, screenshots });
+    if (embeddingText(input) !== embeddingText(slop)) await scheduleEmbedding(ctx, slopId);
     const blurred = await checkScreenshots(ctx, slopId, screenshots, slop.screenshots);
     const dropped = slop.screenshots.filter((id) => !screenshots.includes(id));
     return { blurred, orphaned: await releaseMedia(ctx, userId, dropped) };
@@ -278,6 +282,7 @@ export const remove = mutation({
       .collect()) {
       await ctx.db.delete(review._id);
     }
+    if (slop.embeddingId) await ctx.db.delete(slop.embeddingId);
     await ctx.db.delete(slopId);
     const media = slop.video ? [...slop.screenshots, slop.video.mediaId] : slop.screenshots;
     return { orphaned: await releaseMedia(ctx, slop.userId, media) };
@@ -569,47 +574,84 @@ export const page = query({
   },
 });
 
-/** Newest first, optionally one category, paginated by cursor. */
+/** The freshest slops in `category`, or in every category when it's null. */
+function freshest(ctx: QueryCtx, category: string | null, before: number | null) {
+  if (category === null) {
+    return ctx.db
+      .query("slops")
+      .withIndex("by_creation_time", (q) => (before === null ? q : q.lt("_creationTime", before)))
+      .order("desc");
+  }
+  return ctx.db
+    .query("slops")
+    .withIndex("by_category", (q) =>
+      before === null ? q.eq("category", category) : q.eq("category", category).lt("_creationTime", before),
+    )
+    .order("desc");
+}
+
+/**
+ * Newest first, in any of `categories` (every one when empty), a page at a
+ * time. Each category is its own index range, so picking several reads no
+ * slop outside them. The cursor is the last slop's creation time; pass it
+ * back as `before` for the next page.
+ */
 export const recent = query({
   args: {
-    category: v.optional(v.string()),
-    cursor: v.union(v.string(), v.null()),
+    categories: v.optional(v.array(v.string())),
+    before: v.union(v.number(), v.null()),
     limit: v.number(),
     asUser: v.optional(v.id("users")),
   },
-  handler: async (ctx, { category, cursor, limit, asUser }) => {
+  handler: async (ctx, { categories = [], before, limit, asUser }) => {
     const reader = await readerFor(ctx, asUser);
-    const base = category
-      ? ctx.db.query("slops").withIndex("by_category", (q) => q.eq("category", category))
-      : ctx.db.query("slops");
-    const page = await base.order("desc").paginate({ cursor, numItems: Math.min(limit, 48) });
+    const size = Math.min(limit, 48);
+    const filter = categoryFilter(categories);
+    const scopes = filter.length > 0 ? filter : [null];
+    // One more than a page from each, to tell whether anything is left.
+    const ranges = await Promise.all(scopes.map((category) => freshest(ctx, category, before).take(size + 1)));
+    const newest = ranges.flat().sort((a, b) => b._creationTime - a._creationTime);
+    const page = newest.slice(0, size);
     return {
       items: await toCards(
         ctx,
-        page.page.filter((slop) => !slop.hidden),
+        page.filter((slop) => !slop.hidden),
         reader,
       ),
-      cursor: page.isDone ? null : page.continueCursor,
+      cursor: newest.length > size ? page[page.length - 1]._creationTime : null,
     };
   },
 });
 
-/** Recently active slops, ranked by heat (votes, feedback, field tests, recency). */
+/** How many recent slops "Sticking" ranks, shared between the picked categories. */
+const HOT_POOL = 400;
+
+/** Recently active slops in any of `categories` (every one when empty), ranked by heat (votes, feedback, field tests, recency). */
 export const hot = query({
   args: {
     since: v.number(),
-    category: v.optional(v.string()),
+    categories: v.optional(v.array(v.string())),
     limit: v.number(),
     asUser: v.optional(v.id("users")),
   },
-  handler: async (ctx, { since, category, limit, asUser }) => {
+  handler: async (ctx, { since, categories = [], limit, asUser }) => {
     const reader = await readerFor(ctx, asUser);
-    const slops = await ctx.db
-      .query("slops")
-      .withIndex("by_creation_time", (q) => q.gte("_creationTime", since))
-      .order("desc")
-      .take(400);
-    const pool = slops.filter((slop) => !slop.hidden && (!category || slop.category === category));
+    const filter = categoryFilter(categories);
+    const scopes = filter.length > 0 ? filter : [null];
+    const share = Math.ceil(HOT_POOL / scopes.length);
+    const ranges = await Promise.all(
+      scopes.map((category) =>
+        (category === null
+          ? ctx.db.query("slops").withIndex("by_creation_time", (q) => q.gte("_creationTime", since))
+          : ctx.db
+              .query("slops")
+              .withIndex("by_category", (q) => q.eq("category", category).gte("_creationTime", since))
+        )
+          .order("desc")
+          .take(share),
+      ),
+    );
+    const pool = ranges.flat().filter((slop) => !slop.hidden);
     return await toCards(ctx, rankHot(pool, new Date()).slice(0, limit), reader);
   },
 });

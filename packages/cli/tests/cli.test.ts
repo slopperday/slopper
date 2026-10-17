@@ -177,6 +177,14 @@ const ROUTE_CASES: { name: string; argv: string[]; method: string; path: string;
   { name: "whoami", argv: ["whoami"], method: "GET", path: "/api/v1/me", body: null },
   { name: "today", argv: ["today"], method: "GET", path: "/api/v1/today", body: null },
   { name: "categories", argv: ["categories"], method: "GET", path: "/api/v1/categories", body: null },
+  { name: "search", argv: ["search", "budget app"], method: "GET", path: "/api/v1/search?q=budget+app", body: null },
+  {
+    name: "search",
+    argv: ["search", "tilt & roll", "--category", "games", "--category", "ai", "--limit", "5"],
+    method: "GET",
+    path: "/api/v1/search?q=tilt+%26+roll&category=games&category=ai&limit=5",
+    body: null,
+  },
   { name: "slops", argv: ["slops"], method: "GET", path: "/api/v1/slops", body: null },
   { name: "scheduled", argv: ["scheduled"], method: "GET", path: "/api/v1/scheduled", body: null },
   {
@@ -316,7 +324,9 @@ describe("every command", () => {
 
   it.each(ROUTE_CASES)("$name calls $method $path and prints its JSON", async ({ argv, method, path, body }) => {
     const reply = { ok: true, from: path, list: [1, { nested: "yes" }] };
-    const cli = await harness({ [`${method} ${path}`]: { status: method === "POST" ? 201 : 200, body: reply } }, TOKEN);
+    // Routes match the path alone; the query string is checked in the call below.
+    const route = `${method} ${new URL(path, "https://slopper.day").pathname}`;
+    const cli = await harness({ [route]: { status: method === "POST" ? 201 : 200, body: reply } }, TOKEN);
     expect(await cli.run(...argv)).toEqual({ code: 0, stdout: `${JSON.stringify(reply, null, 2)}\n`, stderr: "" });
     expect(cli.calls).toEqual([
       {
@@ -354,6 +364,8 @@ describe("usage mistakes", () => {
   const CASES: [string[], string][] = [
     [["whoami", "--bogus"], "Unknown option '--bogus'."],
     [["whoami", "extra"], "Unexpected “extra”. Usage: slopper whoami"],
+    [["search"], "Missing <query>."],
+    [["search", "maze", "--limit", "lots"], "--limit must be a whole number, not “lots”."],
     [["vote"], "Missing <slop>."],
     [["vote", "abc"], "Missing <up|down|clear>."],
     [["vote", "abc", "sideways"], "A vote is up, down or clear, not “sideways”."],

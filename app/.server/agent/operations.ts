@@ -5,6 +5,7 @@ import type { Vote } from "@convex/lib/shape";
 import {
   CATEGORIES,
   COST_CATEGORIES,
+  findCategory,
   isPostableUpdateKind,
   LIMITS,
   LINK_KINDS,
@@ -13,6 +14,7 @@ import {
 } from "~/lib/model";
 import { localDate } from "~/lib/dates";
 import { editableUntil } from "~/lib/editing";
+import { normalizeQuery, SEARCH_LIMIT, SEARCH_QUERY_LENGTH } from "~/lib/search";
 import { formatRelease, parseRelease, releaseProblem } from "~/lib/schedule";
 import { listWords, slopPath } from "~/lib/display";
 import { CURRENCIES } from "~/lib/money";
@@ -653,6 +655,56 @@ export const OPERATIONS: Operation[] = [
           launchLabel: item.slop.launchLabel,
           tagline: item.slop.tagline,
           upvotes: item.slop.upvotes,
+          url: absoluteUrl(slopPath(item.owner.username, item.slop.slug)),
+          yours: item.voteMode === "own",
+          yourVote: voteName(item.vote),
+        })),
+      };
+    },
+  },
+  {
+    name: "search_slops",
+    title: "Search slops",
+    description: `Find slops on the wall by name or by what they do. It matches meaning as well as words, so “budget” also finds an expense tracker. Best match first, at most ${SEARCH_LIMIT}; hidden slops never show, and NSFW ones only if the user turned them on.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", maxLength: SEARCH_QUERY_LENGTH, description: "What to look for, in plain words." },
+        categories: {
+          type: "array",
+          items: { type: "string", enum: CATEGORIES.map((category) => category.id) },
+          description: "Only these categories. Every category when left out.",
+        },
+        limit: { type: "integer", minimum: 1, maximum: SEARCH_LIMIT, description: "Defaults to 20." },
+      },
+      required: ["query"],
+    },
+    readOnly: true,
+    async run({ user }, input) {
+      const query = normalizeQuery(requiredString(input, "query"));
+      const categories = optionalStrings(input, "categories") ?? [];
+      const unknown = categories.filter((category) => !findCategory(category));
+      if (unknown.length > 0) {
+        throw new ApiError(400, `Unknown categories: ${unknown.join(", ")}. list_categories has the valid ones.`);
+      }
+      const limit = optionalNumber(input, "limit") ?? 20;
+      if (!Number.isInteger(limit) || limit < 1 || limit > SEARCH_LIMIT) {
+        throw new ApiError(400, `limit must be a whole number from 1 to ${SEARCH_LIMIT}.`);
+      }
+      const items = await convex.action(api.search.find, { query, categories, limit, asUser: user._id });
+      return {
+        query,
+        results: items.map((item, index) => ({
+          rank: index + 1,
+          id: item.slop.id,
+          owner: item.owner.username,
+          name: item.slop.name,
+          launchLabel: item.slop.launchLabel,
+          tagline: item.slop.tagline,
+          category: item.slop.category,
+          nsfw: item.slop.nsfw,
+          upvotes: item.slop.upvotes,
+          launchDate: item.slop.launchDate,
           url: absoluteUrl(slopPath(item.owner.username, item.slop.slug)),
           yours: item.voteMode === "own",
           yourVote: voteName(item.vote),
