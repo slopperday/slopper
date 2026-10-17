@@ -212,7 +212,8 @@ export const setHidden = mutation({
 
 /** Scrapes a launch off the wall with everything attached to it. */
 export const remove = mutation({
-  args: { slopId: v.id("slops"), byUserId: v.id("users") },
+  // `asAdmin` is ignored, like `isAdmin` on `page`: only the remover's stored role counts.
+  args: { slopId: v.id("slops"), byUserId: v.id("users"), asAdmin: v.optional(v.boolean()) },
   handler: async (ctx, { slopId, byUserId }) => {
     await requireServer(ctx);
     const slop = await ctx.db.get(slopId);
@@ -424,6 +425,12 @@ export const page = query({
     slug: v.string(),
     asUser: v.optional(v.id("users")),
     withComments: v.optional(v.boolean()),
+    /**
+     * Ignored: moderators are told apart by their stored role. A release
+     * deploys Convex before Netlify, and the app server from before roles
+     * still sends it until its replacement is live. Drop it next release.
+     */
+    isAdmin: v.optional(v.boolean()),
   },
   handler: async (ctx, { username, slug, asUser, withComments = false }) => {
     const owner = await ctx.db

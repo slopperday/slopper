@@ -88,7 +88,8 @@ export const addComment = mutation({
 
 /** Authors, the slop's owner and moderators may delete feedback. */
 export const deleteComment = mutation({
-  args: { userId: v.id("users"), commentId: v.string() },
+  // `asAdmin` is ignored, like `isAdmin` on `slops.page`: only the stored role counts.
+  args: { userId: v.id("users"), commentId: v.string(), asAdmin: v.optional(v.boolean()) },
   handler: async (ctx, { userId, commentId: rawId }) => {
     await requireServer(ctx);
     const commentId = ctx.db.normalizeId("comments", rawId);
