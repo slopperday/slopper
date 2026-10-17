@@ -272,8 +272,13 @@ for (const runtime of RUNTIMES) {
         { authorization: `Bearer ${TOKEN}`, userAgent: `slopper-cli/${manifest.version}` },
       ]);
 
-      // Nothing piped and no --token: a usage mistake, not a wait for input that never comes.
-      expect((await slopper(["login", "--url", siteUrl])).code).toBe(2);
+      // Nothing piped and no --token: a browser sign-in, not a wait for input that never comes. This
+      // stand-in site doesn't offer one, so it fails at once (and --no-browser keeps a real browser out of it).
+      expect(await slopper(["login", "--no-browser", "--url", siteUrl])).toEqual({
+        code: 1,
+        stdout: "",
+        stderr: "slopper: No route.\n",
+      });
       expect(await slopper(["whoami", "--token", "slp_wrong"])).toEqual({
         code: 1,
         stdout: "",
