@@ -18,6 +18,36 @@ test.describe("on a phone", () => {
     await expect(page).toHaveURL("/streaks");
   });
 
+  test("a long press on the race clock shows the seconds for a moment", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-10-18T19:59:00Z") });
+    await page.goto("/");
+    await page.clock.pauseAt(new Date("2026-10-18T20:00:30Z"));
+    const clock = page.getByTitle("Time left in today's race (midnight UTC)").filter({ visible: true });
+    const board = clock.locator(".tiles");
+    const touch = { pointerType: "touch", isPrimary: true };
+    await expect(board).toHaveText("03:59");
+
+    // A tap isn't a long press.
+    await clock.dispatchEvent("pointerdown", touch);
+    await page.clock.runFor(200);
+    await clock.dispatchEvent("pointerup", touch);
+    await page.clock.runFor(1_000);
+    await expect(board).toHaveText("03:59");
+
+    await clock.dispatchEvent("pointerdown", touch);
+    await page.clock.runFor(500);
+    await expect(board).toHaveText(/^03:59:\d\d$/);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, "horizontal overflow with the seconds showing").toBeLessThanOrEqual(0);
+    await clock.dispatchEvent("pointerup", touch);
+    await page.clock.runFor(2_000);
+    await expect(board).toHaveText(/^03:59:\d\d$/);
+    await page.clock.runFor(1_500);
+    await expect(board).toHaveText("03:59");
+  });
+
   test("signed-in pages fit the screen too", async ({ seed }) => {
     const maker = await seed.user("pocketful");
     const slop = await seed.slop(maker);
