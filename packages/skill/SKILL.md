@@ -12,20 +12,32 @@ and goes slopcessful. Slopcessful is earned, never declared: nobody can mark the
 
 ## Setup
 
-Run the CLI with `npx @slopperday/cli <command>`, or install it once (`npm i -g @slopperday/cli`) and run `slopper`.
+Run the CLI without installing it, with the runner the project already uses:
+
+```sh
+npx -y @slopperday/cli <command>            # -y, or npx stops to ask "Ok to proceed?" and waits
+pnpm dlx @slopperday/cli <command>
+bunx @slopperday/cli <command>
+yarn dlx -q @slopperday/cli <command>       # -q, or yarn's install log lands in the JSON
+deno run -A npm:@slopperday/cli <command>
+```
+
+Or install it once (`npm i -g @slopperday/cli`) and run `slopper`. The examples below say `slopper`: put the runner's
+command in its place.
 
 It needs the user's API token. They make one at https://slopper.day/settings/api. Ask them for it if you don't have one,
 then either save it or pass it per call:
 
 ```sh
-slopper login --token slp_...      # or: echo "$TOKEN" | slopper login
-SLOPPER_TOKEN=slp_... slopper whoami
+slopper login --token slp_...          # checks it, then saves it readable by the user only
+SLOPPER_TOKEN=slp_... slopper whoami   # saves nothing: use this when you shouldn't write files
 ```
 
 `--url` (or `SLOPPER_URL`) points it at another site, like a local one.
 
 Every command prints JSON on stdout. Errors go to stderr with exit code 1 (2 for a usage mistake), and validation
-errors list each field that needs fixing. `slopper help <command>` shows every flag.
+errors list each field that needs fixing. `slopper help <command>` shows every flag. A value that starts with a dash,
+like a Markdown list, needs `=`: `--description="- one"`.
 
 ## Start with whoami
 

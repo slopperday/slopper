@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { data, Form } from "react-router";
 import type { Route } from "./+types/settings.api";
 import { api } from "@convex/_generated/api";
@@ -48,7 +48,9 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
   // Revealing is per token: the next one made starts hidden again.
   const [revealedToken, setRevealedToken] = useState<string | null>(null);
   const revealed = newToken !== null && revealedToken === newToken;
-  const snippetsFor = (token: string) => [
+  // The CLI talks to slopper.day unless told otherwise.
+  const elsewhere = origin !== "https://slopper.day";
+  const snippetsFor = (token: string): { label: string; code: string; note?: ReactNode }[] => [
     {
       label: "Claude Code",
       code: `claude mcp add --transport http slopper ${origin}/mcp --header "Authorization: Bearer ${token}"`,
@@ -63,8 +65,19 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
     },
     {
       label: "CLI, for agents with a terminal",
-      // The CLI talks to slopper.day unless told otherwise.
-      code: `npx @slopperday/cli login --token ${token}${origin === "https://slopper.day" ? "" : ` --url ${origin}`}`,
+      code: `npx -y @slopperday/cli login --token ${token}${elsewhere ? ` --url ${origin}` : ""}`,
+      note: (
+        <>
+          <code className="font-mono">-y</code> stops npx asking before it installs the CLI.{" "}
+          <code className="font-mono">pnpm dlx</code>, <code className="font-mono">bunx</code>,{" "}
+          <code className="font-mono">yarn dlx -q</code> and <code className="font-mono">deno run -A npm:</code> work in
+          its place.
+        </>
+      ),
+    },
+    {
+      label: "CLI, without saving the token",
+      code: `SLOPPER_TOKEN=${token}${elsewhere ? ` SLOPPER_URL=${origin}` : ""} npx -y @slopperday/cli whoami`,
     },
     {
       label: "REST",
@@ -156,6 +169,7 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
             <pre className="overflow-x-auto rounded-xl bg-sunk p-4 font-mono text-[0.8125rem] leading-relaxed">
               {snippet.code}
             </pre>
+            {snippet.note && <p className="mt-2 text-sm text-muted">{snippet.note}</p>}
             <div className="mt-2 max-w-40">
               <CopyButton value={copied[index].code} label="Copy" />
             </div>

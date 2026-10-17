@@ -1,7 +1,17 @@
 import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 import manifest from "../package.json" with { type: "json" };
-import { configPath, createApi, DEFAULT_URL, readConfig, resolveUrl, SlopperError, usageError } from "./client.ts";
-import { type Command, COMMANDS, type Io } from "./commands.ts";
+import {
+  configPath,
+  createApi,
+  DEFAULT_URL,
+  envValue,
+  isSystemError,
+  readConfig,
+  resolveUrl,
+  SlopperError,
+  usageError,
+} from "./client.ts";
+import { type Command, COMMANDS, type Context, type Io, type LocalContext } from "./commands.ts";
 
 export type { Io } from "./commands.ts";
 
@@ -42,6 +52,7 @@ function overview(): string {
     "",
     "Results print as JSON. Errors go to stderr; the exit code is 1, or 2 for a usage mistake.",
     `Start with \`slopper login\` (tokens live at ${DEFAULT_URL}/settings/api), then \`slopper whoami\`.`,
+    "Agents that shouldn't save a token can set SLOPPER_TOKEN instead.",
   ].join("\n");
 }
 
@@ -58,14 +69,34 @@ function commandHelp(command: Command): string {
 }
 
 function findCommand(name: string): Command {
+  if (name.startsWith("-")) throw usageError(`Put the command first, then its flags: slopper <command> ${name} …`);
   const command = COMMANDS.find((candidate) => candidate.name === name);
-  if (!command) throw usageError(`Unknown command “${name}”. Run \`slopper help\` for the list.`);
+  if (!command) throw usageError(`Unknown command “${name}”.`);
   return command;
+}
+
+/** Where to look after a usage mistake: the command's own help, when there is a command. */
+function helpHint(name: string | undefined): string {
+  return COMMANDS.some((command) => command.name === name)
+    ? `Run \`slopper help ${name}\`.`
+    : "Run `slopper help` for the commands.";
 }
 
 function print(io: Io, result: unknown): void {
   if (result === undefined) return;
   io.stdout(typeof result === "string" ? result : `${JSON.stringify(result, null, 2)}\n`);
+}
+
+/** Settles which site and token to use: flags, then the environment, then what `slopper login` saved. */
+async function siteContext(local: LocalContext): Promise<Context> {
+  const { values, io, configFile } = local;
+  const saved = await readConfig(configFile);
+  const flag = (key: "token" | "url") => (typeof values[key] === "string" ? values[key] : undefined);
+  const url = resolveUrl(flag("url") ?? envValue(io.env, "SLOPPER_URL") ?? saved.url ?? DEFAULT_URL);
+  const connect = (token: string | undefined) =>
+    createApi({ url, token, fetch: io.fetch, userAgent: `slopper-cli/${manifest.version}` });
+  const token = flag("token") ?? envValue(io.env, "SLOPPER_TOKEN") ?? saved.token;
+  return { ...local, url, api: connect(token), connect };
 }
 
 async function run(argv: string[], io: Io): Promise<void> {
@@ -89,32 +120,19 @@ async function run(argv: string[], io: Io): Promise<void> {
       strict: true,
     });
   } catch (error) {
-    throw usageError(`${error instanceof Error ? error.message : String(error)}\nRun \`slopper help ${name}\`.`);
+    throw usageError(error instanceof Error ? error.message : String(error));
   }
   const { values, positionals } = parsed;
   if (values.help === true) {
     print(io, `${commandHelp(command)}\n`);
     return;
   }
+  // A stray word is a mistake, not something to drop: `post tiltmaze "Fixed it"` forgot --body.
+  const extra = positionals[command.args?.split(" ").length ?? 0];
+  if (extra !== undefined) throw usageError(`Unexpected “${extra}”. Usage: ${usage(command)}`);
 
-  const configFile = configPath(io.env, io.home);
-  const saved = await readConfig(configFile);
-  const flag = (key: "token" | "url") => (typeof values[key] === "string" ? values[key] : undefined);
-  const url = resolveUrl(flag("url") ?? io.env.SLOPPER_URL ?? saved.url ?? DEFAULT_URL);
-  const connect = (token: string | undefined) =>
-    createApi({ url, token, fetch: io.fetch, userAgent: `slopper-cli/${manifest.version}` });
-  const token = flag("token") ?? io.env.SLOPPER_TOKEN ?? saved.token;
-  const result = await command.run({
-    values,
-    positionals,
-    io,
-    url,
-    configFile,
-    saved,
-    api: connect(token),
-    connect,
-  });
-  print(io, result);
+  const local: LocalContext = { values, positionals, io, configFile: configPath(io.env, io.home) };
+  print(io, command.local ? await command.run(local) : await command.run(await siteContext(local)));
 }
 
 /** Runs one command line and returns the exit code: 0, 1 for a failure, 2 for a usage mistake. */
@@ -123,11 +141,17 @@ export async function main(argv: string[], io: Io): Promise<number> {
     await run(argv, io);
     return 0;
   } catch (error) {
+    // A config or file nobody can read or write: say which, without a stack trace.
+    if (isSystemError(error)) {
+      io.stderr(`slopper: ${error.message}\n`);
+      return 1;
+    }
     if (!(error instanceof SlopperError)) throw error;
     const details = error.details
       ? Object.entries(error.details).map(([field, problem]) => `\n  ${field}: ${problem}`)
       : [];
-    io.stderr(`slopper: ${error.message}${details.join("")}\n`);
+    const hint = error.exitCode === 2 ? `\n${helpHint(argv[0])}` : "";
+    io.stderr(`slopper: ${error.message}${details.join("")}${hint}\n`);
     return error.exitCode;
   }
 }

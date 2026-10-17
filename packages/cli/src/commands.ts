@@ -1,8 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { ParseArgsOptionsConfig } from "node:util";
-import { type Api, removeConfig, type SavedConfig, SlopperError, usageError, writeConfig } from "./client.ts";
+import { type Api, isSystemError, removeConfig, SlopperError, usageError, writeConfig } from "./client.ts";
+import { readSkill } from "./skill.ts";
 
 /**
  * Every command, each one REST call (or two, for screenshots) against
@@ -21,30 +21,56 @@ export interface Io {
 
 export type Values = Record<string, string | boolean | (string | boolean)[] | undefined>;
 
-export interface Context {
+/** What every command gets. */
+export interface LocalContext {
   values: Values;
   positionals: string[];
   io: Io;
+  configFile: string;
+}
+
+/** What commands that talk to the site get as well. */
+export interface Context extends LocalContext {
   /** The site's origin, already resolved. */
   url: string;
-  configFile: string;
-  saved: SavedConfig;
   api: Api;
   /** An API client for another token (login checks one before saving it). */
   connect: (token: string) => Api;
 }
 
-export interface Command {
+interface CommandInfo {
   name: string;
-  /** Positional arguments, as shown in usage. */
+  /** Positional arguments, as shown in usage. A command takes no more than these. */
   args?: string;
   summary: string;
   /** Flag → what it does, for `slopper help <command>`. */
   flags?: Record<string, string>;
   options?: ParseArgsOptionsConfig;
+}
+
+/**
+ * A command that never talks to the site, so it works without a token, a
+ * valid --url or a readable config: `logout` is how people fix a broken one.
+ */
+interface LocalCommand extends CommandInfo {
+  local: true;
+  /** JSON to print, a string to print as is, or nothing. */
+  run(context: LocalContext): Promise<unknown>;
+}
+
+interface SiteCommand extends CommandInfo {
+  local?: false;
   /** JSON to print, a string to print as is, or nothing. */
   run(context: Context): Promise<unknown>;
 }
+
+export type Command = LocalCommand | SiteCommand;
+
+/**
+ * The site's LIMITS.mediaBytes (app/lib/model.ts; the tests check they
+ * agree). Bigger screenshots are refused, so they aren't sent.
+ */
+export const MEDIA_BYTES = 4 * 1024 * 1024;
 
 function text(values: Values, key: string): string | undefined {
   const value = values[key];
@@ -56,15 +82,19 @@ function list(values: Values, key: string): string[] | undefined {
   return Array.isArray(value) ? value.filter((item) => typeof item === "string") : undefined;
 }
 
-function number(values: Values, key: string): number | undefined {
+function wholeNumber(values: Values, key: string): number | undefined {
   const value = text(values, key);
   if (value === undefined) return undefined;
-  const parsed = Number(value);
-  if (!value.trim() || !Number.isFinite(parsed)) throw usageError(`--${key} must be a number, not “${value}”.`);
-  return parsed;
+  if (!/^\d+$/.test(value)) throw usageError(`--${key} must be a whole number, not “${value}”.`);
+  return Number(value);
 }
 
-function positional(context: Context, index: number, name: string): string {
+function required<T>(value: T | undefined, flag: string): T {
+  if (value === undefined) throw usageError(`Missing ${flag}.`);
+  return value;
+}
+
+function positional(context: LocalContext, index: number, name: string): string {
   const value = context.positionals[index];
   if (!value) throw usageError(`Missing <${name}>.`);
   return value;
@@ -97,8 +127,12 @@ async function uploadImage(api: Api, file: string): Promise<{ id: string }> {
   let bytes: Uint8Array<ArrayBuffer>;
   try {
     bytes = new Uint8Array(await readFile(resolve(file)));
-  } catch {
-    throw usageError(`Couldn't read ${file}.`);
+  } catch (error) {
+    if (!isSystemError(error)) throw error;
+    throw usageError(`Couldn't read ${file} (${error.code}).`);
+  }
+  if (bytes.byteLength > MEDIA_BYTES) {
+    throw usageError(`${file} is bigger than ${MEDIA_BYTES / 1024 / 1024} MB, the most a screenshot can be.`);
   }
   const uploaded = await api.upload("/media", bytes, contentType);
   if (typeof uploaded !== "object" || uploaded === null || typeof (uploaded as { id?: unknown }).id !== "string") {
@@ -168,26 +202,29 @@ const AUTOPOST_FLAG = {
 export const COMMANDS: Command[] = [
   {
     name: "login",
-    summary: "Save an API token (from /settings/api) for the other commands.",
+    summary: "Check an API token (from /settings/api), then save it and its site for the other commands.",
     flags: {
       "--token <token>": "The token. Without it, it's read from stdin: `echo $TOKEN | slopper login`.",
-      "--url <url>": "Save a different site, like a local one.",
+      "--url <url>": "A different site to save, like a local one.",
     },
     options: {},
-    async run({ values, io, url, configFile, saved, connect }) {
+    async run({ values, io, url, configFile, connect }) {
       const token = (text(values, "token") ?? (await io.readStdin()) ?? "").trim();
       if (!token) {
         throw usageError(`Pass --token, or pipe one in. Make a token at ${url}/settings/api.`);
       }
       const me = await connect(token).get("/me");
-      await writeConfig(configFile, { ...saved, token, ...(text(values, "url") ? { url } : {}) });
-      const username = typeof me === "object" && me !== null ? (me as { username?: unknown }).username : null;
+      const username = typeof me === "object" && me !== null ? (me as { username?: unknown }).username : undefined;
+      if (typeof username !== "string") throw new SlopperError(`${url} didn't say whose token this is.`);
+      // The token only works on the site that checked it, so they're saved together.
+      await writeConfig(configFile, { token, url });
       return { loggedIn: username, url, config: configFile };
     },
   },
   {
     name: "logout",
     summary: "Forget the saved token. Revoke it at /settings/api to cut it off everywhere.",
+    local: true,
     async run({ configFile }) {
       await removeConfig(configFile);
       return { loggedOut: true, config: configFile };
@@ -212,8 +249,8 @@ export const COMMANDS: Command[] = [
     name: "goal",
     summary: "Start a goal, like 30 slops in 30 days. Only one can be open.",
     flags: {
-      "--target <n>": "How many slops to ship.",
-      "--days <n>": "How many days. They end at midnight in your time zone.",
+      "--target <n>": "Required: how many slops to ship.",
+      "--days <n>": "Required: how many days. They end at midnight in your time zone.",
       "--start <YYYY-MM-DD>": "Today or later. Defaults to today.",
       "--title <title>": "Defaults to “N slops in M days”.",
     },
@@ -225,8 +262,8 @@ export const COMMANDS: Command[] = [
     },
     run({ api, values }) {
       return api.post("/goal", {
-        target: number(values, "target"),
-        days: number(values, "days"),
+        target: required(wholeNumber(values, "target"), "--target <n>"),
+        days: required(wholeNumber(values, "days"), "--days <n>"),
         startDate: text(values, "start"),
         title: text(values, "title"),
       });
@@ -302,7 +339,9 @@ export const COMMANDS: Command[] = [
     options: SLOP_OPTIONS,
     async run(context) {
       const slop = positional(context, 0, "slop");
-      return context.api.patch(slopPath(slop), await slopFields(context));
+      const fields = await slopFields(context);
+      if (Object.keys(fields).length === 0) throw usageError("Nothing to change: pass a flag, like --tagline.");
+      return context.api.patch(slopPath(slop), fields);
     },
   },
   {
@@ -312,7 +351,7 @@ export const COMMANDS: Command[] = [
     flags: {
       "--kind <kind>":
         "update (fixes, news; the default), feature (something new shipped), field (a real-world test: who tried it, what they said) or repromote.",
-      "--body <markdown>": "What happened.",
+      "--body <markdown>": "Required: what happened.",
       ...AUTOPOST_FLAG,
     },
     options: { kind: { type: "string" }, body: { type: "string" }, autopost: { type: "boolean" } },
@@ -321,7 +360,7 @@ export const COMMANDS: Command[] = [
       const slop = positional(context, 0, "slop");
       return api.post(`${slopPath(slop)}/updates`, {
         kind: text(values, "kind") ?? "update",
-        body: text(values, "body"),
+        body: required(text(values, "body"), "--body <markdown>"),
         autopost: values.autopost === true,
       });
     },
@@ -347,11 +386,13 @@ export const COMMANDS: Command[] = [
       const slop = positional(context, 0, "slop");
       const kind = positional(context, 1, "cost|revenue");
       if (kind !== "cost" && kind !== "revenue") throw usageError(`Money is a cost or revenue, not “${kind}”.`);
-      const amount = Number(positional(context, 2, "amount"));
-      if (!Number.isFinite(amount) || amount <= 0) throw usageError("<amount> must be a number above zero.");
+      const amount = positional(context, 2, "amount");
+      if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0) {
+        throw usageError(`<amount> must be a number above zero, like 12.99, not “${amount}”.`);
+      }
       return api.post(`${slopPath(slop)}/money`, {
         kind,
-        amount,
+        amount: Number(amount),
         currency: text(values, "currency"),
         category: text(values, "category"),
         note: text(values, "note"),
@@ -382,8 +423,9 @@ export const COMMANDS: Command[] = [
         "With install: the skills directory. Defaults to ~/.agents/skills; Claude Code reads ~/.claude/skills.",
     },
     options: { dir: { type: "string" } },
+    local: true,
     async run(context) {
-      const skill = await readFile(fileURLToPath(import.meta.resolve("@slopperday/skill/SKILL.md")), "utf8");
+      const skill = await readSkill();
       const action = context.positionals[0];
       if (action === undefined) return skill;
       if (action !== "install") throw usageError(`Unknown skill action “${action}”. Try \`slopper skill install\`.`);
