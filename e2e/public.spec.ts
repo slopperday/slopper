@@ -268,11 +268,11 @@ test.describe("signing in", () => {
 });
 
 test.describe("production hardening", () => {
-  test("pages carry security headers", async ({ request }) => {
+  test("pages carry security headers", async ({ request, stack }) => {
     const response = await request.get("/");
     const headers = response.headers();
     expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
-    expect(headers["content-security-policy"]).toContain("ws://127.0.0.1:3410");
+    expect(headers["content-security-policy"]).toContain(stack.convexUrl.replace(/^http/, "ws"));
     expect(headers["x-content-type-options"]).toBe("nosniff");
   });
 
