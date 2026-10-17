@@ -8,6 +8,7 @@
     "convex": "convex dev",
     "keys": "node scripts/convex-keys.ts",
     "vapid": "node scripts/vapid-keys.ts",
+    "og-image": "node scripts/og-image.ts",
     "email": "email dev --dir app/emails --port 3030",
     "typegen": "react-router typegen",
     "start": "node --env-file-if-exists=.env.local scripts/serve.ts",

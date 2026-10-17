@@ -77,6 +77,27 @@ test.describe("visitors", () => {
     expect(feed.ok()).toBe(true);
     expect(feed.headers()["content-type"]).toContain("xml");
   });
+
+  test("get a preview card when they share a link", async ({ page, request }) => {
+    await page.goto("/");
+    const image = await page.locator('meta[property="og:image"]').getAttribute("content");
+    expect(image).toMatch(/\/og\.png$/);
+    const card = await request.get(new URL(image ?? "").pathname);
+    expect(card.ok()).toBe(true);
+    expect(card.headers()["content-type"]).toBe("image/png");
+  });
+});
+
+test("crawlers stay off the API and sign-in links, but not off profiles", async ({ request }) => {
+  const robots = await request.get("/robots.txt");
+  expect(robots.ok()).toBe(true);
+  const rules = (await robots.text())
+    .split("\n")
+    .filter((line) => line.startsWith("Disallow:"))
+    .map((line) => line.slice("Disallow:".length).trim());
+  expect(rules).toEqual(expect.arrayContaining(["/api/", "/auth/"]));
+  // Rules match by prefix and profiles live at /<username>: "/new" would hide /newton.
+  for (const rule of rules) expect(rule).toMatch(/\/$/);
 });
 
 /** Each sign-in button the stack has keys for, and where its first hop must go. */
