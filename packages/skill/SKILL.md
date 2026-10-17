@@ -25,11 +25,14 @@ deno run -A npm:@slopperday/cli <command>
 Or install it once (`npm i -g @slopperday/cli`) and run `slopper`. The examples below say `slopper`: put the runner's
 command in its place.
 
-It needs the user's API token. They make one at https://slopper.day/settings/api. Ask them for it if you don't have one,
-then either save it or pass it per call:
+It needs to be signed in as the user. Run `slopper login` with no token: it opens their browser on a one-time code and
+waits (up to ten minutes) until they approve it, then saves a token of its own. Tell the user to check the code matches
+and click Approve. If no browser can open (a remote or sandboxed machine), use `--no-browser`, run it in the
+background and give the user the link it prints on stderr. If they hand you a token instead, use it:
 
 ```sh
-slopper login --token slp_...          # checks it, then saves it readable by the user only
+slopper login                          # browser sign-in; saves a token readable by the user only
+slopper login --token slp_...          # or check and save a token from /settings/api
 SLOPPER_TOKEN=slp_... slopper whoami   # saves nothing: use this when you shouldn't write files
 ```
 

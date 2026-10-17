@@ -68,7 +68,8 @@ slopper (npm: @slopperday/cli) runs these operations from a terminal and prints 
 - deno run -A npm:@slopperday/cli <command>
 - or install it once, npm i -g @slopperday/cli, and run slopper <command>
 
-slopper login --token slp_...${cliUrl ? ` --url ${cliUrl}` : ""}   (checks the token, then saves it readable by the user only)
+slopper login${cliUrl ? ` --url ${cliUrl}` : ""}   (opens the browser on a one-time code; once the user approves it, saves a token readable by them only. --no-browser prints the link instead)
+slopper login --token slp_...${cliUrl ? ` --url ${cliUrl}` : ""}   (or check and save a token made at /settings/api)
 SLOPPER_TOKEN=slp_...${cliUrl ? ` SLOPPER_URL=${cliUrl}` : ""} slopper whoami   (saves nothing: for agents that shouldn't write a config file)
 slopper help   (every command and its flags)
 slopper skill   (the agent skill, also on npm as @slopperday/skill)

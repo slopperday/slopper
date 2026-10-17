@@ -305,6 +305,24 @@ export default defineSchema({
     .index("by_hash", ["hash"])
     .index("by_user", ["userId"]),
 
+  /**
+   * `slopper login` without a token: the CLI holds the device code (only its
+   * hash is here), the person approves the user code at /cli while signed in,
+   * and the CLI collects a new API token once. See convex/cliLogins.ts.
+   */
+  cliLogins: defineTable({
+    deviceCodeHash: v.string(),
+    userCode: v.string(),
+    /** The API token's name, like "slopper CLI on studio". */
+    name: v.string(),
+    expiresAt: v.number(),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("denied"), v.literal("used")),
+    userId: v.union(v.id("users"), v.null()),
+  })
+    .index("by_device_code", ["deviceCodeHash"])
+    .index("by_user_code", ["userCode"])
+    .index("by_expiry", ["expiresAt"]),
+
   dailyWinners: defineTable({
     date: v.string(),
     slopId: v.union(v.id("slops"), v.null()),

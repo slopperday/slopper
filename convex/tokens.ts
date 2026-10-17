@@ -1,26 +1,43 @@
 import { ConvexError, v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { type MutationCtx, mutation, query } from "./_generated/server";
 import { requireServer } from "./lib/auth";
 
 /** Personal API tokens for agents. Only hashes are stored. */
 
 const MAX_TOKENS = 10;
 
+export interface NewToken {
+  userId: Id<"users">;
+  name: string;
+  preview: string;
+  hash: string;
+}
+
+/** A token's name as it's stored: trimmed, at most 60 characters, "Agent" when empty. */
+export function tokenName(name: string): string {
+  return name.trim().slice(0, 60) || "Agent";
+}
+
+/** Stores a token's hash, up to MAX_TOKENS a person. Shared with `cliLogins.collect`. */
+export async function insertToken(ctx: MutationCtx, token: NewToken): Promise<Id<"apiTokens">> {
+  const existing = await ctx.db
+    .query("apiTokens")
+    .withIndex("by_user", (q) => q.eq("userId", token.userId))
+    .collect();
+  if (existing.length >= MAX_TOKENS) throw new ConvexError(`Up to ${MAX_TOKENS} tokens. Revoke one first.`);
+  return await ctx.db.insert("apiTokens", {
+    ...token,
+    name: tokenName(token.name),
+    lastUsedAt: null,
+  });
+}
+
 export const create = mutation({
   args: { userId: v.id("users"), name: v.string(), preview: v.string(), hash: v.string() },
   handler: async (ctx, args) => {
     await requireServer(ctx);
-    const existing = await ctx.db
-      .query("apiTokens")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .collect();
-    if (existing.length >= MAX_TOKENS) throw new ConvexError(`Up to ${MAX_TOKENS} tokens. Revoke one first.`);
-    return await ctx.db.insert("apiTokens", {
-      ...args,
-      name: args.name.trim().slice(0, 60) || "Agent",
-      lastUsedAt: null,
-    });
+    return await insertToken(ctx, args);
   },
 });
 

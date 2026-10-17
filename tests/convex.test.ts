@@ -368,3 +368,90 @@ describe("feedback and kudos", () => {
     ).rejects.toThrow("Slop not found");
   });
 });
+
+describe("signing in the CLI from the browser", () => {
+  const login = { deviceCodeHash: "device-hash", userCode: "BCDF-GHJK", name: "slopper CLI on studio" };
+  const token = { deviceCodeHash: "device-hash", hash: "token-hash", preview: "slp_abcdef" };
+
+  it("hands one token to the CLI once its person approves, and only the server takes part", async () => {
+    const { t, server } = setup();
+    const userId = await makeUser(server, "ifiok");
+    await expect(t.mutation(api.cliLogins.start, login)).rejects.toThrow("Only the Slopper server");
+    const { expiresAt } = await server.mutation(api.cliLogins.start, login);
+    expect(expiresAt - Date.now()).toBeGreaterThan(9 * 60_000);
+
+    expect(await server.mutation(api.cliLogins.collect, token)).toEqual({ status: "pending" });
+    expect(await server.query(api.cliLogins.lookup, { userCode: "BCDF-GHJK" })).toMatchObject({
+      name: "slopper CLI on studio",
+      status: "pending",
+    });
+    expect(await server.mutation(api.cliLogins.decide, { userId, userCode: "BCDF-GHJK", approve: true })).toEqual({
+      decided: true,
+    });
+    // Decided once: a second click changes nothing.
+    expect(await server.mutation(api.cliLogins.decide, { userId, userCode: "BCDF-GHJK", approve: false })).toEqual({
+      decided: false,
+    });
+
+    expect(await server.mutation(api.cliLogins.collect, token)).toEqual({ status: "approved", username: "ifiok" });
+    expect(await server.query(api.tokens.list, { userId })).toMatchObject([
+      { name: "slopper CLI on studio", preview: "slp_abcdef" },
+    ]);
+    expect(await server.mutation(api.tokens.use, { hash: "token-hash" })).toMatchObject({ _id: userId });
+    // Spent: polling again gets nothing more.
+    expect(await server.mutation(api.cliLogins.collect, token)).toEqual({ status: "expired" });
+    expect(await server.query(api.cliLogins.lookup, { userCode: "BCDF-GHJK" })).toMatchObject({ status: "used" });
+  });
+
+  it("gives a denied or expired login nothing", async () => {
+    const { t, server } = setup();
+    const userId = await makeUser(server, "ifiok");
+    await server.mutation(api.cliLogins.start, login);
+    await server.mutation(api.cliLogins.decide, { userId, userCode: "BCDF-GHJK", approve: false });
+    expect(await server.mutation(api.cliLogins.collect, token)).toEqual({ status: "denied" });
+
+    await server.mutation(api.cliLogins.start, { ...login, deviceCodeHash: "late-hash", userCode: "LMNP-QRST" });
+    await t.run(async (ctx) => {
+      const late = await ctx.db
+        .query("cliLogins")
+        .withIndex("by_user_code", (q) => q.eq("userCode", "LMNP-QRST"))
+        .unique();
+      if (late) await ctx.db.patch(late._id, { expiresAt: Date.now() - 1 });
+    });
+    expect(await server.mutation(api.cliLogins.decide, { userId, userCode: "LMNP-QRST", approve: true })).toEqual({
+      decided: false,
+    });
+    expect(await server.mutation(api.cliLogins.collect, { ...token, deviceCodeHash: "late-hash" })).toEqual({
+      status: "expired",
+    });
+    expect(await server.mutation(api.cliLogins.collect, { ...token, deviceCodeHash: "unknown" })).toEqual({
+      status: "expired",
+    });
+    expect(await server.query(api.tokens.list, { userId })).toEqual([]);
+  });
+
+  it("replaces the token a machine had before, and never reuses a live user code", async () => {
+    const { server } = setup();
+    const userId = await makeUser(server, "ifiok");
+    const old = { userId, preview: "slp_old", hash: "old-hash" };
+    await server.mutation(api.tokens.create, { ...old, name: "slopper CLI on studio" });
+    await server.mutation(api.tokens.create, { ...old, name: "Laptop", hash: "laptop-hash" });
+
+    await server.mutation(api.cliLogins.start, login);
+    await expect(server.mutation(api.cliLogins.start, { ...login, deviceCodeHash: "other" })).rejects.toThrow(
+      "That user code is taken.",
+    );
+    await server.mutation(api.cliLogins.decide, { userId, userCode: "BCDF-GHJK", approve: true });
+    await server.mutation(api.cliLogins.collect, token);
+
+    const tokens = await server.query(api.tokens.list, { userId });
+    expect(tokens.map(({ name, preview }) => ({ name, preview }))).toEqual(
+      expect.arrayContaining([
+        { name: "Laptop", preview: "slp_old" },
+        { name: "slopper CLI on studio", preview: "slp_abcdef" },
+      ]),
+    );
+    expect(tokens).toHaveLength(2);
+    expect(await server.mutation(api.tokens.use, { hash: "old-hash" })).toBeNull();
+  });
+});

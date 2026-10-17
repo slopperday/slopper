@@ -51,7 +51,7 @@ function overview(): string {
     ...flagLines(GLOBAL_FLAGS),
     "",
     "Results print as JSON. Errors go to stderr; the exit code is 1, or 2 for a usage mistake.",
-    `Start with \`slopper login\` (tokens live at ${DEFAULT_URL}/settings/api), then \`slopper whoami\`.`,
+    "Start with `slopper login`, which signs you in from your browser, then `slopper whoami`.",
     "Agents that shouldn't save a token can set SLOPPER_TOKEN instead.",
   ].join("\n");
 }
@@ -93,10 +93,10 @@ async function siteContext(local: LocalContext): Promise<Context> {
   const saved = await readConfig(configFile);
   const flag = (key: "token" | "url") => (typeof values[key] === "string" ? values[key] : undefined);
   const url = resolveUrl(flag("url") ?? envValue(io.env, "SLOPPER_URL") ?? saved.url ?? DEFAULT_URL);
-  const connect = (token: string | undefined) =>
-    createApi({ url, token, fetch: io.fetch, userAgent: `slopper-cli/${manifest.version}` });
+  const userAgent = `slopper-cli/${manifest.version}`;
+  const connect = (token: string | undefined) => createApi({ url, token, fetch: io.fetch, userAgent });
   const token = flag("token") ?? envValue(io.env, "SLOPPER_TOKEN") ?? saved.token;
-  return { ...local, url, api: connect(token), connect };
+  return { ...local, url, userAgent, api: connect(token), connect };
 }
 
 async function run(argv: string[], io: Io): Promise<void> {
