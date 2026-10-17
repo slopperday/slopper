@@ -144,7 +144,7 @@ describe("upload check", () => {
   });
 
   it("stores a mature image marked as such, and blurs the slop that shows it", async () => {
-    const { server } = setup();
+    const { t, server } = setup();
     const owner = await makeUser(server, "maker");
     const bucket = new MemoryBucket();
     const result = await uploadImage(owner, { bytes: PNG }, services(server, bucket, contentCheck("mature").fetcher));
@@ -164,7 +164,9 @@ describe("upload check", () => {
     expect(queued.flags.map((flag) => flag.reason)).toEqual(["Content check (mature): A screenshot: Looks mature."]);
 
     // A moderator's call sticks: re-saving with the same screenshot doesn't blur it again.
-    await server.mutation(api.moderation.decide, { slopId, decision: "fine" });
+    const moderator = await makeUser(server, "moderator");
+    await t.run(async (ctx) => await ctx.db.patch(moderator, { role: "moderator" }));
+    await server.mutation(api.moderation.decide, { moderatorId: moderator, slopId, decision: "fine" });
     const edited = await server.mutation(api.slops.edit, { userId: owner, slopId, input: slopInput([result.id]) });
     expect(edited).toEqual({ blurred: false, orphaned: 0 });
     expect((await server.query(api.slops.getForServer, { slopId }))?.nsfw).toBe(false);
@@ -293,8 +295,7 @@ describe("orphaned screenshots", () => {
     // A relaunch shares the first launch's screenshot.
     const first = await ship(server, owner, [inB2, inConvex]);
     const relaunch = await ship(server, owner, [inB2], first.slopId);
-    const removeAs = (slopId: Id<"slops">) =>
-      server.mutation(api.slops.remove, { slopId, byUserId: owner, asAdmin: false });
+    const removeAs = (slopId: Id<"slops">) => server.mutation(api.slops.remove, { slopId, byUserId: owner });
     expect(await removeAs(relaunch.slopId)).toEqual({ orphaned: 0 });
     expect(await server.query(api.media.url, { mediaId: inB2 })).toBe(`${MEDIA_URL}/screenshots/1.png`);
 

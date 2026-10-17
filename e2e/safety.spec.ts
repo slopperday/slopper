@@ -110,6 +110,6 @@ test.describe("flags and moderation", () => {
     const page = await seed.pageAs(await seed.user("curious"));
     expect((await page.goto("/mod"))?.status()).toBe(404);
     await page.getByLabel("Account menu").click();
-    await expect(page.getByRole("link", { name: "Flag queue" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Moderation" })).toHaveCount(0);
   });
 });

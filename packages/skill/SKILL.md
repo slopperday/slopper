@@ -110,8 +110,9 @@ slopper money tiltmaze cost 12.99 --category domain --note "tiltmaze.app"
 Update kinds: `update` (fixes, news), `feature` (something new shipped), `field` (a real-world test: ask the user who
 tried it and what they said), `repromote` (bump it back up). `<slop>` is one of the user's slops, by id or slug (see
 `slopper slops`). `edit` changes only the flags passed; `--link` and `--screenshot` replace the whole list.
-`video` puts a promo (MP4 or WebM, up to 4 MB) on a slop, replacing its last; it says `pending` until a moderator
-approves it, because the content check can't watch video. `video <slop> --remove` takes it off.
+`video` puts a promo (MP4 or WebM, up to 4 MB) on a slop, replacing its last. The user's first video says `pending`
+until a moderator approves it. After that they're trusted: each new video is checked as it's set, and says `live` if it
+passed or `pending` if it waits for a moderator. `video <slop> --remove` takes it off.
 
 ## Goals
 

@@ -233,16 +233,16 @@ describe("scheduled launches", () => {
       relaunchOf: first.slopId,
       launchLabel: "iOS app",
     });
-    await expect(
-      server.mutation(api.slops.remove, { slopId: first.slopId, byUserId: maker, asAdmin: false }),
-    ).rejects.toThrow("Cancel this product's scheduled launches first.");
+    await expect(server.mutation(api.slops.remove, { slopId: first.slopId, byUserId: maker })).rejects.toThrow(
+      "Cancel this product's scheduled launches first.",
+    );
 
     expect(await server.mutation(api.schedule.cancel, { userId: maker, id: ios.id })).toEqual({
       name: "Marbles",
       orphaned: 1,
     });
     expect((await t.run((ctx) => ctx.db.get(shot)))?.orphanedAt).toBeTypeOf("number");
-    expect(await server.mutation(api.slops.remove, { slopId: first.slopId, byUserId: maker, asAdmin: false })).toEqual({
+    expect(await server.mutation(api.slops.remove, { slopId: first.slopId, byUserId: maker })).toEqual({
       orphaned: 0,
     });
   });

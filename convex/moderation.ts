@@ -1,7 +1,7 @@
 import { ConvexError, type Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
-import { requireServer } from "./lib/auth";
+import { requireRole, requireServer } from "./lib/auth";
 import { consume } from "./lib/rate";
 import { checkVerdictValidator } from "./schema";
 import { FLAGS_TO_BLUR } from "../app/lib/model";
@@ -147,7 +147,7 @@ export const hasFlagged = query({
   },
 });
 
-/** Every slop with open flags, most recently flagged first. Admins only (checked by the server). */
+/** Every slop with open flags, most recently flagged first. Moderators only (checked by the server). */
 export const queue = query({
   args: {},
   handler: async (ctx) => {
@@ -191,9 +191,14 @@ export const queue = query({
  * closes the open flags.
  */
 export const decide = mutation({
-  args: { slopId: v.id("slops"), decision: v.union(v.literal("fine"), v.literal("nsfw"), v.literal("hide")) },
-  handler: async (ctx, { slopId, decision }) => {
+  args: {
+    moderatorId: v.id("users"),
+    slopId: v.id("slops"),
+    decision: v.union(v.literal("fine"), v.literal("nsfw"), v.literal("hide")),
+  },
+  handler: async (ctx, { moderatorId, slopId, decision }) => {
     await requireServer(ctx);
+    await requireRole(ctx, moderatorId, "moderator");
     const slop = await ctx.db.get(slopId);
     if (!slop) return;
     if (decision === "fine") await ctx.db.patch(slopId, { nsfw: false, hidden: false });

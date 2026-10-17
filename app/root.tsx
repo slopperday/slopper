@@ -31,7 +31,7 @@ export function loader({ context }: Route.LoaderArgs) {
   const user = viewer.user;
   return {
     user: user ? { username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl } : null,
-    isAdmin: viewer.isAdmin,
+    role: user?.role ?? null,
     flash: viewer.flash,
     origin: config.appUrl.origin,
     convexUrl: config.convexUrl,
@@ -85,7 +85,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           >
             Skip to content
           </a>
-          <Header user={data?.user ?? null} isAdmin={data?.isAdmin ?? false} path={location.pathname} />
+          <Header user={data?.user ?? null} role={data?.role ?? null} path={location.pathname} />
           {data?.flash && <FlashBanner key={location.key} flash={data.flash} />}
           <main id="main" className="flex-1">
             {children}

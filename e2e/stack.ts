@@ -5,8 +5,9 @@
  * - a fresh Convex backend (the binary the Convex CLI already downloaded),
  *   with its own data in `.e2e/` that's deleted on every run;
  * - a fake OpenRouter that answers the content check by marker
- *   (`[e2e:mature]`, `[e2e:blocked]`, in a launch's text or an uploaded
- *   file's name) and logs what it was sent;
+ *   (`[e2e:mature]`, `[e2e:blocked]`, in a launch's text, an uploaded
+ *   file's name or a video's bytes; `[e2e:error]` fails the call) and logs
+ *   what it was sent;
  * - a fake B2 bucket that checks every write's signature (e2e/fake-s3.ts),
  *   so screenshots take the production path;
  * - the production build: build/client and the Netlify Function, served by
@@ -110,9 +111,10 @@ function startFakeCheck(): void {
       return;
     }
     const body = JSON.parse(await readBody(request)) as {
+      model: string;
       messages: {
         role: string;
-        content: string | { type: string; text?: string; image_url?: { url: string } }[];
+        content: string | { type: string; text?: string; image_url?: { url: string }; video_url?: { url: string } }[];
       }[];
       response_format?: { type: string };
       reasoning?: { enabled?: boolean };
@@ -124,6 +126,9 @@ function startFakeCheck(): void {
     // Images must arrive inline, as the real check sends them.
     const images = parts.flatMap((part) => (part.type === "image_url" ? [part.image_url?.url ?? ""] : []));
     const inline = images.map((url) => /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+)$/.exec(url));
+    // Videos too, and only the video check sends them.
+    const videos = parts.flatMap((part) => (part.type === "video_url" ? [part.video_url?.url ?? ""] : []));
+    const inlineVideos = videos.map((url) => /^data:video\/(mp4|webm);base64,([A-Za-z0-9+/=]+)$/.exec(url));
     const wellFormed =
       request.headers.authorization === "Bearer e2e-key" &&
       system?.role === "system" &&
@@ -132,14 +137,23 @@ function startFakeCheck(): void {
       body.response_format?.type === "json_object" &&
       body.reasoning?.enabled === false &&
       body.provider?.require_parameters === true &&
-      inline.every((match) => match !== null);
+      inline.every((match) => match !== null) &&
+      inlineVideos.every((match) => match !== null);
     if (!wellFormed) {
       response.writeHead(400, { "content-type": "application/json" }).end('{"error":"malformed check request"}');
       return;
     }
-    const verdict = text.includes("[e2e:blocked]") ? "blocked" : text.includes("[e2e:mature]") ? "mature" : "ok";
+    // A video's markers are in its bytes, as if the model watched them.
+    const watched = inlineVideos.map((match) => Buffer.from(match?.[2] ?? "", "base64").toString("latin1")).join("\n");
+    const content = `${text}\n${watched}`;
     const imageHashes = inline.map((match) => sha256Hex(Buffer.from(match?.[2] ?? "", "base64")));
-    log.push({ text, images: images.length, imageHashes, verdict });
+    if (content.includes("[e2e:error]")) {
+      log.push({ model: body.model, text, images: images.length, videos: videos.length, imageHashes, verdict: null });
+      response.writeHead(502, { "content-type": "application/json" }).end('{"error":"upstream failed"}');
+      return;
+    }
+    const verdict = content.includes("[e2e:blocked]") ? "blocked" : content.includes("[e2e:mature]") ? "mature" : "ok";
+    log.push({ model: body.model, text, images: images.length, videos: videos.length, imageHashes, verdict });
     const reply = { verdict, reason: `Fake check: ${verdict}.` };
     response
       .writeHead(200, { "content-type": "application/json" })

@@ -1,6 +1,7 @@
 import { createContext, type MiddlewareFunction, redirect } from "react-router";
 import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
+import { canModerate, isAdmin, type StaffRole } from "@convex/lib/auth";
 import type { Flash } from "~/lib/model";
 import { isValidTimeZone } from "~/lib/dates";
 import { config } from "./config";
@@ -10,6 +11,7 @@ import {
   clearCookie,
   FLASH_COOKIE,
   loginUrl,
+  notFound,
   readCookie,
   readFlash,
   SESSION_COOKIE,
@@ -19,10 +21,13 @@ import {
 
 export type User = Doc<"users">;
 
-/** Who is asking, resolved once per request by the root middleware. */
+/**
+ * Who is asking, resolved once per request by the root middleware. Their
+ * moderation role is on `user.role`: check it with `canModerate` and
+ * `isAdmin` (convex/lib/auth.ts), or `requireStaff`.
+ */
 export interface Viewer {
   user: User | null;
-  isAdmin: boolean;
   /** The signed-in person's zone, or the browser's guess for visitors. */
   timeZone: string;
   flash: Flash | null;
@@ -30,7 +35,6 @@ export interface Viewer {
 
 export const viewerContext = createContext<Viewer>({
   user: null,
-  isAdmin: false,
   timeZone: "UTC",
   flash: null,
 });
@@ -58,12 +62,17 @@ export const csrfMiddleware: MiddlewareFunction<Response> = async ({ request }, 
 
 export const viewerMiddleware: MiddlewareFunction<Response> = async ({ request, context }, next) => {
   const token = readCookie(request, SESSION_COOKIE);
-  const user = token ? await convex.query(api.users.resolveSession, { tokenHash: await hashToken(token) }) : null;
+  let user = token ? await convex.query(api.users.resolveSession, { tokenHash: await hashToken(token) }) : null;
+  // ADMIN_USERNAMES are always admins. The first time the server sees one,
+  // Convex stores it too, so Convex checks their role like anyone else's.
+  if (user && config.adminUsernames.has(user.username.toLowerCase()) && user.role !== "admin") {
+    await convex.mutation(api.team.bootstrap, { userId: user._id });
+    user = { ...user, role: "admin" };
+  }
   const browserZone = decodeURIComponent(readCookie(request, TZ_COOKIE) ?? "");
   const flash = readFlash(request);
   context.set(viewerContext, {
     user,
-    isAdmin: user !== null && config.adminUsernames.has(user.username.toLowerCase()),
     timeZone: user?.timeZone ?? (isValidTimeZone(browserZone) ? browserZone : "UTC"),
     flash,
   });
@@ -79,6 +88,16 @@ export function requireUser(viewer: Viewer, request: Request): User {
   if (viewer.user) return viewer.user;
   const url = new URL(request.url);
   throw redirect(loginUrl(url.pathname + url.search));
+}
+
+/**
+ * The signed-in moderator (anyone on the team) or admin. Everyone else gets a
+ * 404, not a 403: nobody else needs to know the moderation pages exist.
+ */
+export function requireStaff(viewer: Viewer, request: Request, role: StaffRole): User {
+  const user = requireUser(viewer, request);
+  if (role === "admin" ? !isAdmin(user) : !canModerate(user)) notFound();
+  return user;
 }
 
 /** Starts a session and sets its cookie on `headers`. */

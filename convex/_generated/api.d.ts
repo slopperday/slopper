@@ -33,6 +33,7 @@ import type * as pushSend from "../pushSend.js";
 import type * as race from "../race.js";
 import type * as schedule from "../schedule.js";
 import type * as slops from "../slops.js";
+import type * as team from "../team.js";
 import type * as tokens from "../tokens.js";
 import type * as users from "../users.js";
 import type * as videos from "../videos.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   race: typeof race;
   schedule: typeof schedule;
   slops: typeof slops;
+  team: typeof team;
   tokens: typeof tokens;
   users: typeof users;
   videos: typeof videos;
