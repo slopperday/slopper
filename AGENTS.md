@@ -92,4 +92,5 @@ release. Add a tool name to select part of the graph. For example, run
   `CHANGELOG.md` or `.monochange/releases/`: monochange owns them. A release is a pull request:
   `vp exec monochange run release` (from a clean main) commits it on `chore/release` and opens it; merging it
   publishes. `run publish` only runs in the release workflow.
-- **Voice:** throw slop at the wall, keep slopping until it's slopcessful. Plain words; no restaurant metaphors.
+- **Voice:** the tagline is "Too much slop? Not enough yet!"; how it works is throw slop at the wall, keep slopping until
+  it's slopcessful. Plain words; no restaurant metaphors.

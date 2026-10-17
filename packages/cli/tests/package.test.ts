@@ -237,7 +237,7 @@ for (const runtime of RUNTIMES) {
       expect(await slopper(["--version"])).toEqual({ code: 0, stdout: `${manifest.version}\n`, stderr: "" });
       const help = await slopper(["--help"]);
       expect(help).toMatchObject({ code: 0, stderr: "" });
-      expect(help.stdout).toContain(`slopper ${manifest.version}: throw slop at the wall`);
+      expect(help.stdout).toContain(`slopper ${manifest.version}: too much slop? Not enough yet!`);
       expect(help.stdout).toContain("\n  launch ");
       expect(await slopper(["nope"])).toEqual({
         code: 2,

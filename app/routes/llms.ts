@@ -19,7 +19,7 @@ export function loader() {
 
   const text = `# Slopper
 
-> Throw slop at the wall every day. People ship small apps, sites, games and betas daily, track a goal like "30 slops in 30 days", promote them, test them with real people, and keep slopping until one is slopcessful.
+> Too much slop? Not enough yet! Throw slop at the wall every day: people ship small apps, sites, games and betas daily, track a goal like "30 slops in 30 days", promote them, test them with real people, and keep slopping until one is slopcessful.
 
 ## Concepts
 - Slop: one shipped thing with links (website, App Store, TestFlight, Google Play, Android beta, source), screenshots, a tagline and a Markdown description.

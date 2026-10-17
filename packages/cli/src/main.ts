@@ -39,7 +39,7 @@ function usage(command: Command): string {
 function overview(): string {
   const width = Math.max(...COMMANDS.map((command) => command.name.length));
   return [
-    `slopper ${manifest.version}: throw slop at the wall, from your terminal. Built for agents.`,
+    `slopper ${manifest.version}: too much slop? Not enough yet! Throw it at the wall from your terminal. Built for agents.`,
     "",
     "Usage: slopper <command> [flags]",
     "",

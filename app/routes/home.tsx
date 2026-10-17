@@ -181,15 +181,15 @@ function Hero() {
   return (
     <section className="mx-auto max-w-6xl px-4 pt-10 pb-20 sm:pt-20 lg:pb-24">
       <h1 className="display max-w-[11ch] lg:max-w-none">
-        Throw slop at the wall.
+        Too much slop?
         <br />
-        Every day.
+        Not enough yet!
       </h1>
       <div className="mt-7 grid items-start gap-8 sm:mt-10 sm:gap-12 lg:mt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-16">
         <div>
           <p className="lede sm:text-[1.25rem]">
-            Everyone says slop is bad. Everything good started as slop, and now you can make it at scale. Set a goal,
-            ship something every day, and <strong className="text-ink">keep slopping until one is slopcessful</strong>.
+            Throw slop at the wall every day: set a goal, ship something daily, and{" "}
+            <strong className="text-ink">keep slopping until one is slopcessful</strong>.
           </p>
           <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-9 sm:flex sm:flex-wrap">
             <Link to="/login?returnTo=%2Fgoal" className="btn btn-slop sm:btn-lg">

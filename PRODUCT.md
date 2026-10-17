@@ -49,7 +49,7 @@ tokens. Sign in with GitHub, Google, X, LinkedIn or Facebook, all linked to one 
 
 ## Brand Commitments
 
-- Name: Slopper, at slopper.day. Tagline: "Throw slop at the wall. Every day."
+- Name: Slopper, at slopper.day. Tagline: "Too much slop? Not enough yet!"
 - Voice: plain words, cheeky. Throw slop at the wall, keep slopping until it's slopcessful. No kitchen, cooking,
   restaurant or food imagery or wording, ever.
 - Logo: the seeded splat (the old splat generator's seed 20261006, frozen into paths), lime over a nudged ink copy,

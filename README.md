@@ -1,10 +1,9 @@
 # Slopper
 
-**Throw slop at the wall. Every day.** [slopper.day](https://slopper.day)
+**Too much slop? Not enough yet!** [slopper.day](https://slopper.day)
 
-Everyone says slop is bad. Everything good started as slop, and now you can make it at scale. Slopper is where you set a
-goal (30 slops in 30 days), ship something every day, show it to people, and keep slopping until one of them is
-**slopcessful**.
+Slopper is where you throw slop at the wall every day: set a goal (30 slops in 30 days), ship something every day, show
+it to people, and keep slopping until one of them is **slopcessful**.
 
 - **Goals on a board of days.** Every day you ship flips its tile to a "!". Days end at midnight in your time zone.
 - **Slop of the day.** Each UTC day is a race on votes (5 each a day); a cron crowns the winner after midnight, and

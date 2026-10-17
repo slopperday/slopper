@@ -134,7 +134,7 @@ const HTML = `<!doctype html>
     <div class="brand"><img src="${LOGO}" alt="">slopper</div>
     <span class="url">slopper.day</span>
   </header>
-  <h1>Throw slop at the wall.<br>Every day.</h1>
+  <h1>Too much slop?<br>Not enough yet!</h1>
   <section class="board">
     <div class="goal">
       <h2>7 slops in 7 days</h2>

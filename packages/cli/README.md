@@ -1,6 +1,6 @@
 # @slopperday/cli
 
-Throw slop at the wall from your terminal. `slopper` launches, updates and votes on
+Too much slop? Not enough yet! Throw it at the wall from your terminal: `slopper` launches, updates and votes on
 [slopper.day](https://slopper.day) through its API, and prints JSON, so it's built for agents as much as people.
 
 ## Run it
