@@ -83,6 +83,8 @@ release. Add a tool name to select part of the graph. For example, run
   the role when it first sees them (`viewerMiddleware`) and won't demote them while they're listed. Gate routes with
   `requireStaff`, and pass the acting `moderatorId`/`adminId` so Convex checks the stored role (`requireRole`); never
   trust a role flag from the caller. Roles and trust never go into a public shape.
+- **Promo video:** the source of the one on slop #0001 is `packages/promo` (Remotion, private, never released), and
+  its README says how to render it. Its music is licensed for use, not redistribution.
 - **Emails:** `users.email` holds a sign-in provider's verified address, for the daily digest only. Keep it out of
   every public shape and loader that isn't the owner's.
 - **Notifications:** create them with `notify()` (`convex/lib/notify.ts`), never a bare insert: it also schedules the
