@@ -1,7 +1,7 @@
-import { execFile, execFileSync } from "node:child_process";
+import { execFile, execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 import { api } from "../convex/_generated/api.js";
@@ -203,5 +203,79 @@ test.describe("agents run the slopper CLI", () => {
     expect(refused.stderr).toContain("Missing or invalid API token.");
     // Neither the environment's token nor the refused one was written down.
     await expect(stat(join(home, ".config", "slopper"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  test("sign in from the browser: the person approves the code, the CLI gets its own token", async ({
+    seed,
+    stack,
+  }) => {
+    const maker = await seed.user("browser");
+    const home = await mkdtemp(join(tmpdir(), "slopper-agent-"));
+    // stdin closed, as an agent's shell runs it: nothing to read a token from, so it signs in from the browser.
+    const login = spawn(bin, ["login", "--no-browser", "--url", stack.appUrl], {
+      cwd: home,
+      env: { PATH: process.env.PATH ?? "", HOME: home },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    login.stdout.on("data", (chunk: Buffer) => (stdout += chunk.toString()));
+    login.stderr.on("data", (chunk: Buffer) => (stderr += chunk.toString()));
+    const exited = new Promise<number | null>((done) => login.on("close", done));
+
+    await expect.poll(() => /Open (\S+)/.exec(stderr)?.[1] ?? null).not.toBeNull();
+    const link = /Open (\S+)/.exec(stderr)?.[1] ?? "";
+    const code = /shows ([A-Z]{4}-[A-Z]{4})/.exec(stderr)?.[1] ?? "";
+    expect(link).toBe(`${stack.appUrl}/cli?code=${code}`);
+
+    const page = await seed.pageAs(maker);
+    await page.goto(link);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in the slopper CLI");
+    await expect(page.getByText(code, { exact: true })).toBeAttached();
+    await expect(page.getByText(`slopper CLI on ${hostname()}`)).toBeVisible();
+    await page.getByRole("button", { name: "Approve" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("The CLI is signed in");
+
+    expect(await exited, stderr).toBe(0);
+    expect(JSON.parse(stdout)).toEqual({
+      loggedIn: maker.username,
+      url: stack.appUrl,
+      config: join(home, ".config", "slopper", "config.json"),
+    });
+    expect(await json(slopper(home, ["whoami"]))).toMatchObject({ username: maker.username });
+    // The token is one of theirs, named after this machine, and the link is spent.
+    await page.goto("/settings/api");
+    await expect(page.getByText(`slopper CLI on ${hostname()}`)).toBeVisible();
+    await page.goto(link);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("The CLI is signed in");
+  });
+
+  test("sign in from the browser: a denied code gives the CLI nothing", async ({ seed, stack }) => {
+    const maker = await seed.user("denier");
+    const home = await mkdtemp(join(tmpdir(), "slopper-agent-"));
+    const login = spawn(bin, ["login", "--no-browser", "--url", stack.appUrl], {
+      cwd: home,
+      env: { PATH: process.env.PATH ?? "", HOME: home },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stderr = "";
+    login.stderr.on("data", (chunk: Buffer) => (stderr += chunk.toString()));
+    const exited = new Promise<number | null>((done) => login.on("close", done));
+    await expect.poll(() => /Open (\S+)/.exec(stderr)?.[1] ?? null).not.toBeNull();
+
+    const page = await seed.pageAs(maker);
+    await page.goto(/Open (\S+)/.exec(stderr)?.[1] ?? "");
+    await page.getByRole("button", { name: "Deny" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Not signed in");
+    expect(await exited).toBe(1);
+    expect(stderr).toContain("slopper: The sign-in was denied in the browser.");
+    await expect(stat(join(home, ".config", "slopper"))).rejects.toMatchObject({ code: "ENOENT" });
+
+    // A code that was never handed out, typed in by hand.
+    await page.goto("/cli");
+    await page.getByLabel("Code").fill("bcdf ghjk");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page).toHaveURL(/\/cli\?code=bcdf/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("That code didn't work");
   });
 });

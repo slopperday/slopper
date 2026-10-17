@@ -21,13 +21,25 @@ interface Call {
 /** A JSON reply, or a hand-made response for bodies that aren't JSON. Throwing stands for the network failing. */
 type Reply = { status?: number; body: unknown } | (() => Response);
 
-/** A slopper.day stand-in: answers by "METHOD /path", records every call. */
-async function harness(routes: Record<string, Reply> = {}, env: Record<string, string> = {}, realFetch?: typeof fetch) {
+/**
+ * A slopper.day stand-in: answers by "METHOD /path", records every call. A
+ * list of replies answers in turn, repeating the last, like a sign-in that's
+ * pending until it's approved.
+ */
+async function harness(
+  routes: Record<string, Reply | Reply[]> = {},
+  env: Record<string, string> = {},
+  realFetch?: typeof fetch,
+) {
   const home = await mkdtemp(join(tmpdir(), "slopper-cli-"));
   const calls: Call[] = [];
   const out: string[] = [];
   const err: string[] = [];
   let stdin: string | null = null;
+  const opened: string[] = [];
+  const slept: number[] = [];
+  let browser = true;
+  const asked = new Map<string, number>();
   const fakeFetch: typeof fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : input);
     const method = init?.method ?? "GET";
@@ -42,24 +54,42 @@ async function harness(routes: Record<string, Reply> = {}, env: Record<string, s
       userAgent: headers.get("user-agent"),
       body: typeof raw === "string" ? JSON.parse(raw) : raw instanceof Uint8Array ? [...raw] : null,
     });
-    const reply = routes[`${method} ${url.pathname}`] ?? { status: 404, body: { error: "No route." } };
+    const key = `${method} ${url.pathname}`;
+    const route = routes[key] ?? { status: 404, body: { error: "No route." } };
+    const turn = asked.get(key) ?? 0;
+    asked.set(key, turn + 1);
+    const reply = Array.isArray(route) ? route[Math.min(turn, route.length - 1)] : route;
     if (typeof reply === "function") return reply();
     return Response.json(reply.body, { status: reply.status ?? 200 });
   };
   const io: Io = {
     env: { XDG_CONFIG_HOME: join(home, ".config"), ...env },
     home,
+    hostname: "studio",
     fetch: realFetch ?? fakeFetch,
     readStdin: async () => stdin,
+    openUrl: async (url) => {
+      opened.push(url);
+      return browser;
+    },
+    sleep: async (ms) => void slept.push(ms),
     stdout: (text) => void out.push(text),
     stderr: (text) => void err.push(text),
   };
   return {
     home,
     calls,
+    /** Pages the CLI opened in the browser. */
+    opened,
+    /** Every wait between polls, in ms. */
+    slept,
     configFile: join(home, ".config", "slopper", "config.json"),
     pipe(text: string) {
       stdin = text;
+    },
+    /** Makes opening the browser fail, as on a machine without one. */
+    noBrowser() {
+      browser = false;
     },
     /** Writes a config as `slopper login` (or a person with an editor) would have. */
     async save(text: string, mode = 0o600) {
@@ -542,7 +572,7 @@ describe("which token and site", () => {
       code: 1,
       stdout: "",
       stderr:
-        "slopper: No API token. Make one at http://localhost:5173/settings/api, then run `slopper login --token <token>` or set SLOPPER_TOKEN.\n",
+        "slopper: No API token. Run `slopper login` to sign in from your browser, or set SLOPPER_TOKEN to one from http://localhost:5173/settings/api.\n",
     });
     expect(cli.calls).toEqual([]);
   });
@@ -680,14 +710,137 @@ describe("login and logout", () => {
     await expect(stat(nobody.configFile)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
-  it("asks for a token when none is passed or piped", async () => {
-    const message = "Pass --token, or pipe one in. Make a token at https://slopper.day/settings/api.";
-    const cli = await harness(ME);
-    expect(await cli.run("login")).toEqual({ code: 2, stdout: "", stderr: usage("login", message) });
-    cli.pipe(" \n");
-    expect(await cli.run("login")).toEqual({ code: 2, stdout: "", stderr: usage("login", message) });
-    expect(await cli.run("login", "--token", "")).toEqual({ code: 2, stdout: "", stderr: usage("login", message) });
-    expect(cli.calls).toEqual([]);
+  describe("from the browser, with no token", () => {
+    const STARTED = {
+      deviceCode: "device-secret",
+      userCode: "BCDF-GHJK",
+      url: "https://slopper.day/cli?code=BCDF-GHJK",
+      interval: 2,
+      expiresAt: 1_800_000_000_000,
+    };
+    const PENDING: Reply = { body: { status: "pending" } };
+    const APPROVED: Reply = { body: { status: "approved", token: "slp_browser", username: "maker" } };
+    const signIn = (...polls: Reply[]) => ({
+      ...ME,
+      "POST /api/cli/login": { body: STARTED },
+      "POST /api/cli/token": polls,
+    });
+    const WAITING = "Check the page shows BCDF-GHJK, then approve it. Waiting…\n";
+
+    it("opens the sign-in page, waits for approval, then checks and saves the token it gets", async () => {
+      const cli = await harness(signIn(PENDING, PENDING, APPROVED));
+      expect(await cli.run("login")).toEqual({
+        code: 0,
+        stdout: `${JSON.stringify({ loggedIn: "maker", url: "https://slopper.day", config: cli.configFile }, null, 2)}\n`,
+        stderr: `Opened ${STARTED.url}\n${WAITING}`,
+      });
+      expect(cli.opened).toEqual([STARTED.url]);
+      expect(cli.slept).toEqual([2000, 2000, 2000]);
+      expect(cli.calls.map(({ method, url, authorization, body }) => [method, url, authorization, body])).toEqual([
+        ["POST", "https://slopper.day/api/cli/login", null, { name: "slopper CLI on studio" }],
+        ["POST", "https://slopper.day/api/cli/token", null, { deviceCode: "device-secret" }],
+        ["POST", "https://slopper.day/api/cli/token", null, { deviceCode: "device-secret" }],
+        ["POST", "https://slopper.day/api/cli/token", null, { deviceCode: "device-secret" }],
+        ["GET", "https://slopper.day/api/v1/me", "Bearer slp_browser", null],
+      ]);
+      expect(JSON.parse(await readFile(cli.configFile, "utf8"))).toEqual({
+        token: "slp_browser",
+        url: "https://slopper.day",
+      });
+      expect((await stat(cli.configFile)).mode & 0o777).toBe(0o600);
+    });
+
+    it("signs in on the site it was pointed at", async () => {
+      const cli = await harness(signIn(APPROVED));
+      await cli.run("login", "--url", "http://localhost:5173/");
+      expect(cli.calls[0].url).toBe("http://localhost:5173/api/cli/login");
+      expect(JSON.parse(await readFile(cli.configFile, "utf8"))).toEqual({
+        token: "slp_browser",
+        url: "http://localhost:5173",
+      });
+    });
+
+    it("prints the link to open with --no-browser, or when no browser opens", async () => {
+      const flag = await harness(signIn(APPROVED));
+      expect(await flag.run("login", "--no-browser")).toMatchObject({
+        code: 0,
+        stderr: `Open ${STARTED.url}\n${WAITING}`,
+      });
+      expect(flag.opened).toEqual([]);
+
+      const headless = await harness(signIn(APPROVED));
+      headless.noBrowser();
+      expect(await headless.run("login")).toMatchObject({ code: 0, stderr: `Open ${STARTED.url}\n${WAITING}` });
+      expect(headless.opened).toEqual([STARTED.url]);
+    });
+
+    it("takes a token passed or piped instead, and a blank pipe still signs in from the browser", async () => {
+      const flag = await harness(signIn(APPROVED));
+      await flag.run("login", "--token", "slp_flag");
+      expect(flag.opened).toEqual([]);
+      expect(flag.calls.map((call) => call.url)).toEqual(["https://slopper.day/api/v1/me"]);
+
+      const blank = await harness(signIn(APPROVED));
+      blank.pipe(" \n");
+      expect((await blank.run("login")).code).toBe(0);
+      expect(blank.opened).toEqual([STARTED.url]);
+    });
+
+    it("stops when the sign-in is denied or expires, and saves nothing", async () => {
+      for (const [status, message] of [
+        ["denied", "The sign-in was denied in the browser."],
+        ["expired", "The sign-in expired. Run `slopper login` again."],
+      ]) {
+        const cli = await harness(signIn(PENDING, { body: { status } }));
+        expect(await cli.run("login")).toEqual({
+          code: 1,
+          stdout: "",
+          stderr: `Opened ${STARTED.url}\n${WAITING}slopper: ${message}\n`,
+        });
+        expect(cli.calls.some((call) => call.url.endsWith("/api/v1/me"))).toBe(false);
+        await expect(stat(cli.configFile)).rejects.toMatchObject({ code: "ENOENT" });
+      }
+    });
+
+    it("gives up when nobody approves it within eleven minutes", async () => {
+      const cli = await harness(signIn(PENDING));
+      expect(await cli.run("login")).toMatchObject({
+        code: 1,
+        stderr: expect.stringContaining("slopper: Nobody approved the sign-in in time. Run `slopper login` again.\n"),
+      });
+      expect(cli.slept.reduce((total, ms) => total + ms, 0)).toBe(11 * 60_000);
+      await expect(stat(cli.configFile)).rejects.toMatchObject({ code: "ENOENT" });
+    });
+
+    it("reports a site that can't start a sign-in, or answers a poll oddly", async () => {
+      const notStarted = await harness({ "POST /api/cli/login": { body: { ok: true } } });
+      expect(await notStarted.run("login")).toEqual({
+        code: 1,
+        stdout: "",
+        stderr: "slopper: https://slopper.day didn't start a browser sign-in. Is it a Slopper site?\n",
+      });
+      expect(notStarted.opened).toEqual([]);
+
+      const oldSite = await harness({});
+      expect(await oldSite.run("login")).toMatchObject({ code: 1, stderr: "slopper: No route.\n" });
+
+      const odd = await harness(signIn({ body: { status: "approved" } }));
+      expect(await odd.run("login")).toMatchObject({
+        code: 1,
+        stderr: expect.stringContaining(
+          "slopper: https://slopper.day answered the sign-in with something unexpected.\n",
+        ),
+      });
+
+      const full = await harness(signIn({ status: 409, body: { error: "Up to 10 tokens. Revoke one first." } }));
+      expect(await full.run("login")).toMatchObject({
+        code: 1,
+        stderr: expect.stringContaining("slopper: Up to 10 tokens. Revoke one first.\n"),
+      });
+      for (const cli of [notStarted, oldSite, odd, full]) {
+        await expect(stat(cli.configFile)).rejects.toMatchObject({ code: "ENOENT" });
+      }
+    });
   });
 
   it("reports a config directory it can't create instead of crashing", async () => {

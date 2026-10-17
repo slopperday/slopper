@@ -117,11 +117,8 @@ export interface Api {
   upload(path: string, bytes: Uint8Array<ArrayBuffer>, contentType: string): Promise<unknown>;
 }
 
-interface ApiOptions {
-  url: string;
+interface ApiOptions extends SiteOptions {
   token: string | undefined;
-  fetch: typeof fetch;
-  userAgent: string;
 }
 
 function isErrorBody(value: unknown): value is { error: string; details?: Record<string, string> | null } {
@@ -143,6 +140,48 @@ function parseJson(text: string): unknown {
   }
 }
 
+interface SiteOptions {
+  url: string;
+  fetch: typeof fetch;
+  userAgent: string;
+}
+
+/**
+ * One request to the site, answered in JSON; anything else is a SlopperError.
+ * `path` is what errors name, under `base` (`/api/v1` for the REST API).
+ */
+async function send(
+  { url, fetch, userAgent }: SiteOptions,
+  method: string,
+  base: string,
+  path: string,
+  init: { token?: string; body?: string | Uint8Array<ArrayBuffer>; contentType?: string } = {},
+): Promise<unknown> {
+  const headers: Record<string, string> = { accept: "application/json", "user-agent": userAgent };
+  if (init.token) headers.authorization = `Bearer ${init.token}`;
+  if (init.contentType) headers["content-type"] = init.contentType;
+  let response: Response;
+  let text: string;
+  try {
+    response = await fetch(`${url}${base}${path}`, { method, headers, body: init.body });
+    // The connection can also drop while the body arrives.
+    text = await response.text();
+  } catch (error) {
+    throw new SlopperError(`Couldn't reach ${url}: ${networkReason(error)}`);
+  }
+  const parsed = parseJson(text);
+  if (response.ok && parsed !== undefined) return parsed;
+  if (isErrorBody(parsed)) throw new SlopperError(parsed.error, { details: parsed.details ?? null });
+  // Every endpoint answers in JSON, so anything else isn't Slopper talking.
+  if (response.ok) throw new SlopperError(`${url} answered ${method} ${path} without JSON. Is it a Slopper site?`);
+  throw new SlopperError(`${method} ${path} failed with HTTP ${response.status}.`);
+}
+
+/** A POST that needs no token, like the browser sign-in's (`/api/cli/*`). */
+export function postWithoutToken(site: SiteOptions, path: string, body: object): Promise<unknown> {
+  return send(site, "POST", "", path, { body: JSON.stringify(body), contentType: "application/json" });
+}
+
 export function createApi({ url, token, fetch, userAgent }: ApiOptions): Api {
   async function request(
     method: string,
@@ -152,30 +191,10 @@ export function createApi({ url, token, fetch, userAgent }: ApiOptions): Api {
   ): Promise<unknown> {
     if (!token) {
       throw new SlopperError(
-        `No API token. Make one at ${url}/settings/api, then run \`slopper login --token <token>\` or set SLOPPER_TOKEN.`,
+        `No API token. Run \`slopper login\` to sign in from your browser, or set SLOPPER_TOKEN to one from ${url}/settings/api.`,
       );
     }
-    const headers: Record<string, string> = {
-      authorization: `Bearer ${token}`,
-      accept: "application/json",
-      "user-agent": userAgent,
-    };
-    if (contentType) headers["content-type"] = contentType;
-    let response: Response;
-    let text: string;
-    try {
-      response = await fetch(`${url}/api/v1${path}`, { method, headers, body });
-      // The connection can also drop while the body arrives.
-      text = await response.text();
-    } catch (error) {
-      throw new SlopperError(`Couldn't reach ${url}: ${networkReason(error)}`);
-    }
-    const parsed = parseJson(text);
-    if (response.ok && parsed !== undefined) return parsed;
-    if (isErrorBody(parsed)) throw new SlopperError(parsed.error, { details: parsed.details ?? null });
-    // Every endpoint answers in JSON, so anything else isn't Slopper talking.
-    if (response.ok) throw new SlopperError(`${url} answered ${method} ${path} without JSON. Is it a Slopper site?`);
-    throw new SlopperError(`${method} ${path} failed with HTTP ${response.status}.`);
+    return await send({ url, fetch, userAgent }, method, "/api/v1", path, { token, body, contentType });
   }
 
   return {

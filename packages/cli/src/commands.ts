@@ -1,7 +1,15 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
 import type { ParseArgsOptionsConfig } from "node:util";
-import { type Api, isSystemError, removeConfig, SlopperError, usageError, writeConfig } from "./client.ts";
+import {
+  type Api,
+  isSystemError,
+  postWithoutToken,
+  removeConfig,
+  SlopperError,
+  usageError,
+  writeConfig,
+} from "./client.ts";
 import { readSkill } from "./skill.ts";
 
 /**
@@ -12,9 +20,15 @@ import { readSkill } from "./skill.ts";
 export interface Io {
   env: Record<string, string | undefined>;
   home: string;
+  /** This machine's name, for the token a browser sign-in makes. */
+  hostname: string;
   fetch: typeof fetch;
   /** Piped input, or null when stdin is a terminal. */
   readStdin(): Promise<string | null>;
+  /** Opens a page in the default browser; false when it couldn't. */
+  openUrl(url: string): Promise<boolean>;
+  /** Waits between the browser sign-in's polls. */
+  sleep(ms: number): Promise<void>;
   stdout(text: string): void;
   stderr(text: string): void;
 }
@@ -33,6 +47,8 @@ export interface LocalContext {
 export interface Context extends LocalContext {
   /** The site's origin, already resolved. */
   url: string;
+  /** Sent with every request: slopper-cli/<version>. */
+  userAgent: string;
   api: Api;
   /** An API client for another token (login checks one before saving it). */
   connect: (token: string) => Api;
@@ -199,20 +215,74 @@ const AUTOPOST_FLAG = {
     "Also post it to the connected X, LinkedIn and Bluesky accounts. Held unless it passed the content check.",
 };
 
+/** What /api/cli/login answers: the secret the CLI polls with, and the page the person approves on. */
+interface BrowserSignIn {
+  deviceCode: string;
+  userCode: string;
+  url: string;
+  interval: number;
+}
+
+function isBrowserSignIn(value: unknown): value is BrowserSignIn {
+  if (typeof value !== "object" || value === null) return false;
+  const { deviceCode, userCode, url, interval } = value as Record<string, unknown>;
+  return (
+    typeof deviceCode === "string" &&
+    typeof userCode === "string" &&
+    typeof url === "string" &&
+    typeof interval === "number"
+  );
+}
+
+/** The longest a browser sign-in is polled; the site expires it after ten minutes. */
+const SIGN_IN_TIMEOUT_MS = 11 * 60_000;
+
+/**
+ * Signs in the way TVs do: the site makes a one-time code, the person
+ * approves it at /cli in a browser where they're signed in, and the CLI
+ * collects a new API token named after this machine. Progress goes to
+ * stderr so stdout stays JSON.
+ */
+async function signInFromBrowser({ io, url, userAgent }: Context, openBrowser: boolean): Promise<string> {
+  const site = { url, fetch: io.fetch, userAgent };
+  const started = await postWithoutToken(site, "/api/cli/login", { name: `slopper CLI on ${io.hostname}` });
+  if (!isBrowserSignIn(started)) throw new SlopperError(`${url} didn't start a browser sign-in. Is it a Slopper site?`);
+
+  const opened = openBrowser && (await io.openUrl(started.url));
+  io.stderr(
+    `${opened ? "Opened" : "Open"} ${started.url}\n` +
+      `Check the page shows ${started.userCode}, then approve it. Waiting…\n`,
+  );
+  for (let waited = 0; waited < SIGN_IN_TIMEOUT_MS; waited += started.interval * 1000) {
+    await io.sleep(started.interval * 1000);
+    const polled = await postWithoutToken(site, "/api/cli/token", { deviceCode: started.deviceCode });
+    const status = typeof polled === "object" && polled !== null ? (polled as { status?: unknown }).status : undefined;
+    if (status === "pending") continue;
+    if (status === "approved") {
+      const token = (polled as { token?: unknown }).token;
+      if (typeof token === "string" && token) return token;
+    }
+    if (status === "denied") throw new SlopperError("The sign-in was denied in the browser.");
+    if (status === "expired") throw new SlopperError("The sign-in expired. Run `slopper login` again.");
+    throw new SlopperError(`${url} answered the sign-in with something unexpected.`);
+  }
+  throw new SlopperError("Nobody approved the sign-in in time. Run `slopper login` again.");
+}
+
 export const COMMANDS: Command[] = [
   {
     name: "login",
-    summary: "Check an API token (from /settings/api), then save it and its site for the other commands.",
+    summary: "Sign in from your browser, then save the token and its site for the other commands.",
     flags: {
-      "--token <token>": "The token. Without it, it's read from stdin: `echo $TOKEN | slopper login`.",
+      "--no-browser": "Print the sign-in link instead of opening it, for a machine without a browser.",
+      "--token <token>": "Save this token from /settings/api instead. Piped in, it's read from stdin.",
       "--url <url>": "A different site to save, like a local one.",
     },
-    options: {},
-    async run({ values, io, url, configFile, connect }) {
-      const token = (text(values, "token") ?? (await io.readStdin()) ?? "").trim();
-      if (!token) {
-        throw usageError(`Pass --token, or pipe one in. Make a token at ${url}/settings/api.`);
-      }
+    options: { "no-browser": { type: "boolean" } },
+    async run(context) {
+      const { values, io, url, configFile, connect } = context;
+      const given = (text(values, "token") ?? (await io.readStdin()) ?? "").trim();
+      const token = given || (await signInFromBrowser(context, values["no-browser"] !== true));
       const me = await connect(token).get("/me");
       const username = typeof me === "object" && me !== null ? (me as { username?: unknown }).username : undefined;
       if (typeof username !== "string") throw new SlopperError(`${url} didn't say whose token this is.`);

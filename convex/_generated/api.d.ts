@@ -10,6 +10,7 @@
 
 import type * as accounts from "../accounts.js";
 import type * as activity from "../activity.js";
+import type * as cliLogins from "../cliLogins.js";
 import type * as crons from "../crons.js";
 import type * as digest from "../digest.js";
 import type * as digestSend from "../digestSend.js";
@@ -44,6 +45,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   accounts: typeof accounts;
   activity: typeof activity;
+  cliLogins: typeof cliLogins;
   crons: typeof crons;
   digest: typeof digest;
   digestSend: typeof digestSend;

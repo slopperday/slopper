@@ -20,6 +20,7 @@ export default [
   route("settings/api", "routes/settings.api.tsx"),
   route("notifications", "routes/notifications.tsx"),
   route("mod", "routes/mod.tsx"),
+  route("cli", "routes/cli.tsx"),
 
   route("auth/logout", "routes/auth.logout.ts"),
   route("auth/dev", "routes/auth.dev.ts"),
@@ -31,6 +32,8 @@ export default [
   route("llms.txt", "routes/llms.ts"),
   route("api/media", "routes/api.media.ts"),
   route("api/convex-token", "routes/api.convex-token.ts"),
+  route("api/cli/login", "routes/api.cli-login.ts"),
+  route("api/cli/token", "routes/api.cli-token.ts"),
   route("api/push", "routes/api.push.ts"),
   route("api/scheduled/:id", "routes/api.scheduled.ts"),
   route("api/slops/:id", "routes/api.slop.ts"),

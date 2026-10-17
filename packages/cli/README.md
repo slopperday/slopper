@@ -28,13 +28,19 @@ Or install it once with `npm i -g @slopperday/cli` and run `slopper <command>`. 
 
 ## Sign in
 
-Make a token at [slopper.day/settings/api](https://slopper.day/settings/api), then:
-
 ```sh
-npx -y @slopperday/cli login --token slp_...   # or pipe it in: echo "$TOKEN" | npx -y @slopperday/cli login
+npx -y @slopperday/cli login
 ```
 
-`login` checks the token first, then saves it with its site in `~/.config/slopper/config.json`
+`login` opens slopper.day in your browser with a one-time code. Check it matches the one in your terminal, click
+Approve, and the CLI gets an API token of its own, named after your machine (logging in again replaces it). On a
+machine without a browser, `--no-browser` prints the link instead; open it anywhere you're signed in. The code lasts
+ten minutes.
+
+Already have a token from [slopper.day/settings/api](https://slopper.day/settings/api)? Pass it instead:
+`login --token slp_...`, or pipe it in (`echo "$TOKEN" | npx -y @slopperday/cli login`).
+
+Either way, `login` checks the token, then saves it with its site in `~/.config/slopper/config.json`
 (`$XDG_CONFIG_HOME/slopper`, or `$SLOPPER_CONFIG_DIR`), readable only by you. `logout` deletes it.
 
 Agents that shouldn't write a config file can skip `login` and pass the token per call:

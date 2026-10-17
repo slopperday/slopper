@@ -100,6 +100,20 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
         .
       </p>
 
+      <div className="panel mt-8">
+        <p className="font-bold">The CLI doesn't need a token from here</p>
+        <p className="mt-1 text-[0.9375rem] text-muted">
+          Run <code className="font-mono">npx -y @slopperday/cli login</code>
+          {elsewhere ? (
+            <>
+              {" "}
+              <code className="font-mono">--url {origin}</code>
+            </>
+          ) : null}
+          . It opens this site on a one-time code; approve it and the CLI makes a token of its own.
+        </p>
+      </div>
+
       {newToken && (
         <div className="panel mt-8">
           <p className="font-bold">Your new token. Copy it now; it won't be shown again.</p>

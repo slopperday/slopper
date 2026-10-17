@@ -11,14 +11,15 @@ import type { User } from "./session";
 
 const PREFIX = "slp_";
 
-export async function createApiToken(userId: Id<"users">, name: string): Promise<string> {
+/** A new token, with what Convex keeps of it: its hash and the first few characters to recognise it by. */
+export async function newApiToken(): Promise<{ token: string; preview: string; hash: string }> {
   const token = `${PREFIX}${randomToken(32)}`;
-  await convex.mutation(api.tokens.create, {
-    userId,
-    name,
-    preview: token.slice(0, 10),
-    hash: await hashToken(token),
-  });
+  return { token, preview: token.slice(0, 10), hash: await hashToken(token) };
+}
+
+export async function createApiToken(userId: Id<"users">, name: string): Promise<string> {
+  const { token, preview, hash } = await newApiToken();
+  await convex.mutation(api.tokens.create, { userId, name, preview, hash });
   return token;
 }
 
