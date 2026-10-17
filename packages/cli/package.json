@@ -1,6 +1,6 @@
 {
   "name": "@slopperday/cli",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Throw slop at the wall from your terminal: launch, update and vote on slopper.day. Built for agents.",
   "keywords": [
     "agent",

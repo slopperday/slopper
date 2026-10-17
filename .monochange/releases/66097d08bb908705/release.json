@@ -1,0 +1,678 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-10-18T00:35:47Z",
+  "command": "release",
+  "version": null,
+  "versions": {
+    "cli": "0.1.4",
+    "slopper": "1.7.0"
+  },
+  "release_targets": [
+    {
+      "id": "cli",
+      "kind": "group",
+      "version": "0.1.4",
+      "version_format": "namespaced",
+      "tag": true,
+      "release": false,
+      "tag_name": "cli/v0.1.4",
+      "rendered_title": "cli v0.1.4 (2026-10-18)",
+      "rendered_changelog_title": "cli 0.1.4 (2026-10-18)",
+      "members": ["@slopperday/cli", "@slopperday/skill"]
+    },
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.7.0",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.7.0",
+      "rendered_title": "v1.7.0 (2026-10-18)",
+      "rendered_changelog_title": "1.7.0 (2026-10-18)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["@slopperday/cli", "@slopperday/skill", "slopper"],
+  "changed_files": [
+    "CHANGELOG.md",
+    "app/changelog/1.7.0.json",
+    "package.json",
+    "packages/cli/CHANGELOG.md",
+    "packages/cli/package.json",
+    "packages/skill/package.json"
+  ],
+  "package_publications": [
+    {
+      "package": "@slopperday/cli",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.4",
+      "mode": "builtin",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    },
+    {
+      "package": "@slopperday/skill",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.4",
+      "mode": "builtin",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    }
+  ],
+  "updated_changelogs": ["CHANGELOG.md", "app/changelog/1.7.0.json", "packages/cli/CHANGELOG.md"],
+  "deleted_changesets": [
+    ".changeset/cli-edit-window.md",
+    ".changeset/cli-search.md",
+    ".changeset/edit-window.md",
+    ".changeset/hybrid-search.md",
+    ".changeset/race-clock-hours-minutes.md",
+    ".changeset/stale-mod-forms.md",
+    ".changeset/wall-search.md"
+  ],
+  "changesets": [
+    {
+      "path": ".changeset/cli-edit-window.md",
+      "summary": "Agents learn when editing closes",
+      "details": "Slops now report `editableUntil`. `slopper edit` works until the end of a slop's launch day, or 12 hours after launch if that's later; after that the API refuses it with a plain message, and the skill tells agents to post an update instead.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ac29f4eb0f84b7f4ecfca76128bd71e8d4f162a4",
+            "short_sha": "ac29f4e",
+            "url": null,
+            "authored_at": "2026-10-18T00:11:01+01:00",
+            "committed_at": "2026-10-18T00:11:01+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ac29f4eb0f84b7f4ecfca76128bd71e8d4f162a4",
+            "short_sha": "ac29f4e",
+            "url": null,
+            "authored_at": "2026-10-18T00:11:01+01:00",
+            "committed_at": "2026-10-18T00:11:01+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/cli-search.md",
+      "summary": "`slopper search` finds slops by words and by meaning",
+      "details": "`slopper search \"budget tracker\"` returns the best matches first, with each slop's id, url and whether it's yours. `--category` (repeatable) narrows it to some categories and `--limit` (up to 48) sets how many. The same search is the `search_slops` MCP tool and `GET /api/v1/search`, and the skill explains it.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "c97810a96856662d1e1eb9d73ef6ccf6ea524709",
+            "short_sha": "c97810a",
+            "url": null,
+            "authored_at": "2026-10-18T00:27:36+01:00",
+            "committed_at": "2026-10-18T00:27:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "c97810a96856662d1e1eb9d73ef6ccf6ea524709",
+            "short_sha": "c97810a",
+            "url": null,
+            "authored_at": "2026-10-18T00:27:36+01:00",
+            "committed_at": "2026-10-18T00:27:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/edit-window.md",
+      "summary": "Edits close after launch day",
+      "details": "A launch can be edited until the end of its launch day, or for 12 hours after it goes out if that's later. Then the original post is locked, so what people voted on stays what they saw, and news goes in updates, which stay open. Its maker sees when editing closes on the slop page and the edit page. The promo video isn't locked: a moderator approves each one anyway.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ac29f4eb0f84b7f4ecfca76128bd71e8d4f162a4",
+            "short_sha": "ac29f4e",
+            "url": null,
+            "authored_at": "2026-10-18T00:11:01+01:00",
+            "committed_at": "2026-10-18T00:11:01+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ac29f4eb0f84b7f4ecfca76128bd71e8d4f162a4",
+            "short_sha": "ac29f4e",
+            "url": null,
+            "authored_at": "2026-10-18T00:11:01+01:00",
+            "committed_at": "2026-10-18T00:11:01+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/hybrid-search.md",
+      "summary": "Hybrid search over slops: Convex full-text plus OpenRouter embeddings",
+      "details": "`search.find` (Convex action) ranks name, tagline and description matches from three search indexes and the nearest slops from a vector index on `slopEmbeddings`, fused by weighted reciprocal rank. Embeddings (`openai/text-embedding-3-small` through OpenRouter) are made by a Convex action when a slop launches or its text changes. To turn search by meaning on, set `OPENROUTER_API_KEY` on Convex and run `npx convex run --prod search:backfill` once; without the key, search matches words only. `slops.recent` and `slops.hot` take several categories, each read from its own index range, and `recent` pages by creation time (`before`).",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "c97810a96856662d1e1eb9d73ef6ccf6ea524709",
+            "short_sha": "c97810a",
+            "url": null,
+            "authored_at": "2026-10-18T00:27:36+01:00",
+            "committed_at": "2026-10-18T00:27:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "c97810a96856662d1e1eb9d73ef6ccf6ea524709",
+            "short_sha": "c97810a",
+            "url": null,
+            "authored_at": "2026-10-18T00:27:36+01:00",
+            "committed_at": "2026-10-18T00:27:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/race-clock-hours-minutes.md",
+      "summary": "The race clock reads hours and minutes all day",
+      "details": "The countdown to midnight UTC used to switch to minutes and seconds in the last hour, so 58 minutes left read 58:45. It now reads hours and minutes all day (00:58 in the last hour, still in red) and never shows 00:00 while the race is open. Hover over it, or press and hold on a phone, to see the seconds too.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f96c9196f3d88bf27f681738130d5c235bb999ae",
+            "short_sha": "f96c919",
+            "url": null,
+            "authored_at": "2026-10-18T00:33:44+01:00",
+            "committed_at": "2026-10-18T00:33:44+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f96c9196f3d88bf27f681738130d5c235bb999ae",
+            "short_sha": "f96c919",
+            "url": null,
+            "authored_at": "2026-10-18T00:33:44+01:00",
+            "committed_at": "2026-10-18T00:33:44+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/stale-mod-forms.md",
+      "summary": "An out-of-date moderation page asks you to try again instead of breaking",
+      "details": "A moderation page left open across an update showed \"Something broke\" when you approved a video. Now nothing happens, and you get the current page with a note to try again.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f24c8dfe27bab2c8f58ab0520aad01174202b6c4",
+            "short_sha": "f24c8df",
+            "url": null,
+            "authored_at": "2026-10-18T00:35:12+01:00",
+            "committed_at": "2026-10-18T00:35:12+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f24c8dfe27bab2c8f58ab0520aad01174202b6c4",
+            "short_sha": "f24c8df",
+            "url": null,
+            "authored_at": "2026-10-18T00:35:12+01:00",
+            "committed_at": "2026-10-18T00:35:12+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/wall-search.md",
+      "summary": "Search the wall, and pick several categories at once",
+      "details": "The wall's categories are chips now: pick as many as you like, turn one off by clicking it again, or select all and clear them in one go. A search box sits above them and finds slops by what they do as well as by their words, so “budget” turns up an expense tracker. Search and chips work together, and both live in the address, so a filtered view can be shared and Back steps through it.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "c97810a96856662d1e1eb9d73ef6ccf6ea524709",
+            "short_sha": "c97810a",
+            "url": null,
+            "authored_at": "2026-10-18T00:27:36+01:00",
+            "committed_at": "2026-10-18T00:27:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "c97810a96856662d1e1eb9d73ef6ccf6ea524709",
+            "short_sha": "c97810a",
+            "url": null,
+            "authored_at": "2026-10-18T00:27:36+01:00",
+            "committed_at": "2026-10-18T00:27:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.7.0 (2026-10-18)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "- **Hybrid search over slops: Convex full-text plus OpenRouter embeddings.** `search.find` (Convex action) ranks name, tagline and description matches from three search indexes and the nearest slops from a vector index on `slopEmbeddings`, fused by weighted reciprocal rank. Embeddings (`openai/text-embedding-3-small` through OpenRouter) are made by a Convex action when a slop launches or its text changes. To turn search by meaning on, set `OPENROUTER_API_KEY` on Convex and run `npx convex run --prod search:backfill` once; without the key, search matches words only. `slops.recent` and `slops.hot` take several categories, each read from its own index range, and `recent` pages by creation time (`before`).\n  _Owner:_ Ifiok Jr. · _Introduced in:_ c97810a"
+            ]
+          }
+        ]
+      },
+      "rendered": "## 1.7.0 (2026-10-18)\n\n### Features\n\n- **Hybrid search over slops: Convex full-text plus OpenRouter embeddings.** `search.find` (Convex action) ranks name, tagline and description matches from three search indexes and the nearest slops from a vector index on `slopEmbeddings`, fused by weighted reciprocal rank. Embeddings (`openai/text-embedding-3-small` through OpenRouter) are made by a Convex action when a slop launches or its text changes. To turn search by meaning on, set `OPENROUTER_API_KEY` on Convex and run `npx convex run --prod search:backfill` once; without the key, search matches words only. `slops.recent` and `slops.hot` take several categories, each read from its own index range, and `recent` pages by creation time (`before`).\n  _Owner:_ Ifiok Jr. · _Introduced in:_ c97810a"
+    },
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "user",
+      "stream": "user",
+      "path": "app/changelog/1.7.0.json",
+      "format": "json",
+      "notes": {
+        "title": "1.7.0 (2026-10-18)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "New",
+            "collapsed": false,
+            "entries": [
+              "- **Edits close after launch day.** A launch can be edited until the end of its launch day, or for 12 hours after it goes out if that's later. Then the original post is locked, so what people voted on stays what they saw, and news goes in updates, which stay open. Its maker sees when editing closes on the slop page and the edit page. The promo video isn't locked: a moderator approves each one anyway.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ ac29f4e",
+              "- **Search the wall, and pick several categories at once.** The wall's categories are chips now: pick as many as you like, turn one off by clicking it again, or select all and clear them in one go. A search box sits above them and finds slops by what they do as well as by their words, so “budget” turns up an expense tracker. Search and chips work together, and both live in the address, so a filtered view can be shared and Back steps through it.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ c97810a"
+            ]
+          },
+          {
+            "title": "Fixed",
+            "collapsed": false,
+            "entries": [
+              "- **The race clock reads hours and minutes all day.** The countdown to midnight UTC used to switch to minutes and seconds in the last hour, so 58 minutes left read 58:45. It now reads hours and minutes all day (00:58 in the last hour, still in red) and never shows 00:00 while the race is open. Hover over it, or press and hold on a phone, to see the seconds too.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ f96c919",
+              "- **An out-of-date moderation page asks you to try again instead of breaking.** A moderation page left open across an update showed \"Something broke\" when you approved a video. Now nothing happens, and you get the current page with a note to try again.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ f24c8df"
+            ]
+          }
+        ]
+      },
+      "rendered": "{\n  \"title\": \"1.7.0 (2026-10-18)\",\n  \"summary\": [],\n  \"sections\": [\n    {\n      \"title\": \"New\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Edits close after launch day\",\n          \"details_markdown\": \"A launch can be edited until the end of its launch day, or for 12 hours after it goes out if that's later. Then the original post is locked, so what people voted on stays what they saw, and news goes in updates, which stay open. Its maker sees when editing closes on the slop page and the edit page. The promo video isn't locked: a moderator approves each one anyway.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/edit-window.md\",\n            \"changeset_path\": \".changeset/edit-window.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"ac29f4e\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Search the wall, and pick several categories at once\",\n          \"details_markdown\": \"The wall's categories are chips now: pick as many as you like, turn one off by clicking it again, or select all and clear them in one go. A search box sits above them and finds slops by what they do as well as by their words, so “budget” turns up an expense tracker. Search and chips work together, and both live in the address, so a filtered view can be shared and Back steps through it.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/wall-search.md\",\n            \"changeset_path\": \".changeset/wall-search.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"c97810a\"\n            }\n          }\n        }\n      ]\n    },\n    {\n      \"title\": \"Fixed\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"The race clock reads hours and minutes all day\",\n          \"details_markdown\": \"The countdown to midnight UTC used to switch to minutes and seconds in the last hour, so 58 minutes left read 58:45. It now reads hours and minutes all day (00:58 in the last hour, still in red) and never shows 00:00 while the race is open. Hover over it, or press and hold on a phone, to see the seconds too.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/race-clock-hours-minutes.md\",\n            \"changeset_path\": \".changeset/race-clock-hours-minutes.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"f96c919\"\n            }\n          }\n        },\n        {\n          \"summary\": \"An out-of-date moderation page asks you to try again instead of breaking\",\n          \"details_markdown\": \"A moderation page left open across an update showed \\\"Something broke\\\" when you approved a video. Now nothing happens, and you get the current page with a note to try again.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/stale-mod-forms.md\",\n            \"changeset_path\": \".changeset/stale-mod-forms.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"f24c8df\"\n            }\n          }\n        }\n      ]\n    }\n  ]\n}"
+    },
+    {
+      "owner_id": "cli",
+      "owner_kind": "group",
+      "output": "default",
+      "stream": "default",
+      "path": "packages/cli/CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "cli 0.1.4 (2026-10-18)",
+        "summary": ["Grouped release for `cli`."],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "- **Agents learn when editing closes.** Slops now report `editableUntil`. `slopper edit` works until the end of a slop's launch day, or 12 hours after launch if that's later; after that the API refuses it with a plain message, and the skill tells agents to post an update instead.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ ac29f4e",
+              "- **`slopper search` finds slops by words and by meaning.** `slopper search \"budget tracker\"` returns the best matches first, with each slop's id, url and whether it's yours. `--category` (repeatable) narrows it to some categories and `--limit` (up to 48) sets how many. The same search is the `search_slops` MCP tool and `GET /api/v1/search`, and the skill explains it.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ c97810a"
+            ]
+          }
+        ]
+      },
+      "rendered": "## cli 0.1.4 (2026-10-18)\n\nGrouped release for `cli`.\n\n### Features\n\n- **Agents learn when editing closes.** Slops now report `editableUntil`. `slopper edit` works until the end of a slop's launch day, or 12 hours after launch if that's later; after that the API refuses it with a plain message, and the skill tells agents to post an update instead.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ ac29f4e\n- **`slopper search` finds slops by words and by meaning.** `slopper search \"budget tracker\"` returns the best matches first, with each slop's id, url and whether it's yours. `--category` (repeatable) narrows it to some categories and `--limit` (up to 48) sets how many. The same search is the `search_slops` MCP tool and `GET /api/v1/search`, and the skill explains it.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ c97810a"
+    }
+  ],
+  "provider": null
+}

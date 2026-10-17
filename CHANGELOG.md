@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.7.0 (2026-10-18)
+
+### Features
+
+- **Hybrid search over slops: Convex full-text plus OpenRouter embeddings.** `search.find` (Convex action) ranks name, tagline and description matches from three search indexes and the nearest slops from a vector index on `slopEmbeddings`, fused by weighted reciprocal rank. Embeddings (`openai/text-embedding-3-small` through OpenRouter) are made by a Convex action when a slop launches or its text changes. To turn search by meaning on, set `OPENROUTER_API_KEY` on Convex and run `npx convex run --prod search:backfill` once; without the key, search matches words only. `slops.recent` and `slops.hot` take several categories, each read from its own index range, and `recent` pages by creation time (`before`).
+  _Owner:_ Ifiok Jr. · _Introduced in:_ c97810a
+
 ## 1.6.0 (2026-10-18)
 
 ### Features
