@@ -24,6 +24,10 @@ async function digestSetting(seed: Seed, user: SeededUser) {
 }
 
 test.describe("daily digest", () => {
+  // The digest job is global. Run beside another test, it can reach that test's maker before the upvote lands, send
+  // nothing and move their digest to tomorrow, so these tests take turns.
+  test.describe.configure({ mode: "default" });
+
   test("a maker gets yesterday's reactions by email and stops it from the link", async ({ seed, stack }) => {
     const { email, maker, slop, sent, unsubscribe } = await digestFor(seed, stack, "digester");
     expect(sent.subject).toBe("Your slops got 1 upvote");

@@ -1,4 +1,4 @@
-import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 /**
@@ -25,15 +25,30 @@ export function usageError(message: string): SlopperError {
   return new SlopperError(message, { exitCode: 2 });
 }
 
-/** What `slopper login` saves. */
+/** A file system call that failed, like a config nobody can read. Node, Bun and Deno all give them a code. */
+export function isSystemError(error: unknown): error is NodeJS.ErrnoException {
+  return (
+    error instanceof Error &&
+    typeof (error as NodeJS.ErrnoException).code === "string" &&
+    typeof (error as NodeJS.ErrnoException).syscall === "string"
+  );
+}
+
+/** An environment variable, or undefined when it's unset or empty: `SLOPPER_TOKEN=` turns it off. */
+export function envValue(env: Record<string, string | undefined>, name: string): string | undefined {
+  return env[name] || undefined;
+}
+
+/** What `slopper login` saves: a token and the site it works on. */
 export interface SavedConfig {
   token?: string;
   url?: string;
 }
 
 export function configPath(env: Record<string, string | undefined>, home: string): string {
-  if (env.SLOPPER_CONFIG_DIR) return join(env.SLOPPER_CONFIG_DIR, "config.json");
-  return join(env.XDG_CONFIG_HOME || join(home, ".config"), "slopper", "config.json");
+  const dir = envValue(env, "SLOPPER_CONFIG_DIR");
+  if (dir) return join(dir, "config.json");
+  return join(envValue(env, "XDG_CONFIG_HOME") ?? join(home, ".config"), "slopper", "config.json");
 }
 
 export async function readConfig(path: string): Promise<SavedConfig> {
@@ -41,8 +56,10 @@ export async function readConfig(path: string): Promise<SavedConfig> {
   try {
     text = await readFile(path, "utf8");
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") return {};
-    throw error;
+    if (!isSystemError(error)) throw error;
+    if (error.code === "ENOENT") return {};
+    // Some reads fail without naming the file, like one that's a directory.
+    throw new SlopperError(`Couldn't read ${path}: ${error.message}`);
   }
   let parsed: unknown;
   try {
@@ -63,9 +80,15 @@ export async function readConfig(path: string): Promise<SavedConfig> {
 /** Saves the config readable by its owner only: it holds an API token. */
 export async function writeConfig(path: string, config: SavedConfig): Promise<void> {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-  await writeFile(path, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
-  // `mode` only applies to new files; an older config may have been wider.
-  await chmod(path, 0o600);
+  // `mode` only applies to new files and an older config may be wider, so
+  // narrow it before the token goes in.
+  const file = await open(path, "w", 0o600);
+  try {
+    await file.chmod(0o600);
+    await file.writeFile(`${JSON.stringify(config, null, 2)}\n`);
+  } finally {
+    await file.close();
+  }
 }
 
 export async function removeConfig(path: string): Promise<void> {
@@ -105,6 +128,21 @@ function isErrorBody(value: unknown): value is { error: string; details?: Record
   return typeof value === "object" && value !== null && typeof (value as { error?: unknown }).error === "string";
 }
 
+/** Why a request got no answer. Fetch wraps the cause (refused, DNS, TLS) in a bare "fetch failed". */
+function networkReason(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  return error.cause instanceof Error ? `${error.message} (${error.cause.message})` : error.message;
+}
+
+/** The body as JSON, or undefined when it isn't any: an empty reply, or a proxy's or host's HTML page. */
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
 export function createApi({ url, token, fetch, userAgent }: ApiOptions): Api {
   async function request(
     method: string,
@@ -124,21 +162,19 @@ export function createApi({ url, token, fetch, userAgent }: ApiOptions): Api {
     };
     if (contentType) headers["content-type"] = contentType;
     let response: Response;
+    let text: string;
     try {
       response = await fetch(`${url}/api/v1${path}`, { method, headers, body });
+      // The connection can also drop while the body arrives.
+      text = await response.text();
     } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      throw new SlopperError(`Couldn't reach ${url}: ${reason}`);
+      throw new SlopperError(`Couldn't reach ${url}: ${networkReason(error)}`);
     }
-    const text = await response.text();
-    let parsed: unknown = null;
-    try {
-      parsed = text ? JSON.parse(text) : null;
-    } catch {
-      // Not JSON: a proxy or an outage page. Report the status below.
-    }
-    if (response.ok) return parsed;
+    const parsed = parseJson(text);
+    if (response.ok && parsed !== undefined) return parsed;
     if (isErrorBody(parsed)) throw new SlopperError(parsed.error, { details: parsed.details ?? null });
+    // Every endpoint answers in JSON, so anything else isn't Slopper talking.
+    if (response.ok) throw new SlopperError(`${url} answered ${method} ${path} without JSON. Is it a Slopper site?`);
     throw new SlopperError(`${method} ${path} failed with HTTP ${response.status}.`);
   }
 

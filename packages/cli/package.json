@@ -23,9 +23,6 @@
     "build": "vp pack",
     "prepack": "vp pack"
   },
-  "dependencies": {
-    "@slopperday/skill": "workspace:^"
-  },
   "devDependencies": {
     "vite-plus": "1.0.0"
   },
