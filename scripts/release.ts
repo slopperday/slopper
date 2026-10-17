@@ -125,6 +125,9 @@ function pr(dryRun: boolean): void {
       "is part of it, and publishes released npm packages with trusted publishing.",
   ].join("\n");
 
+  // GitHub deletes the branch when a release pull request merges, so refresh what we know of it: the lease below
+  // compares against origin/chore/release, and a stale copy of a deleted branch refuses the push.
+  git("fetch", "--quiet", "--prune", "origin");
   // The pre-push hook runs CI on the release commit; a failure pushes nothing.
   const push = spawnSync("git", ["push", "--force-with-lease", "--set-upstream", "origin", RELEASE_BRANCH], {
     stdio: "inherit",
