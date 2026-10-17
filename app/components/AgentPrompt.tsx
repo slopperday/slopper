@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useRouteLoaderData } from "react-router";
 
 /**
- * "Let your AI do it": a ready-to-paste prompt for Claude Code, Cursor,
+ * "Pass it to your agent": a ready-to-paste prompt for Claude Code, Cursor,
  * Codex or any agent, so nobody has to fill the form by hand.
  */
 export function AgentPrompt({ prompt }: { prompt: (origin: string) => string }) {
@@ -13,10 +13,8 @@ export function AgentPrompt({ prompt }: { prompt: (origin: string) => string }) 
     <details className="group rounded-2xl bg-sunk">
       <summary className="flex min-h-11 list-none items-center justify-between gap-4 px-5 py-4">
         <span>
-          <span className="block font-bold">🤖 Let your AI do it</span>
-          <span className="block text-[0.9375rem] text-muted">
-            Copy this prompt into Claude Code, Cursor, Codex or any agent. It uses the Slopper MCP.
-          </span>
+          <span className="block font-bold">🤖 Pass it to your agent</span>
+          <span className="block text-[0.9375rem] text-muted">A prompt for Claude Code, Codex or Cursor.</span>
         </span>
         <span className="shrink-0 rounded-lg bg-raised px-3 py-1.5 text-sm font-bold group-open:hidden">Show</span>
         <span className="hidden shrink-0 rounded-lg bg-raised px-3 py-1.5 text-sm font-bold group-open:inline">
@@ -40,7 +38,7 @@ export function AgentPrompt({ prompt }: { prompt: (origin: string) => string }) 
             <span aria-live="polite">{copied ? "Copied ✓" : "Copy prompt"}</span>
           </button>
           <Link to="/settings/api" className="link inline-flex min-h-11 items-center text-[0.9375rem]">
-            Get an API token
+            Get a token
           </Link>
         </div>
       </div>

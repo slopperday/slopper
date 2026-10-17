@@ -81,9 +81,7 @@ export function MoneyLedger({
       <h2 id="money-ledger-title" className="caps">
         Money
       </h2>
-      <p className="mt-1 text-[0.9375rem] text-muted">
-        What this product cost and what it made, across all its launches.
-      </p>
+      <p className="mt-1 text-[0.9375rem] text-muted">Costs and revenue across all its launches.</p>
       <Totals totals={totals} />
 
       <details className="mt-4">
@@ -179,7 +177,7 @@ export function MoneyLedger({
         <input type="hidden" name="intent" value="money-visibility" />
         <input type="hidden" name="public" value={isPublic ? "off" : "on"} />
         <button type="submit" className="min-h-11 text-[0.9375rem] font-bold underline hover:text-slop-text">
-          {isPublic ? "Hide these numbers from everyone else" : "Show these numbers publicly"}
+          {isPublic ? "Make these numbers private" : "Make these numbers public"}
         </button>
       </Form>
     </section>

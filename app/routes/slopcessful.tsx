@@ -28,19 +28,14 @@ export default function Slopcessful({ loaderData }: Route.ComponentProps) {
         <Icon name="star" filled className="size-[0.8em] text-gold" />
         Slopcessful
       </h1>
-      <p className="lede mt-4">
-        The hall of fame. Slopcessful is earned, never declared. Today that means winning your day: the most votes when
-        the clock hits midnight UTC.
-      </p>
+      <p className="lede mt-4">The hall of fame. Earned, never declared: win your day's race on votes.</p>
       <div className="mt-14">
         {items.length > 0 ? (
           <SlopList items={items} />
         ) : (
           <EmptyState>
             <p className="font-display text-[2.75rem] leading-none font-black text-ink">Not yet.</p>
-            <p className="mx-auto mt-3 max-w-md">
-              No day has a winner yet. The first slopcessful slop is out there, probably a few dozen slops away.
-            </p>
+            <p className="mx-auto mt-3 max-w-md">No winners yet. The first is probably a few dozen slops away.</p>
             <Link to="/new" className="btn btn-slop mt-6">
               Keep slopping
             </Link>

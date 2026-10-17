@@ -75,19 +75,11 @@ export function SlopFields({ values, errors }: { values: Partial<SlopFormValues>
         </Field>
       </div>
 
-      <Field
-        label="Where to try it"
-        error={errors.links}
-        hint="Websites are fastest. TestFlight and Android beta links count as a launch too."
-      >
+      <Field label="Where to try it" error={errors.links} hint="TestFlight and Android beta links count too.">
         <LinkFields initial={values.links ?? []} max={LIMITS.links} />
       </Field>
 
-      <Field
-        label="Screenshots"
-        error={errors.screenshots}
-        hint="The first one is the cover. Big images are shrunk before upload."
-      >
+      <Field label="Screenshots" error={errors.screenshots} hint="The first is the cover. Big images get shrunk.">
         <ScreenshotPicker initial={values.screenshots ?? []} max={LIMITS.screenshots} />
       </Field>
 

@@ -80,9 +80,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             ) : (
               <EmptyState>
                 <p className="font-display text-[2.75rem] leading-none font-black text-ink">Blank wall.</p>
-                <p className="mx-auto mt-3 max-w-md">
-                  Nothing launched today yet. The first slop has the race to itself.
-                </p>
+                <p className="mx-auto mt-3 max-w-md">Nothing yet today. The first slop has the race to itself.</p>
                 <Link to={signedIn ? "/new" : "/login"} className="btn btn-slop mt-6">
                   Throw the first slop
                 </Link>
@@ -114,7 +112,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <section className="mx-auto mt-28 max-w-6xl px-4">
           <SectionHead
             title="Still sticking"
-            line="This week's slops, still on the wall."
+            line="This week's slops."
             action={
               <Link to="/wall" className="btn btn-sm">
                 The whole wall <Icon name="right" className="size-4" />
@@ -188,7 +186,7 @@ function Hero() {
       <div className="mt-7 grid items-start gap-8 sm:mt-10 sm:gap-12 lg:mt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-16">
         <div>
           <p className="lede sm:text-[1.25rem]">
-            Throw slop at the wall every day: set a goal, ship something daily, and{" "}
+            Set a goal, throw slop at the wall every day, and{" "}
             <strong className="text-ink">keep slopping until one is slopcessful</strong>.
           </p>
           <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-9 sm:flex sm:flex-wrap">
@@ -260,7 +258,7 @@ function ViewerStrip({
           <div>
             <h1 className="title-1">How many days are you in for?</h1>
             <p className="lede mt-4">
-              Commit to the days, then pick how hard you'll go. Every day you ship flips a tile.{" "}
+              Pick the days, then the pace. Every day you ship flips a tile.{" "}
               {streak > 0 ? `You're on a ${streak}-day streak already.` : ""}
             </p>
           </div>
@@ -278,11 +276,11 @@ function howItWorks(networks: readonly string[]) {
   return [
     {
       title: "Set a goal",
-      body: "30 slops in 30 days. 7 in 7. 100 in 100. The day ends at midnight where you are.",
+      body: "30 slops in 30 days. 7 in 7. 100 in 100. Days end at midnight your time.",
     },
     {
       title: "Ship daily",
-      body: "A website, a TestFlight link, an Android beta, a repo. Messy counts. Live is the only requirement.",
+      body: "A site, a TestFlight, an Android beta, a repo. Messy counts, as long as it's live.",
     },
     {
       title: "Auto-post",

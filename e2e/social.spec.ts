@@ -146,7 +146,7 @@ test.describe("votes", () => {
       "false",
     );
     await page.goto("/today");
-    await expect(page.getByText("1 vote left today, out of 5.", { exact: false })).toBeVisible();
+    await expect(page.getByText("1 of 5 votes left today.")).toBeVisible();
   });
 });
 

@@ -270,7 +270,7 @@ export async function action({ params, request, context }: Route.ActionArgs) {
           slopId: slop.id,
           reason: details ? `${reason}: ${details}` : reason,
         });
-        return redirectWithFlash(here, { tone: "info", message: "Flagged. Thanks, a moderator will look at it." });
+        return redirectWithFlash(here, { tone: "info", message: "Flagged. A moderator will look at it." });
       }
 
       case "hide":
@@ -354,9 +354,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
       {search.get("new") === "1" && isOwner && (
         <section className="bg-slop text-slop-ink">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-5">
-            <p className="text-[1.125rem] font-bold">
-              It's on the wall. Now tell people. Anything not auto-posted is one tap away:
-            </p>
+            <p className="text-[1.125rem] font-bold">It's on the wall. Now tell people:</p>
             <div className="flex flex-wrap gap-2">
               {(["x", "linkedin", "bluesky", "threads"] as const).map((network) => (
                 <a
@@ -436,8 +434,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
 
         {isOwner && slop.videoPending && (
           <p role="status" className="panel mt-10 text-[0.9375rem]">
-            <span className="font-bold">Your video is waiting for a moderator.</span> The content check can't watch
-            video, so it plays here for everyone once it's approved.
+            <span className="font-bold">Your video is waiting for a moderator.</span> It plays here once approved.
           </p>
         )}
         {slop.video && reveal && (
@@ -639,7 +636,7 @@ function UpdateComposer({ autopostCount }: { autopostCount: number }) {
       </fieldset>
       {kind === "field" && (
         <p className="mt-3 text-[0.9375rem] text-muted">
-          Who tried it in real life, and what did they say? Field tests count extra in the rankings.
+          Who tried it in real life, and what did they say? Field tests count extra.
         </p>
       )}
       <label htmlFor="update-body" className="sr-only">
@@ -688,7 +685,7 @@ function GoOutside({ path }: { path: string }) {
       <h2 id="outside-title" className="font-display text-[1.75rem] leading-none font-extrabold">
         Go outside
       </h2>
-      <p className="mt-2">Slop gets better when real people touch it. Today, try one:</p>
+      <p className="mt-2">Slop gets better when real people touch it. Try one today:</p>
       <ul className="mt-3 grid list-disc gap-1.5 pl-5 text-[0.9375rem] marker:text-muted">
         {OUTSIDE_IDEAS.map((idea) => (
           <li key={idea}>{idea}</li>
@@ -710,9 +707,7 @@ function Feedback({ loaderData, path }: { loaderData: LoaderData; path: string }
       </h2>
       <ol className="mt-6 grid gap-3">
         {comments.length === 0 && (
-          <li className="rounded-2xl bg-sunk p-5 text-muted">
-            Nothing yet. Tried it? Say what worked, what broke, or just tell them it's good.
-          </li>
+          <li className="rounded-2xl bg-sunk p-5 text-muted">Nothing yet. Tried it? Say what worked and what broke.</li>
         )}
         {comments.map((comment) => (
           <li key={comment.id} id={`comment-${comment.id}`} className="scroll-mt-24 rounded-2xl bg-sunk p-4 sm:p-5">

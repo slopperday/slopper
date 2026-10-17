@@ -34,7 +34,7 @@ test.describe("a maker's day", () => {
 
     await expect(page.getByRole("heading", { level: 1 })).toContainText(name);
     await expect(page.getByRole("status")).toHaveText(`${name} is on the wall.`);
-    await expect(page.getByText("It's on the wall. Now tell people.")).toBeVisible();
+    await expect(page.getByText("It's on the wall. Now tell people:")).toBeVisible();
     await expect(page.getByText("Day 1/30 · Launched")).toBeVisible();
     await expect(page.getByRole("img", { name: `${name} screenshot 1` })).toBeVisible();
     await expect(page.locator(".prose-slop strong")).toHaveText("Sound on.");
@@ -84,7 +84,7 @@ test.describe("a maker's day", () => {
     await page.getByRole("button", { name: "Log it" }).click();
     await expect(page.getByRole("status")).toHaveText("Cost logged.");
     await expect(page.locator("#money li", { hasText: "Domain" })).toContainText("−$12.99");
-    await page.getByRole("button", { name: "Show these numbers publicly" }).click();
+    await page.getByRole("button", { name: "Make these numbers public" }).click();
     await expect(page.getByRole("status")).toHaveText("Your numbers are public now.");
 
     const visitor = await seed.visitorPage();

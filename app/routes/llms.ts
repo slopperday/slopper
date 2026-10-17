@@ -3,7 +3,7 @@ import { listWords } from "~/lib/display";
 import { LIMITS } from "~/lib/model";
 import { OPERATIONS } from "~/.server/agent/operations";
 
-/** Plain-text guide for AI agents: what Slopper is and how to drive it. */
+/** Plain-text guide for agents: what Slopper is and how to drive it. */
 export function loader() {
   const origin = config.appUrl.origin;
   // The CLI talks to slopper.day unless told otherwise.
@@ -19,18 +19,18 @@ export function loader() {
 
   const text = `# Slopper
 
-> Too much slop? Not enough yet! Throw slop at the wall every day: people ship small apps, sites, games and betas daily, track a goal like "30 slops in 30 days", promote them, test them with real people, and keep slopping until one is slopcessful.
+> Too much slop? Not enough yet! People ship small apps, sites, games and betas every day toward a goal like "30 slops in 30 days", promote them, test them with real people, and keep slopping until one is slopcessful.
 
 ## Concepts
 - Slop: one shipped thing with links (website, App Store, TestFlight, Google Play, Android beta, source), screenshots, a tagline and a Markdown description.
 - Goal: N slops in M days. Days end at midnight in the user's time zone. Every slop counts, so three out in one day are three.
-- Scheduled launches: a slop that's ready can wait and go out later, at a set time or on the next free day as its race starts. Only the user sees it until then; it counts towards the goal on the day it goes out.
+- Scheduled launches: a ready slop can go out later, at a set time or on the next free day as its race starts. Only the user sees it until then, and it counts on the day it goes out.
 - Slop of the day: every UTC day, slops launched that day race on votes. The leader at midnight UTC wins.
 - Votes: everyone gets ${LIMITS.votesPerDay} a day (UTC), up or private down. Switching today's vote is free and clearing it gives it back.
 - Updates: update, feature, field (a real-world test: who tried it, what they said), repromote.
-- Slopcessful: winning slop of the day makes a slop slopcessful and puts it in the hall of fame. Nobody can declare it.
-- Auto-post: updates can be posted to the user's connected ${listWords(autopostNetworks(), "and")} accounts (autopost: true). Every launch and posted update goes through an automated content check first; anything that fails it, or that someone has flagged, is never auto-posted.
-- Screenshots are checked as they're uploaded: explicit or hateful images are refused, and a mature one blurs any slop that shows it.
+- Slopcessful: winning slop of the day makes a slop slopcessful. Nobody can declare it.
+- Auto-post: launches and updates can post to the user's connected ${listWords(autopostNetworks(), "and")} accounts (autopost: true). Each one passes an automated content check first; anything that fails it, or has been flagged, is never auto-posted.
+- Screenshots are checked on upload: explicit or hateful images are refused, and a mature one blurs any slop that shows it.
 
 ## Auth
 Personal API token, created by the user at ${origin}/settings/api. Send it as: Authorization: Bearer slp_...

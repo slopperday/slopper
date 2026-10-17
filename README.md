@@ -25,7 +25,7 @@ it to people, and keep slopping until one of them is **slopcessful**.
 - **Auto-post** to X (several accounts: post as the app, repost as you), LinkedIn and Bluesky, plus one-tap share
   buttons everywhere.
 - **For agents:** an MCP server, a REST API, a CLI (`@slopperday/cli`) with its skill (`@slopperday/skill`) and
-  copy-paste prompts on every form, so your AI can run Slopper for you.
+  a prompt on every form to pass to your agent.
 
 Everything is live: votes, races, pledges and notifications update on every open page as they happen.
 

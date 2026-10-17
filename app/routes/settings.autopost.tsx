@@ -107,9 +107,9 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
       <SettingsNav />
       <h1 className="title-1 mt-10">Auto-post</h1>
       <p className="lede mt-4 max-w-2xl">
-        Connected accounts post your launches and updates for you. Connect as many accounts as you like: give each app
-        its own account to <strong className="text-ink">post</strong>, and let your personal account{" "}
-        <strong className="text-ink">repost</strong>. Each slop can override these defaults.
+        Connected accounts post your launches and updates. Give each app its own account to{" "}
+        <strong className="text-ink">post</strong>, and let your personal one{" "}
+        <strong className="text-ink">repost</strong>. Each slop can override these.
       </p>
 
       {accounts.length > 0 && (
@@ -163,14 +163,14 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
           {loaderData.xEnabled && (
             <ConnectCard
               title="X"
-              body="Post launches and updates. To add another account, switch accounts on x.com first, then connect again. X charges per post, billed to whoever runs this Slopper."
+              body="To add another account, switch accounts on x.com, then connect again. X charges per post, billed to whoever runs this Slopper."
               href="/auth/x?intent=connect"
             />
           )}
           {loaderData.linkedinEnabled && (
             <ConnectCard
               title="LinkedIn"
-              body="Post to your feed with a link card. LinkedIn makes everyone reconnect every 60 days."
+              body="Posts to your feed with a link card. LinkedIn needs a reconnect every 60 days."
               href="/auth/linkedin?intent=connect"
             />
           )}
@@ -221,8 +221,8 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
       </Form>
 
       <p className="mt-10 max-w-2xl text-muted">
-        TikTok, Instagram, Threads and YouTube Shorts are next. They need app reviews before they'll post publicly.
-        Until then every slop page has one-tap share buttons.{" "}
+        TikTok, Instagram, Threads and YouTube Shorts come once their app reviews pass. Until then, every slop page has
+        share buttons.{" "}
         <Link to="/rules" className="link">
           Rules
         </Link>{" "}

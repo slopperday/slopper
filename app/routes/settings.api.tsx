@@ -68,10 +68,9 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
       code: `npx -y @slopperday/cli login --token ${token}${elsewhere ? ` --url ${origin}` : ""}`,
       note: (
         <>
-          <code className="font-mono">-y</code> stops npx asking before it installs the CLI.{" "}
-          <code className="font-mono">pnpm dlx</code>, <code className="font-mono">bunx</code>,{" "}
-          <code className="font-mono">yarn dlx -q</code> and <code className="font-mono">deno run -A npm:</code> work in
-          its place.
+          <code className="font-mono">-y</code> skips npx's install prompt. <code className="font-mono">pnpm dlx</code>,{" "}
+          <code className="font-mono">bunx</code>, <code className="font-mono">yarn dlx -q</code> and{" "}
+          <code className="font-mono">deno run -A npm:</code> work too.
         </>
       ),
     },
@@ -92,16 +91,12 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
       <SettingsNav />
       <h1 className="title-1 mt-10">API & MCP</h1>
       <p className="lede mt-4 max-w-2xl">
-        Let your AI run Slopper for you: launch slops, post updates, log field tests, set goals. Create a token, add the
-        MCP server to your agent, and paste the prompt from any form. Docs for agents live at{" "}
-        <a href="/llms.txt" className="link">
-          /llms.txt
-        </a>
-        .
+        Let your agent launch slops, post updates and set goals. Create a token, add the MCP server, then pass it the
+        prompt from any form.
       </p>
 
       <div className="panel mt-8">
-        <p className="font-bold">The CLI doesn't need a token from here</p>
+        <p className="font-bold">The CLI makes its own token</p>
         <p className="mt-1 text-[0.9375rem] text-muted">
           Run <code className="font-mono">npx -y @slopperday/cli login</code>
           {elsewhere ? (
@@ -110,7 +105,7 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
               <code className="font-mono">--url {origin}</code>
             </>
           ) : null}
-          . It opens this site on a one-time code; approve it and the CLI makes a token of its own.
+          , then approve the code it shows.
         </p>
       </div>
 
@@ -191,9 +186,11 @@ export default function ApiSettings({ loaderData, actionData }: Route.ComponentP
         ))}
       </div>
       <p className="mt-12 text-muted">
-        Tools: whoami, list_categories, set_goal, upload_screenshot, create_slop, update_slop, post_update, log_money,
-        list_my_slops, list_scheduled, release_scheduled, cancel_scheduled, todays_race, vote. Social accounts are
-        connected in the browser (they need your approval on each network); after that, agents can auto-post.
+        Every tool is in{" "}
+        <a href="/llms.txt" className="link">
+          /llms.txt
+        </a>
+        . Connect social accounts here in the browser, and your agent can auto-post too.
       </p>
     </section>
   );

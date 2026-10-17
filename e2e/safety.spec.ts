@@ -42,7 +42,7 @@ test.describe("content check", () => {
     const name = `Nope ${Date.now().toString(36)}`;
     await launch(page, name, "Definitely not allowed [e2e:blocked]");
 
-    await expect(page.getByRole("alert")).toHaveText(`${name} is held for review. A moderator will look at it.`);
+    await expect(page.getByRole("alert")).toHaveText(`${name} is waiting for a moderator.`);
     await expect(page.getByText(/Held for review\. Only you/)).toBeVisible();
 
     const visitor = await seed.visitorPage();
@@ -69,7 +69,7 @@ test.describe("flags and moderation", () => {
       await page.getByRole("radio", { name: reason }).check();
       await page.getByLabel("Details").fill(`e2e: ${reason}`);
       await page.getByRole("button", { name: "Flag it" }).click();
-      await expect(page.getByRole("status")).toHaveText("Flagged. Thanks, a moderator will look at it.");
+      await expect(page.getByRole("status")).toHaveText("Flagged. A moderator will look at it.");
       await expect(page.getByText("You flagged this. A moderator will look at it.")).toBeVisible();
     }
 
@@ -97,7 +97,7 @@ test.describe("flags and moderation", () => {
     await page.getByText("Flag as inappropriate").click();
     await page.getByRole("radio", { name: "Spam, scam or malware" }).check();
     await page.getByRole("button", { name: "Flag it" }).click();
-    await expect(page.getByRole("status")).toHaveText("Flagged. Thanks, a moderator will look at it.");
+    await expect(page.getByRole("status")).toHaveText("Flagged. A moderator will look at it.");
 
     await mod.goto("/mod");
     await mod.getByRole("article", { name: slop.name }).getByRole("button", { name: "Hide it" }).click();
