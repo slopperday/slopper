@@ -65,18 +65,25 @@ async function close(server: Server): Promise<void> {
   await new Promise<void>((done) => server.close(() => done()));
 }
 
-/** A new home directory, so no runner reads this machine's config, caches or saved token. */
+/**
+ * A new home directory, so no runner reads this machine's config, caches or saved token. It has its own temp
+ * directory too (`scratch`): bunx installs under TMPDIR, and a shared one hands an earlier run's build to the next.
+ */
 async function home(root: string, name: string): Promise<string> {
   const path = join(root, "homes", name);
-  await mkdir(path, { recursive: true });
+  await mkdir(scratch(path), { recursive: true });
   return path;
+}
+
+function scratch(homeDir: string): string {
+  return join(homeDir, "tmp");
 }
 
 /** npm with no user config (no tokens, no registry overrides) and a cache of its own. */
 function npmEnv(root: string, homeDir: string): Record<string, string> {
   return {
     PATH: process.env.PATH ?? "",
-    TMPDIR: process.env.TMPDIR ?? tmpdir(),
+    TMPDIR: scratch(homeDir),
     HOME: homeDir,
     npm_config_userconfig: join(root, "empty.npmrc"),
     npm_config_cache: join(root, "npm-cache"),
@@ -219,7 +226,7 @@ for (const runtime of RUNTIMES) {
       homeDir = await home(root, runtime.name);
       env = {
         PATH: process.env.PATH ?? "",
-        TMPDIR: process.env.TMPDIR ?? tmpdir(),
+        TMPDIR: scratch(homeDir),
         HOME: homeDir,
         DENO_DIR: join(homeDir, "deno"),
         DENO_NO_UPDATE_CHECK: "1",
