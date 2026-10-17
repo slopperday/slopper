@@ -14,14 +14,20 @@
 # matters to both audiences gets one changeset for each.
 #
 # The agent CLI (@slopperday/cli) and its skill (@slopperday/skill) release
-# together as the `cli` group and publish to npm from this machine. They're
-# public on npm but not open source (UNLICENSED). Their changesets name the
-# group: `--package cli --type feat`.
+# together as the `cli` group. They're public on npm but not open source
+# (UNLICENSED). Their changesets name the group: `--package cli --type feat`.
+#
+# A release is a pull request (scripts/release.ts has the details):
 #
 #   vp exec monochange run release --dry-run   # preview the next release
-#   vp exec monochange run release             # bump, write the changelogs, commit
-#   vp exec monochange run publish             # tag, push main, deploy the site, publish to npm
-#   vp exec monochange publish placeholder     # once per new npm package, before its first release
+#   vp exec monochange run release             # from main: commit the release on chore/release and open its pull request
+#
+# Merging that pull request runs .github/workflows/release.yml, which runs
+# `monochange run publish`: tag the release, deploy Convex and Netlify when the
+# site is in it, and publish the released npm packages with trusted publishing.
+# A new npm package needs `vp exec monochange publish placeholder` once, from
+# this machine, and then `npm trust github <package> --file release.yml
+# --repository ifiokjr/slopper` before its first release.
 
 [defaults]
 # The app is a private package; release it anyway.
@@ -59,12 +65,17 @@ changelog = { path = "packages/cli/CHANGELOG.md", format = "keep_a_changelog" }
 lockfile_commands = [{ command = "pnpm install --lockfile-only" }]
 
 [ecosystems.npm.publish]
-# Published from this machine with your npm login (`npm login`): the repo is
-# private, so there's no CI and no trusted publishing or provenance.
+# Only the release workflow publishes, with npm trusted publishing (OIDC); a
+# local publish fails. The repo is private, so npm adds no provenance. In this
+# mode monochange runs `npm publish`, which doesn't rewrite `workspace:`
+# ranges, so a published package must not depend on one.
 enabled = true
 mode = "builtin"
 registry = "npm"
-trusted_publishing = false
+
+[ecosystems.npm.publish.trusted_publishing]
+repository = "ifiokjr/slopper"
+workflow = "release.yml"
 
 [changelog.streams.user]
 description = "What people using slopper.day notice: new things to do, fixes they'd feel, changes they need to act on. Deployment, CI, tooling, tests and refactors stay in the default stream."
@@ -88,13 +99,14 @@ format = "json"
 mode = "release"
 
 [cli.release]
-help_text = "Prepare the next release on main: bump package.json, write CHANGELOG.md and the website's release notes, and commit"
+help_text = "Release from a clean main: commit the version bumps and changelogs on chore/release, push it and open its pull request. Merging it publishes."
 inputs = [{ name = "format", type = "choice", choices = ["text", "markdown", "json"], default = "text" }]
 
 [[cli.release.steps]]
 type = "Command"
-name = "check the branch"
-command = "node scripts/release.ts check"
+name = "start the release branch"
+command = "node scripts/release.ts branch"
+dry_run_command = "node scripts/release.ts branch --dry-run"
 
 [[cli.release.steps]]
 type = "PrepareRelease"
@@ -107,21 +119,34 @@ name = "commit release"
 # A dry run writes no release record, so there's nothing to commit.
 when = "{{ number_of_changesets > 0 && not release.dry_run }}"
 
+[[cli.release.steps]]
+type = "Command"
+name = "open the release pull request"
+command = "node scripts/release.ts pr"
+dry_run_command = "node scripts/release.ts pr --dry-run"
+
+# Runs in .github/workflows/release.yml once a release pull request is merged.
 [cli.publish]
-help_text = "Publish the release commit at HEAD: tag it, push main and its tags, deploy Convex and Netlify when the site was released, and publish released npm packages"
+help_text = "In the release workflow: tag the merged release commit, deploy Convex and Netlify when the site was released, and publish released npm packages"
+
+[[cli.publish.steps]]
+type = "Command"
+name = "check this is the release workflow"
+command = "node scripts/release.ts ci"
+dry_run_command = "node scripts/release.ts ci"
 
 [[cli.publish.steps]]
 type = "TagRelease"
 name = "tag release"
-inputs = { from = "HEAD", push = false }
+inputs = { from = "HEAD", push = true }
 
 [[cli.publish.steps]]
 type = "Command"
-name = "push and deploy"
-command = "node scripts/release.ts publish"
-dry_run_command = "node scripts/release.ts publish --dry-run"
+name = "deploy the site"
+command = "node scripts/release.ts deploy --if-released"
+dry_run_command = "node scripts/release.ts deploy --if-released --dry-run"
 
-# After the push, so a CI failure publishes nothing. Packages this release
+# After the deploy, so a failed deploy publishes nothing. Packages this release
 # didn't bump are skipped.
 [[cli.publish.steps]]
 type = "PublishPackages"

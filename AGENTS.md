@@ -33,12 +33,13 @@ release. Add a tool name to select part of the graph. For example, run
 - **E2E:** `e2e/stack.ts` runs the production build against a throwaway Convex backend and a fake content check. Tests
   seed people and slops through Convex as the server (`e2e/fixtures.ts`) unless the journey is about that step. Assert
   only on data the test created: the database is shared by parallel workers.
-- **CI is local only.** There are no GitHub Actions workflows on purpose (cost). The pre-push hook runs `vp run ci`; never
-  add remote CI without asking.
+- **CI is local only.** The pre-push hook runs `vp run ci`; never add remote CI without asking (cost). The one
+  workflow, `.github/workflows/release.yml`, only publishes merged release pull requests and skips every other push.
 - **Hosting:** Netlify runs the build (`netlify.toml`): static files from `build/client`, the server as one Netlify
-  Function. Deploys run from this machine (`node scripts/release.ts deploy`, also the end of `publish`), Convex first;
-  never connect Netlify to Git or add remote builds. Deploy from the main checkout or a sibling worktree: in one nested
-  inside the repo (`.claude/worktrees/`), Netlify resolves the outer checkout and uploads no function. Requests are capped at 6 MB (binary ones about 4.5 MB), so keep
+  Function. Releases deploy from the release workflow (`node scripts/release.ts deploy --if-released`), Convex first;
+  never connect Netlify to Git. A deploy by hand (`node scripts/release.ts deploy`) must run from the main checkout or
+  a sibling worktree: in one nested inside the repo (`.claude/worktrees/`), Netlify resolves the outer checkout and
+  uploads no function. Requests are capped at 6 MB (binary ones about 4.5 MB), so keep
   uploads under `LIMITS.mediaBytes`.
 - **Production variables** are declared in `monosecret.toml`: plain values as defaults, secrets in the 1Password item.
   `vp run env:netlify` sets them on Netlify with one 1Password read. Add new variables there, not in the Netlify UI.
@@ -54,9 +55,11 @@ release. Add a tool name to select part of the graph. For example, run
   and REST (`/api/v1`). Add new ones there, then give them a REST route, a command in the CLI
   (`packages/cli/src/commands.ts`, `@slopperday/cli`) and a line in its skill (`packages/skill/SKILL.md`).
 - **CLI packages** (`packages/*`) are public on npm but not open source (`UNLICENSED`). They release together as the
-  monochange group `cli` (tags `cli/v1.2.3`) and publish from this machine at the end of `run publish`, which needs
-  `npm login` with access to the `@slopperday` scope. A new package needs `vp exec monochange publish placeholder` once.
-  Run monochange from the main checkout: in a worktree under `.claude/`, it discovers no packages.
+  monochange group `cli` (tags `cli/v1.2.3`) and only the release workflow publishes them, with npm trusted publishing.
+  That runs plain `npm publish`, which ships `workspace:` ranges as they are, so a published package never depends on
+  another workspace package. A new package needs `vp exec monochange publish placeholder` once (with `npm login`), then
+  `npm trust github <package> --file release.yml --repository ifiokjr/slopper`. Run monochange from the main checkout:
+  in a worktree under `.claude/`, it discovers no packages.
 - **Scheduled launches** wait in `scheduledLaunches` (`convex/schedule.ts`), never in `slops`, so no public query
   needs to hide them. At `releaseAt` Convex puts one out with `insertLaunch` (shared with `slops.create`) and calls
   `POST /api/scheduled/:id`; the app server claims it once and runs `finishLaunch` (`app/.server/launch.ts`): the
@@ -86,5 +89,7 @@ release. Add a tool name to select part of the graph. For example, run
   `--output .changeset/<name>.md` (the global `monochange` is older). `user_feat`, `user_fix` and `user_change` are for
   what people using the site notice and become `/changelog` (`app/changelog/<version>.json`); every other type (`feat`,
   `fix`, ...) goes to `CHANGELOG.md`. Write two changesets when both audiences care. Never hand-edit `app/changelog/`,
-  `CHANGELOG.md` or `.monochange/releases/`: `vp exec monochange run release` and `run publish` own them.
+  `CHANGELOG.md` or `.monochange/releases/`: monochange owns them. A release is a pull request:
+  `vp exec monochange run release` (from a clean main) commits it on `chore/release` and opens it; merging it
+  publishes. `run publish` only runs in the release workflow.
 - **Voice:** throw slop at the wall, keep slopping until it's slopcessful. Plain words; no restaurant metaphors.

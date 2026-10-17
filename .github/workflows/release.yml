@@ -1,0 +1,59 @@
+# Publishes a merged release pull request.
+#
+# Releases start on a laptop: `vp exec monochange run release` commits the
+# release on chore/release, the pre-push hook runs CI, and it opens a pull
+# request. Merging that puts the release commit on main, and this job tags it,
+# deploys Convex and Netlify when the site is in it, and publishes the released
+# npm packages with npm trusted publishing (OIDC, no npm token).
+#
+# CI itself stays local (the pre-push hook): every other push to main skips the
+# job, so it uses no minutes. Run it by hand on chore/release with "dry run" to
+# rehearse a release before merging, or on main without it to retry a publish.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: tag, deploy and publish nothing"
+        type: boolean
+        default: true
+
+concurrency:
+  group: release
+  # Never cancel a publish halfway: a half-published release is worse than a queued one.
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'chore(release):')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # push the release tags
+      id-token: write # npm trusted publishing
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
+        with:
+          node-version: "24"
+          cache: true
+
+      - run: vp install --frozen-lockfile
+
+      - name: Publish
+        run: vp exec monochange run publish ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          # The tagger on the release tags.
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
