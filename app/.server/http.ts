@@ -94,6 +94,18 @@ export function badRequest(message = "Bad request"): never {
   throw new Response(message, { status: 400 });
 }
 
+/**
+ * Answers a form this server no longer reads, posted from a copy of `path`
+ * loaded before a deploy changed it. Nothing happens; the person lands on the
+ * current page with a note to try again, not on an error page.
+ */
+export function outOfDateForm(path: string): Response {
+  return redirectWithFlash(path, {
+    tone: "error",
+    message: "That page was out of date, so nothing changed. Try again.",
+  });
+}
+
 /** Login URL that brings the person back to `path` afterwards. */
 export function loginUrl(path: string): string {
   return `/login?returnTo=${encodeURIComponent(path)}`;
