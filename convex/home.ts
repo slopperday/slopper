@@ -32,7 +32,13 @@ export const feed = query({
       const owner = owners.get(update.userId);
       if (!slop || !owner || slop.hidden || slop.nsfw) continue;
       updates.push({
-        update: { id: update._id, kind: update.kind, body: update.body, createdAt: update._creationTime },
+        update: {
+          id: update._id,
+          kind: update.kind,
+          body: update.body,
+          version: update.version ?? null,
+          createdAt: update._creationTime,
+        },
         slop: { name: slop.name, slug: slop.slug },
         owner: publicUser(owner),
       });

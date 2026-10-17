@@ -159,6 +159,34 @@ export function isPostableUpdateKind(value: string): value is PostableUpdateKind
   return (POSTABLE_UPDATE_KINDS as readonly string[]).includes(value);
 }
 
+/** How a field test went, as the maker tells it. */
+export const FIELD_OUTCOMES = {
+  worked: { label: "Worked" },
+  mixed: { label: "Mixed" },
+  broke: { label: "Broke" },
+} as const;
+
+export type FieldOutcome = keyof typeof FIELD_OUTCOMES;
+
+export function isFieldOutcome(value: string): value is FieldOutcome {
+  return Object.hasOwn(FIELD_OUTCOMES, value);
+}
+
+/**
+ * What only some kinds of update carry: the name of the feature that
+ * shipped, or how a field test went and who tried it.
+ */
+export type UpdateDetails =
+  | { kind: "feature"; name: string }
+  | { kind: "field"; outcome: FieldOutcome; who: string | null };
+
+/** A card read from the page an update links to. Only shown when the maker asks for one. */
+export interface LinkPreview {
+  title: string;
+  description: string;
+  siteName: string;
+}
+
 export type SocialProvider = "x" | "linkedin" | "bluesky";
 
 export const NETWORK_LABELS: Record<SocialProvider, string> = {
@@ -185,6 +213,12 @@ export const LIMITS = {
   taglineLength: 120,
   descriptionLength: 5000,
   updateLength: 2000,
+  /** What an update carries besides its text. */
+  updateImages: 4,
+  updateLinks: 3,
+  versionLength: 24,
+  featureNameLength: 60,
+  fieldWhoLength: 120,
   commentLength: 1000,
   bioLength: 280,
   launchLabelLength: 40,

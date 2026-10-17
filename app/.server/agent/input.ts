@@ -58,6 +58,23 @@ export function optionalStrings(input: JsonObject, key: string): string[] | unde
   return value;
 }
 
+export function optionalUpdateLinks(
+  input: JsonObject,
+  key: string,
+): { kind?: string; url?: string; preview?: boolean }[] | undefined {
+  const value = input[key];
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) throw new ApiError(400, `${key} must be a list of { kind, url, preview }.`);
+  return value.map((item, index) => {
+    const link = asObject(item, `${key}[${index}]`);
+    return {
+      kind: optionalString(link, "kind"),
+      url: optionalString(link, "url"),
+      preview: optionalBoolean(link, "preview"),
+    };
+  });
+}
+
 export function optionalLinks(input: JsonObject, key: string): { kind?: string; url?: string }[] | undefined {
   const value = input[key];
   if (value === undefined || value === null) return undefined;

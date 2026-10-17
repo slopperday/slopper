@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
 import { listWords } from "~/lib/display";
-import { parseGoalForm, parseLinks, parseSlopForm, validateSlop } from "~/.server/forms";
+import {
+  parseGoalForm,
+  parseLinks,
+  parseSlopForm,
+  updateDraftFromForm,
+  validateSlop,
+  validateUpdate,
+} from "~/.server/forms";
+import { LIMITS } from "~/lib/model";
 import { deriveKey, seal, unseal } from "~/.server/crypto";
 import { safeReturnTo } from "~/.server/auth/oauth";
 import { sniffImageType } from "~/.server/media";
@@ -13,6 +21,102 @@ function form(entries: [string, string][]): FormData {
   for (const [name, value] of entries) data.append(name, value);
   return data;
 }
+
+describe("update validation", () => {
+  it("reads the composer: details for its kind, links with their preview choice, images", () => {
+    const result = validateUpdate(
+      updateDraftFromForm(
+        form([
+          ["kind", "feature"],
+          ["body", " Build a maze. "],
+          ["featureName", "Level editor"],
+          ["version", "  v1.3   beta "],
+          ["image", "md74hc9mbbvqr2v5z7hq53s03x8fsgxx"],
+          ["image", "../../etc/passwd"],
+          ["linkKind", "website"],
+          ["linkUrl", "tiltmaze.app/editor"],
+          ["linkPreview", "off"],
+          ["linkKind", "source"],
+          ["linkUrl", "https://github.com/you/tiltmaze"],
+          ["linkPreview", "on"],
+          ["linkKind", "other"],
+          ["linkUrl", ""],
+          ["linkPreview", "on"],
+        ]),
+      ),
+    );
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        kind: "feature",
+        body: "Build a maze.",
+        version: "v1.3 beta",
+        images: ["md74hc9mbbvqr2v5z7hq53s03x8fsgxx"],
+        links: [
+          { kind: "website", url: "https://tiltmaze.app/editor", preview: false },
+          { kind: "source", url: "https://github.com/you/tiltmaze", preview: true },
+        ],
+        details: { kind: "feature", name: "Level editor" },
+      },
+    });
+  });
+
+  it("keeps a plain update plain: no details, no links, previews off unless asked", () => {
+    expect(validateUpdate({ kind: "update", body: "Fixed it.", links: [{ url: "https://tiltmaze.app" }] })).toEqual({
+      ok: true,
+      value: {
+        kind: "update",
+        body: "Fixed it.",
+        version: null,
+        images: [],
+        links: [{ kind: "website", url: "https://tiltmaze.app/", preview: false }],
+        details: null,
+      },
+    });
+  });
+
+  it("asks a field test how it went, and keeps who tried it optional", () => {
+    expect(validateUpdate({ kind: "field", body: "Hooked.", outcome: "worked" })).toMatchObject({
+      ok: true,
+      value: { details: { kind: "field", outcome: "worked", who: null } },
+    });
+    expect(validateUpdate({ kind: "field", body: "Hooked.", who: "5 people" })).toEqual({
+      ok: false,
+      errors: { outcome: "Say how it went: worked, mixed or broke." },
+    });
+  });
+
+  it("reports details for the wrong kind, repeated or bad links, and too much of anything", () => {
+    const result = validateUpdate({
+      kind: "update",
+      body: "x".repeat(LIMITS.updateLength + 1),
+      version: "v".repeat(LIMITS.versionLength + 1),
+      featureName: "Level editor",
+      outcome: "worked",
+      links: [{ url: "https://tiltmaze.app" }, { url: "https://tiltmaze.app/" }],
+      images: Array.from({ length: LIMITS.updateImages + 1 }, (_, index) => `md74hc9mbbvqr2v5z7hq53s03x8fsgx${index}`),
+    });
+    expect(result).toEqual({
+      ok: false,
+      errors: {
+        body: `Keep it under ${LIMITS.updateLength} characters.`,
+        version: `Keep the version under ${LIMITS.versionLength} characters.`,
+        featureName: "A feature name is for feature updates.",
+        outcome: "Who tried it and how it went are for field tests.",
+        links: "Add each link once.",
+        images: `Up to ${LIMITS.updateImages} images.`,
+      },
+    });
+    expect(validateUpdate({ kind: "launch", body: "Hi" })).toMatchObject({
+      ok: false,
+      errors: { kind: expect.any(String) },
+    });
+    expect(validateUpdate({ body: "Hi", links: [{ kind: "testflight", url: "https://example.com" }] })).toMatchObject({
+      ok: false,
+      errors: { links: "TestFlight beta links live on testflight.apple.com." },
+    });
+  });
+});
 
 describe("slop validation", () => {
   it("keeps store links on their store's domain", () => {

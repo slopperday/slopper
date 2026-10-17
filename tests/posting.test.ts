@@ -87,6 +87,30 @@ describe("composing posts", () => {
     expect(post.title).toBe("TiltMaze · iOS beta");
     expect(post.imageUrl).toBe("https://cdn/shot.png");
   });
+
+  it("names the version, the feature and how a field test went", () => {
+    const slop = {
+      name: "TiltMaze",
+      tagline: "Tilt to play",
+      slug: "tiltmaze",
+      goalDay: null,
+      goalLength: null,
+      launchLabel: null,
+      screenshots: [],
+    };
+    const feature = buildPostContent(
+      slop,
+      { kind: "feature", body: "Build a maze.", version: "v1.3", details: { kind: "feature", name: "Level editor" } },
+      "ifiokjr",
+    );
+    expect(feature.text).toBe("TiltMaze v1.3 · New feature: Level editor\n\nBuild a maze.");
+    const field = buildPostContent(
+      slop,
+      { kind: "field", body: "3 got hooked.", details: { kind: "field", outcome: "mixed", who: "5 people" } },
+      "ifiokjr",
+    );
+    expect(field.text).toBe("TiltMaze · Field test (mixed)\n\n3 got hooked.");
+  });
 });
 
 function account(id: string, provider: SocialProvider, defaultMode: ConnectedAccount["defaultMode"]): ConnectedAccount {

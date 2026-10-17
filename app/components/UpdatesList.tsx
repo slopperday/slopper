@@ -6,9 +6,10 @@ import { slopPath } from "~/lib/display";
 import { timeAgo } from "~/lib/dates";
 import { Avatar } from "./Avatar";
 import { EmptyState } from "./Shared";
+import { VersionTag } from "./UpdateBits";
 
 export interface UpdateEntry {
-  update: { id: string; kind: UpdateKind; body: string; createdAt: number };
+  update: { id: string; kind: UpdateKind; body: string; version: string | null; createdAt: number };
   slop: { name: string; slug: string };
   owner: PublicUser;
 }
@@ -44,6 +45,7 @@ export function UpdatesList({ entries }: { entries: UpdateEntry[] }) {
               <span className={`caps text-[0.85rem] ${UPDATE_KIND_TONES[update.kind]}`}>
                 {UPDATE_KINDS[update.kind].label}
               </span>
+              {update.version && <VersionTag version={update.version} />}
               <span className="ml-auto text-sm text-muted">{timeAgo(update.createdAt)}</span>
             </p>
             <p className="mt-0.5 line-clamp-2 text-muted">

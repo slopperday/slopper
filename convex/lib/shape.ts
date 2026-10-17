@@ -1,6 +1,7 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import type { SlopLink } from "../../app/lib/model";
+import type { LinkPreview, SlopLink, UpdateDetails, UpdateKind } from "../../app/lib/model";
+import { renderMarkdown } from "../../app/lib/markdown";
 import { mediaUrl } from "./media";
 
 /**
@@ -122,6 +123,56 @@ export async function publicSlop(ctx: QueryCtx, slop: Doc<"slops">): Promise<Pub
     slopcessfulAt: slop.slopcessfulAt,
     slopcessfulNote: slop.slopcessfulNote,
     hidden: slop.hidden,
+  };
+}
+
+export interface PublicUpdateLink extends SlopLink {
+  preview: (LinkPreview & { image: string | null }) | null;
+}
+
+/** An update as the slop page shows it. Where it was auto-posted is added for the owner only. */
+export interface PublicUpdate {
+  id: Id<"updates">;
+  kind: UpdateKind;
+  html: string;
+  createdAt: number;
+  version: string | null;
+  /** Image URLs, in order. */
+  images: string[];
+  links: PublicUpdateLink[];
+  details: UpdateDetails | null;
+}
+
+async function imageUrl(ctx: QueryCtx, id: Id<"media"> | null): Promise<string | null> {
+  const media = id ? await ctx.db.get(id) : null;
+  return media ? await mediaUrl(ctx, media) : null;
+}
+
+export async function publicUpdate(ctx: QueryCtx, update: Doc<"updates">): Promise<PublicUpdate> {
+  const links: PublicUpdateLink[] = [];
+  for (const { kind, url, preview } of update.links ?? []) {
+    links.push({
+      kind,
+      url,
+      preview: preview
+        ? {
+            title: preview.title,
+            description: preview.description,
+            siteName: preview.siteName,
+            image: await imageUrl(ctx, preview.imageId),
+          }
+        : null,
+    });
+  }
+  return {
+    id: update._id,
+    kind: update.kind,
+    html: renderMarkdown(update.body),
+    createdAt: update._creationTime,
+    version: update.version ?? null,
+    images: await screenshotUrls(ctx, update.images ?? []),
+    links,
+    details: update.details ?? null,
   };
 }
 

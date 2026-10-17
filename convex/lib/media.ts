@@ -28,11 +28,18 @@ export async function mediaUrl(ctx: QueryCtx, media: Doc<"media">): Promise<stri
   return `${base}/${media.key}`;
 }
 
+/** Every image an update shows: its own, then its link cards'. */
+export function updateMedia(update: Doc<"updates">): Id<"media">[] {
+  const previews = (update.links ?? []).flatMap((link) => (link.preview?.imageId ? [link.preview.imageId] : []));
+  return [...(update.images ?? []), ...previews];
+}
+
 /**
- * Lets go of images none of their owner's launches show any more, after a
- * slop is deleted, its screenshots change or a scheduled launch is
- * cancelled. Media is only ever attached to its owner's slops and scheduled
- * launches, so those are the only places to look.
+ * Lets go of images none of their owner's launches or updates show any
+ * more, after a slop or update is deleted, its screenshots change, a link
+ * card is removed or a scheduled launch is cancelled. Media is only ever
+ * attached to its owner's slops, updates and scheduled launches, so those
+ * are the only places to look.
  *
  * Convex-stored files go now, in this transaction. B2 objects can only be
  * deleted by the app server, which holds the bucket key, so they're marked
@@ -55,6 +62,11 @@ export async function releaseMedia(
     .collect();
   for (const launch of [...launches, ...queued]) for (const id of launch.screenshots) shown.add(id);
   for (const launch of launches) if (launch.video) shown.add(launch.video.mediaId);
+  const updates = await ctx.db
+    .query("updates")
+    .withIndex("by_user", (q) => q.eq("userId", ownerId))
+    .collect();
+  for (const update of updates) for (const id of updateMedia(update)) shown.add(id);
 
   let waiting = 0;
   for (const id of new Set(ids)) {

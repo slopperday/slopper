@@ -1,7 +1,7 @@
 import type { Doc } from "@convex/_generated/dataModel";
 import type { PublicSlop } from "@convex/lib/shape";
-import type { CrosspostMode, CrosspostResult, SocialProvider, UpdateKind } from "~/lib/model";
-import { UPDATE_KINDS } from "~/lib/model";
+import type { CrosspostMode, CrosspostResult, SocialProvider, UpdateDetails, UpdateKind } from "~/lib/model";
+import { FIELD_OUTCOMES, UPDATE_KINDS } from "~/lib/model";
 import { slopPath } from "~/lib/display";
 import { markdownToPlain, type PostContent } from "~/lib/compose";
 import { absoluteUrl } from "../config";
@@ -37,7 +37,7 @@ type Postable = Pick<
 /** What the owner is announcing, in plain text, before network fitting. */
 export function buildPostContent(
   slop: Postable,
-  update: { kind: UpdateKind; body: string },
+  update: { kind: UpdateKind; body: string; version?: string | null; details?: UpdateDetails | null },
   username: string,
 ): PostContent {
   const note = markdownToPlain(update.body);
@@ -48,7 +48,15 @@ export function buildPostContent(
     text = `${day}Just slopped ${what}: ${slop.tagline}`;
     if (note && note !== slop.tagline) text += `\n\n${note}`;
   } else {
-    text = `${slop.name} · ${UPDATE_KINDS[update.kind].label}\n\n${note}`;
+    const name = update.version ? `${slop.name} ${update.version}` : slop.name;
+    const details = update.details;
+    const what =
+      details?.kind === "feature"
+        ? `: ${details.name}`
+        : details?.kind === "field"
+          ? ` (${FIELD_OUTCOMES[details.outcome].label.toLowerCase()})`
+          : "";
+    text = `${name} · ${UPDATE_KINDS[update.kind].label}${what}\n\n${note}`;
   }
   return {
     text,

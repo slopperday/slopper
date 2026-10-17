@@ -1,4 +1,16 @@
-import { type CategoryId, findCategory, isLinkKind, LIMITS, LINK_KINDS, type SlopLink } from "~/lib/model";
+import {
+  type CategoryId,
+  findCategory,
+  isFieldOutcome,
+  isLinkKind,
+  isPostableUpdateKind,
+  LIMITS,
+  LINK_KINDS,
+  POSTABLE_UPDATE_KINDS,
+  type PostableUpdateKind,
+  type SlopLink,
+  type UpdateDetails,
+} from "~/lib/model";
 /** Everything a person types when shipping or editing a slop. */
 export interface SlopInput {
   name: string;
@@ -43,26 +55,27 @@ export function parseWebUrl(value: string): URL | null {
   }
 }
 
+/** One typed link: a known kind, a web address, and the right host for store links. */
+function parseLink(kind: string, raw: string): { link: SlopLink } | { error: string } {
+  if (!isLinkKind(kind)) return { error: "Unknown link type." };
+  const url = parseWebUrl(raw);
+  if (!url) return { error: `“${raw}” is not a web address.` };
+  const info = LINK_KINDS[kind];
+  if ("hosts" in info) {
+    const hosts: readonly string[] = info.hosts;
+    if (!hosts.includes(url.hostname)) return { error: `${info.label} links live on ${hosts.join(" or ")}.` };
+  }
+  return { link: { kind, url: url.href } };
+}
+
 export function parseLinks(kinds: string[], urls: string[]): { links: SlopLink[]; error: string | null } {
   const links: SlopLink[] = [];
   for (let index = 0; index < urls.length; index++) {
     const raw = urls[index];
     if (!raw) continue;
-    const kind = kinds[index] ?? "website";
-    if (!isLinkKind(kind)) return { links, error: "Unknown link type." };
-    const url = parseWebUrl(raw);
-    if (!url) return { links, error: `“${raw}” is not a web address.` };
-    const info = LINK_KINDS[kind];
-    if ("hosts" in info) {
-      const hosts: readonly string[] = info.hosts;
-      if (!hosts.includes(url.hostname)) {
-        return {
-          links,
-          error: `${info.label} links live on ${hosts.join(" or ")}.`,
-        };
-      }
-    }
-    links.push({ kind, url: url.href });
+    const parsed = parseLink(kinds[index] ?? "website", raw);
+    if ("error" in parsed) return { links, error: parsed.error };
+    links.push(parsed.link);
   }
   if (links.length === 0) {
     return { links, error: "Add at least one link so people can try it." };
@@ -158,6 +171,113 @@ export function validateSlop(draft: SlopDraft): Parsed<SlopForm> {
 
 export function parseSlopForm(form: FormData): Parsed<SlopForm> {
   return validateSlop(slopDraftFromForm(form));
+}
+
+/** An update as typed into the composer or sent by an agent, before validation. */
+export interface UpdateDraft {
+  kind?: string;
+  body?: string;
+  version?: string;
+  images?: readonly string[];
+  links?: readonly { kind?: string; url?: string; preview?: boolean }[];
+  featureName?: string;
+  who?: string;
+  outcome?: string;
+}
+
+export interface UpdateLinkForm extends SlopLink {
+  /** Read the page and show a card for it. Off unless the maker asks. */
+  preview: boolean;
+}
+
+export interface UpdateForm {
+  kind: PostableUpdateKind;
+  body: string;
+  version: string | null;
+  /** Media ids; Convex re-checks each one belongs to the uploader. */
+  images: string[];
+  links: UpdateLinkForm[];
+  details: UpdateDetails | null;
+}
+
+export function updateDraftFromForm(form: FormData): UpdateDraft {
+  const kinds = all(form, "linkKind");
+  const previews = all(form, "linkPreview");
+  return {
+    kind: text(form, "kind"),
+    body: text(form, "body"),
+    version: text(form, "version"),
+    images: all(form, "image"),
+    links: all(form, "linkUrl").map((url, index) => ({
+      kind: kinds[index] ?? "website",
+      url,
+      preview: previews[index] === "on",
+    })),
+    featureName: text(form, "featureName"),
+    who: text(form, "who"),
+    outcome: text(form, "outcome"),
+  };
+}
+
+/** What a feature or field test adds: only those kinds take these fields. */
+function updateDetails(kind: string, draft: UpdateDraft, errors: FieldErrors): UpdateDetails | null {
+  const name = draft.featureName?.trim() ?? "";
+  const who = draft.who?.trim() ?? "";
+  const outcome = draft.outcome?.trim() ?? "";
+  let details: UpdateDetails | null = null;
+  if (name) {
+    if (kind !== "feature") errors.featureName = "A feature name is for feature updates.";
+    else if (name.length > LIMITS.featureNameLength) {
+      errors.featureName = `Keep the feature name under ${LIMITS.featureNameLength} characters.`;
+    } else details = { kind: "feature", name };
+  }
+  if (who || outcome) {
+    if (kind !== "field") errors.outcome = "Who tried it and how it went are for field tests.";
+    else if (!isFieldOutcome(outcome)) errors.outcome = "Say how it went: worked, mixed or broke.";
+    else if (who.length > LIMITS.fieldWhoLength)
+      errors.who = `Keep who tried it under ${LIMITS.fieldWhoLength} characters.`;
+    else details = { kind: "field", outcome, who: who || null };
+  }
+  return details;
+}
+
+/** One validation path for the update composer, the REST API and MCP. */
+export function validateUpdate(draft: UpdateDraft): Parsed<UpdateForm> {
+  const errors: FieldErrors = {};
+  const kind = draft.kind?.trim() || "update";
+  const body = draft.body?.trim() ?? "";
+  const version = draft.version?.trim().replace(/\s+/g, " ") ?? "";
+
+  if (!isPostableUpdateKind(kind)) errors.kind = `Pick one of ${POSTABLE_UPDATE_KINDS.join(", ")}.`;
+  if (!body) errors.body = "Say what happened.";
+  else if (body.length > LIMITS.updateLength) errors.body = `Keep it under ${LIMITS.updateLength} characters.`;
+  if (version.length > LIMITS.versionLength) {
+    errors.version = `Keep the version under ${LIMITS.versionLength} characters.`;
+  }
+  const details = updateDetails(kind, draft, errors);
+
+  const links: UpdateLinkForm[] = [];
+  for (const raw of draft.links ?? []) {
+    const url = raw.url?.trim();
+    if (!url) continue;
+    const parsed = parseLink(raw.kind?.trim() || "website", url);
+    if ("error" in parsed) {
+      errors.links = parsed.error;
+      break;
+    }
+    if (links.some((link) => link.url === parsed.link.url)) {
+      errors.links = "Add each link once.";
+      break;
+    }
+    links.push({ ...parsed.link, preview: raw.preview === true });
+  }
+  if (links.length > LIMITS.updateLinks) errors.links = `Up to ${LIMITS.updateLinks} links.`;
+
+  const images = [...new Set((draft.images ?? []).map((id) => id.trim()))].filter((id) => MEDIA_ID.test(id));
+  if (images.length > LIMITS.updateImages) errors.images = `Up to ${LIMITS.updateImages} images.`;
+
+  if (Object.keys(errors).length > 0 || !isPostableUpdateKind(kind)) return { ok: false, errors };
+  return { ok: true, value: { kind, body, version: version || null, images, links, details } };
 }
 
 export interface GoalForm {

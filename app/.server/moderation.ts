@@ -1,5 +1,6 @@
 import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
+import { updateMedia } from "@convex/lib/media";
 import type { VideoStatus, VideoToCheck } from "@convex/videos";
 import { config, type ContentCheckConfig } from "./config";
 import { convex, type ConvexCaller } from "./convex";
@@ -242,9 +243,39 @@ export async function checkSlop(slopId: Id<"slops">, launchNote = ""): Promise<C
   return result;
 }
 
-/** Checks an update's text before it's auto-posted. Null if the check couldn't run. */
-export async function checkUpdate(slopId: Id<"slops">, body: string): Promise<ContentCheck | null> {
-  const result = await tryCheck({ fields: { update: body }, images: [] });
+/** What the check reads from an update: its text, details, links and their cards, and its images. */
+export function updateSubmission(update: Doc<"updates">, imageUrls: readonly string[]): Submission {
+  const details = update.details;
+  const links = update.links ?? [];
+  const cards = links.flatMap(({ preview }) =>
+    preview ? [[preview.siteName, preview.title, preview.description].filter(Boolean).join(" · ")] : [],
+  );
+  return {
+    fields: {
+      update: update.body,
+      ...(update.version ? { version: update.version } : {}),
+      ...(details?.kind === "feature" ? { feature: details.name } : {}),
+      ...(details?.kind === "field" && details.who ? { triedBy: details.who } : {}),
+      ...(links.length > 0 ? { links: links.map((link) => link.url) } : {}),
+      ...(cards.length > 0 ? { linkCards: cards } : {}),
+    },
+    images: imageUrls.map((url) => ({ url })),
+  };
+}
+
+/** Checks an update before it's auto-posted. Null if the check couldn't run. */
+export async function checkUpdate(slopId: Id<"slops">, update: Doc<"updates">): Promise<ContentCheck | null> {
+  const urls = await Promise.all(
+    updateMedia(update)
+      .slice(0, MAX_IMAGES)
+      .map((mediaId) => convex.query(api.media.url, { mediaId })),
+  );
+  const result = await tryCheck(
+    updateSubmission(
+      update,
+      urls.filter((url): url is string => url !== null),
+    ),
+  );
   if (result) await convex.mutation(api.moderation.applyCheck, { slopId, scope: "update", ...result });
   return result;
 }
