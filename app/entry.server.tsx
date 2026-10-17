@@ -42,7 +42,7 @@ export default async function handleRequest(
   if (import.meta.env.PROD) {
     // Inline scripts stay allowed: React Router streams hydration data with
     // them. Inline styles too: cards set CSS variables for their tilt.
-    // Images come from the B2 bucket (or Convex storage) and sign-in providers, all https.
+    // Images and promo videos come from the B2 bucket (or Convex storage) and sign-in providers, all https.
     responseHeaders.set(
       "content-security-policy",
       [
@@ -51,7 +51,7 @@ export default async function handleRequest(
         "style-src 'self' 'unsafe-inline'",
         "font-src 'self'",
         "img-src 'self' data: blob: https:",
-        "media-src 'self' blob:",
+        "media-src 'self' blob: https:",
         `connect-src 'self'${convexSources()}`,
         "object-src 'none'",
         "base-uri 'self'",

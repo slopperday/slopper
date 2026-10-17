@@ -18,7 +18,7 @@ import { CURRENCIES } from "~/lib/money";
 import { absoluteUrl, autopostNetworks, config } from "../config";
 import { convex, convexMessage } from "../convex";
 import { validateGoal, validateSlop } from "../forms";
-import { deleteOrphanedMedia, uploadImage } from "../media";
+import { deleteOrphanedMedia, uploadImage, uploadVideo } from "../media";
 import { checkedContent, checkSlop } from "../moderation";
 import { finishLaunch, releaseScheduled } from "../launch";
 import { announce } from "../social/announce";
@@ -87,7 +87,19 @@ function summarizeSlop(slop: Doc<"slops">, username: string) {
     slopcessful: slop.slopcessfulAt
       ? { at: new Date(slop.slopcessfulAt).toISOString(), note: slop.slopcessfulNote }
       : null,
+    /** The promo video: none, pending (waiting for a moderator) or live. */
+    video: !slop.video ? "none" : slop.video.approvedAt === null ? "pending" : "live",
   };
+}
+
+/** Bytes sent as base64 (MCP has no raw bodies), with or without a data: prefix. */
+function base64Bytes(input: JsonObject): Uint8Array<ArrayBuffer> {
+  const base64 = requiredString(input, "base64").replace(/^data:[^,]+,/, "");
+  try {
+    return Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  } catch {
+    throw new ApiError(400, "base64 is not valid base64.");
+  }
 }
 
 /** Finds one of the caller's slops by id or slug. */
@@ -264,16 +276,54 @@ export const OPERATIONS: Operation[] = [
     },
     readOnly: false,
     async run({ user }, input) {
-      const base64 = requiredString(input, "base64").replace(/^data:[^,]+,/, "");
-      let bytes: Uint8Array<ArrayBuffer>;
-      try {
-        bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
-      } catch {
-        throw new ApiError(400, "base64 is not valid base64.");
-      }
-      const result = await uploadImage(user._id, { bytes });
+      const result = await uploadImage(user._id, { bytes: base64Bytes(input) });
       if (!result.ok) throw new ApiError(400, result.error);
       return { id: result.id, url: result.url, contentCheck: result.contentCheck };
+    },
+  },
+  {
+    name: "upload_video",
+    title: "Upload a promo video",
+    description: `Upload an MP4 or WebM (max ${LIMITS.videoBytes / 1024 / 1024} MB) as base64, for set_video. The content check can't watch video, so once it's on a slop it plays for everyone only after a moderator approves it.`,
+    inputSchema: {
+      type: "object",
+      properties: { base64: { type: "string", description: "Video bytes, base64 encoded (no data: prefix)." } },
+      required: ["base64"],
+    },
+    readOnly: false,
+    async run({ user }, input) {
+      const result = await uploadVideo(user._id, base64Bytes(input));
+      if (!result.ok) throw new ApiError(400, result.error);
+      return { id: result.id };
+    },
+  },
+  {
+    name: "set_video",
+    title: "Set a slop's promo video",
+    description:
+      "Put a video from upload_video on one of your slops, replacing its last one, or pass null to take it off. A new video waits for a moderator before it plays for everyone: video is pending until then, then live.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slop: SLOP_REF,
+        video: { type: ["string", "null"], description: "An id from upload_video, or null to remove the video." },
+      },
+      required: ["slop", "video"],
+    },
+    readOnly: false,
+    async run(context, input) {
+      const slop = await ownSlop(context, requiredString(input, "slop"));
+      const video = input.video;
+      if (video !== null && typeof video !== "string") {
+        throw new ApiError(400, "video must be an id from upload_video, or null to remove it.");
+      }
+      const result = await convex.mutation(api.videos.set, {
+        userId: context.user._id,
+        slopId: slop._id,
+        mediaId: video,
+      });
+      if (result.orphaned > 0) await deleteOrphanedMedia();
+      return { slop: summarizeSlop(await slopById(slop._id), context.user.username) };
     },
   },
   {

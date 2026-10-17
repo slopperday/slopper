@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { LIMITS } from "../../../app/lib/model.ts";
 import manifest from "../package.json" with { type: "json" };
-import { COMMANDS, MEDIA_BYTES } from "../src/commands.ts";
+import { COMMANDS, MEDIA_BYTES, VIDEO_BYTES } from "../src/commands.ts";
 import { type Io, main } from "../src/main.ts";
 
 interface Call {
@@ -306,7 +306,7 @@ const ROUTE_CASES: { name: string; argv: string[]; method: string; path: string;
 ];
 
 /** Commands with tests of their own below: they read files, stdin or the config. */
-const OWN_TESTS = ["login", "logout", "upload", "skill"];
+const OWN_TESTS = ["login", "logout", "upload", "skill", "video"];
 
 describe("every command", () => {
   it("has a route case or tests of its own", () => {
@@ -872,6 +872,69 @@ describe("login and logout", () => {
   });
 });
 
+describe("promo videos", () => {
+  const VIDEO = { status: 201, body: { id: "media_video" } };
+  const SET = { body: { slop: { id: "slop_1", video: "pending" } } };
+
+  it.each([
+    ["promo.mp4", "video/mp4"],
+    ["promo.M4V", "video/mp4"],
+    ["promo.webm", "video/webm"],
+  ])("uploads %s as %s, then puts it on the slop", async (file, contentType) => {
+    const cli = await harness({ "POST /api/v1/videos": VIDEO, "PUT /api/v1/slops/tiltmaze/video": SET }, TOKEN);
+    const path = join(cli.home, file);
+    await writeFile(path, new Uint8Array([0, 0, 0, 24]));
+    expect(await cli.run("video", "tiltmaze", path)).toEqual({
+      code: 0,
+      stdout: `${JSON.stringify(SET.body, null, 2)}\n`,
+      stderr: "",
+    });
+    expect(cli.calls).toMatchObject([
+      { method: "POST", url: "https://slopper.day/api/v1/videos", contentType, body: [0, 0, 0, 24] },
+      { method: "PUT", url: "https://slopper.day/api/v1/slops/tiltmaze/video", body: { video: "media_video" } },
+    ]);
+  });
+
+  it("puts an uploaded video's id on as it is, and takes one off with --remove", async () => {
+    const cli = await harness({ "PUT /api/v1/slops/tiltmaze/video": SET }, TOKEN);
+    await cli.run("video", "tiltmaze", "media_video");
+    await cli.run("video", "tiltmaze", "--remove");
+    expect(cli.calls.map(({ method, url, body }) => [method, url, body])).toEqual([
+      ["PUT", "https://slopper.day/api/v1/slops/tiltmaze/video", { video: "media_video" }],
+      ["PUT", "https://slopper.day/api/v1/slops/tiltmaze/video", { video: null }],
+    ]);
+  });
+
+  it("refuses what isn't a video, a video and --remove together, or nothing at all, before sending", async () => {
+    const cli = await harness({}, TOKEN);
+    const gif = join(cli.home, "promo.gif");
+    await writeFile(gif, new Uint8Array([1]));
+    expect(await cli.run("video", "tiltmaze", gif)).toMatchObject({
+      code: 2,
+      stderr: expect.stringContaining("isn't an MP4 or WebM video."),
+    });
+    expect(await cli.run("video", "tiltmaze", "media_video", "--remove")).toMatchObject({
+      code: 2,
+      stderr: expect.stringContaining("Pass a video or --remove, not both."),
+    });
+    expect(await cli.run("video", "tiltmaze")).toMatchObject({
+      code: 2,
+      stderr: expect.stringContaining("Missing <file|id>."),
+    });
+    expect(await cli.run("video", "tiltmaze", join(cli.home, "missing.mp4"))).toMatchObject({
+      code: 2,
+      stderr: expect.stringContaining("Couldn't read"),
+    });
+    const big = join(cli.home, "big.mp4");
+    await writeFile(big, new Uint8Array(4 * 1024 * 1024 + 1));
+    expect(await cli.run("video", "tiltmaze", big)).toMatchObject({
+      code: 2,
+      stderr: expect.stringContaining("bigger than 4 MB"),
+    });
+    expect(cli.calls).toEqual([]);
+  });
+});
+
 describe("screenshots", () => {
   const MEDIA = { status: 201, body: { id: "media_1", url: "https://cdn.test/x.png", contentCheck: "ok" } };
 
@@ -982,6 +1045,7 @@ describe("screenshots", () => {
 
   it("refuses screenshots over the site's limit without sending them", async () => {
     expect(MEDIA_BYTES).toBe(LIMITS.mediaBytes);
+    expect(VIDEO_BYTES).toBe(LIMITS.videoBytes);
     const cli = await harness({ "POST /api/v1/media": MEDIA }, TOKEN);
     const big = join(cli.home, "big.png");
     await writeFile(big, new Uint8Array(MEDIA_BYTES + 1));

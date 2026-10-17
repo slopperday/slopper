@@ -35,6 +35,7 @@ import type * as schedule from "../schedule.js";
 import type * as slops from "../slops.js";
 import type * as tokens from "../tokens.js";
 import type * as users from "../users.js";
+import type * as videos from "../videos.js";
 
 import type {
   ApiFromModules,
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   slops: typeof slops;
   tokens: typeof tokens;
   users: typeof users;
+  videos: typeof videos;
 }>;
 
 /**

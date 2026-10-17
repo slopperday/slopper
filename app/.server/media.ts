@@ -18,6 +18,13 @@ export function sniffImageType(bytes: Uint8Array): string | null {
   return null;
 }
 
+/** Recognises the video formats we accept: MP4 (an `ftyp` box first) and WebM (EBML). */
+export function sniffVideoType(bytes: Uint8Array): string | null {
+  if (bytes.length >= 12 && String.fromCharCode(...bytes.subarray(4, 8)) === "ftyp") return "video/mp4";
+  if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) return "video/webm";
+  return null;
+}
+
 /** What the upload check said about a stored image. */
 export type MediaCheck = Infer<typeof mediaCheckValidator>;
 
@@ -31,7 +38,7 @@ export interface ImageUpload {
    * A screenshot (the default) or an avatar. Avatars show everywhere,
    * unblurred, so a mature one is refused like a blocked one.
    */
-  kind?: MediaKind;
+  kind?: Exclude<MediaKind, "video">;
 }
 
 export type UploadResult =
@@ -105,6 +112,46 @@ export async function uploadImage(
       check,
     });
     return { ok: true, id: mediaId, url, contentCheck: check.verdict };
+  } catch (error) {
+    const message = convexMessage(error);
+    if (message) return { ok: false, error: message };
+    throw error;
+  }
+}
+
+export type VideoUploadResult = { ok: true; id: Id<"media">; url: string | null } | { ok: false; error: string };
+
+/**
+ * Stores a promo video. The content check reads images, not video, so it's
+ * stored "unchecked" and only plays for everyone once a moderator approves it
+ * on its slop (convex/videos.ts). The rate limit is shared with images.
+ */
+export async function uploadVideo(
+  ownerId: Id<"users">,
+  bytes: Uint8Array<ArrayBuffer>,
+  services: UploadServices = uploadServices(),
+): Promise<VideoUploadResult> {
+  if (bytes.byteLength === 0) return { ok: false, error: "Empty file." };
+  if (bytes.byteLength > LIMITS.videoBytes) {
+    return { ok: false, error: `Videos must be ${LIMITS.videoBytes / 1024 / 1024} MB or smaller.` };
+  }
+  const contentType = sniffVideoType(bytes);
+  if (!contentType) return { ok: false, error: "Use an MP4 or WebM video." };
+  try {
+    await services.convex.mutation(api.media.beginUpload, { userId: ownerId, backend: services.store.backend });
+    const location = await services.store.put(bytes, contentType, "video").catch((error: unknown) => {
+      console.error("Storing a video failed", error);
+      return null;
+    });
+    if (!location) return { ok: false, error: "Storage rejected the upload. Try again." };
+    const { mediaId, url } = await services.convex.mutation(api.media.register, {
+      ownerId,
+      location,
+      contentType,
+      size: bytes.byteLength,
+      check: { verdict: "unchecked", reason: "Videos wait for a moderator." },
+    });
+    return { ok: true, id: mediaId, url };
   } catch (error) {
     const message = convexMessage(error);
     if (message) return { ok: false, error: message };
