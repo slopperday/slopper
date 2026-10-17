@@ -133,7 +133,7 @@ help_text = "In the release workflow: tag the merged release commit, deploy Conv
 type = "Command"
 name = "check this is the release workflow"
 command = "node scripts/release.ts ci"
-dry_run_command = "node scripts/release.ts ci"
+dry_run_command = "node scripts/release.ts ci --dry-run"
 
 [[cli.publish.steps]]
 type = "TagRelease"

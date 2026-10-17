@@ -3,7 +3,7 @@
  *
  *   node scripts/release.ts branch [--dry-run]  # first step of `monochange run release`
  *   node scripts/release.ts pr [--dry-run]      # last step of `monochange run release`
- *   node scripts/release.ts ci                  # first step of `monochange run publish`
+ *   node scripts/release.ts ci [--dry-run]      # first step of `monochange run publish`
  *   node scripts/release.ts deploy [--if-released] [--dry-run]
  *
  * A release is a pull request. `monochange run release` starts on a clean,
@@ -138,12 +138,20 @@ function pr(dryRun: boolean): void {
   console.log(`${open ? "Updated" : "Opened"} ${url}. Merge it to publish.`);
 }
 
-/** `monochange run publish` pushes tags and deploys, so it only runs in the release workflow, on a release commit. */
-function ci(): void {
+/**
+ * `monochange run publish` pushes tags and deploys, so it only runs in the release workflow, on a release commit
+ * that's on main. A dry run (rehearsing a release pull request) skips the last check.
+ */
+function ci(dryRun: boolean): void {
   if (process.env.GITHUB_ACTIONS !== "true") {
     fail("`monochange run publish` runs in .github/workflows/release.yml. Merge the release pull request instead.");
   }
   if (!isReleaseCommit()) fail("HEAD isn't a release commit.");
+  if (dryRun) return;
+  git("fetch", "--quiet", "origin", "main");
+  if (spawnSync("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"]).status !== 0) {
+    fail("Only release commits on main are published. Merge the release pull request first.");
+  }
 }
 
 /** The release slopper.day is serving, or null while it can't be reached. */
@@ -199,6 +207,6 @@ const [command, ...flags] = process.argv.slice(2);
 const dryRun = flags.includes("--dry-run");
 if (command === "branch") branch(dryRun);
 else if (command === "pr") pr(dryRun);
-else if (command === "ci") ci();
+else if (command === "ci") ci(dryRun);
 else if (command === "deploy") await deploy(flags.includes("--if-released"), dryRun);
-else fail("Usage: node scripts/release.ts branch | pr | ci | deploy [--if-released] [--dry-run]");
+else fail("Usage: node scripts/release.ts branch | pr | ci | deploy [--if-released], each with [--dry-run]");
