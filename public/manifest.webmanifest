@@ -1,7 +1,7 @@
 {
   "name": "Slopper",
   "short_name": "Slopper",
-  "description": "Throw slop at the wall every day. Keep slopping until one is slopcessful.",
+  "description": "Too much slop? Not enough yet! Throw slop at the wall every day and keep slopping until one is slopcessful.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f4f5f0",

@@ -1,6 +1,6 @@
 ---
 name: Slopper
-description: A departures board for launches. Throw slop at the wall. Every day.
+description: A departures board for launches. Too much slop? Not enough yet!
 colors:
   ground: "#f4f5f0"
   sunk: "#e9ebe3"

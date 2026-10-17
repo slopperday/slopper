@@ -6,7 +6,7 @@ test.describe("visitors", () => {
     page.on("pageerror", (error) => errors.push(error.message));
 
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("Every day.");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Not enough yet!");
     await expect(page.getByRole("heading", { name: "Today's race" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Volume beats taste." })).toBeVisible();
     // Only networks the server has keys for are named; the stack has them all.

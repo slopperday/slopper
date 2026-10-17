@@ -1,7 +1,7 @@
 import type { MetaDescriptor } from "react-router";
 
 const DEFAULT_DESCRIPTION =
-  "Throw slop at the wall every day. Set a goal, ship daily with AI, and keep slopping until one is slopcessful.";
+  "Too much slop? Not enough yet! Throw slop at the wall every day: set a goal, ship daily with AI, and keep slopping until one is slopcessful.";
 
 export interface SeoOptions {
   title?: string;
@@ -25,7 +25,7 @@ export function originFrom(matches: readonly (MatchLike | undefined)[]): string 
 
 export function seo(matches: readonly (MatchLike | undefined)[], options: SeoOptions = {}): MetaDescriptor[] {
   const origin = originFrom(matches);
-  const title = options.title ? `${options.title} · Slopper` : "Slopper · throw slop at the wall";
+  const title = options.title ? `${options.title} · Slopper` : "Slopper · Too much slop? Not enough yet!";
   const description = options.description ?? DEFAULT_DESCRIPTION;
   const image = new URL(options.image ?? "/og.png", origin).href;
   const tags: MetaDescriptor[] = [
