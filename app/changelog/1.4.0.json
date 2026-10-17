@@ -1,0 +1,30 @@
+{
+  "title": "1.4.0 (2026-10-17)",
+  "summary": [],
+  "sections": [
+    {
+      "title": "New",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Too much slop? Not enough yet!",
+          "details_markdown": "Slopper has a new slogan. It leads the home page, the footer, page titles and the card that shows when you share a link. Throwing slop at the wall every day is still how it works.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/too-much-slop.md",
+            "changeset_path": ".changeset/too-much-slop.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "8d8d520"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
