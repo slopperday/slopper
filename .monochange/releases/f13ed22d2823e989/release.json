@@ -1,0 +1,149 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-10-18T00:45:03Z",
+  "command": "release",
+  "version": "1.8.0",
+  "versions": {
+    "slopper": "1.8.0"
+  },
+  "release_targets": [
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.8.0",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.8.0",
+      "rendered_title": "v1.8.0 (2026-10-18)",
+      "rendered_changelog_title": "1.8.0 (2026-10-18)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["slopper"],
+  "changed_files": ["CHANGELOG.md", "app/changelog/1.8.0.json", "package.json"],
+  "package_publications": [],
+  "updated_changelogs": ["CHANGELOG.md", "app/changelog/1.8.0.json"],
+  "deleted_changesets": [".changeset/share-cards.md"],
+  "changesets": [
+    {
+      "path": ".changeset/share-cards.md",
+      "summary": "Shared links show their own card",
+      "details": "A link to a slop now unfurls on X, Bluesky, LinkedIn, Slack, Discord and chat apps with a card of its own: its name, tagline, maker, slop number, goal day, votes and cover screenshot. A profile link shows the maker's goal grid and streak. Slack also lists the slop number and votes under the link, and apps that play video get an approved promo video too. Cards change as the slop does, so a link shared later shows today's votes.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f600231495cb8da3a8d6bea1c0fff23710717b18",
+            "short_sha": "f600231",
+            "url": null,
+            "authored_at": "2026-10-18T00:44:16+01:00",
+            "committed_at": "2026-10-18T00:44:16+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f600231495cb8da3a8d6bea1c0fff23710717b18",
+            "short_sha": "f600231",
+            "url": null,
+            "authored_at": "2026-10-18T00:44:16+01:00",
+            "committed_at": "2026-10-18T00:44:16+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.8.0 (2026-10-18)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Changed",
+            "collapsed": false,
+            "entries": ["- **No package-specific changes were recorded; `slopper` was updated to 1.8.0.**"]
+          }
+        ]
+      },
+      "rendered": "## 1.8.0 (2026-10-18)\n\n### Changed\n\n- **No package-specific changes were recorded; `slopper` was updated to 1.8.0.**"
+    },
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "user",
+      "stream": "user",
+      "path": "app/changelog/1.8.0.json",
+      "format": "json",
+      "notes": {
+        "title": "1.8.0 (2026-10-18)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "New",
+            "collapsed": false,
+            "entries": [
+              "- **Shared links show their own card.** A link to a slop now unfurls on X, Bluesky, LinkedIn, Slack, Discord and chat apps with a card of its own: its name, tagline, maker, slop number, goal day, votes and cover screenshot. A profile link shows the maker's goal grid and streak. Slack also lists the slop number and votes under the link, and apps that play video get an approved promo video too. Cards change as the slop does, so a link shared later shows today's votes.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ f600231"
+            ]
+          }
+        ]
+      },
+      "rendered": "{\n  \"title\": \"1.8.0 (2026-10-18)\",\n  \"summary\": [],\n  \"sections\": [\n    {\n      \"title\": \"New\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Shared links show their own card\",\n          \"details_markdown\": \"A link to a slop now unfurls on X, Bluesky, LinkedIn, Slack, Discord and chat apps with a card of its own: its name, tagline, maker, slop number, goal day, votes and cover screenshot. A profile link shows the maker's goal grid and streak. Slack also lists the slop number and votes under the link, and apps that play video get an approved promo video too. Cards change as the slop does, so a link shared later shows today's votes.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/share-cards.md\",\n            \"changeset_path\": \".changeset/share-cards.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"f600231\"\n            }\n          }\n        }\n      ]\n    }\n  ]\n}"
+    }
+  ],
+  "provider": null
+}
