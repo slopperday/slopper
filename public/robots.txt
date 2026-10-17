@@ -1,0 +1,8 @@
+# Launches, profiles and the wall are public. Crawlers stay off the API and the
+# sign-in links, which start a real OAuth flow every time they're followed.
+# Rules match by prefix and profiles live at /<username>, so every rule ends in
+# a slash: "/new" would also hide /newton.
+User-agent: *
+Disallow: /api/
+Disallow: /auth/
+Disallow: /unsubscribe/
