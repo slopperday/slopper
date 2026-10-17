@@ -1,9 +1,10 @@
 // @vitest-environment edge-runtime
 import { convexTest } from "convex-test";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import schema from "@convex/schema";
+import { EDITING_CLOSED } from "~/lib/editing";
 
 const modules = import.meta.glob("../convex/**/*.ts");
 
@@ -161,6 +162,57 @@ describe("launching", () => {
       ok: false,
       error: "Finish or drop your current goal first.",
     });
+  });
+});
+
+describe("editing a launch", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const edited = { ...input, tagline: "Tilt harder" };
+
+  it("stays open 12 hours after a late launch, then only takes updates", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse("2026-10-17T22:00:00Z"));
+    const { t, server } = setup();
+    const owner = await makeUser(server, "owner");
+    const flagger = await makeUser(server, "flagger");
+    const admin = await makeStaff(t, server, "admin", "admin");
+    const { slopId } = await ship(server, owner, "2026-10-17");
+    const edit = () => server.mutation(api.slops.edit, { userId: owner, slopId, input: edited });
+
+    vi.setSystemTime(Date.parse("2026-10-18T09:59:00Z"));
+    await expect(edit()).resolves.toEqual({ blurred: false, orphaned: 0 });
+
+    vi.setSystemTime(Date.parse("2026-10-18T10:01:00Z"));
+    await expect(edit()).rejects.toThrow(EDITING_CLOSED);
+    await server.mutation(api.activity.addUpdate, { userId: owner, slopId, kind: "feature", body: "Level editor" });
+    // The promo video and moderators aren't held to the window.
+    expect(await server.mutation(api.videos.set, { userId: owner, slopId, mediaId: null })).toMatchObject({
+      status: "none",
+    });
+    await server.mutation(api.moderation.flag, { userId: flagger, slopId, reason: "Spam" });
+    await server.mutation(api.moderation.decide, { moderatorId: admin, slopId, decision: "nsfw" });
+    await server.mutation(api.slops.setHidden, { adminId: admin, slopId, hidden: true });
+
+    const page = await server.query(api.slops.page, { username: "owner", slug: "tiltmaze", asUser: owner });
+    expect(page?.slop).toMatchObject({ tagline: "Tilt harder", updateCount: 2, nsfw: true, hidden: true });
+  });
+
+  it("stays open to the end of the owner's launch day after a morning launch", async () => {
+    // 8am in Los Angeles; the day ends at 07:00 UTC.
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse("2026-10-17T15:00:00Z"));
+    const { server } = setup();
+    const owner = await makeUser(server, "owner", "America/Los_Angeles");
+    const { slopId } = await ship(server, owner, "2026-10-17");
+    const edit = () => server.mutation(api.slops.edit, { userId: owner, slopId, input: edited });
+
+    vi.setSystemTime(Date.parse("2026-10-18T06:59:00Z"));
+    await expect(edit()).resolves.toEqual({ blurred: false, orphaned: 0 });
+    vi.setSystemTime(Date.parse("2026-10-18T07:00:00Z"));
+    await expect(edit()).rejects.toThrow(EDITING_CLOSED);
   });
 });
 

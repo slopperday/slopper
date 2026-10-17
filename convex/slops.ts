@@ -10,6 +10,7 @@ import { openGoal } from "./goals";
 import { utcToday } from "./race";
 import { isVideo, releaseMedia } from "./lib/media";
 import { checkScreenshots } from "./moderation";
+import { EDITING_CLOSED, editableUntil } from "../app/lib/editing";
 import { goalDayFor } from "../app/lib/goal";
 import { LIMITS } from "../app/lib/model";
 import { renderMarkdown } from "../app/lib/markdown";
@@ -167,11 +168,21 @@ export const create = mutation({
   },
 });
 
+/**
+ * Changes the original post, only while its edit window is open
+ * (app/lib/editing.ts); after that the owner posts updates instead. The
+ * promo video (videos.set) isn't part of the post: a moderator approves
+ * each one, so it stays changeable.
+ */
 export const edit = mutation({
   args: { userId: v.id("users"), slopId: v.id("slops"), input: slopInput },
   handler: async (ctx, { userId, slopId, input }) => {
     await requireServer(ctx);
     const slop = await ownSlop(ctx, userId, slopId);
+    const owner = await ctx.db.get(userId);
+    if (!owner) throw new ConvexError("That slop isn't yours.");
+    const until = editableUntil({ launchedAt: slop._creationTime, launchDate: slop.launchDate }, owner.timeZone);
+    if (Date.now() >= until) throw new ConvexError(EDITING_CLOSED);
     const screenshots = await ownedMedia(ctx, userId, input.screenshots, slop.screenshots);
     await ctx.db.patch(slopId, { ...input, screenshots });
     const blurred = await checkScreenshots(ctx, slopId, screenshots, slop.screenshots);

@@ -109,7 +109,9 @@ slopper money tiltmaze cost 12.99 --category domain --note "tiltmaze.app"
 
 Update kinds: `update` (fixes, news), `feature` (something new shipped), `field` (a real-world test: ask the user who
 tried it and what they said), `repromote` (bump it back up). `<slop>` is one of the user's slops, by id or slug (see
-`slopper slops`). `edit` changes only the flags passed; `--link` and `--screenshot` replace the whole list.
+`slopper slops`). `edit` changes only the flags passed; `--link` and `--screenshot` replace the whole list. Editing
+closes at the end of the launch day, or 12 hours after launch if that's later (`editableUntil` in `slopper slops`).
+After that the original post is locked (its `video` isn't): share what's new with `slopper post`.
 `video` puts a promo (MP4 or WebM, up to 4 MB) on a slop, replacing its last. The user's first video says `pending`
 until a moderator approves it. After that they're trusted: each new video is checked as it's set, and says `live` if it
 passed or `pending` if it waits for a moderator. `video <slop> --remove` takes it off.
@@ -142,4 +144,5 @@ judgement.
 
 - Don't launch ideas, waitlists or anything that isn't live: a slop is something people can try today.
 - Don't launch features as new slops; post them as updates.
+- Don't retry `edit` once a slop is past its `editableUntil`; post an update instead.
 - Don't put the token in files you commit. Use `slopper login` or `SLOPPER_TOKEN`.

@@ -13,6 +13,7 @@ import { announce, retryFailed, summarize } from "~/.server/social/announce";
 import { modeFor } from "~/.server/social/crosspost";
 import { shareIntents } from "~/lib/compose";
 import { formatDay, localDate, timeAgo } from "~/lib/dates";
+import { editWindow } from "~/lib/editing";
 import { dayLabel, launchTitle, listWords, numberLabel, plural, slopPath } from "~/lib/display";
 import { parseAmount } from "~/lib/money";
 import {
@@ -76,6 +77,7 @@ export async function loader({ params, context }: Route.LoaderArgs) {
   }
   const url = absoluteUrl(slopPath(owner.username, slop.slug));
   const day = dayLabel(slop);
+  const now = Date.now();
   return {
     page,
     username,
@@ -86,7 +88,9 @@ export async function loader({ params, context }: Route.LoaderArgs) {
       role: viewer.user?.role ?? null,
       signedIn: viewer.user !== null,
       autopostCount,
-      today: localDate(new Date(), page.ownerTimeZone),
+      /** Only the owner learns when editing closes. */
+      editing: page.isOwner ? editWindow(slop, page.ownerTimeZone, now) : null,
+      today: localDate(new Date(now), page.ownerTimeZone),
       url,
       intents: shareIntents(
         `${launchTitle(slop)}: ${slop.tagline}${day ? ` (${day} by @${owner.username})` : ""}`,
@@ -832,13 +836,30 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
           <h2 id="yours-title" className="caps">
             Your slop
           </h2>
+          {loaderData.editing && (
+            <p className="mt-2 text-sm text-muted">
+              {loaderData.editing.open ? (
+                loaderData.editing.label
+              ) : (
+                <>
+                  Details locked.{" "}
+                  <a href="#updates" className="link">
+                    Post an update
+                  </a>{" "}
+                  instead.
+                </>
+              )}
+            </p>
+          )}
           <div className="mt-3 grid gap-2">
             <Link to={`/new?from=${slop.id}`} className="btn btn-slop">
               🚀 Launch again
             </Link>
-            <Link to={`${path}/edit`} className="btn">
-              Edit details
-            </Link>
+            {loaderData.editing?.open && (
+              <Link to={`${path}/edit`} className="btn">
+                Edit details
+              </Link>
+            )}
             <Link to={`${path}/edit#autopost`} className="btn">
               Auto-post for this slop
             </Link>

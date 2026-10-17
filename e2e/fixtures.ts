@@ -1,6 +1,8 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import process from "node:process";
 import { type BrowserContext, expect, type Page, test as base } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
@@ -56,6 +58,11 @@ export interface Seed {
   trust(user: SeededUser): Promise<void>;
   /** A launch by `owner`, entered into today's race. */
   slop(owner: SeededUser, options?: SlopOptions): Promise<SeededSlop>;
+  /**
+   * A launch by `owner` that went out at `launchedAt`, imported with its
+   * creation time, since no function can backdate a document.
+   */
+  pastSlop(owner: SeededUser, launchedAt: number): Promise<SeededSlop>;
   /** A browser page signed in as `user`, in its own context. */
   pageAs(user: SeededUser): Promise<Page>;
   /** A browser page for a visitor, in its own context. */
@@ -92,8 +99,13 @@ export async function choose(page: Page, name: string | RegExp): Promise<void> {
 }
 
 export function runInternal(stack: Stack, name: string, args: Record<string, unknown>): void {
-  execFileSync("node_modules/.bin/convex", ["run", name, JSON.stringify(args)], {
-    stdio: "ignore",
+  convexCli(stack, ["run", name, JSON.stringify(args)]);
+}
+
+/** The Convex CLI, pointed at the stack's backend with its admin key. */
+function convexCli(stack: Stack, args: string[]): void {
+  execFileSync("node_modules/.bin/convex", args, {
+    stdio: "pipe",
     env: {
       ...process.env,
       CONVEX_DEPLOYMENT: "",
@@ -226,6 +238,60 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
           });
         }
         return { id: created.slopId, slug: created.slug, name: title, path: `/@${owner.username}/${created.slug}` };
+      },
+
+      async pastSlop(owner, launchedAt) {
+        const name = `Old slop ${unique()}`;
+        const slug = name.toLowerCase().replaceAll(" ", "-");
+        // Seeded people live in UTC, so the UTC date is their launch date too.
+        const launchDate = new Date(launchedAt).toISOString().slice(0, 10);
+        const document = {
+          _creationTime: launchedAt,
+          userId: owner.id,
+          productId: null,
+          launchLabel: null,
+          slug,
+          name,
+          tagline: "Launched a while ago",
+          description: "",
+          category: "games",
+          nsfw: false,
+          links: [{ kind: "website", url: "https://example.com/" }],
+          screenshots: [],
+          madeWith: [],
+          launchDate,
+          raceDate: launchDate,
+          goalId: null,
+          goalDay: null,
+          goalLength: null,
+          number: 900_000 + randomBytes(2).readUInt16BE(),
+          upvotes: 0,
+          downvotes: 0,
+          commentCount: 0,
+          updateCount: 0,
+          fieldTests: 0,
+          backers: 0,
+          pledged: 0,
+          lastActivityAt: launchedAt,
+          slopOfTheDay: null,
+          slopcessfulAt: null,
+          slopcessfulNote: null,
+          crosspost: {},
+          moneyPublic: false,
+          hidden: false,
+          check: { verdict: "ok", reason: "Seeded", checkedAt: launchedAt },
+        };
+        const dir = mkdtempSync(join(tmpdir(), "slopper-e2e-"));
+        try {
+          const file = join(dir, "slops.jsonl");
+          writeFileSync(file, `${JSON.stringify(document)}\n`);
+          convexCli(stack, ["import", "--table", "slops", "--append", "--yes", file]);
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+        const slop = await convex.query(api.slops.findForServer, { userId: owner.id, ref: slug });
+        if (!slop) throw new Error(`The imported slop ${slug} isn't there.`);
+        return { id: slop._id, slug, name, path: `/@${owner.username}/${slug}` };
       },
 
       async pageAs(user) {
