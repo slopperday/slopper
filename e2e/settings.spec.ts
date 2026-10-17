@@ -1,5 +1,5 @@
 import { api } from "../convex/_generated/api.js";
-import { expect, test } from "./fixtures.ts";
+import { choose, expect, test } from "./fixtures.ts";
 
 test.describe("settings", () => {
   test("a new username moves the profile and every slop with it", async ({ seed }) => {
@@ -39,7 +39,7 @@ test.describe("settings", () => {
   test("a goal can be dropped and set again", async ({ seed }) => {
     const page = await seed.pageAs(await seed.user("quitter"));
     await page.goto("/goal");
-    await page.getByRole("radio", { name: "7 days" }).check({ force: true });
+    await choose(page, "7 days");
     await page.getByRole("button", { name: "Set the goal" }).click();
     await expect(page.getByRole("status")).toHaveText("Goal set: 7 slops in 7 days.");
 
