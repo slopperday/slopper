@@ -1,0 +1,30 @@
+{
+  "title": "1.3.0 (2026-10-17)",
+  "summary": [],
+  "sections": [
+    {
+      "title": "New",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Sign the CLI in without copying a token",
+          "details_markdown": "Run `npx -y @slopperday/cli login` and it opens Slopper on a one-time code. Check it matches your terminal and approve it, and the CLI gets a token of its own, which you can revoke in Settings like any other. It works from a remote machine too: open the link it prints anywhere you're signed in.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/sign-in-the-cli.md",
+            "changeset_path": ".changeset/sign-in-the-cli.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "7958d43"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
