@@ -39,7 +39,7 @@ Everything is live: votes, races, pledges and notifications update on every open
 | Styles    | Tailwind CSS 4                                                                                                                   |
 | Data      | [Convex](https://convex.dev): realtime queries and crons                                                                         |
 | Media     | Screenshots and copied profile pictures in a [Backblaze B2](https://www.backblaze.com/cloud-storage) bucket (S3 API, aws4fetch)  |
-| Hosting   | [Netlify](https://www.netlify.com): static files on the CDN, the server as one Netlify Function, deployed from this machine      |
+| Hosting   | [Netlify](https://www.netlify.com): static files on the CDN, the server as one Netlify Function, deployed by GitHub Actions      |
 | Auth      | GitHub, Google, X, LinkedIn and Facebook OAuth; the app signs ES256 JWTs that Convex verifies (`convex/auth.config.ts`)          |
 | Safety    | DeepSeek V4.1 Flash through [OpenRouter](https://openrouter.ai) reads text and screenshots; the policy is a fixed, cached prefix |
 | Secrets   | [Monosecret](https://ifiokjr.github.io/monosecret/) reads production secrets from one 1Password item and sets them on Netlify    |
@@ -88,8 +88,8 @@ need Playwright's Chromium (`node_modules/.bin/playwright install chromium`), an
    `APP_URL=https://slopper.day node scripts/convex-keys.ts --prod --print` to give Convex the public key and print the
    private key for the app.
 2. **Netlify.** `vp exec netlify login`, then `vp exec netlify sites:create --name slopper-day` (`slopper` is taken).
-   No Git connection: Netlify never builds, this machine does (`netlify.toml`). Functions run in Ohio (`cmh`), next to
-   Convex.
+   No Git connection: Netlify never builds; the release workflow (or this machine) does (`netlify.toml`). Functions
+   run in Ohio (`cmh`), next to Convex.
 3. **Environment.** `monosecret.toml` declares every production variable. Plain ones (`APP_URL`, `CONVEX_URL`, OAuth
    client ids, the bucket, the VAPID public key) are defaults there; secrets are fields of the "production" section of
    the 1Password item "Slopper" (Development vault), named after each variable: `SLOPPER_JWT_PRIVATE_KEY`,
@@ -100,8 +100,9 @@ need Playwright's Chromium (`node_modules/.bin/playwright install chromium`), an
    `COMMENTS_ENABLED` unset: comments are off for V1.
 4. **Backblaze B2** for screenshots (see below).
 5. **Deploy.** Add a Convex production deploy key (dashboard → Settings → Deploy keys) to the item's "deploy" section as
-   `CONVEX_DEPLOY_KEY`. `node scripts/release.ts deploy` deploys Convex with it, then builds here and deploys Netlify. Releases do the
-   same (see Release).
+   `CONVEX_DEPLOY_KEY`. `node scripts/release.ts deploy` deploys Convex with it, then builds here and deploys Netlify.
+   Releases do the same in GitHub Actions (see Release), which needs two repository secrets: `CONVEX_DEPLOY_KEY` and
+   `NETLIFY_AUTH_TOKEN` (a Netlify personal access token).
 6. **Domain.** Add `slopper.day` to the Netlify project (Domain management) and point its DNS at Netlify.
 
 ### Screenshots in Backblaze B2
@@ -200,13 +201,20 @@ A change both audiences care about gets two changesets. Name each one with `--ou
 ```bash
 vp exec monochange create --package slopper --type user_feat --reason "Pin your best slop" --output .changeset/pin-slops.md
 vp exec monochange run release --dry-run   # the next version and its notes
-vp exec monochange run release             # on a clean, up-to-date main: bump, write both changelogs, commit
-vp exec monochange run publish             # tag v<version>, push main and the tag, deploy Convex and Netlify
+vp exec monochange run release             # on a clean, up-to-date main: open the release pull request
 ```
 
-`publish` pushes `main` and the tag together, so the pre-push hook runs CI once and a failure pushes neither. Then it
-deploys from this machine, Convex functions first and then Netlify, and returns once slopper.day answers with the new
-`x-slopper-version` header. If a deploy fails after the push, fix it and run `node scripts/release.ts deploy`.
+A release is a pull request. `run release` commits the version bumps and both changelogs on `chore/release`, pushes it
+(the pre-push hook runs CI, and a failure pushes nothing) and opens the pull request, or updates the open one.
+
+Merging it runs [`.github/workflows/release.yml`](.github/workflows/release.yml), the repository's only workflow:
+it tags the release (`v1.2.3` for the site, `cli/v1.2.3` for the npm packages), deploys Convex and then Netlify when the
+site is in the release, waits until slopper.day answers with the new `x-slopper-version` header, and publishes the
+released npm packages with [npm trusted publishing](https://docs.npmjs.com/trusted-publishers), so there's no npm
+token anywhere. Every other push to main skips it. To rehearse a release, run the workflow by hand on `chore/release`
+with "dry run" ticked; to retry a failed publish, run it on `main` with it unticked. A new npm package needs
+`vp exec monochange publish placeholder` once and `npm trust github <package> --file release.yml --repository
+ifiokjr/slopper` before its first release.
 
 ## For agents
 
