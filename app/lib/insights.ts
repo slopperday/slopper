@@ -1,4 +1,11 @@
-import type { InsightQuery, Interval, PropertyFilter } from "@slopperday/analytics/shared/insights";
+import type {
+  HeatmapDevice,
+  HeatmapQuery,
+  InsightQuery,
+  Interval,
+  PropertyFilter,
+} from "@slopperday/analytics/shared/insights";
+import { sanitizeAnalyticsPath } from "./analytics";
 
 /**
  * Insights as plain parameters, the same for a /analytics/insights URL
@@ -91,6 +98,27 @@ function events(params: Params, fallback: string, max: number): string[] {
 function pathFilter(path: string | null): PropertyFilter[] | undefined {
   const value = text(path);
   return value ? [{ key: "path", operator: "equals", value }] : undefined;
+}
+
+export const HEATMAP_DEVICE_LABELS: Record<HeatmapDevice, string> = {
+  mobile: "Phone",
+  tablet: "Tablet",
+  desktop: "Desktop",
+};
+
+/** A heatmap from `path` (one of the site's own, "/" unless given), `device` and `days`. */
+export function heatmapQuery(params: Params, now: number): HeatmapQuery {
+  const asked = params.get("device");
+  const device: HeatmapDevice = asked === "mobile" || asked === "tablet" ? asked : "desktop";
+  const typed = text(params.get("path")) ?? "/";
+  const path = typed.startsWith("/") && !typed.startsWith("//") ? typed.split(/[?#]/)[0] || "/" : "/";
+  return {
+    kind: "heatmap",
+    range: { from: now - daysOf(params) * 86_400_000, to: now + 1 },
+    // Events keep private path segments rewritten, so the heatmap asks for the same.
+    path: sanitizeAnalyticsPath(path),
+    device,
+  };
 }
 
 export function insightQuery(kind: InsightKind, params: Params, now: number): InsightQuery {
@@ -209,6 +237,7 @@ const EVENT_LABELS: Record<string, string> = {
   $pageleave: "Left a page",
   $autocapture: "Click, change or submit",
   $rageclick: "Rage click",
+  $heatmap: "Clicks for the heatmap",
   $identify: "Signed in",
   $exception: "Error",
   $webVitals: "Page speed",

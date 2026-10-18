@@ -140,6 +140,10 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   masked, hidden inputs and `[data-no-capture]`/`[data-no-replay]` elements are blocked out, query strings are cut
   from every address, and private pages aren't recorded (`mayRecordPath` in `app/lib/analytics.ts`). A new page
   that shows something only its owner should see goes in `mayRecordPath`, or marks that part `data-no-replay`.
+- **Heatmaps:** the SDK sends every click's spot as `$heatmap` points per page; `/analytics/heatmaps` draws the page
+  as it is now in a same-origin frame (the CSP's `frame-src`/`frame-ancestors 'self'` allow only that, and analytics
+  doesn't run in frames) with the clicks, scroll depth and most-clicked elements for phones, tablets or desktops.
+  Agents: `slopper admin analytics heatmap --path /wall --device mobile`.
 - **Traction:** sources are one client each in `app/.server/integrations/` (registered in `index.ts`), read only.
   Syncs run on the app server (it holds the sealing key); Convex stores days in `metrics` and hands due sources out
   with `integrations.claim`. Numbers on the page always say where they came from; typed-in money stays in the ledger.

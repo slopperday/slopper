@@ -119,6 +119,15 @@ describe("AnalyticsProvider", () => {
     expect(made[0]?.identified).toEqual(["user-1"]);
   });
 
+  it("loads nothing inside a frame, where a page is a preview, not a visit", async () => {
+    readyState = "complete";
+    vi.spyOn(window, "top", "get").mockReturnValue(null);
+    render({ endpoint: "https://x.convex.site/a" });
+    expect(idle).toHaveLength(0);
+    await settle();
+    expect(made).toHaveLength(0);
+  });
+
   it("waits only for idle when the page has already loaded", async () => {
     readyState = "complete";
     render({ endpoint: "https://x.convex.site/a" });

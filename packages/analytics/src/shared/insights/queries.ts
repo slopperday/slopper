@@ -104,6 +104,16 @@ export const groupsQueryValidator = v.object({
   prefix: v.optional(v.string()),
 });
 
+export const heatmapDeviceValidator = v.union(v.literal("mobile"), v.literal("tablet"), v.literal("desktop"));
+
+/** Where people click on one page, and how far down they scroll, on one kind of screen. */
+export const heatmapQueryValidator = v.object({
+  kind: v.literal("heatmap"),
+  range: rangeValidator,
+  path: v.string(),
+  device: heatmapDeviceValidator,
+});
+
 export const insightQueryValidator = v.union(
   trendsQueryValidator,
   funnelQueryValidator,
@@ -113,6 +123,7 @@ export const insightQueryValidator = v.union(
   lifecycleQueryValidator,
   webQueryValidator,
   groupsQueryValidator,
+  heatmapQueryValidator,
 );
 
 export type PropertyFilter = Infer<typeof propertyFilterValidator>;
@@ -125,4 +136,6 @@ export type StickinessQuery = Infer<typeof stickinessQueryValidator>;
 export type LifecycleQuery = Infer<typeof lifecycleQueryValidator>;
 export type WebQuery = Infer<typeof webQueryValidator>;
 export type GroupsQuery = Infer<typeof groupsQueryValidator>;
+export type HeatmapQuery = Infer<typeof heatmapQueryValidator>;
+export type HeatmapDevice = Infer<typeof heatmapDeviceValidator>;
 export type InsightQuery = Infer<typeof insightQueryValidator>;

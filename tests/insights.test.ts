@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { axisTicks } from "~/components/analytics/Charts";
 import {
+  heatmapQuery,
   clickLabel,
   eventLabel,
   formatBucket,
@@ -130,6 +131,30 @@ describe("insight parameters", () => {
     expect(isInsightKind("groups")).toBe(true);
     expect(isInsightKind("pie")).toBe(false);
     expect(isInsightKind(null)).toBe(false);
+  });
+});
+
+describe("heatmap parameters", () => {
+  const params = (input: Record<string, string>) => new URLSearchParams(input);
+  const now = Date.UTC(2026, 9, 18);
+
+  it("reads a page of the site's own, a kind of screen and days", () => {
+    expect(heatmapQuery(params({ path: "/wall?q=x#top", device: "mobile", days: "7" }), now)).toEqual({
+      kind: "heatmap",
+      range: { from: now - 7 * 86_400_000, to: now + 1 },
+      path: "/wall",
+      device: "mobile",
+    });
+  });
+
+  it("falls back to the home page on a desktop, and hides private path segments", () => {
+    expect(heatmapQuery(params({}), now)).toMatchObject({ path: "/", device: "desktop" });
+    expect(heatmapQuery(params({ path: "https://evil.example/", device: "fridge" }), now)).toMatchObject({
+      path: "/",
+      device: "desktop",
+    });
+    expect(heatmapQuery(params({ path: "//evil.example" }), now).path).toBe("/");
+    expect(heatmapQuery(params({ path: "/unsubscribe/abc" }), now).path).toBe("/unsubscribe/:token");
   });
 });
 

@@ -478,6 +478,34 @@ describe("flags and experiments", () => {
   });
 });
 
+describe("heatmaps", () => {
+  it("answer where people clicked on a page, for admins", async () => {
+    const { t, server } = setup();
+    const boss = await makeUser(server, "boss");
+    await t.run(async (ctx) => await ctx.db.patch(boss, { role: "admin" }));
+    await t.fetch("/a/e", {
+      method: "POST",
+      body: batch([
+        { name: "$pageview", path: "/wall", properties: { viewportWidth: 1280 } },
+        { name: "$heatmap", path: "/wall", properties: { viewportWidth: 1280, points: ["100,200", "101,201"] } },
+        { name: "$pageleave", path: "/wall", properties: { viewportWidth: 1280, scrollDepth: 0.5 } },
+      ]),
+      headers: { origin: "https://slopper.day", "user-agent": CHROME },
+    });
+    const now = Date.now();
+    const query = {
+      kind: "heatmap" as const,
+      range: { from: now - 86_400_000, to: now + 1 },
+      path: "/wall",
+      device: "desktop" as const,
+    };
+    const answer = await server.action(api.analytics.insight, { adminId: boss, query });
+    expect(answer.result).toMatchObject({ kind: "heatmap", clicks: 2, views: 1, cells: [{ clicks: 2 }] });
+    const someone = await makeUser(server, "someone");
+    await expect(server.action(api.analytics.insight, { adminId: someone, query })).rejects.toThrow();
+  });
+});
+
 describe("session recordings", () => {
   async function admin(t: ReturnType<typeof setup>["t"], server: Server): Promise<Id<"users">> {
     const userId = await makeUser(server, "boss");

@@ -136,6 +136,14 @@ rules out, pause the recording. Recordings go after 30 days (`retention.recordin
 
 `@slopperday/analytics/player` reads a recording back (`loadRecording`) and plays it (`createReplayer`).
 
+## Heatmaps
+
+The SDK sends where every click lands (dead clicks too) as `$heatmap` events: up to 50 `x,y` points in page
+coordinates per page and viewport width, outside `[data-no-capture]`. The `heatmap` insight (`path`, `device`) places
+them at the width that kind of screen is drawn at, counts views and how far down visits scrolled (`$pageleave`), and
+lists the most-clicked links and buttons. The browser SDK doesn't run inside frames, so an app can draw its own page
+under a heatmap without counting a visit.
+
 ## Privacy controls
 
 `optOut()` sets a first-party cookie (`sa_off`) the SDK and the app's server both read, and deletes the distinct id;

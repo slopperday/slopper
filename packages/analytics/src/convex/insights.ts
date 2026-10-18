@@ -9,6 +9,7 @@ import {
   GroupReportAggregator,
   type GroupReportQuery,
   GroupsAggregator,
+  HeatmapAggregator,
   type InsightAnswer,
   type InsightQuery,
   type InsightResult,
@@ -238,6 +239,14 @@ export async function runInsight(
       const groups = new GroupsAggregator(query);
       await scan.events(query.event, GroupsAggregator.scanRange(query), (row) => groups.add(row));
       result = groups.result();
+      break;
+    }
+    case "heatmap": {
+      const heatmap = new HeatmapAggregator(query);
+      for (const event of [EVENTS.pageview, EVENTS.pageleave, EVENTS.heatmap, EVENTS.autocapture]) {
+        await scan.events(event, query.range, (row) => heatmap.add(row));
+      }
+      result = heatmap.result();
       break;
     }
     case "web": {

@@ -16,7 +16,7 @@ const SECTIONS: readonly LegalSection[] = [
   {
     title: "How Slopper is used",
     body: [
-      "To see what works and what's broken, Slopper records how it's used: the pages you open, how long they stay open and how far down you scroll, and the buttons and links you click, with their labels. Never what you type into a field.",
+      "To see what works and what's broken, Slopper records how it's used: the pages you open, how long they stay open and how far down you scroll, the buttons and links you click, with their labels, and where on the page you clicked. Never what you type into a field.",
       "With each visit we note where you came from (the site that linked you and any utm tags on the link), your browser, operating system and kind of device, and your country, from Netlify's location lookup. Your IP address isn't kept.",
       "A cookie with a random id links one visit to the next. When you sign in, your earlier visits join your account, so we can see how people find Slopper and what they do once they're here. Launches, updates, votes, goals and pledges are recorded too (that you pledged, not how much).",
       "The same id decides which version you see when we try two versions of something, and we record which one you saw, to tell which works better. If you turn analytics off, you get the usual version.",

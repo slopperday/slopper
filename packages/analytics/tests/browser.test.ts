@@ -591,3 +591,54 @@ describe("session replay", () => {
     expect(recorder?.host.identity()).toBeNull();
   });
 });
+
+describe("heatmaps", () => {
+  function click(target: Element, pageX: number, pageY: number) {
+    const event = new MouseEvent("click", { bubbles: true });
+    Object.defineProperty(event, "pageX", { value: pageX });
+    Object.defineProperty(event, "pageY", { value: pageY });
+    target.dispatchEvent(event);
+  }
+
+  it("sends every click's spot on the page, per page, without private parts", async () => {
+    document.body.innerHTML = '<p id="text">Plain words</p><div data-no-capture><button id="secret">x</button></div>';
+    const client = make({ pageviews: true });
+    const text = document.getElementById("text");
+    const secret = document.getElementById("secret");
+    if (!text || !secret) throw new Error("The page is missing.");
+    click(text, 10.4, 20.6);
+    click(text, 30, 40);
+    click(secret, 1, 1);
+    history.pushState(null, "", "/next");
+    await tick();
+    click(text, 5, 6);
+    // Leaving a page sends its points (a hidden page's go with the beacon, which these tests stub out).
+    history.pushState(null, "", "/last");
+    await tick();
+    await client.flush();
+    const heatmaps = named("$heatmap");
+    expect(heatmaps.map((event) => [event.path, event.properties.points])).toEqual([
+      ["/", ["10,21", "30,40"]],
+      ["/next", ["5,6"]],
+    ]);
+    expect(heatmaps[0]?.properties.viewportWidth).toBe(window.innerWidth);
+    expect(named("$pageleave")[0]?.properties.viewportWidth).toBe(window.innerWidth);
+  });
+
+  it("sends a full batch of points at once, and none when turned off", async () => {
+    document.body.innerHTML = "<p>Words</p>";
+    const target = document.querySelector("p");
+    if (!target) throw new Error("The page is missing.");
+    const off = make({ pageviews: false, heatmaps: false });
+    click(target, 1, 1);
+    await off.flush();
+    expect(named("$heatmap")).toEqual([]);
+    off.shutdown();
+    const client = make({ pageviews: false });
+    for (let index = 0; index < 51; index += 1) click(target, index, index);
+    await client.flush();
+    expect(named("$heatmap").map((event) => event.properties.points)).toEqual([
+      Array.from({ length: 50 }, (_, index) => `${index},${index}`),
+    ]);
+  });
+});

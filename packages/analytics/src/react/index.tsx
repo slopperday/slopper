@@ -75,7 +75,8 @@ export function AnalyticsProvider({
   const [client, setClient] = useState<Analytics | null>(null);
   const endpoint = options?.endpoint ?? null;
   useEffect(() => {
-    if (!options) return;
+    // A page inside a frame (like a heatmap's preview of it) isn't a visit.
+    if (!options || window.self !== window.top) return;
     let active = true;
     let instance: Analytics | null = null;
     const cancel = afterLoad(() => {

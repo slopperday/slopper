@@ -61,13 +61,14 @@ export default async function handleRequest(
         "font-src 'self'",
         "img-src 'self' data: blob: https:",
         "media-src 'self' blob: https:",
-        // Demo videos play in their host's player, loaded by a click.
-        `frame-src ${VIDEO_FRAME_SOURCES.join(" ")}`,
+        // Demo videos play in their host's player, loaded by a click; heatmaps draw Slopper's own pages.
+        `frame-src 'self' ${VIDEO_FRAME_SOURCES.join(" ")}`,
         `connect-src 'self'${convexSources()}`,
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",
-        "frame-ancestors 'none'",
+        // Only Slopper frames its own pages: the admins' heatmaps draw a page under its clicks.
+        "frame-ancestors 'self'",
       ].join("; "),
     );
   }
