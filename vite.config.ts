@@ -72,7 +72,7 @@ export default defineConfig({
   },
   // Vitest runs tests/ and each package's tests; Playwright runs e2e/ against the production build.
   test: {
-    include: ["tests/**/*.test.ts", "packages/*/tests/**/*.test.ts"],
+    include: ["tests/**/*.test.ts", "packages/*/tests/**/*.test.{ts,tsx}"],
   },
   // CI runs on this machine, not on GitHub: `vp run ci`, also run by the
   // pre-push hook (.vite-hooks/pre-push).

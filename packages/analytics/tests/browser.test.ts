@@ -438,3 +438,40 @@ describe("autocapture", () => {
     expect(events()).toHaveLength(0);
   });
 });
+
+describe("load cost", () => {
+  it("stamps the landing page view with when the page was opened, not when the SDK arrived", async () => {
+    const opened = Date.now() - 2_500;
+    const client = make({ landedAt: opened });
+    history.pushState(null, "", "/next");
+    await tick();
+    await client.flush();
+    expect(named("$pageview")[0]?.timestamp).toBe(opened);
+    expect(named("$pageleave")[0]?.properties.duration).toBeGreaterThanOrEqual(2_500);
+  });
+
+  it("never stamps a view in the future", async () => {
+    const client = make({ landedAt: Date.now() + 60_000 });
+    await client.flush();
+    expect(named("$pageview")[0]?.timestamp).toBeLessThanOrEqual(Date.now());
+  });
+
+  it("writes the session to storage once per burst of activity, not once per event", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.UTC(2026, 9, 18, 9));
+    const client = make({ pageviews: false, autocapture: false });
+    const writes = vi.spyOn(localStorage, "setItem");
+    client.capture("first");
+    for (let n = 0; n < 20; n += 1) {
+      vi.setSystemTime(Date.UTC(2026, 9, 18, 9) + n * 100);
+      client.capture(`burst ${n}`);
+    }
+    expect(writes.mock.calls.filter(([key]) => key === "sa_state")).toHaveLength(1);
+    vi.setSystemTime(Date.UTC(2026, 9, 18, 9, 0, 10));
+    client.capture("later");
+    expect(writes.mock.calls.filter(([key]) => key === "sa_state")).toHaveLength(2);
+    // Still one session throughout.
+    await client.flush();
+    expect(new Set(events().map((event) => event.sessionId)).size).toBe(1);
+  });
+});

@@ -8,8 +8,11 @@ import type { Properties } from "../shared/properties";
  * open and how far down it was scrolled.
  */
 
-/** Captures an event on a given page: a leave is recorded after the address already changed. */
-type Capture = (name: string, properties: Properties, path: string) => void;
+/**
+ * Captures an event on a given page (a leave is recorded after the address
+ * already changed), at `at` when that isn't now.
+ */
+type Capture = (name: string, properties: Properties, path: string, at?: number) => void;
 
 const UTM_PARAMETERS = {
   utm_source: "utmSource",
@@ -41,8 +44,8 @@ export class PageTracker {
     private readonly currentPath: () => string,
   ) {}
 
-  /** Records a view of the current page, and a leave of the one before it. */
-  view(): void {
+  /** Records a view of the current page (opened at `at`, if not now), and a leave of the one before it. */
+  view(at?: number): void {
     const path = this.currentPath();
     if (this.current?.path === path) return;
     const previous = this.current?.path ?? null;
@@ -66,8 +69,9 @@ export class PageTracker {
       properties.previousPath = previous;
     }
     this.firstView = false;
-    this.current = { path, shownAt: Date.now(), scrollDepth: scrollDepth() };
-    this.capture(EVENTS.pageview, properties, path);
+    const shownAt = Math.min(at ?? Date.now(), Date.now());
+    this.current = { path, shownAt, scrollDepth: scrollDepth() };
+    this.capture(EVENTS.pageview, properties, path, shownAt);
   }
 
   /** Records leaving the current page, if one is being viewed. */
