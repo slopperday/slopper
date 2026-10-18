@@ -89,11 +89,11 @@ export function ScreenshotPicker({
         const body = new FormData();
         body.set("file", await prepare(file), file.name);
         const response = await fetch("/api/media", { method: "POST", body });
-        const result = (await response.json()) as { id?: string; url?: string; contentCheck?: string; error?: string };
+        const result = (await response.json()) as { id?: string; url?: string; nsfw?: boolean; error?: string };
         const { id, url } = result;
         if (!response.ok || !id || !url) throw new Error(result.error ?? "Upload failed");
         setShots((current) => [...current, { id, url }]);
-        if (result.contentCheck === "mature") setNotice("That one looks NSFW, so this slop will be blurred.");
+        if (result.nsfw) setNotice("That one looks NSFW, so this slop will be blurred.");
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Upload failed");
       } finally {

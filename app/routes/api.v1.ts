@@ -99,7 +99,7 @@ async function handle(request: Request, path: string): Promise<Response> {
     if (match.operation === "upload_screenshot" && contentType.startsWith("image/")) {
       const result = await uploadImage(user._id, { bytes: new Uint8Array(await request.arrayBuffer()) });
       if (!result.ok) throw new ApiError(400, result.error);
-      return Response.json({ id: result.id, url: result.url, contentCheck: result.contentCheck }, { status: 201 });
+      return Response.json({ id: result.id, url: result.url, nsfw: result.contentCheck === "mature" }, { status: 201 });
     }
     if (match.operation === "upload_video" && contentType.startsWith("video/")) {
       const result = await uploadVideo(user._id, new Uint8Array(await request.arrayBuffer()));

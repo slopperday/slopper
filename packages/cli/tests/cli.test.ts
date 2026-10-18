@@ -992,7 +992,7 @@ describe("promo videos", () => {
 });
 
 describe("screenshots", () => {
-  const MEDIA = { status: 201, body: { id: "media_1", url: "https://cdn.test/x.png", contentCheck: "ok" } };
+  const MEDIA = { status: 201, body: { id: "media_1", url: "https://cdn.test/x.png", nsfw: false } };
 
   it.each([
     ["cover.png", "image/png"],
@@ -1018,8 +1018,8 @@ describe("screenshots", () => {
   it("launches with uploaded screenshot files, media ids and parsed links", async () => {
     const cli = await harness(
       {
-        "POST /api/v1/media": { status: 201, body: { id: "media_file", url: "https://cdn/x.png", contentCheck: "ok" } },
-        "POST /api/v1/slops": { status: 201, body: { slop: { id: "slop_1" }, contentCheck: "ok" } },
+        "POST /api/v1/media": { status: 201, body: { id: "media_file", url: "https://cdn/x.png", nsfw: false } },
+        "POST /api/v1/slops": { status: 201, body: { slop: { id: "slop_1" }, nsfw: false } },
       },
       TOKEN,
     );
@@ -1047,7 +1047,7 @@ describe("screenshots", () => {
       "--autopost",
     );
     expect(result.code).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({ slop: { id: "slop_1" }, contentCheck: "ok" });
+    expect(JSON.parse(result.stdout)).toEqual({ slop: { id: "slop_1" }, nsfw: false });
     const [upload, launch] = cli.calls;
     expect(upload).toMatchObject({ method: "POST", contentType: "image/png", body: [137, 80, 78, 71] });
     expect(launch.body).toEqual({

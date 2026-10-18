@@ -241,7 +241,7 @@ const SLOP_FLAGS = {
 
 const AUTOPOST_FLAG = {
   "--autopost":
-    "Also post it to the connected X, LinkedIn and Bluesky accounts. Held unless it passed the content check.",
+    "Also post it to the connected X, LinkedIn and Bluesky accounts. When it can't be posted yet, the result says why.",
 };
 
 /** What /api/cli/login answers: the secret the CLI polls with, and the page the person approves on. */
@@ -388,7 +388,8 @@ export const COMMANDS: Command[] = [
   {
     name: "upload",
     args: "<image>",
-    summary: "Upload a screenshot (PNG, JPEG, WebP or GIF, up to 4 MB). Prints its id and the content check's verdict.",
+    summary:
+      "Upload a screenshot (PNG, JPEG, WebP or GIF, up to 4 MB). Prints its id, and nsfw: true when it will blur a slop.",
     run: (context) => uploadImage(context.api, positional(context, 0, "image")),
   },
   {
@@ -465,7 +466,7 @@ export const COMMANDS: Command[] = [
     name: "video",
     args: "<slop> [file|id]",
     summary:
-      "Put a promo video (MP4 or WebM, up to 4 MB) on one of your slops, replacing its last. Your first plays once a moderator approves it; after that, new ones that pass the video check play at once.",
+      "Put a promo video (MP4 or WebM, up to 4 MB) on one of your slops, replacing its last. It plays once a moderator approves it; once one of yours has been approved, later ones can play straight away.",
     flags: { "--remove": "Take the slop's video off instead." },
     options: { remove: { type: "boolean" } },
     async run(context) {

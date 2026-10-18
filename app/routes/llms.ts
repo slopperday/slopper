@@ -22,15 +22,15 @@ export function loader() {
 > Too much slop? Not enough yet! People ship small apps, sites, games and betas every day toward a goal like "30 slops in 30 days", promote them, test them with real people, and keep slopping until one is slopcessful.
 
 ## Concepts
-- Slop: one shipped thing with links (website, App Store, TestFlight, Google Play, Android beta, source), screenshots, a tagline and a Markdown description.
+- Slop: one shipped thing with links (website, App Store, TestFlight, Google Play, Android beta, source), screenshots, a tagline and a Markdown description. nsfw: true means it's blurred; hidden: true means only its maker can see it while it waits for a moderator.
 - Goal: N slops in M days. Days end at midnight in the user's time zone. Every slop counts, so three out in one day are three.
 - Scheduled launches: a ready slop can go out later, at a set time or on the next free day as its race starts. Only the user sees it until then, and it counts on the day it goes out.
 - Slop of the day: every UTC day, slops launched that day race on votes. The leader at midnight UTC wins.
 - Votes: everyone gets ${LIMITS.votesPerDay} a day (UTC), up or private down. Switching today's vote is free and clearing it gives it back.
 - Updates: update, feature, field (a real-world test: who tried it, what they said), repromote.
 - Slopcessful: winning slop of the day makes a slop slopcessful. Nobody can declare it.
-- Auto-post: launches and updates can post to the user's connected ${listWords(autopostNetworks(), "and")} accounts (autopost: true). Each one passes an automated content check first; anything that fails it, or has been flagged, is never auto-posted.
-- Screenshots are checked on upload: explicit or hateful images are refused, and a mature one blurs any slop that shows it.
+- Auto-post: launches and updates can post to the user's connected ${listWords(autopostNetworks(), "and")} accounts (autopost: true). When one can't be posted yet (it's waiting for a moderator, marked NSFW or flagged), the result says why.
+- Screenshots: explicit or hateful images are refused, and a mature one blurs any slop that shows it.
 
 ## Auth
 Personal API token, created by the user at ${origin}/settings/api. Send it as: Authorization: Bearer slp_...
@@ -48,12 +48,12 @@ ${tools}
 - GET    ${origin}/api/v1/today
 - GET    ${origin}/api/v1/search?q=…        &category=… (repeat for several) &limit=… (up to 48): best match first, by words and meaning
 - POST   ${origin}/api/v1/goal               { target, days, startDate?, title? }
-- POST   ${origin}/api/v1/media              raw image body (Content-Type: image/png…) or { base64 } → { id, url, contentCheck }
+- POST   ${origin}/api/v1/media              raw image body (Content-Type: image/png…) or { base64 } → { id, url, nsfw }
 - POST   ${origin}/api/v1/videos             raw MP4 or WebM body (Content-Type: video/mp4…, up to 4 MB) or { base64 } → { id }
 - GET    ${origin}/api/v1/slops
 - POST   ${origin}/api/v1/slops              { name, tagline, category, links, description?, screenshots?, madeWith?, launchNote?, releaseAt?, autopost? }
 - PATCH  ${origin}/api/v1/slops/{slop}       any create_slop field
-- PUT    ${origin}/api/v1/slops/{slop}/video        { video: id | null }; your first video is pending until a moderator approves it, then live; later ones are live at once if they pass the video check
+- PUT    ${origin}/api/v1/slops/{slop}/video        { video: id | null }; pending until a moderator approves it, then live; once one of yours has been approved, later ones can be live at once
 - POST   ${origin}/api/v1/slops/{slop}/updates      { kind, body, version?, images?, links?: [{ kind?, url, preview? }], featureName?, outcome?, who?, autopost? }
 - POST   ${origin}/api/v1/slops/{slop}/money        { kind: "cost" | "revenue", amount, currency?, category?, note?, date? }
 - POST   ${origin}/api/v1/slops/{slop}/vote         { vote: "up" | "down" | "clear" }
