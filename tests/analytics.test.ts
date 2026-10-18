@@ -478,6 +478,31 @@ describe("flags and experiments", () => {
   });
 });
 
+describe("web vitals", () => {
+  it("answer how fast pages load for admins", async () => {
+    const { t, server } = setup();
+    const boss = await makeUser(server, "boss");
+    await t.run(async (ctx) => await ctx.db.patch(boss, { role: "admin" }));
+    await t.fetch("/a/e", {
+      method: "POST",
+      body: batch([
+        { name: "$webVitals", path: "/wall", properties: { lcp: 1_200, cls: 0.01, inp: 90 } },
+        { name: "$webVitals", path: "/wall", properties: { lcp: 4_500, cls: 0.3, inp: 700 } },
+      ]),
+      headers: { origin: "https://slopper.day", "user-agent": CHROME },
+    });
+    const now = Date.now();
+    const answer = await server.action(api.analytics.insight, {
+      adminId: boss,
+      query: { kind: "vitals", range: { from: now - 86_400_000, to: now + 1 } },
+    });
+    if (answer.result.kind !== "vitals") throw new Error("Not a vitals answer.");
+    expect(answer.result.loads).toBe(2);
+    expect(answer.result.vitals.lcp).toMatchObject({ p75: 4_500, rating: "poor", samples: 2 });
+    expect(answer.result.pages).toEqual([expect.objectContaining({ path: "/wall", loads: 2 })]);
+  });
+});
+
 describe("errors", () => {
   it("keeps server errors with browsers' for admins to read as issues", async () => {
     const { t, server } = setup();

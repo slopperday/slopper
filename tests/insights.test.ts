@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 import { axisTicks } from "~/components/analytics/Charts";
 import {
+  formatVital,
   heatmapQuery,
+  vitalsQuery,
   clickLabel,
   eventLabel,
   formatBucket,
@@ -155,6 +157,19 @@ describe("heatmap parameters", () => {
     });
     expect(heatmapQuery(params({ path: "//evil.example" }), now).path).toBe("/");
     expect(heatmapQuery(params({ path: "/unsubscribe/abc" }), now).path).toBe("/unsubscribe/:token");
+  });
+});
+
+describe("vitals", () => {
+  it("reads days, and writes values as people read them", () => {
+    const now = Date.UTC(2026, 9, 18);
+    expect(vitalsQuery(new URLSearchParams({ days: "7" }), now)).toEqual({
+      kind: "vitals",
+      range: { from: now - 7 * 86_400_000, to: now + 1 },
+    });
+    expect(formatVital("lcp", 2_480)).toBe("2.5 s");
+    expect(formatVital("inp", 96.4)).toBe("96 ms");
+    expect(formatVital("cls", 0.046)).toBe("0.05");
   });
 });
 

@@ -20,7 +20,8 @@
   "dependencies": {
     "@rrweb/record": "^2.1.7",
     "@rrweb/replay": "^2.1.7",
-    "@rrweb/types": "^2.1.7"
+    "@rrweb/types": "^2.1.7",
+    "web-vitals": "^6.2.3"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
