@@ -1,4 +1,5 @@
 import type {
+  ErrorsQuery,
   HeatmapDevice,
   HeatmapQuery,
   InsightQuery,
@@ -105,6 +106,15 @@ export const HEATMAP_DEVICE_LABELS: Record<HeatmapDevice, string> = {
   tablet: "Tablet",
   desktop: "Desktop",
 };
+
+/** Errors over `days`, grouped into issues; with `fingerprint`, one issue. */
+export function errorsQuery(params: Params, now: number, fingerprint?: string): ErrorsQuery {
+  return {
+    kind: "errors",
+    range: { from: now - daysOf(params) * 86_400_000, to: now + 1 },
+    ...(fingerprint ? { fingerprint } : {}),
+  };
+}
 
 /** A heatmap from `path` (one of the site's own, "/" unless given), `device` and `days`. */
 export function heatmapQuery(params: Params, now: number): HeatmapQuery {

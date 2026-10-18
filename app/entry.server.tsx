@@ -1,8 +1,9 @@
 import { isbot } from "isbot";
 import { renderToReadableStream } from "react-dom/server.edge";
-import type { EntryContext, RouterContextProvider } from "react-router";
+import type { EntryContext, HandleErrorFunction, RouterContextProvider } from "react-router";
 import { ServerRouter } from "react-router";
 import { config } from "./.server/config";
+import { reportServerError } from "./.server/errors";
 import { APP_VERSION } from "./lib/version";
 import { VIDEO_FRAME_SOURCES } from "~/lib/video";
 
@@ -24,6 +25,16 @@ function convexSources(): string {
  * Web-streams rendering so the same server bundle runs on Node in
  * development and in Netlify Functions in production. Bots get the full document.
  */
+/**
+ * Errors in loaders, actions and rendering: logged, and recorded in
+ * analytics. A request the visitor walked away from isn't an error.
+ */
+export const handleError: HandleErrorFunction = (error, { request }) => {
+  if (request.signal.aborted) return;
+  console.error(error);
+  void reportServerError(error, request);
+};
+
 export default async function handleRequest(
   request: Request,
   responseStatusCode: number,

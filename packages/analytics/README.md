@@ -144,6 +144,15 @@ them at the width that kind of screen is drawn at, counts views and how far down
 lists the most-clicked links and buttons. The browser SDK doesn't run inside frames, so an app can draw its own page
 under a heatmap without counting a visit.
 
+## Errors
+
+The SDK records uncaught errors and unhandled rejections (and `captureException(error)` for caught ones) as
+`$exception` events: type, message, a short stack without query strings, the source, and a fingerprint from the type
+and message with numbers, ids and quoted values taken out, so the same error groups into one issue across deploys.
+Extension errors, empty cross-origin "Script error."s and the ResizeObserver loop notice are left out; a page sends 25
+at most, and the same one once a minute. Servers send theirs with `capture` (`exceptionProperties` builds them). The
+`errors` insight groups them into issues, or lists one issue's occurrences given its `fingerprint`.
+
 ## Privacy controls
 
 `optOut()` sets a first-party cookie (`sa_off`) the SDK and the app's server both read, and deletes the distinct id;

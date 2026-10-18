@@ -783,3 +783,37 @@ export const removeExperiment = mutation({
     return removed;
   },
 });
+
+/**
+ * An error on the app server (app/.server/errors.ts), as `$exception` with
+ * the source "server": who hit it when their browser said, and on which page.
+ */
+export const captureServerError = mutation({
+  args: {
+    distinctId: v.union(v.string(), v.null()),
+    path: v.string(),
+    type: v.string(),
+    message: v.string(),
+    stack: v.union(v.string(), v.null()),
+    fingerprint: v.string(),
+  },
+  handler: async (ctx, { distinctId, path, ...error }) => {
+    await requireServer(ctx);
+    await analytics.capture(ctx, {
+      name: "$exception",
+      // Errors with nobody to pin them on (a crawler, someone who turned analytics off) go to one id.
+      distinctId: distinctId ?? "server",
+      path,
+      properties: { ...error, source: "server" },
+    });
+  },
+});
+
+/** Which of these sessions were recorded, to link an error's occurrences to their replays. */
+export const recordedSessions = query({
+  args: { adminId: v.id("users"), sessionIds: v.array(v.string()) },
+  handler: async (ctx, { adminId, sessionIds }): Promise<string[]> => {
+    await requireAnalytics(ctx, adminId);
+    return await ctx.runQuery(components.analytics.recordings.recorded, { sessionIds });
+  },
+});

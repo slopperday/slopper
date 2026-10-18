@@ -478,6 +478,48 @@ describe("flags and experiments", () => {
   });
 });
 
+describe("errors", () => {
+  it("keeps server errors with browsers' for admins to read as issues", async () => {
+    const { t, server } = setup();
+    const boss = await makeUser(server, "boss");
+    await t.run(async (ctx) => await ctx.db.patch(boss, { role: "admin" }));
+    const error = { type: "Error", message: "Slop 42 is gone", stack: "Error: Slop 42 is gone", fingerprint: "f-gone" };
+    await expect(
+      t.mutation(api.analytics.captureServerError, { distinctId: null, path: "/wall", ...error }),
+    ).rejects.toThrow("Only the Slopper server");
+    await server.mutation(api.analytics.captureServerError, { distinctId: "visitor-e", path: "/wall", ...error });
+    await server.mutation(api.analytics.captureServerError, { distinctId: null, path: "/today", ...error });
+    await t.fetch("/a/e", {
+      method: "POST",
+      body: batch([
+        {
+          distinctId: "visitor-e",
+          name: "$exception",
+          path: "/wall",
+          properties: { type: "TypeError", message: "x is undefined", fingerprint: "f-browser", source: "uncaught" },
+        },
+      ]),
+      headers: { origin: "https://slopper.day", "user-agent": CHROME },
+    });
+    const now = Date.now();
+    const query = { kind: "errors" as const, range: { from: now - 86_400_000, to: now + 1 } };
+    const answer = await server.action(api.analytics.insight, { adminId: boss, query });
+    if (answer.result.kind !== "errors") throw new Error("Not an errors answer.");
+    expect(answer.result.issues.map((issue) => [issue.fingerprint, issue.count, issue.people, issue.sources])).toEqual([
+      ["f-gone", 2, 2, ["server"]],
+      ["f-browser", 1, 1, ["uncaught"]],
+    ]);
+    const one = await server.action(api.analytics.insight, {
+      adminId: boss,
+      query: { ...query, fingerprint: "f-gone" },
+    });
+    if (one.result.kind !== "errors") throw new Error("Not an errors answer.");
+    expect(one.result.occurrences.map((occurrence) => occurrence.path)).toEqual(
+      expect.arrayContaining(["/today", "/wall"]),
+    );
+  });
+});
+
 describe("heatmaps", () => {
   it("answer where people clicked on a page, for admins", async () => {
     const { t, server } = setup();

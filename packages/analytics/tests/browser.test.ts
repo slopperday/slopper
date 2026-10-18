@@ -642,3 +642,53 @@ describe("heatmaps", () => {
     ]);
   });
 });
+
+describe("errors", () => {
+  function throwUncaught(error: unknown, filename = "https://slopper.day/assets/root.js") {
+    window.dispatchEvent(
+      new ErrorEvent("error", { error, message: error instanceof Error ? error.message : String(error), filename }),
+    );
+  }
+
+  it("records uncaught errors and rejections, once a minute each", async () => {
+    const client = make({ pageviews: false });
+    throwUncaught(new TypeError("x is undefined"));
+    throwUncaught(new TypeError("x is undefined"));
+    const rejection = new Event("unhandledrejection");
+    Object.defineProperty(rejection, "reason", { value: new Error("Save failed for slop 42") });
+    window.dispatchEvent(rejection);
+    client.captureException(new Error("Caught it"), { boundary: "root" });
+    await client.flush();
+    expect(named("$exception").map((event) => [event.properties.type, event.properties.source])).toEqual([
+      ["TypeError", "uncaught"],
+      ["Error", "rejection"],
+      ["Error", "reported"],
+    ]);
+    expect(named("$exception")[2]?.properties).toMatchObject({ message: "Caught it", boundary: "root" });
+    expect(typeof named("$exception")[0]?.properties.fingerprint).toBe("string");
+  });
+
+  it("leaves out what the page can't act on, and stops at 25 a page", async () => {
+    const client = make({ pageviews: false });
+    throwUncaught(new Error("from an extension"), "chrome-extension://abc/content.js");
+    throwUncaught("ResizeObserver loop completed with undelivered notifications.");
+    window.dispatchEvent(new ErrorEvent("error", { error: null, message: "Script error.", filename: "" }));
+    for (let index = 0; index < 30; index += 1) client.captureException(new Error(`distinct ${"x".repeat(index)}`));
+    await client.flush();
+    expect(named("$exception")).toHaveLength(25);
+    expect(named("$exception").every((event) => event.properties.source === "reported")).toBe(true);
+  });
+
+  it("records none when turned off or opted out", async () => {
+    const off = make({ pageviews: false, errors: false });
+    throwUncaught(new Error("nobody hears this"));
+    await off.flush();
+    expect(named("$exception")).toEqual([]);
+    off.shutdown();
+    const client = make({ pageviews: false });
+    client.optOut();
+    client.captureException(new Error("nor this"));
+    await client.flush();
+    expect(named("$exception")).toEqual([]);
+  });
+});

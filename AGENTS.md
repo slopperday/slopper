@@ -144,6 +144,12 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   as it is now in a same-origin frame (the CSP's `frame-src`/`frame-ancestors 'self'` allow only that, and analytics
   doesn't run in frames) with the clicks, scroll depth and most-clicked elements for phones, tablets or desktops.
   Agents: `slopper admin analytics heatmap --path /wall --device mobile`.
+- **Errors:** browsers report uncaught errors, unhandled rejections and what the root error boundary catches; the app
+  server reports errors in loaders, actions and rendering (`handleError` in `app/entry.server.tsx` →
+  `app/.server/errors.ts` → `analytics.captureServerError`). All are `$exception` events grouped by fingerprint
+  (type and message with numbers, ids and values taken out) at `/analytics/errors`, each issue linked to the sessions
+  it happened in and their recordings. Agents: `slopper admin analytics errors`, then `error --q <fingerprint>`. Catch
+  an error you handle but still want to know about with `useAnalytics()?.captureException(error)`.
 - **Traction:** sources are one client each in `app/.server/integrations/` (registered in `index.ts`), read only.
   Syncs run on the app server (it holds the sealing key); Convex stores days in `metrics` and hands due sources out
   with `integrations.claim`. Numbers on the page always say where they came from; typed-in money stays in the ledger.

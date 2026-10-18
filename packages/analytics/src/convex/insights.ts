@@ -8,6 +8,7 @@ import {
   type GroupReport,
   GroupReportAggregator,
   type GroupReportQuery,
+  ErrorsAggregator,
   GroupsAggregator,
   HeatmapAggregator,
   type InsightAnswer,
@@ -239,6 +240,12 @@ export async function runInsight(
       const groups = new GroupsAggregator(query);
       await scan.events(query.event, GroupsAggregator.scanRange(query), (row) => groups.add(row));
       result = groups.result();
+      break;
+    }
+    case "errors": {
+      const errors = new ErrorsAggregator(query);
+      await scan.events(EVENTS.exception, query.range, (row) => errors.add(row));
+      result = errors.result();
       break;
     }
     case "heatmap": {
