@@ -113,6 +113,28 @@ export const staffActionValidator = v.union(
   v.object({ type: v.literal("deleteComment"), slopId: v.id("slops"), authorId: v.id("users") }),
   /** Deleted everything analytics had on someone (the target is their username, or the id they had). */
   v.object({ type: v.literal("forgetPerson") }),
+  /** Made, changed, turned on or off, or deleted a feature flag (the target is its key). */
+  v.object({
+    type: v.literal("flag"),
+    change: v.union(
+      v.literal("created"),
+      v.literal("changed"),
+      v.literal("on"),
+      v.literal("off"),
+      v.literal("deleted"),
+    ),
+  }),
+  /** Made, changed, started, stopped or deleted an experiment (the target is its key). */
+  v.object({
+    type: v.literal("experiment"),
+    change: v.union(
+      v.literal("created"),
+      v.literal("changed"),
+      v.literal("started"),
+      v.literal("stopped"),
+      v.literal("deleted"),
+    ),
+  }),
 );
 
 /**

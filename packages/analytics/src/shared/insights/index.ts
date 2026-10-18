@@ -7,6 +7,7 @@ import type { StickinessResult } from "./stickiness";
 import type { TrendsResult } from "./trends";
 import type { WebResult } from "./web";
 
+export * from "./experiments";
 export * from "./funnels";
 export * from "./groups";
 export * from "./lifecycle";

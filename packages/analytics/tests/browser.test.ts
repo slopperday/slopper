@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { Analytics, type AnalyticsOptions } from "../src/browser/client";
 import { selectorOf } from "../src/browser/autocapture";
-import { uuidv7 } from "../src/browser/uuid";
+import { uuidv7 } from "../src/shared/uuid";
 import type { WireBatch, WireEvent } from "../src/shared/events";
 
 const ENDPOINT = "https://happy-otter-123.convex.site/a";
@@ -215,6 +215,34 @@ describe("Analytics", () => {
     expect(named("after")[0]?.distinctId).toBe("user-1");
     expect(client.identified).toBe(true);
     expect(document.cookie).toContain("sa_id=user-1");
+  });
+
+  it("reports seeing a flag once a session, and again for another value or session", async () => {
+    const client = make({ pageviews: false });
+    client.flagSeen("wall-order", "newest");
+    client.flagSeen("wall-order", "newest");
+    // The next page in the same session remembers it was reported.
+    const nextPage = make({ pageviews: false });
+    nextPage.flagSeen("wall-order", "newest");
+    nextPage.flagSeen("new-wall", false);
+    await client.flush();
+    await nextPage.flush();
+    expect(named("$featureFlagCalled").map((event) => event.properties)).toEqual([
+      { flag: "wall-order", variant: "newest" },
+      { flag: "new-wall", variant: "false" },
+    ]);
+    nextPage.reset();
+    nextPage.flagSeen("wall-order", "newest");
+    await nextPage.flush();
+    expect(named("$featureFlagCalled")).toHaveLength(3);
+  });
+
+  it("reports no flags for a browser that opted out", async () => {
+    const client = make({ pageviews: false });
+    client.optOut();
+    client.flagSeen("wall-order", "newest");
+    await client.flush();
+    expect(named("$featureFlagCalled")).toEqual([]);
   });
 
   it("starts over as a new visitor on reset", async () => {

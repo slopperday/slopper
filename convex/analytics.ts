@@ -1,4 +1,14 @@
-import { Analytics, type InsightAnswer, insightQueryValidator, type Overview } from "@slopperday/analytics/convex";
+import {
+  Analytics,
+  type ExperimentAnswer,
+  flagConditionValidator,
+  type FlagDefinition,
+  flagVariantValidator,
+  type InsightAnswer,
+  insightQueryValidator,
+  type Overview,
+  propertyFilterValidator,
+} from "@slopperday/analytics/convex";
 import { bucketsIn, type GroupReport, type GroupRow, type GroupsResult } from "@slopperday/analytics/shared/insights";
 import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
@@ -599,5 +609,156 @@ export const slopIdAt = query({
       .withIndex("by_user_slug", (q) => q.eq("userId", user._id).eq("slug", slug))
       .unique();
     return slop?._id ?? null;
+  },
+});
+
+// Feature flags and experiments: definitions live in the analytics component;
+// the app server evaluates flags where it renders (app/.server/flags.ts).
+
+/** Active flags, for the app server to evaluate (it caches them). */
+export const flagDefinitions = query({
+  args: {},
+  handler: async (ctx): Promise<FlagDefinition[]> => {
+    await requireServer(ctx);
+    return await ctx.runQuery(components.analytics.flags.definitions, {});
+  },
+});
+
+export const flags = query({
+  args: { adminId: v.id("users") },
+  handler: async (ctx, { adminId }) => {
+    await requireAnalytics(ctx, adminId);
+    return await ctx.runQuery(components.analytics.flags.list, {});
+  },
+});
+
+export const flag = query({
+  args: { adminId: v.id("users"), key: v.string() },
+  handler: async (ctx, { adminId, key }) => {
+    await requireAnalytics(ctx, adminId);
+    const [found, experiments] = await Promise.all([
+      ctx.runQuery(components.analytics.flags.get, { key }),
+      ctx.runQuery(components.analytics.experiments.list, {}),
+    ]);
+    return found ? { flag: found, experiments: experiments.filter((experiment) => experiment.flagKey === key) } : null;
+  },
+});
+
+const flagInput = v.object({
+  key: v.string(),
+  name: v.string(),
+  description: v.string(),
+  active: v.boolean(),
+  variants: v.union(v.array(flagVariantValidator), v.null()),
+  conditions: v.array(flagConditionValidator),
+  payloads: v.record(v.string(), v.string()),
+});
+
+async function requireAnalyticsManager(ctx: MutationCtx, adminId: Id<"users">): Promise<void> {
+  await requireServer(ctx);
+  await requirePermission(ctx, adminId, "analytics.manage");
+}
+
+/** Makes a flag, or changes one (keeping whether it's on). */
+export const saveFlag = mutation({
+  args: { adminId: v.id("users"), flag: flagInput },
+  handler: async (ctx, { adminId, flag }): Promise<{ created: boolean }> => {
+    await requireAnalyticsManager(ctx, adminId);
+    const existing = await ctx.runQuery(components.analytics.flags.get, { key: flag.key });
+    const saved = await ctx.runMutation(components.analytics.flags.save, {
+      ...flag,
+      active: existing?.active ?? flag.active,
+    });
+    await logStaffAction(ctx, adminId, { type: "flag", change: saved.created ? "created" : "changed" }, flag.key);
+    return saved;
+  },
+});
+
+export const setFlagActive = mutation({
+  args: { adminId: v.id("users"), key: v.string(), active: v.boolean() },
+  handler: async (ctx, { adminId, key, active }): Promise<boolean> => {
+    await requireAnalyticsManager(ctx, adminId);
+    const changed = await ctx.runMutation(components.analytics.flags.setActive, { key, active });
+    if (changed) await logStaffAction(ctx, adminId, { type: "flag", change: active ? "on" : "off" }, key);
+    return changed;
+  },
+});
+
+export const removeFlag = mutation({
+  args: { adminId: v.id("users"), key: v.string() },
+  handler: async (ctx, { adminId, key }): Promise<boolean> => {
+    await requireAnalyticsManager(ctx, adminId);
+    const removed = await ctx.runMutation(components.analytics.flags.remove, { key });
+    if (removed) await logStaffAction(ctx, adminId, { type: "flag", change: "deleted" }, key);
+    return removed;
+  },
+});
+
+export const experiments = query({
+  args: { adminId: v.id("users") },
+  handler: async (ctx, { adminId }) => {
+    await requireAnalytics(ctx, adminId);
+    return await ctx.runQuery(components.analytics.experiments.list, {});
+  },
+});
+
+/** An experiment and how its variants are converting. */
+export const experimentResults = action({
+  args: { adminId: v.id("users"), key: v.string() },
+  handler: async (ctx, { adminId, key }): Promise<ExperimentAnswer | null> => {
+    await requireAnalyticsAction(ctx, adminId);
+    return await analytics.experiment(ctx, key);
+  },
+});
+
+export const saveExperiment = mutation({
+  args: {
+    adminId: v.id("users"),
+    experiment: v.object({
+      key: v.string(),
+      name: v.string(),
+      hypothesis: v.string(),
+      flagKey: v.string(),
+      goal: v.object({ event: v.string(), filters: v.array(propertyFilterValidator) }),
+    }),
+  },
+  handler: async (ctx, { adminId, experiment }): Promise<{ created: boolean }> => {
+    await requireAnalyticsManager(ctx, adminId);
+    const saved = await ctx.runMutation(components.analytics.experiments.save, experiment);
+    await logStaffAction(
+      ctx,
+      adminId,
+      { type: "experiment", change: saved.created ? "created" : "changed" },
+      experiment.key,
+    );
+    return saved;
+  },
+});
+
+export const startExperiment = mutation({
+  args: { adminId: v.id("users"), key: v.string() },
+  handler: async (ctx, { adminId, key }) => {
+    await requireAnalyticsManager(ctx, adminId);
+    await ctx.runMutation(components.analytics.experiments.start, { key });
+    await logStaffAction(ctx, adminId, { type: "experiment", change: "started" }, key);
+  },
+});
+
+export const stopExperiment = mutation({
+  args: { adminId: v.id("users"), key: v.string() },
+  handler: async (ctx, { adminId, key }) => {
+    await requireAnalyticsManager(ctx, adminId);
+    await ctx.runMutation(components.analytics.experiments.stop, { key });
+    await logStaffAction(ctx, adminId, { type: "experiment", change: "stopped" }, key);
+  },
+});
+
+export const removeExperiment = mutation({
+  args: { adminId: v.id("users"), key: v.string() },
+  handler: async (ctx, { adminId, key }): Promise<boolean> => {
+    await requireAnalyticsManager(ctx, adminId);
+    const removed = await ctx.runMutation(components.analytics.experiments.remove, { key });
+    if (removed) await logStaffAction(ctx, adminId, { type: "experiment", change: "deleted" }, key);
+    return removed;
   },
 });

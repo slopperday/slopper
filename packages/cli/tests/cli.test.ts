@@ -401,6 +401,13 @@ const ROUTE_CASES: { name: string; argv: string[]; method: string; path: string;
     path: "/api/v1/admin/analytics?report=funnel&days=14&window=3&event=%24pageview&event=slop+launched&stepPath=%2F",
     body: null,
   },
+  {
+    name: "admin",
+    argv: ["admin", "analytics", "experiment", "--q", "newest-first"],
+    method: "GET",
+    path: "/api/v1/admin/analytics?report=experiment&q=newest-first",
+    body: null,
+  },
   ...(["up", "down", "clear"] as const).map((vote) => ({
     name: "vote",
     argv: ["vote", "abc123", vote],

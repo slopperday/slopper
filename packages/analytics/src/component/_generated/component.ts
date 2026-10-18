@@ -56,6 +56,269 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
     };
+    experiments: {
+      get: FunctionReference<
+        "query",
+        "internal",
+        { key: string },
+        {
+          _creationTime: number;
+          _id: string;
+          endedAt: number | null;
+          flagKey: string;
+          goal: {
+            event: string;
+            filters: Array<{
+              key: string;
+              operator:
+                | "equals"
+                | "notEquals"
+                | "contains"
+                | "notContains"
+                | "isSet"
+                | "isNotSet"
+                | "greaterThan"
+                | "lessThan";
+              value?: string | number | boolean;
+            }>;
+          };
+          hypothesis: string;
+          key: string;
+          name: string;
+          startedAt: number | null;
+          status: "draft" | "running" | "stopped";
+        } | null,
+        Name
+      >;
+      list: FunctionReference<
+        "query",
+        "internal",
+        {},
+        Array<{
+          _creationTime: number;
+          _id: string;
+          endedAt: number | null;
+          flagKey: string;
+          goal: {
+            event: string;
+            filters: Array<{
+              key: string;
+              operator:
+                | "equals"
+                | "notEquals"
+                | "contains"
+                | "notContains"
+                | "isSet"
+                | "isNotSet"
+                | "greaterThan"
+                | "lessThan";
+              value?: string | number | boolean;
+            }>;
+          };
+          hypothesis: string;
+          key: string;
+          name: string;
+          startedAt: number | null;
+          status: "draft" | "running" | "stopped";
+        }>,
+        Name
+      >;
+      remove: FunctionReference<
+        "mutation",
+        "internal",
+        { key: string },
+        boolean,
+        Name
+      >;
+      save: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          flagKey: string;
+          goal: {
+            event: string;
+            filters: Array<{
+              key: string;
+              operator:
+                | "equals"
+                | "notEquals"
+                | "contains"
+                | "notContains"
+                | "isSet"
+                | "isNotSet"
+                | "greaterThan"
+                | "lessThan";
+              value?: string | number | boolean;
+            }>;
+          };
+          hypothesis: string;
+          key: string;
+          name: string;
+        },
+        { created: boolean },
+        Name
+      >;
+      start: FunctionReference<
+        "mutation",
+        "internal",
+        { key: string },
+        null,
+        Name
+      >;
+      stop: FunctionReference<
+        "mutation",
+        "internal",
+        { key: string },
+        null,
+        Name
+      >;
+    };
+    flags: {
+      definitions: FunctionReference<
+        "query",
+        "internal",
+        {},
+        Array<{
+          active: boolean;
+          conditions: Array<{
+            filters: Array<{
+              key: string;
+              operator:
+                | "equals"
+                | "notEquals"
+                | "contains"
+                | "notContains"
+                | "isSet"
+                | "isNotSet"
+                | "greaterThan"
+                | "lessThan";
+              value?: string | number | boolean;
+            }>;
+            rollout: number;
+            variant: string | null;
+          }>;
+          key: string;
+          payloads: Record<string, string>;
+          variants: Array<{ key: string; weight: number }> | null;
+        }>,
+        Name
+      >;
+      get: FunctionReference<
+        "query",
+        "internal",
+        { key: string },
+        {
+          _creationTime: number;
+          _id: string;
+          active: boolean;
+          conditions: Array<{
+            filters: Array<{
+              key: string;
+              operator:
+                | "equals"
+                | "notEquals"
+                | "contains"
+                | "notContains"
+                | "isSet"
+                | "isNotSet"
+                | "greaterThan"
+                | "lessThan";
+              value?: string | number | boolean;
+            }>;
+            rollout: number;
+            variant: string | null;
+          }>;
+          createdAt: number;
+          description: string;
+          key: string;
+          name: string;
+          payloads: Record<string, string>;
+          updatedAt: number;
+          variants: Array<{ key: string; weight: number }> | null;
+        } | null,
+        Name
+      >;
+      list: FunctionReference<
+        "query",
+        "internal",
+        {},
+        Array<{
+          _creationTime: number;
+          _id: string;
+          active: boolean;
+          conditions: Array<{
+            filters: Array<{
+              key: string;
+              operator:
+                | "equals"
+                | "notEquals"
+                | "contains"
+                | "notContains"
+                | "isSet"
+                | "isNotSet"
+                | "greaterThan"
+                | "lessThan";
+              value?: string | number | boolean;
+            }>;
+            rollout: number;
+            variant: string | null;
+          }>;
+          createdAt: number;
+          description: string;
+          key: string;
+          name: string;
+          payloads: Record<string, string>;
+          updatedAt: number;
+          variants: Array<{ key: string; weight: number }> | null;
+        }>,
+        Name
+      >;
+      remove: FunctionReference<
+        "mutation",
+        "internal",
+        { key: string },
+        boolean,
+        Name
+      >;
+      save: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          active: boolean;
+          conditions: Array<{
+            filters: Array<{
+              key: string;
+              operator:
+                | "equals"
+                | "notEquals"
+                | "contains"
+                | "notContains"
+                | "isSet"
+                | "isNotSet"
+                | "greaterThan"
+                | "lessThan";
+              value?: string | number | boolean;
+            }>;
+            rollout: number;
+            variant: string | null;
+          }>;
+          description: string;
+          key: string;
+          name: string;
+          payloads: Record<string, string>;
+          variants: Array<{ key: string; weight: number }> | null;
+        },
+        { created: boolean },
+        Name
+      >;
+      setActive: FunctionReference<
+        "mutation",
+        "internal",
+        { active: boolean; key: string },
+        boolean,
+        Name
+      >;
+    };
     ingest: {
       batch: FunctionReference<
         "mutation",

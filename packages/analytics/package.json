@@ -13,6 +13,7 @@
     "./react": "./src/react/index.tsx",
     "./shared": "./src/shared/index.ts",
     "./shared/insights": "./src/shared/insights/index.ts",
+    "./shared/flags": "./src/shared/flags.ts",
     "./package.json": "./package.json"
   },
   "devDependencies": {

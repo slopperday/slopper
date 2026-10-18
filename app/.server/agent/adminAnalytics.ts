@@ -12,7 +12,8 @@ import { ApiError } from "./input";
  * as an unknown endpoint.
  *
  * `report` picks what to answer; the rest of the query string is the same
- * as /analytics/insights (`days`, `event`, `math`, `breakdown`…).
+ * as /analytics/insights (`days`, `event`, `math`, `breakdown`…). Flags
+ * and experiments are read here; they're changed at /analytics/flags.
  */
 
 export const ADMIN_REPORTS = [
@@ -30,6 +31,9 @@ export const ADMIN_REPORTS = [
   "person",
   "live",
   "events",
+  "flags",
+  "experiments",
+  "experiment",
 ] as const;
 
 function days(params: URLSearchParams): number {
@@ -69,6 +73,16 @@ export async function adminReport(admin: User, params: URLSearchParams, now: Dat
       return await convex.query(api.analytics.live, { asUser: adminId });
     case "events":
       return { events: await convex.query(api.analytics.eventNames, { adminId }) };
+    case "flags":
+      return { flags: await convex.query(api.analytics.flags, { adminId }) };
+    case "experiments":
+      return { experiments: await convex.query(api.analytics.experiments, { adminId }) };
+    case "experiment": {
+      const key = params.get("q") ?? "";
+      const found = await convex.action(api.analytics.experimentResults, { adminId, key });
+      if (!found) throw new ApiError(404, `There's no experiment “${key}”.`);
+      return found;
+    }
     default:
       if (isInsightKind(report)) return await insight(report);
       throw new ApiError(400, `Unknown report “${report}”. Reports: ${ADMIN_REPORTS.join(", ")}.`);

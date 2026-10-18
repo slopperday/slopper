@@ -20,6 +20,8 @@ export interface StoredState {
   superProperties: Properties;
   /** The distinct id belongs to a signed-in account. */
   identified: boolean;
+  /** Flag values already reported this session (`flag:value`), so each is sent once. */
+  flagsSeen: { sessionId: string | null; keys: string[] };
 }
 
 const YEAR_SECONDS = 365 * 86_400;
@@ -40,7 +42,21 @@ export function writeCookie(name: string, value: string | null): void {
       : `${name}=${encodeURIComponent(value)}; path=/; max-age=${YEAR_SECONDS}; samesite=lax${secure}`;
 }
 
-const EMPTY: StoredState = { session: null, superProperties: {}, identified: false };
+const EMPTY: StoredState = {
+  session: null,
+  superProperties: {},
+  identified: false,
+  flagsSeen: { sessionId: null, keys: [] },
+};
+
+function parseFlagsSeen(value: unknown): StoredState["flagsSeen"] {
+  if (typeof value !== "object" || value === null) return EMPTY.flagsSeen;
+  const { sessionId, keys } = value as Record<string, unknown>;
+  return {
+    sessionId: typeof sessionId === "string" ? sessionId : null,
+    keys: Array.isArray(keys) ? keys.filter((key): key is string => typeof key === "string") : [],
+  };
+}
 
 function parseSession(value: unknown): SessionState | null {
   if (typeof value !== "object" || value === null) return null;
@@ -75,6 +91,7 @@ export class StateStore {
         session: parseSession(parsed.session),
         superProperties: normalizeProperties(parsed.superProperties),
         identified: parsed.identified === true,
+        flagsSeen: parseFlagsSeen(parsed.flagsSeen),
       };
     } catch {
       return this.memory;

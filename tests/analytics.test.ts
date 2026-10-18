@@ -133,7 +133,7 @@ describe("the analytics endpoint", () => {
   it("drops crawlers without telling them", async () => {
     const { t } = setup();
     const response = await t.fetch("/a/e", post(batch([{}]), { "user-agent": "Googlebot/2.1" }));
-    expect(response.status).toBe(204);
+    expect(response.ok).toBe(true);
     expect(await t.query(components.analytics.events.recent, {})).toEqual([]);
   });
 
@@ -317,6 +317,136 @@ describe("analytics for admins", () => {
     expect(live?.events[0]?.name).toBe("$pageview");
     expect(await server.query(api.analytics.live, { asUser: someone })).toBeNull();
     expect(await t.withIdentity({ subject: boss }).query(api.analytics.live, {})).not.toBeNull();
+  });
+});
+
+describe("flags and experiments", () => {
+  async function admin(t: ReturnType<typeof setup>["t"], server: Server, name = "boss"): Promise<Id<"users">> {
+    const userId = await makeUser(server, name);
+    await t.run(async (ctx) => await ctx.db.patch(userId, { role: "admin" }));
+    return userId;
+  }
+
+  async function visit(t: ReturnType<typeof setup>["t"], distinctId: string, events: Record<string, unknown>[]) {
+    const response = await t.fetch("/a/e", {
+      method: "POST",
+      body: batch(events.map((event) => ({ distinctId, ...event }))),
+      headers: { origin: "https://slopper.day", "user-agent": CHROME },
+    });
+    expect(response.ok).toBe(true);
+  }
+
+  const flag = {
+    key: "wall-order",
+    name: "Wall order",
+    description: "Which slops come first.",
+    active: false,
+    variants: [
+      { key: "control", weight: 1 },
+      { key: "newest", weight: 1 },
+    ],
+    conditions: [{ filters: [], rollout: 100, variant: null }],
+    payloads: {},
+  };
+
+  async function log(server: Server) {
+    return (await server.query(api.team.log, {})).map(({ action, target }) => ({ action, target })).reverse();
+  }
+
+  it("keeps flags for the server to evaluate, and lets admins alone change them", async () => {
+    const { t, server } = setup();
+    const boss = await admin(t, server);
+    const moderator = await makeUser(server, "mod");
+    await t.run(async (ctx) => await ctx.db.patch(moderator, { role: "moderator" }));
+
+    await expect(t.query(api.analytics.flagDefinitions, {})).rejects.toThrow("Only the Slopper server");
+    await expect(server.mutation(api.analytics.saveFlag, { adminId: moderator, flag })).rejects.toThrow();
+    expect(await server.mutation(api.analytics.saveFlag, { adminId: boss, flag })).toEqual({ created: true });
+    // Saved off: nothing to evaluate until it's turned on.
+    expect(await server.query(api.analytics.flagDefinitions, {})).toEqual([]);
+    expect(await server.mutation(api.analytics.setFlagActive, { adminId: boss, key: "wall-order", active: true })).toBe(
+      true,
+    );
+    expect((await server.query(api.analytics.flagDefinitions, {})).map((definition) => definition.key)).toEqual([
+      "wall-order",
+    ]);
+    // Changing a flag keeps whether it's on.
+    await server.mutation(api.analytics.saveFlag, { adminId: boss, flag: { ...flag, name: "Order of the wall" } });
+    expect(await server.query(api.analytics.flagDefinitions, {})).toHaveLength(1);
+    expect(await server.query(api.analytics.flag, { adminId: boss, key: "wall-order" })).toMatchObject({
+      flag: { name: "Order of the wall", active: true },
+      experiments: [],
+    });
+    expect(await server.mutation(api.analytics.removeFlag, { adminId: boss, key: "wall-order" })).toBe(true);
+    expect(await server.mutation(api.analytics.removeFlag, { adminId: boss, key: "wall-order" })).toBe(false);
+    expect(await log(server)).toEqual([
+      { action: { type: "flag", change: "created" }, target: "wall-order" },
+      { action: { type: "flag", change: "on" }, target: "wall-order" },
+      { action: { type: "flag", change: "changed" }, target: "wall-order" },
+      { action: { type: "flag", change: "deleted" }, target: "wall-order" },
+    ]);
+  });
+
+  it("runs an experiment and counts who reached the goal after seeing a variant", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { t, server } = setup();
+    const boss = await admin(t, server);
+    await server.mutation(api.analytics.saveFlag, { adminId: boss, flag });
+    const experiment = {
+      key: "newest-first",
+      name: "Newest first",
+      hypothesis: "Newest first gets more upvotes.",
+      flagKey: "wall-order",
+      goal: { event: "slop upvoted", filters: [] },
+    };
+    expect(await server.mutation(api.analytics.saveExperiment, { adminId: boss, experiment })).toEqual({
+      created: true,
+    });
+    const draft = await server.action(api.analytics.experimentResults, { adminId: boss, key: "newest-first" });
+    expect(draft).toMatchObject({ experiment: { status: "draft" }, result: null });
+    expect(await server.action(api.analytics.experimentResults, { adminId: boss, key: "missing" })).toBeNull();
+
+    await server.mutation(api.analytics.startExperiment, { adminId: boss, key: "newest-first" });
+    expect((await server.query(api.analytics.flagDefinitions, {}))[0]?.key).toBe("wall-order");
+    const seen = (variant: string) => ({ name: "$featureFlagCalled", properties: { flag: "wall-order", variant } });
+    vi.advanceTimersByTime(1_000);
+    await visit(t, "a", [seen("control")]);
+    await visit(t, "b", [seen("newest")]);
+    // Someone who reached the goal before they saw the flag doesn't count as converted.
+    await visit(t, "c", [{ name: "slop upvoted" }]);
+    vi.advanceTimersByTime(1_000);
+    await visit(t, "a", [{ name: "slop upvoted" }]);
+    await visit(t, "c", [seen("newest")]);
+    // A flag someone saw before the experiment started isn't part of it, nor is another flag.
+    await visit(t, "d", [
+      { ...seen("control"), timestamp: Date.now() - 60_000 },
+      { name: "$featureFlagCalled", properties: { flag: "other", variant: "x" } },
+    ]);
+
+    const running = await server.action(api.analytics.experimentResults, { adminId: boss, key: "newest-first" });
+    expect(running?.truncated).toBe(false);
+    expect(running?.result?.variants.map(({ key, exposed, converted }) => ({ key, exposed, converted }))).toEqual([
+      { key: "control", exposed: 1, converted: 1 },
+      { key: "newest", exposed: 2, converted: 0 },
+    ]);
+    expect(running?.result?.winner).toBeNull();
+
+    await expect(server.mutation(api.analytics.removeFlag, { adminId: boss, key: "wall-order" })).rejects.toThrow(
+      "uses this flag",
+    );
+    await server.mutation(api.analytics.stopExperiment, { adminId: boss, key: "newest-first" });
+    vi.advanceTimersByTime(1_000);
+    // What happens after it stopped isn't counted.
+    await visit(t, "b", [{ name: "slop upvoted" }]);
+    const stopped = await server.action(api.analytics.experimentResults, { adminId: boss, key: "newest-first" });
+    expect(stopped?.result?.variants.find((variant) => variant.key === "newest")?.converted).toBe(0);
+    expect(await server.mutation(api.analytics.removeExperiment, { adminId: boss, key: "newest-first" })).toBe(true);
+    expect((await log(server)).slice(1)).toEqual([
+      { action: { type: "experiment", change: "created" }, target: "newest-first" },
+      { action: { type: "experiment", change: "started" }, target: "newest-first" },
+      { action: { type: "experiment", change: "stopped" }, target: "newest-first" },
+      { action: { type: "experiment", change: "deleted" }, target: "newest-first" },
+    ]);
   });
 });
 

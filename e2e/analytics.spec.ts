@@ -1,5 +1,4 @@
-import type { Page } from "@playwright/test";
-import { analyticsEvents, expect, test } from "./fixtures.ts";
+import { analyticsEvents, analyticsIdOf, expect, test } from "./fixtures.ts";
 
 /**
  * First-party analytics (packages/analytics): the browser posts straight to
@@ -7,18 +6,12 @@ import { analyticsEvents, expect, test } from "./fixtures.ts";
  * Each test reads back only the person its own browser became.
  */
 
-async function distinctIdOf(page: Page): Promise<string> {
-  await expect.poll(async () => (await page.context().cookies()).some((cookie) => cookie.name === "sa_id")).toBe(true);
-  const cookie = (await page.context().cookies()).find((item) => item.name === "sa_id");
-  return cookie?.value ?? "";
-}
-
 test.describe("analytics", () => {
   test("records a visit: where it came from, the pages seen and what was clicked", async ({ seed, stack }) => {
     const page = await seed.visitorPage();
     const sent = page.waitForRequest((request) => request.url() === `${stack.convexSiteUrl}/a/e`);
     await page.goto("/wall?utm_source=e2e&utm_campaign=launch-week");
-    const distinctId = await distinctIdOf(page);
+    const distinctId = await analyticsIdOf(page);
     await page.getByRole("banner").getByRole("link", { name: "Today" }).click();
     await expect(page).toHaveURL(/\/today$/);
     expect((await sent).method()).toBe("POST");
@@ -54,7 +47,7 @@ test.describe("analytics", () => {
   test("can be turned off in a browser, and back on", async ({ seed, stack }) => {
     const page = await seed.visitorPage();
     await page.goto("/privacy");
-    const distinctId = await distinctIdOf(page);
+    const distinctId = await analyticsIdOf(page);
     const section = page.getByRole("region", { name: "Usage analytics" });
     await section.getByRole("button", { name: "Turn off" }).click();
     await expect(section.getByText("Off in this browser")).toBeVisible();
@@ -75,7 +68,7 @@ test.describe("analytics", () => {
     await expect(section.getByText("Off in this browser")).toBeVisible();
     await section.getByRole("button", { name: "Turn on" }).click();
     await expect(section.getByText("On in this browser")).toBeVisible();
-    const fresh = await distinctIdOf(page);
+    const fresh = await analyticsIdOf(page);
     expect(fresh).not.toBe(distinctId);
     await expect
       .poll(() => analyticsEvents(stack, fresh).map((event) => `${event.name} ${event.path}`), { timeout: 20_000 })

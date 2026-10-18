@@ -1,5 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { flagConditionValidator, flagVariantValidator } from "../shared/flags";
+import { propertyFilterValidator } from "../shared/insights/queries";
 import { deviceValidator, properties, sourceValidator } from "./validators";
 
 /**
@@ -95,4 +97,34 @@ export default defineSchema({
   })
     .index("by_name", ["name"])
     .index("by_last_seen", ["lastSeenAt"]),
+
+  /** Feature flags (shared/flags.ts says how one is evaluated). */
+  flags: defineTable({
+    key: v.string(),
+    name: v.string(),
+    description: v.string(),
+    active: v.boolean(),
+    variants: v.union(v.array(flagVariantValidator), v.null()),
+    conditions: v.array(flagConditionValidator),
+    payloads: v.record(v.string(), v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_active", ["active"]),
+
+  /** Experiments on flags with variants: results come from events, worked out when asked for. */
+  experiments: defineTable({
+    key: v.string(),
+    name: v.string(),
+    hypothesis: v.string(),
+    flagKey: v.string(),
+    /** What counts as converting: an event (on a page, with filters). */
+    goal: v.object({ event: v.string(), filters: v.array(propertyFilterValidator) }),
+    status: v.union(v.literal("draft"), v.literal("running"), v.literal("stopped")),
+    startedAt: v.union(v.number(), v.null()),
+    endedAt: v.union(v.number(), v.null()),
+  })
+    .index("by_key", ["key"])
+    .index("by_flag", ["flagKey"]),
 });

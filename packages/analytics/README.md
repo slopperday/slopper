@@ -11,7 +11,7 @@ Slopper-specific so it can move to its own repository.
 | `src/component/` | The Convex component: schema, ingestion, people, sessions, retention.                          |
 | `src/convex/`    | For the app's own Convex functions: `Analytics` (HTTP routes, server-side capture, retention). |
 | `src/browser/`   | The browser SDK: page views and leaves, autocapture, rage clicks, identify, opt-out, batching. |
-| `src/react/`     | `AnalyticsProvider`, `useAnalytics`, `useIdentify`.                                            |
+| `src/react/`     | `AnalyticsProvider`, `useAnalytics`, `useIdentify`, `useFeatureFlag` and its siblings.         |
 | `src/shared/`    | Pure logic both sides share: the wire format, property rules, user agents, traffic sources.    |
 
 ## Set up
@@ -98,6 +98,30 @@ Browsers never set it; the app's server does, from the page's path (`RouteOption
 `analytics.groupReport` is everything about one group: views, people, sources, clicks and the app's own events.
 `analytics.overview` counts people. Queries are validated by `insightQueryValidator`; the aggregators are pure
 (`src/shared/insights`) and read at most `SCAN_LIMIT` rows, saying `truncated` past it.
+
+## Feature flags
+
+A flag is on or off, or one of several weighted variants, for each person. Who gets it is a list of conditions
+(property filters, a rollout percentage, optionally a fixed variant); the first one someone matches and is rolled into
+decides. Buckets come from hashing the flag's key with the distinct id (`bucketOf`, cyrb53), so a person keeps their
+value as a rollout grows, and the variant has its own bucket, so it doesn't move with the rollout.
+
+Evaluating is pure (`evaluateFlags`, `flagState` in `src/shared/flags.ts`), so flags cost a page nothing in the
+browser: the app's server reads the active definitions (`components.analytics.flags.definitions`, worth caching),
+evaluates them while it renders, and hands the result to `AnalyticsProvider`'s `flags`. Code reads them with
+`useFeatureFlag(key)` (false, true or the variant), `useFeatureFlagEnabled` and `useFeatureFlagPayload` (its JSON).
+Once the SDK has loaded, each value someone sees is captured as `$featureFlagCalled` once a session.
+
+To bucket people before the SDK has loaded, the server needs their distinct id on their first page: mint one (a
+UUIDv7, `uuidv7`) into the `sa_id` cookie when there isn't one, and the SDK keeps it.
+
+## Experiments
+
+An experiment is a flag with variants and a goal event. `analytics.experiment(ctx, key)` reads who saw each variant
+while it ran (their first `$featureFlagCalled`) and who did the goal after, then compares the variants the Bayesian
+way: each conversion rate as a Beta distribution, sampled to give every variant's 95% interval and its chance of being
+best. It calls a winner once every variant has `MINIMUM_EXPOSURE` people and one is 95% likely to be best. Sampling
+is seeded by the experiment's key, so the same counts always read the same.
 
 ## Privacy controls
 

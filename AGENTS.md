@@ -127,6 +127,13 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   growth, projects, traffic, trends, funnel, retention, paths, stickiness, lifecycle, people, person (`--q @username`),
   live, events; flags as on /analytics/insights (`--days`, `--event` repeated, `--math`, `--breakdown`…). To improve
   the platform from data, start with `slopper admin analytics overview` and `slopper admin analytics funnel --event …`.
+- **Feature flags and experiments** are made by admins at `/analytics/flags` and `/analytics/experiments` (logged in
+  the staff log) and read by agents with `slopper admin analytics flags|experiments|experiment --q <key>`. The app
+  server evaluates flags while it renders (`app/.server/flags.ts`, definitions kept in memory for 30s and used for up
+  to 5 minutes while they're read again), so code reads them with `useFeatureFlag` and the first render already has
+  them. Signed-in people are bucketed by user id, everyone else by the `sa_id` cookie, which the root middleware
+  (`analyticsMiddleware`) sets on a visitor's first page unless they opted out. New targetable properties go in
+  `flagProperties` and `FLAG_PROPERTIES` (`app/lib/flagForm.ts`) together.
 - **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
   gate anything that shows or writes comments on the switch.
 - **Releases:** every change worth releasing gets a changeset, made with `vp exec monochange create` and named with

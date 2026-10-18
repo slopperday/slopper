@@ -1,5 +1,5 @@
 import type { APIRequestContext } from "@playwright/test";
-import { analyticsEvents, expect, test } from "./fixtures.ts";
+import { analyticsEvents, analyticsIdOf, expect, test } from "./fixtures.ts";
 
 /**
  * Analytics costs the first page load nothing: the SDK isn't in any script
@@ -61,10 +61,7 @@ test.describe("analytics and page load", () => {
   test("still sends what a page saw when it's left at once", async ({ seed, stack }) => {
     const page = await seed.visitorPage();
     await page.goto("/wall");
-    await expect
-      .poll(async () => (await page.context().cookies()).some((cookie) => cookie.name === "sa_id"))
-      .toBe(true);
-    const id = (await page.context().cookies()).find((cookie) => cookie.name === "sa_id")?.value ?? "";
+    const id = await analyticsIdOf(page);
     // Long before the next batch would go: the leave rides a beacon as the page unloads.
     await page.goto("/rules");
     await expect
