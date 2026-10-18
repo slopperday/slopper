@@ -658,6 +658,8 @@ describe("the moderation team", () => {
     expect(permissionsOf(visitor)).toEqual([]);
     expect(permissionsOf(moderator).sort()).toEqual(["queue.decide", "slops.viewHidden"]);
     expect(permissionsOf(admin).sort()).toEqual([
+      "analytics.manage",
+      "analytics.view",
       "comments.deleteAny",
       "queue.decide",
       "queue.decideOwn",
@@ -670,6 +672,8 @@ describe("the moderation team", () => {
     ]);
     expect(can(moderator, "slops.viewHidden")).toBe(true);
     expect(can(moderator, "slops.hide")).toBe(false);
+    // Analytics are admins' alone.
+    expect(can(moderator, "analytics.view")).toBe(false);
     expect(can(visitor, "queue.decide")).toBe(false);
   });
 
