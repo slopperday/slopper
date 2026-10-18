@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.9.0 (2026-10-18)
+
+### Features
+
+- **Update metadata for agents.** `post_update` (MCP and `POST /api/v1/slops/{slop}/updates`) takes `version`, `images`, `links` (each with an optional `preview`), `featureName`, `outcome` and `who`, validated by the same `validateUpdate` as the composer. Link cards are read by the app server through a fetcher that only reaches public addresses on the standard ports, redirects included, and their images go through `uploadImage` and the content check like any upload. The auto-post check now reads an update's version, details, links, cards and images too.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ bd47777
+
+### Fixes
+
+- **Keep internals out of user-facing messages.** Raw details now go to the logs instead of the page: a social network's refusal (status and body, `expectOk` in `app/.server/social/adapters.ts`), unexpected posting errors (`describeError`), sign-in callback errors, and why the video check couldn't run (its recorded reason is now "Couldn't check this video."). /mod no longer shows the checker's model and provider; `videoChecks` still records them.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ e4ec917
+
 ## 1.8.0 (2026-10-18)
 
 ### Changed

@@ -1,0 +1,534 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-10-18T01:01:20Z",
+  "command": "release",
+  "version": null,
+  "versions": {
+    "cli": "0.1.5",
+    "slopper": "1.9.0"
+  },
+  "release_targets": [
+    {
+      "id": "cli",
+      "kind": "group",
+      "version": "0.1.5",
+      "version_format": "namespaced",
+      "tag": true,
+      "release": false,
+      "tag_name": "cli/v0.1.5",
+      "rendered_title": "cli v0.1.5 (2026-10-18)",
+      "rendered_changelog_title": "cli 0.1.5 (2026-10-18)",
+      "members": ["@slopperday/cli", "@slopperday/skill"]
+    },
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.9.0",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.9.0",
+      "rendered_title": "v1.9.0 (2026-10-18)",
+      "rendered_changelog_title": "1.9.0 (2026-10-18)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["@slopperday/cli", "@slopperday/skill", "slopper"],
+  "changed_files": [
+    "CHANGELOG.md",
+    "app/changelog/1.9.0.json",
+    "package.json",
+    "packages/cli/CHANGELOG.md",
+    "packages/cli/package.json",
+    "packages/skill/package.json"
+  ],
+  "package_publications": [
+    {
+      "package": "@slopperday/cli",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.5",
+      "mode": "builtin",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    },
+    {
+      "package": "@slopperday/skill",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.5",
+      "mode": "builtin",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    }
+  ],
+  "updated_changelogs": ["CHANGELOG.md", "app/changelog/1.9.0.json", "packages/cli/CHANGELOG.md"],
+  "deleted_changesets": [
+    ".changeset/cli-update-metadata.md",
+    ".changeset/internal-details-to-logs.md",
+    ".changeset/plain-user-copy.md",
+    ".changeset/rich-updates.md",
+    ".changeset/update-metadata-api.md"
+  ],
+  "changesets": [
+    {
+      "path": ".changeset/cli-update-metadata.md",
+      "summary": "Richer updates from the CLI",
+      "details": "`slopper post` takes `--version`, `--image` (files or ids, up to 4), `--link` (up to 3), `--preview` for link cards, `--feature` for a feature's name, and `--outcome` with `--who` for field tests. The skill tells agents to ask before adding preview cards.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "bd47777954dfdbcd08ed72a877ccedc483fbf234",
+            "short_sha": "bd47777",
+            "url": null,
+            "authored_at": "2026-10-18T00:58:36+01:00",
+            "committed_at": "2026-10-18T00:58:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "bd47777954dfdbcd08ed72a877ccedc483fbf234",
+            "short_sha": "bd47777",
+            "url": null,
+            "authored_at": "2026-10-18T00:58:36+01:00",
+            "committed_at": "2026-10-18T00:58:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/internal-details-to-logs.md",
+      "summary": "Keep internals out of user-facing messages",
+      "details": "Raw details now go to the logs instead of the page: a social network's refusal (status and body, `expectOk` in `app/.server/social/adapters.ts`), unexpected posting errors (`describeError`), sign-in callback errors, and why the video check couldn't run (its recorded reason is now \"Couldn't check this video.\"). /mod no longer shows the checker's model and provider; `videoChecks` still records them.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "e4ec917ca655555d76fa6907a8fce1b9cfb85e21",
+            "short_sha": "e4ec917",
+            "url": null,
+            "authored_at": "2026-10-18T01:00:48+01:00",
+            "committed_at": "2026-10-18T01:00:48+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "e4ec917ca655555d76fa6907a8fce1b9cfb85e21",
+            "short_sha": "e4ec917",
+            "url": null,
+            "authored_at": "2026-10-18T01:00:48+01:00",
+            "committed_at": "2026-10-18T01:00:48+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/plain-user-copy.md",
+      "summary": "Messages say what happened, not how Slopper works inside",
+      "details": "The moderation pages, settings, sign-in and auto-post messages no longer mention servers, configuration or which AI model checked something. A failed auto-post shows the network's own reason, or a plain \"try again later\", instead of a status code and raw response.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "e4ec917ca655555d76fa6907a8fce1b9cfb85e21",
+            "short_sha": "e4ec917",
+            "url": null,
+            "authored_at": "2026-10-18T01:00:48+01:00",
+            "committed_at": "2026-10-18T01:00:48+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "e4ec917ca655555d76fa6907a8fce1b9cfb85e21",
+            "short_sha": "e4ec917",
+            "url": null,
+            "authored_at": "2026-10-18T01:00:48+01:00",
+            "committed_at": "2026-10-18T01:00:48+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/rich-updates.md",
+      "summary": "Updates with more to show",
+      "details": "Updates can carry more than text now. Tag the version that shipped, add up to four images and three links, name the feature you shipped, or say how a field test went (worked, mixed or broke) and who tried it.\n\nA link can show a preview card with the page's title, description and image. Cards are off until you ask for one, and you can remove one from a posted update at any time; the link stays.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "bd47777954dfdbcd08ed72a877ccedc483fbf234",
+            "short_sha": "bd47777",
+            "url": null,
+            "authored_at": "2026-10-18T00:58:36+01:00",
+            "committed_at": "2026-10-18T00:58:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "bd47777954dfdbcd08ed72a877ccedc483fbf234",
+            "short_sha": "bd47777",
+            "url": null,
+            "authored_at": "2026-10-18T00:58:36+01:00",
+            "committed_at": "2026-10-18T00:58:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/update-metadata-api.md",
+      "summary": "Update metadata for agents",
+      "details": "`post_update` (MCP and `POST /api/v1/slops/{slop}/updates`) takes `version`, `images`, `links` (each with an optional `preview`), `featureName`, `outcome` and `who`, validated by the same `validateUpdate` as the composer. Link cards are read by the app server through a fetcher that only reaches public addresses on the standard ports, redirects included, and their images go through `uploadImage` and the content check like any upload. The auto-post check now reads an update's version, details, links, cards and images too.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "bd47777954dfdbcd08ed72a877ccedc483fbf234",
+            "short_sha": "bd47777",
+            "url": null,
+            "authored_at": "2026-10-18T00:58:36+01:00",
+            "committed_at": "2026-10-18T00:58:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "bd47777954dfdbcd08ed72a877ccedc483fbf234",
+            "short_sha": "bd47777",
+            "url": null,
+            "authored_at": "2026-10-18T00:58:36+01:00",
+            "committed_at": "2026-10-18T00:58:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.9.0 (2026-10-18)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "- **Update metadata for agents.** `post_update` (MCP and `POST /api/v1/slops/{slop}/updates`) takes `version`, `images`, `links` (each with an optional `preview`), `featureName`, `outcome` and `who`, validated by the same `validateUpdate` as the composer. Link cards are read by the app server through a fetcher that only reaches public addresses on the standard ports, redirects included, and their images go through `uploadImage` and the content check like any upload. The auto-post check now reads an update's version, details, links, cards and images too.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ bd47777"
+            ]
+          },
+          {
+            "title": "Fixes",
+            "collapsed": false,
+            "entries": [
+              "- **Keep internals out of user-facing messages.** Raw details now go to the logs instead of the page: a social network's refusal (status and body, `expectOk` in `app/.server/social/adapters.ts`), unexpected posting errors (`describeError`), sign-in callback errors, and why the video check couldn't run (its recorded reason is now \"Couldn't check this video.\"). /mod no longer shows the checker's model and provider; `videoChecks` still records them.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ e4ec917"
+            ]
+          }
+        ]
+      },
+      "rendered": "## 1.9.0 (2026-10-18)\n\n### Features\n\n- **Update metadata for agents.** `post_update` (MCP and `POST /api/v1/slops/{slop}/updates`) takes `version`, `images`, `links` (each with an optional `preview`), `featureName`, `outcome` and `who`, validated by the same `validateUpdate` as the composer. Link cards are read by the app server through a fetcher that only reaches public addresses on the standard ports, redirects included, and their images go through `uploadImage` and the content check like any upload. The auto-post check now reads an update's version, details, links, cards and images too.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ bd47777\n\n### Fixes\n\n- **Keep internals out of user-facing messages.** Raw details now go to the logs instead of the page: a social network's refusal (status and body, `expectOk` in `app/.server/social/adapters.ts`), unexpected posting errors (`describeError`), sign-in callback errors, and why the video check couldn't run (its recorded reason is now \"Couldn't check this video.\"). /mod no longer shows the checker's model and provider; `videoChecks` still records them.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ e4ec917"
+    },
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "user",
+      "stream": "user",
+      "path": "app/changelog/1.9.0.json",
+      "format": "json",
+      "notes": {
+        "title": "1.9.0 (2026-10-18)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "New",
+            "collapsed": false,
+            "entries": [
+              "#### Updates with more to show\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ bd47777\n\nUpdates can carry more than text now. Tag the version that shipped, add up to four images and three links, name the feature you shipped, or say how a field test went (worked, mixed or broke) and who tried it.\n\nA link can show a preview card with the page's title, description and image. Cards are off until you ask for one, and you can remove one from a posted update at any time; the link stays."
+            ]
+          },
+          {
+            "title": "Fixed",
+            "collapsed": false,
+            "entries": [
+              "- **Messages say what happened, not how Slopper works inside.** The moderation pages, settings, sign-in and auto-post messages no longer mention servers, configuration or which AI model checked something. A failed auto-post shows the network's own reason, or a plain \"try again later\", instead of a status code and raw response.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ e4ec917"
+            ]
+          }
+        ]
+      },
+      "rendered": "{\n  \"title\": \"1.9.0 (2026-10-18)\",\n  \"summary\": [],\n  \"sections\": [\n    {\n      \"title\": \"New\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Updates with more to show\",\n          \"details_markdown\": \"Updates can carry more than text now. Tag the version that shipped, add up to four images and three links, name the feature you shipped, or say how a field test went (worked, mixed or broke) and who tried it.\\n\\nA link can show a preview card with the page's title, description and image. Cards are off until you ask for one, and you can remove one from a posted update at any time; the link stays.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"expanded\",\n          \"provenance\": {\n            \"source_path\": \".changeset/rich-updates.md\",\n            \"changeset_path\": \".changeset/rich-updates.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"bd47777\"\n            }\n          }\n        }\n      ]\n    },\n    {\n      \"title\": \"Fixed\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Messages say what happened, not how Slopper works inside\",\n          \"details_markdown\": \"The moderation pages, settings, sign-in and auto-post messages no longer mention servers, configuration or which AI model checked something. A failed auto-post shows the network's own reason, or a plain \\\"try again later\\\", instead of a status code and raw response.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/plain-user-copy.md\",\n            \"changeset_path\": \".changeset/plain-user-copy.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"e4ec917\"\n            }\n          }\n        }\n      ]\n    }\n  ]\n}"
+    },
+    {
+      "owner_id": "cli",
+      "owner_kind": "group",
+      "output": "default",
+      "stream": "default",
+      "path": "packages/cli/CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "cli 0.1.5 (2026-10-18)",
+        "summary": ["Grouped release for `cli`."],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "- **Richer updates from the CLI.** `slopper post` takes `--version`, `--image` (files or ids, up to 4), `--link` (up to 3), `--preview` for link cards, `--feature` for a feature's name, and `--outcome` with `--who` for field tests. The skill tells agents to ask before adding preview cards.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ bd47777"
+            ]
+          }
+        ]
+      },
+      "rendered": "## cli 0.1.5 (2026-10-18)\n\nGrouped release for `cli`.\n\n### Features\n\n- **Richer updates from the CLI.** `slopper post` takes `--version`, `--image` (files or ids, up to 4), `--link` (up to 3), `--preview` for link cards, `--feature` for a feature's name, and `--outcome` with `--who` for field tests. The skill tells agents to ask before adding preview cards.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ bd47777"
+    }
+  ],
+  "provider": null
+}

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## cli 0.1.5 (2026-10-18)
+
+Grouped release for `cli`.
+
+### Features
+
+- **Richer updates from the CLI.** `slopper post` takes `--version`, `--image` (files or ids, up to 4), `--link` (up to 3), `--preview` for link cards, `--feature` for a feature's name, and `--outcome` with `--who` for field tests. The skill tells agents to ask before adding preview cards.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ bd47777
+
 ## cli 0.1.4 (2026-10-18)
 
 Grouped release for `cli`.
