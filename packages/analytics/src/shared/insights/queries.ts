@@ -129,6 +129,14 @@ export const vitalsQueryValidator = v.object({
   range: rangeValidator,
 });
 
+/** One survey's results; `question` is its kind, which decides the average and the NPS. */
+export const surveyQueryValidator = v.object({
+  kind: v.literal("survey"),
+  range: rangeValidator,
+  key: v.string(),
+  question: v.union(v.literal("rating"), v.literal("nps"), v.literal("choice"), v.literal("text")),
+});
+
 export const insightQueryValidator = v.union(
   trendsQueryValidator,
   funnelQueryValidator,
@@ -141,6 +149,7 @@ export const insightQueryValidator = v.union(
   heatmapQueryValidator,
   errorsQueryValidator,
   vitalsQueryValidator,
+  surveyQueryValidator,
 );
 
 export type PropertyFilter = Infer<typeof propertyFilterValidator>;
@@ -157,4 +166,5 @@ export type HeatmapQuery = Infer<typeof heatmapQueryValidator>;
 export type HeatmapDevice = Infer<typeof heatmapDeviceValidator>;
 export type ErrorsQuery = Infer<typeof errorsQueryValidator>;
 export type VitalsQuery = Infer<typeof vitalsQueryValidator>;
+export type SurveyQuery = Infer<typeof surveyQueryValidator>;
 export type InsightQuery = Infer<typeof insightQueryValidator>;

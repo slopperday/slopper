@@ -24,6 +24,7 @@ import type * as rollups from "../rollups.js";
 import type * as scan from "../scan.js";
 import type * as sessions from "../sessions.js";
 import type * as shapes from "../shapes.js";
+import type * as surveys from "../surveys.js";
 import type * as validators from "../validators.js";
 
 import type {
@@ -50,6 +51,7 @@ const fullApi: ApiFromModules<{
   scan: typeof scan;
   sessions: typeof sessions;
   shapes: typeof shapes;
+  surveys: typeof surveys;
   validators: typeof validators;
 }> = anyApi as any;
 

@@ -1088,4 +1088,114 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
     };
+    surveys: {
+      definitions: FunctionReference<
+        "query",
+        "internal",
+        {},
+        Array<{
+          choices: Array<string>;
+          followUp: string | null;
+          key: string;
+          kind: "rating" | "nps" | "choice" | "text";
+          question: string;
+          target: {
+            delaySeconds: number;
+            pathPrefix: string;
+            signedIn: boolean | null;
+          };
+        }>,
+        Name
+      >;
+      get: FunctionReference<
+        "query",
+        "internal",
+        { key: string },
+        {
+          _creationTime: number;
+          _id: string;
+          choices: Array<string>;
+          createdAt: number;
+          endedAt: number | null;
+          followUp: string | null;
+          key: string;
+          kind: "rating" | "nps" | "choice" | "text";
+          name: string;
+          question: string;
+          startedAt: number | null;
+          status: "draft" | "running" | "stopped";
+          target: {
+            delaySeconds: number;
+            pathPrefix: string;
+            signedIn: boolean | null;
+          };
+        } | null,
+        Name
+      >;
+      list: FunctionReference<
+        "query",
+        "internal",
+        {},
+        Array<{
+          _creationTime: number;
+          _id: string;
+          choices: Array<string>;
+          createdAt: number;
+          endedAt: number | null;
+          followUp: string | null;
+          key: string;
+          kind: "rating" | "nps" | "choice" | "text";
+          name: string;
+          question: string;
+          startedAt: number | null;
+          status: "draft" | "running" | "stopped";
+          target: {
+            delaySeconds: number;
+            pathPrefix: string;
+            signedIn: boolean | null;
+          };
+        }>,
+        Name
+      >;
+      remove: FunctionReference<
+        "mutation",
+        "internal",
+        { key: string },
+        boolean,
+        Name
+      >;
+      save: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          choices: Array<string>;
+          followUp: string | null;
+          key: string;
+          kind: "rating" | "nps" | "choice" | "text";
+          name: string;
+          question: string;
+          target: {
+            delaySeconds: number;
+            pathPrefix: string;
+            signedIn: boolean | null;
+          };
+        },
+        { created: boolean },
+        Name
+      >;
+      start: FunctionReference<
+        "mutation",
+        "internal",
+        { key: string },
+        null,
+        Name
+      >;
+      stop: FunctionReference<
+        "mutation",
+        "internal",
+        { key: string },
+        null,
+        Name
+      >;
+    };
   };

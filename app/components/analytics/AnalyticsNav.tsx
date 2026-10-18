@@ -11,6 +11,7 @@ const TABS = [
   { to: "/analytics/speed", label: "Speed", end: false },
   { to: "/analytics/flags", label: "Flags", end: false },
   { to: "/analytics/experiments", label: "Experiments", end: false },
+  { to: "/analytics/surveys", label: "Surveys", end: false },
 ] as const;
 
 /** The analytics pages' heading and tabs. */

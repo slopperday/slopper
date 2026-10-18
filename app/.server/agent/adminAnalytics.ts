@@ -39,6 +39,8 @@ export const ADMIN_REPORTS = [
   "errors",
   "error",
   "vitals",
+  "surveys",
+  "survey",
 ] as const;
 
 function days(params: URLSearchParams): number {
@@ -80,6 +82,24 @@ export async function adminReport(admin: User, params: URLSearchParams, now: Dat
       return { events: await convex.query(api.analytics.eventNames, { adminId }) };
     case "flags":
       return { flags: await convex.query(api.analytics.flags, { adminId }) };
+    case "surveys":
+      return { surveys: await convex.query(api.analytics.surveys, { adminId }) };
+    case "survey": {
+      const key = params.get("q") ?? "";
+      const survey = await convex.query(api.analytics.survey, { adminId, key });
+      if (!survey) throw new ApiError(404, `There's no survey “${key}”.`);
+      if (survey.startedAt === null) return { survey, results: null };
+      const answer = await convex.action(api.analytics.insight, {
+        adminId,
+        query: {
+          kind: "survey",
+          key,
+          question: survey.kind,
+          range: { from: survey.startedAt, to: (survey.endedAt ?? now.getTime()) + 1 },
+        },
+      });
+      return { survey, results: answer.result, truncated: answer.truncated };
+    }
     case "vitals":
       return await convex.action(api.analytics.insight, { adminId, query: vitalsQuery(params, now.getTime()) });
     case "errors":

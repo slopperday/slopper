@@ -8,6 +8,9 @@ import {
   insightQueryValidator,
   type Overview,
   propertyFilterValidator,
+  type SurveyDefinition,
+  surveyKindValidator,
+  surveyTargetValidator,
 } from "@slopperday/analytics/convex";
 import { bucketsIn, type GroupReport, type GroupRow, type GroupsResult } from "@slopperday/analytics/shared/insights";
 import { ConvexError, v } from "convex/values";
@@ -839,5 +842,82 @@ export const recordedSessions = query({
   handler: async (ctx, { adminId, sessionIds }): Promise<string[]> => {
     await requireAnalytics(ctx, adminId);
     return await ctx.runQuery(components.analytics.recordings.recorded, { sessionIds });
+  },
+});
+
+// Surveys: definitions live in the analytics component; the app server hands
+// running ones to pages (app/.server/surveys.ts), and answers come back as events.
+
+/** Running surveys' questions, for the app server to hand to pages (it caches them). */
+export const surveyDefinitions = query({
+  args: {},
+  handler: async (ctx): Promise<SurveyDefinition[]> => {
+    await requireServer(ctx);
+    return await ctx.runQuery(components.analytics.surveys.definitions, {});
+  },
+});
+
+export const surveys = query({
+  args: { adminId: v.id("users") },
+  handler: async (ctx, { adminId }) => {
+    await requireAnalytics(ctx, adminId);
+    return await ctx.runQuery(components.analytics.surveys.list, {});
+  },
+});
+
+export const survey = query({
+  args: { adminId: v.id("users"), key: v.string() },
+  handler: async (ctx, { adminId, key }) => {
+    await requireAnalytics(ctx, adminId);
+    return await ctx.runQuery(components.analytics.surveys.get, { key });
+  },
+});
+
+export const saveSurvey = mutation({
+  args: {
+    adminId: v.id("users"),
+    survey: v.object({
+      key: v.string(),
+      name: v.string(),
+      question: v.string(),
+      kind: surveyKindValidator,
+      choices: v.array(v.string()),
+      followUp: v.union(v.string(), v.null()),
+      target: surveyTargetValidator,
+    }),
+  },
+  handler: async (ctx, { adminId, survey }): Promise<{ created: boolean }> => {
+    await requireAnalyticsManager(ctx, adminId);
+    const saved = await ctx.runMutation(components.analytics.surveys.save, survey);
+    await logStaffAction(ctx, adminId, { type: "survey", change: saved.created ? "created" : "changed" }, survey.key);
+    return saved;
+  },
+});
+
+export const startSurvey = mutation({
+  args: { adminId: v.id("users"), key: v.string() },
+  handler: async (ctx, { adminId, key }) => {
+    await requireAnalyticsManager(ctx, adminId);
+    await ctx.runMutation(components.analytics.surveys.start, { key });
+    await logStaffAction(ctx, adminId, { type: "survey", change: "started" }, key);
+  },
+});
+
+export const stopSurvey = mutation({
+  args: { adminId: v.id("users"), key: v.string() },
+  handler: async (ctx, { adminId, key }) => {
+    await requireAnalyticsManager(ctx, adminId);
+    await ctx.runMutation(components.analytics.surveys.stop, { key });
+    await logStaffAction(ctx, adminId, { type: "survey", change: "stopped" }, key);
+  },
+});
+
+export const removeSurvey = mutation({
+  args: { adminId: v.id("users"), key: v.string() },
+  handler: async (ctx, { adminId, key }): Promise<boolean> => {
+    await requireAnalyticsManager(ctx, adminId);
+    const removed = await ctx.runMutation(components.analytics.surveys.remove, { key });
+    if (removed) await logStaffAction(ctx, adminId, { type: "survey", change: "deleted" }, key);
+    return removed;
   },
 });

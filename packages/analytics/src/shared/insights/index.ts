@@ -7,6 +7,7 @@ import type { PathsResult } from "./paths";
 import type { RetentionResult } from "./retention";
 import type { StickinessResult } from "./stickiness";
 import type { TrendsResult } from "./trends";
+import type { SurveyResult } from "./surveys";
 import type { VitalsResult } from "./vitals";
 import type { WebResult } from "./web";
 
@@ -24,6 +25,7 @@ export * from "./rows";
 export * from "./stickiness";
 export * from "./time";
 export * from "./trends";
+export * from "./surveys";
 export * from "./vitals";
 export * from "./web";
 
@@ -38,7 +40,8 @@ export type InsightResult =
   | GroupsResult
   | HeatmapResult
   | ErrorsResult
-  | VitalsResult;
+  | VitalsResult
+  | SurveyResult;
 
 /** What an insight answers, and how much it read to answer it. */
 export interface InsightAnswer<Result extends InsightResult = InsightResult> {

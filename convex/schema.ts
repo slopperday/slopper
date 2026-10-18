@@ -150,6 +150,17 @@ export const staffActionValidator = v.union(
       v.literal("deleted"),
     ),
   }),
+  /** Made, changed, started, stopped or deleted a survey (the target is its key). */
+  v.object({
+    type: v.literal("survey"),
+    change: v.union(
+      v.literal("created"),
+      v.literal("changed"),
+      v.literal("started"),
+      v.literal("stopped"),
+      v.literal("deleted"),
+    ),
+  }),
   /** Made, changed, started, stopped or deleted an experiment (the target is its key). */
   v.object({
     type: v.literal("experiment"),
