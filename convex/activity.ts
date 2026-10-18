@@ -64,7 +64,7 @@ export const addUpdate = mutation({
       details,
     });
     await checkScreenshots(ctx, slopId, [...kept, ...ownedCards], slop.screenshots);
-    await captureFor(ctx, userId, { name: "update posted", properties: { kind } });
+    await captureFor(ctx, userId, { name: "update posted", slopId, properties: { kind } });
     return updateId;
   },
 });
@@ -144,6 +144,7 @@ export const addComment = mutation({
     if (slop.userId !== userId) {
       await notify(ctx, { userId: slop.userId, kind, slopId, actorId: userId, amount: null });
     }
+    await captureFor(ctx, userId, { name: "commented", slopId, properties: { kind } });
     return commentId;
   },
 });

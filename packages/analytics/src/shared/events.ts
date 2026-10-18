@@ -44,6 +44,12 @@ export interface WireEvent {
   set: Properties | null;
   /** Person properties to set only if they have no value yet. */
   setOnce: Properties | null;
+  /**
+   * What the event is about, as `type:id` ("slop:abc123"), for analytics
+   * per thing (group analytics). Never taken from a browser: the app's
+   * server sets it (`RouteOptions.groupsForPaths`, or a server capture).
+   */
+  group: string | null;
 }
 
 export interface WireBatch {
@@ -129,5 +135,6 @@ function parseEvent(raw: unknown, skew: number, receivedAt: number): WireEvent |
     properties: normalizeProperties(record.properties),
     set: optionalProperties(record.set),
     setOnce: optionalProperties(record.setOnce),
+    group: null,
   };
 }

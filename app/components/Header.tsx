@@ -72,6 +72,7 @@ export function Header({
                   <MenuLink to="/settings">Settings</MenuLink>
                   {permissions.includes("queue.decide") && <MenuLink to="/mod">Moderation</MenuLink>}
                   {permissions.includes("team.manage") && <MenuLink to="/mod/team">Moderation team</MenuLink>}
+                  {permissions.includes("analytics.view") && <MenuLink to="/analytics">Analytics</MenuLink>}
                   <Form method="post" action="/auth/logout" className="mt-1 border-t border-line pt-1">
                     <button
                       type="submit"

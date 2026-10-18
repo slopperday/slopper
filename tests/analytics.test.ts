@@ -171,7 +171,7 @@ describe("product events", () => {
     const names = async (userId: Id<"users">) =>
       (await t.query(components.analytics.events.recent, { distinctId: userId })).map((event) => event.name);
     expect(await names(owner)).toEqual(["slop launched", "signed up"]);
-    expect(await names(fan)).toEqual(["pledged", "voted", "signed up"]);
+    expect(await names(fan)).toEqual(["pledged", "upvoted", "signed up"]);
 
     const [signedUp] = await t.query(components.analytics.events.recent, { distinctId: owner, name: "signed up" });
     expect(signedUp?.properties).toEqual({ provider: "github" });
@@ -201,5 +201,255 @@ describe("product events", () => {
     await t.finishAllScheduledFunctions(vi.runAllTimers);
     const events = await t.query(components.analytics.events.recent, { distinctId: "browser-1" });
     expect(events.map((event) => event.name)).toEqual(["$identify", "signed up", "$pageview"]);
+  });
+});
+
+describe("analytics for admins", () => {
+  async function admin(t: ReturnType<typeof setup>["t"], server: Server, name = "boss"): Promise<Id<"users">> {
+    const userId = await makeUser(server, name);
+    await t.run(async (ctx) => await ctx.db.patch(userId, { role: "admin" }));
+    return userId;
+  }
+
+  async function visit(t: ReturnType<typeof setup>["t"], distinctId: string, events: Record<string, unknown>[]) {
+    await t.fetch("/a/e", {
+      method: "POST",
+      body: batch(events.map((event) => ({ distinctId, ...event }))),
+      headers: { origin: "https://slopper.day", "user-agent": CHROME },
+    });
+  }
+
+  it("answers insights for admins and nobody else", async () => {
+    const { t, server } = setup();
+    const boss = await admin(t, server);
+    const moderator = await makeUser(server, "mod");
+    await t.run(async (ctx) => await ctx.db.patch(moderator, { role: "moderator" }));
+    const now = Date.now();
+    await visit(t, "a", [
+      { sessionId: "a1", timestamp: now - 3_000 },
+      { sessionId: "a1", path: "/wall", timestamp: now - 2_000 },
+    ]);
+    await visit(t, "b", [{ sessionId: "b1", timestamp: now - 1_000 }]);
+    const query = {
+      kind: "trends" as const,
+      range: { from: now - 86_400_000, to: now + 1 },
+      interval: "day" as const,
+      series: [{ event: "$pageview", math: "persons" as const }],
+    };
+    const answer = await server.action(api.analytics.insight, { adminId: boss, query });
+    expect(answer.truncated).toBe(false);
+    expect(answer.result.kind).toBe("trends");
+    if (answer.result.kind === "trends") expect(answer.result.series[0]?.total).toBe(2);
+
+    const web = await server.action(api.analytics.insight, {
+      adminId: boss,
+      query: { kind: "web", range: query.range, interval: "day" },
+    });
+    if (web.result.kind !== "web") throw new Error("expected web analytics");
+    expect(web.result.totals).toMatchObject({ visitors: 2, sessions: 2, pageviews: 3 });
+
+    await expect(server.action(api.analytics.insight, { adminId: moderator, query })).rejects.toThrow(
+      "Only admins can do that.",
+    );
+    await expect(t.action(api.analytics.insight, { adminId: boss, query })).rejects.toThrow("Only the Slopper server");
+    await expect(
+      server.action(api.analytics.insight, { adminId: boss, query: { ...query, range: { from: now, to: now - 1 } } }),
+    ).rejects.toThrow("A range ends after it starts.");
+  });
+
+  it("counts people, accounts and who's been active", async () => {
+    const { t, server } = setup();
+    const boss = await admin(t, server);
+    await visit(t, "visitor", [{}]);
+    const counts = await server.action(api.analytics.overview, { adminId: boss });
+    // The admin signed up (a person, identified, through the server) and a visitor browsed.
+    expect(counts).toMatchObject({ accounts: 1, people: 2, identified: 1, activeToday: 2, newThisWeek: 2 });
+  });
+
+  it("lists people with their usernames, finds them by username, and shows one", async () => {
+    const { t, server } = setup();
+    const boss = await admin(t, server);
+    const maker = await makeUser(server, "maker");
+    await visit(t, "anon", [{ sessionId: "s1" }]);
+    await visit(t, maker, [{ name: "$identify", sessionId: "s2", properties: { anonDistinctId: "anon-2" } }]);
+
+    const { page } = await server.query(api.analytics.people, { adminId: boss, cursor: null });
+    expect(new Set(page.map((person) => person.username))).toEqual(new Set([null, "boss", "maker"]));
+    expect(await server.query(api.analytics.findPerson, { adminId: boss, search: "@Maker" })).toBe(maker);
+    expect(await server.query(api.analytics.findPerson, { adminId: boss, search: "anon" })).toBe("anon");
+    expect(await server.query(api.analytics.findPerson, { adminId: boss, search: "nobody" })).toBeNull();
+
+    const detail = await server.query(api.analytics.person, { adminId: boss, distinctId: "anon-2" });
+    expect(detail?.username).toBe("maker");
+    expect(detail?.sessions.map((session) => session.sessionId)).toEqual(["s2"]);
+    expect(detail?.events.map((event) => event.name)).toEqual(["$identify", "signed up"]);
+
+    const session = await server.query(api.analytics.session, { adminId: boss, sessionId: "s2" });
+    expect(session?.username).toBe("maker");
+    expect(session?.events.map((event) => event.name)).toEqual(["$identify"]);
+    expect(await server.query(api.analytics.eventNames, { adminId: boss })).toEqual(
+      expect.arrayContaining(["$pageview", "$identify", "signed up"]),
+    );
+  });
+
+  it("forgets a person when an admin asks, and logs it", async () => {
+    vi.useFakeTimers();
+    const { t, server } = setup();
+    const boss = await admin(t, server);
+    await visit(t, "leaving", [{}, { name: "$autocapture" }]);
+    expect(await server.mutation(api.analytics.forget, { adminId: boss, distinctId: "leaving" })).toBe(true);
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(await t.query(components.analytics.persons.get, { distinctId: "leaving" })).toBeNull();
+    const [entry] = await server.query(api.team.log, {});
+    expect(entry).toMatchObject({ actor: "boss", action: { type: "forgetPerson" }, target: "visitor leaving" });
+    expect(await server.mutation(api.analytics.forget, { adminId: boss, distinctId: "leaving" })).toBe(false);
+  });
+
+  it("shows who's here now to admins only", async () => {
+    const { t, server } = setup();
+    const boss = await admin(t, server);
+    const someone = await makeUser(server, "someone");
+    await visit(t, "a", [{ path: "/wall" }]);
+    await visit(t, "b", [{ sessionId: "other", path: "/wall" }]);
+    const live = await server.query(api.analytics.live, { asUser: boss });
+    expect(live?.here).toBe(2);
+    expect(live?.pages).toEqual([{ path: "/wall", people: 2 }]);
+    expect(live?.events[0]?.name).toBe("$pageview");
+    expect(await server.query(api.analytics.live, { asUser: someone })).toBeNull();
+    expect(await t.withIdentity({ subject: boss }).query(api.analytics.live, {})).not.toBeNull();
+  });
+});
+
+describe("analytics by slop", () => {
+  const SLOP_INPUT = {
+    name: "TiltMaze",
+    tagline: "Tilt to play",
+    description: "A maze.",
+    category: "games",
+    links: [],
+    screenshots: [],
+    madeWith: [],
+  };
+
+  async function launch(server: Server, userId: Id<"users">) {
+    return await server.mutation(api.slops.create, {
+      userId,
+      input: SLOP_INPUT,
+      launchNote: "Day 1",
+      today: new Date().toISOString().slice(0, 10),
+    });
+  }
+
+  async function view(t: ReturnType<typeof setup>["t"], distinctId: string, path: string, extra: object = {}) {
+    await t.fetch("/a/e", {
+      method: "POST",
+      body: batch([{ distinctId, sessionId: `${distinctId}-session`, path, ...extra }]),
+      headers: { origin: "https://slopper.day", "user-agent": CHROME },
+    });
+  }
+
+  it("counts everything on a slop's page, and votes on it, for that slop", async () => {
+    const { t, server } = setup();
+    const maker = await makeUser(server, "maker");
+    const fan = await makeUser(server, "fan");
+    const { slopId } = await launch(server, maker);
+    await view(t, "visitor", "/@maker/tiltmaze");
+    await view(t, "visitor", "/@Maker/tiltmaze", { name: "$autocapture", properties: { eventType: "click" } });
+    await view(t, "visitor", "/wall");
+    await view(t, "visitor", "/@maker/nothing-here");
+    await server.mutation(api.slops.vote, { userId: fan, slopId, value: 1 });
+
+    const about = await t.query(components.analytics.events.recent, { group: `slop:${slopId}` });
+    // Usernames aren't case-sensitive in addresses, so "/@Maker/tiltmaze" is its page too.
+    expect(about.map((event) => [event.name, event.path])).toEqual([
+      ["upvoted", null],
+      ["$autocapture", "/@Maker/tiltmaze"],
+      ["$pageview", "/@maker/tiltmaze"],
+      ["slop launched", null],
+    ]);
+    const visitor = await t.query(components.analytics.events.recent, { distinctId: "visitor" });
+    expect(visitor.filter((event) => event.group === undefined).map((event) => event.path)).toEqual([
+      "/@maker/nothing-here",
+      "/wall",
+    ]);
+  });
+
+  it("gives a maker their slop's report, without their own visits", async () => {
+    const { t, server } = setup();
+    const maker = await makeUser(server, "maker");
+    const fan = await makeUser(server, "fan");
+    const { slopId } = await launch(server, maker);
+    await view(t, maker, "/@maker/tiltmaze");
+    await view(t, "visitor", "/@maker/tiltmaze", { properties: { referrer: "https://news.ycombinator.com/" } });
+    await view(t, "visitor", "/@maker/tiltmaze", {
+      name: "$autocapture",
+      properties: { eventType: "click", captureName: "link:website" },
+    });
+    await server.mutation(api.slops.vote, { userId: fan, slopId, value: 1 });
+
+    const answer = await server.action(api.analytics.slopReport, { userId: maker, slopId, days: 30 });
+    expect(answer.slop).toMatchObject({ name: "TiltMaze", username: "maker", upvotes: 1 });
+    expect(answer.report.totals).toEqual({ views: 1, people: 1, sessions: 1, interactions: 1 });
+    expect(answer.report.sources).toEqual([{ value: "news.ycombinator.com", visitors: 1, count: 1 }]);
+    expect(answer.report.clicks).toEqual([{ value: "link:website", visitors: 1, count: 1 }]);
+    expect(answer.report.actions.map((action) => action.name)).toEqual(["upvoted"]);
+
+    await expect(server.action(api.analytics.slopReport, { userId: fan, slopId, days: 30 })).rejects.toThrow(
+      "That slop isn't yours.",
+    );
+    const boss = await makeUser(server, "boss");
+    await t.run(async (ctx) => await ctx.db.patch(boss, { role: "admin" }));
+    expect(
+      (await server.action(api.analytics.slopReport, { userId: boss, slopId, days: 30 })).report.totals.views,
+    ).toBe(1);
+    expect(await server.query(api.analytics.slopIdAt, { username: "Maker", slug: "tiltmaze" })).toBe(slopId);
+    expect(await server.query(api.analytics.slopIdAt, { username: "maker", slug: "nope" })).toBeNull();
+  });
+
+  it("never tells a maker about downvotes, which are private", async () => {
+    const { t, server } = setup();
+    const maker = await makeUser(server, "maker");
+    const critic = await makeUser(server, "critic");
+    const { slopId } = await launch(server, maker);
+    await server.mutation(api.slops.vote, { userId: critic, slopId, value: -1 });
+    await server.mutation(api.slops.vote, { userId: critic, slopId, value: 0 });
+    const answer = await server.action(api.analytics.slopReport, { userId: maker, slopId, days: 30 });
+    expect(answer.report.actions).toEqual([]);
+    // Admins' analytics still know, for the platform's health.
+    const about = await t.query(components.analytics.events.recent, { group: `slop:${slopId}` });
+    expect(about.map((event) => event.name)).toEqual(["unvoted", "downvoted", "slop launched"]);
+  });
+
+  it("shows admins growth, and which slops are climbing", async () => {
+    const { t, server } = setup();
+    const boss = await makeUser(server, "boss");
+    await t.run(async (ctx) => await ctx.db.patch(boss, { role: "admin" }));
+    const maker = await makeUser(server, "maker");
+    const { slopId } = await launch(server, maker);
+    await view(t, "a", "/@maker/tiltmaze");
+    await view(t, "b", "/@maker/tiltmaze");
+
+    const growth = await server.action(api.analytics.growth, { adminId: boss, days: 7 });
+    expect(growth.interval).toBe("day");
+    expect(growth.totals).toEqual({ accounts: 2, slops: 1, slopcessful: 0, makers: 1 });
+    expect(growth.signups.reduce((sum, count) => sum + count, 0)).toBe(2);
+    expect(growth.launches.reduce((sum, count) => sum + count, 0)).toBe(1);
+    expect(growth.accountsAt.at(-1)).toBe(2);
+
+    const projects = await server.action(api.analytics.projects, { adminId: boss, days: 7 });
+    expect(projects).toMatchObject({ active: 1, new: 1, rising: 0, falling: 0, truncated: false });
+    expect(projects.rows).toEqual([
+      {
+        group: `slop:${slopId}`,
+        count: 2,
+        people: 2,
+        previousCount: 0,
+        previousPeople: 0,
+        slop: expect.objectContaining({ name: "TiltMaze", username: "maker", slug: "tiltmaze" }),
+      },
+    ]);
+    await expect(server.action(api.analytics.growth, { adminId: maker, days: 7 })).rejects.toThrow(
+      "Only admins can do that.",
+    );
   });
 });

@@ -102,6 +102,7 @@ export function VoteButtons({ slopId, upvotes, vote, mode, loginHref, size = "sm
         type="submit"
         name="vote"
         value={upActive ? "0" : "1"}
+        data-capture="upvote"
         className={`${button} ${upActive ? "bg-ink text-ground" : "enabled:hover:bg-line"}`}
         aria-pressed={upActive}
         aria-label="Upvote"
@@ -117,6 +118,8 @@ export function VoteButtons({ slopId, upvotes, vote, mode, loginHref, size = "sm
         type="submit"
         name="vote"
         value={downActive ? "0" : "-1"}
+        // Downvotes are private: analytics never records who clicked this.
+        data-no-capture
         className={`${button} ${downActive ? "bg-muted text-ground" : "text-muted enabled:hover:bg-line"}`}
         aria-pressed={downActive}
         aria-label="Downvote (private)"

@@ -2,6 +2,8 @@ import type { Route } from "./+types/api.v1";
 import { absoluteUrl } from "~/.server/config";
 import { uploadImage, uploadVideo } from "~/.server/media";
 import { allowAction, userForBearer } from "~/.server/tokens";
+import { can } from "@convex/lib/permissions";
+import { adminReport } from "~/.server/agent/adminAnalytics";
 import { ApiError, asObject, type JsonObject } from "~/.server/agent/input";
 import { findOperation, runOperation } from "~/.server/agent/operations";
 
@@ -23,6 +25,7 @@ import { findOperation, runOperation } from "~/.server/agent/operations";
  *   POST   /api/v1/slops/:slop/updates
  *   POST   /api/v1/slops/:slop/money
  *   POST   /api/v1/slops/:slop/vote
+ *   GET    /api/v1/slops/:slop/analytics?days=…
  *   GET    /api/v1/scheduled
  *   POST   /api/v1/scheduled/:scheduled/release
  *   DELETE /api/v1/scheduled/:scheduled
@@ -62,6 +65,9 @@ function route(method: string, path: string): Match | null {
   if (parts.length === 3 && method === "POST" && action === "updates") return { operation: "post_update", slop: ref };
   if (parts.length === 3 && method === "POST" && action === "money") return { operation: "log_money", slop: ref };
   if (parts.length === 3 && method === "POST" && action === "vote") return { operation: "vote", slop: ref };
+  if (parts.length === 3 && method === "GET" && action === "analytics") {
+    return { operation: "slop_analytics", slop: ref };
+  }
   return null;
 }
 
@@ -88,8 +94,21 @@ async function handle(request: Request, path: string): Promise<Response> {
     );
   }
 
+  const notFound = () => errorResponse(new ApiError(404, `No endpoint for ${request.method} /api/v1/${path}`));
+  // Platform analytics for admins (app/.server/agent/adminAnalytics.ts): a 404 for everyone else.
+  if (request.method === "GET" && path.replace(/\/+$/, "") === "admin/analytics") {
+    if (!can(user, "analytics.view")) return notFound();
+    try {
+      if (!(await allowAction(`api:${user._id}`, 600, 3_600_000))) throw new ApiError(429, "Rate limit reached.");
+      return Response.json(await adminReport(user, new URL(request.url).searchParams, new Date()));
+    } catch (error) {
+      if (error instanceof ApiError) return errorResponse(error);
+      throw error;
+    }
+  }
+
   const match = route(request.method, path);
-  if (!match) return errorResponse(new ApiError(404, `No endpoint for ${request.method} /api/v1/${path}`));
+  if (!match) return notFound();
 
   try {
     if (!(await allowAction(`api:${user._id}`, 600, 3_600_000))) throw new ApiError(429, "Rate limit reached.");
@@ -109,6 +128,10 @@ async function handle(request: Request, path: string): Promise<Response> {
 
     let input: JsonObject = {};
     if (match.operation === "search_slops") input = searchInput(new URL(request.url).searchParams);
+    if (match.operation === "slop_analytics") {
+      const days = new URL(request.url).searchParams.get("days");
+      if (days !== null) input = { days: /^\d+$/.test(days) ? Number(days) : days };
+    }
     if (request.method !== "GET") {
       const text = await request.text();
       try {

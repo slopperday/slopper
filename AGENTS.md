@@ -111,9 +111,22 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   `convex/convex.config.ts`, so events, people and sessions stay in this deployment. Browsers post straight to its HTTP
   actions (`<deployment>.convex.site/a/e`, mounted in `convex/http.ts`); key product events are captured in their
   mutations with `captureFor` (`convex/analytics.ts`). Signed-in people's distinct id is their user id. A component
-  function without a `returns` validator types as `any` for the app: give every one a validator. Tests build the app
+  function without a `returns` validator types as `any` for the app: give every one a validator. Components can't call
+  `paginate()` on a real backend (convex-test lets them): page by index key with `pageByKey`
+  (`packages/analytics/src/component/lib/paging.ts`). Tests build the app
   with `convexApp()` (`tests/convexApp.ts`), which registers the component. Codegen needs a deployment, the component
   included: in a worktree without `.env.local`, run it against a scratch local backend.
+- **Analytics by slop:** events on a slop's page (`/@username/slug`) and the votes, pledges, updates and comments on it
+  carry the group `slop:<id>` (`groupsForPaths` in `convex/http.ts`, `slopGroup` in `convex/analytics.ts`). Makers
+  see theirs at `/@username/slug/analytics`, through the `slop_analytics` operation (MCP, REST
+  `/api/v1/slops/:slop/analytics`) and `slopper analytics <slop>`; their own visits don't count.
+- **Platform analytics** are for admins only (`analytics.view`): the dashboard at `/analytics` (growth, slops doing
+  better, traffic, insights, people), and for agents `slopper admin analytics [report]` (`GET /api/v1/admin/analytics`,
+  `app/.server/agent/adminAnalytics.ts`). That command is deliberately undocumented outside this file: it's not an MCP
+  tool, nor in llms.txt, the skill or `slopper help`, and the endpoint is a 404 for everyone else. Reports: overview,
+  growth, projects, traffic, trends, funnel, retention, paths, stickiness, lifecycle, people, person (`--q @username`),
+  live, events; flags as on /analytics/insights (`--days`, `--event` repeated, `--math`, `--breakdown`…). To improve
+  the platform from data, start with `slopper admin analytics overview` and `slopper admin analytics funnel --event …`.
 - **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
   gate anything that shows or writes comments on the switch.
 - **Releases:** every change worth releasing gets a changeset, made with `vp exec monochange create` and named with

@@ -21,6 +21,12 @@ export default [
   route("notifications", "routes/notifications.tsx"),
   route("mod", "routes/mod.tsx"),
   route("mod/team", "routes/mod.team.tsx"),
+  route("analytics", "routes/analytics.tsx"),
+  route("analytics/traffic", "routes/analytics.traffic.tsx"),
+  route("analytics/insights", "routes/analytics.insights.tsx"),
+  route("analytics/people", "routes/analytics.people.tsx"),
+  route("analytics/people/:distinctId", "routes/analytics.person.tsx"),
+  route("analytics/sessions/:sessionId", "routes/analytics.session.tsx"),
   route("cli", "routes/cli.tsx"),
 
   route("auth/logout", "routes/auth.logout.ts"),
@@ -47,4 +53,5 @@ export default [
   route(":handle", "routes/profile.tsx"),
   route(":handle/:slug", "routes/slop.tsx"),
   route(":handle/:slug/edit", "routes/slop.edit.tsx"),
+  route(":handle/:slug/analytics", "routes/slop.analytics.tsx"),
 ] satisfies RouteConfig;

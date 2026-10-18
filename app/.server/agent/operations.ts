@@ -103,6 +103,48 @@ function summarizeSlop(slop: Doc<"slops">, owner: User) {
   };
 }
 
+/** Days a slop's analytics can cover through the API, as on its analytics page. */
+export const SLOP_ANALYTICS_DAYS = 90;
+
+type SlopReport = FunctionReturnType<typeof api.analytics.slopReport>;
+
+/** A slop's analytics as agents read them: totals, the change, and the top of each list. */
+function summarizeReport({ slop, report, truncated, days }: SlopReport) {
+  const { totals, previous, series } = report;
+  const change = previous.views === 0 ? null : Math.round(((totals.views - previous.views) / previous.views) * 100);
+  return {
+    slop: { id: slop.id, name: slop.name, url: absoluteUrl(slopPath(slop.username, slop.slug)) },
+    days,
+    views: totals.views,
+    people: totals.people,
+    visits: totals.sessions,
+    interactions: totals.interactions,
+    previous: { views: previous.views, people: previous.people },
+    /** Percent change in views on the period before; null when there were none before. */
+    viewsChangePercent: change,
+    daily: series.buckets.map((start, index) => ({
+      date: new Date(start).toISOString().slice(0, 10),
+      views: series.views[index] ?? 0,
+      people: series.people[index] ?? 0,
+    })),
+    sources: report.sources.map((row) => ({ source: row.value, visits: row.count, people: row.visitors })),
+    clicks: report.clicks.map((row) => ({ what: row.value, clicks: row.count, people: row.visitors })),
+    actions: Object.fromEntries(
+      report.actions
+        .filter((action) => config.commentsEnabled || action.name !== "commented")
+        .map((action) => [action.name, action.count]),
+    ),
+    upvotes: slop.upvotes,
+    backers: slop.backers,
+    pledgedUsdCents: slop.pledged,
+    updates: slop.updates,
+    fieldTests: slop.fieldTests,
+    ...(config.commentsEnabled ? { feedback: slop.comments } : {}),
+    /** True when there was more than one report reads; the numbers cover the start of the range. */
+    truncated,
+  };
+}
+
 /** Bytes sent as base64 (MCP has no raw bodies), with or without a data: prefix. */
 function base64Bytes(input: JsonObject): Uint8Array<ArrayBuffer> {
   const base64 = requiredString(input, "base64").replace(/^data:[^,]+,/, "");
@@ -632,6 +674,30 @@ export const OPERATIONS: Operation[] = [
     async run({ user }) {
       const slops = await convex.query(api.slops.listForServer, { userId: user._id });
       return { slops: slops.map((slop) => summarizeSlop(slop, user)) };
+    },
+  },
+  {
+    name: "slop_analytics",
+    title: "A slop's views and clicks",
+    description: `How one of the user's slops is doing: page views and the people behind them over the last \`days\` (30 unless given, up to ${SLOP_ANALYTICS_DAYS}) against the days before, day by day; where visitors came from; what they clicked on its page; and its votes, pledges and updates. The user's own visits don't count.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        slop: SLOP_REF,
+        days: { type: "integer", minimum: 1, maximum: SLOP_ANALYTICS_DAYS, description: "Defaults to 30." },
+      },
+      required: ["slop"],
+    },
+    readOnly: true,
+    async run(context, input) {
+      const slop = await ownSlop(context, requiredString(input, "slop"));
+      const days = optionalNumber(input, "days") ?? 30;
+      if (!Number.isInteger(days) || days < 1 || days > SLOP_ANALYTICS_DAYS) {
+        throw new ApiError(400, `days must be a whole number from 1 to ${SLOP_ANALYTICS_DAYS}.`);
+      }
+      return summarizeReport(
+        await convex.action(api.analytics.slopReport, { userId: context.user._id, slopId: slop._id, days }),
+      );
     },
   },
   {

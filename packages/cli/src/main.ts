@@ -37,14 +37,15 @@ function usage(command: Command): string {
 }
 
 function overview(): string {
-  const width = Math.max(...COMMANDS.map((command) => command.name.length));
+  const listed = COMMANDS.filter((command) => !command.hidden);
+  const width = Math.max(...listed.map((command) => command.name.length));
   return [
     `slopper ${manifest.version}: too much slop? Not enough yet! Throw it at the wall from your terminal. Built for agents.`,
     "",
     "Usage: slopper <command> [flags]",
     "",
     "Commands:",
-    ...COMMANDS.map((command) => `  ${command.name.padEnd(width)}  ${command.summary}`),
+    ...listed.map((command) => `  ${command.name.padEnd(width)}  ${command.summary}`),
     `  ${"help".padEnd(width)}  Help for one command: slopper help launch`,
     "",
     "Global flags:",

@@ -15,6 +15,9 @@ const UNKNOWN_DEVICE: DeviceInfo = { browser: null, browserVersion: null, os: nu
 /** Seeing someone again within this long doesn't rewrite their row: it keeps writes (and conflicts) down. */
 const LAST_SEEN_RESOLUTION_MS = 60_000;
 
+/** How stale an event name's last-seen time may get before it's written again. */
+const DEFINITION_RESOLUTION_MS = 3_600_000;
+
 /** Events that count as someone doing something on the page, not just looking. */
 const INTERACTIONS = new Set<string>([EVENTS.autocapture, EVENTS.rageclick]);
 
@@ -75,11 +78,39 @@ export async function ingestEvents(
       timestamp: event.timestamp,
       path: event.path,
       properties: event.properties,
+      ...(event.group ? { group: event.group } : {}),
     });
     stored += 1;
   }
   await batch.flush();
+  await recordDefinitions(ctx, events);
   return { stored, duplicates };
+}
+
+/** Keeps the list of event names current, writing each name at most once an hour. */
+async function recordDefinitions(ctx: MutationCtx, events: readonly WireEvent[]): Promise<void> {
+  const latest = new Map<string, { first: number; last: number }>();
+  for (const event of events) {
+    const seen = latest.get(event.name);
+    latest.set(event.name, {
+      first: Math.min(seen?.first ?? event.timestamp, event.timestamp),
+      last: Math.max(seen?.last ?? event.timestamp, event.timestamp),
+    });
+  }
+  for (const [name, { first, last }] of latest) {
+    const definition = await ctx.db
+      .query("eventDefinitions")
+      .withIndex("by_name", (q) => q.eq("name", name))
+      .unique();
+    if (!definition) {
+      await ctx.db.insert("eventDefinitions", { name, firstSeenAt: first, lastSeenAt: last });
+    } else if (last - definition.lastSeenAt >= DEFINITION_RESOLUTION_MS || first < definition.firstSeenAt) {
+      await ctx.db.patch(definition._id, {
+        firstSeenAt: Math.min(first, definition.firstSeenAt),
+        lastSeenAt: Math.max(last, definition.lastSeenAt),
+      });
+    }
+  }
 }
 
 class IngestBatch {

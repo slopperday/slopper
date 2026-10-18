@@ -8,10 +8,12 @@ import {
 } from "convex/server";
 import type { ComponentApi } from "../component/_generated/component";
 import { BATCH_LIMITS, parseBatch } from "../shared/events";
+import type { GroupReport, GroupReportQuery, InsightAnswer, InsightQuery } from "../shared/insights";
 import type { Properties } from "../shared/properties";
 import { ROUTES } from "../shared/routes";
 import { hostOf } from "../shared/source";
 import { isBot, parseUserAgent } from "../shared/userAgent";
+import { groupReport, type Overview, overview, runInsight } from "./insights";
 
 /**
  * What an app's own Convex functions use: the HTTP endpoints the SDK sends
@@ -40,6 +42,8 @@ export interface ServerEvent {
   timestamp?: number;
   /** The distinct id is an account's: its person counts as signed in. */
   identified?: boolean;
+  /** What it's about, `type:id`, like the slop that was voted on (group analytics). */
+  group?: string;
 }
 
 export interface Retention {
@@ -52,6 +56,13 @@ export interface RouteOptions {
   pathPrefix?: string;
   /** Origins browsers may send from, like `https://slopper.day`; "*" for any. */
   allowedOrigins: readonly string[] | "*";
+  /**
+   * What the pages in a batch are about, for group analytics: each path the
+   * app recognizes, mapped to `type:id` ("/@ifiok/tiltmaze" to "slop:abc").
+   * Every event on that page (views, clicks, leaves) joins the group. Paths
+   * it leaves out stay ungrouped.
+   */
+  groupsForPaths?: (ctx: RunActionCtx, paths: string[]) => Promise<ReadonlyMap<string, string>>;
 }
 
 export class Analytics {
@@ -65,6 +76,24 @@ export class Analytics {
   /** Deletes everything about the person behind `distinctId`. */
   async forget(ctx: RunMutationCtx, distinctId: string): Promise<boolean> {
     return await ctx.runMutation(this.component.persons.forget, { distinctId });
+  }
+
+  /**
+   * Answers an insight (trends, funnels, retention, paths, stickiness,
+   * lifecycle, web analytics). Reads page by page, so run it from an action.
+   */
+  async insight(ctx: RunActionCtx, query: InsightQuery, now: number = Date.now()): Promise<InsightAnswer> {
+    return await runInsight(ctx, this.component, query, now);
+  }
+
+  /** Everything about one group (`type:id`): views, people, sources, clicks, actions. From an action. */
+  async groupReport(ctx: RunActionCtx, query: GroupReportQuery): Promise<{ report: GroupReport; truncated: boolean }> {
+    return await groupReport(ctx, this.component, query);
+  }
+
+  /** How many people there are, how many signed in, and how many were active lately. From an action. */
+  async overview(ctx: RunActionCtx, now: number = Date.now()): Promise<Overview> {
+    return await overview(ctx, this.component, now);
   }
 
   /** Deletes what's past `retention`; run it daily from a cron. */
@@ -118,8 +147,13 @@ export class Analytics {
         }
         const batch = parseBatch(input, Date.now());
         if (batch.events.length === 0) return Response.json({ stored: 0, dropped: batch.dropped }, { headers });
+        const paths = [...new Set(batch.events.flatMap((event) => (event.path ? [event.path] : [])))];
+        const groups = options.groupsForPaths && paths.length > 0 ? await options.groupsForPaths(ctx, paths) : null;
+        const events = groups
+          ? batch.events.map((event) => ({ ...event, group: (event.path && groups.get(event.path)) || null }))
+          : batch.events;
         const result = await ctx.runMutation(this.component.ingest.batch, {
-          events: batch.events,
+          events,
           context: { device: parseUserAgent(userAgent), ownHost: origin ? hostOf(origin) : null },
         });
         return Response.json({ ...result, dropped: batch.dropped }, { headers });
@@ -127,3 +161,7 @@ export class Analytics {
     });
   }
 }
+
+export { checkRange, MAX_RANGE_DAYS, type Overview, SCAN_LIMIT } from "./insights";
+export * from "../shared/insights/queries";
+export type * from "../shared/insights";

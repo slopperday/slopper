@@ -45,6 +45,7 @@ export const wireEventValidator = v.object({
   properties,
   set: v.union(properties, v.null()),
   setOnce: v.union(properties, v.null()),
+  group: v.union(v.string(), v.null()),
 });
 
 /** What the endpoint learned from the request itself, not from the SDK. */

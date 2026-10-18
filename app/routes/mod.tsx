@@ -45,6 +45,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     takeDown: can(user, "videos.takeDown"),
     trust: can(user, "videos.trust"),
     team: can(user, "team.manage"),
+    analytics: can(user, "analytics.view"),
   };
   const [items, videos, checks, trust] = await Promise.all([
     convex.query(api.moderation.queue, {}),
@@ -176,11 +177,18 @@ export default function Moderation({ loaderData }: Route.ComponentProps) {
     <section className="mx-auto max-w-4xl px-4 pt-14">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="title-1">Moderation</h1>
-        {allowed.team && (
-          <Link to="/mod/team" className="btn btn-sm bg-raised">
-            Moderation team
-          </Link>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {allowed.analytics && (
+            <Link to="/analytics" className="btn btn-sm bg-raised">
+              Analytics
+            </Link>
+          )}
+          {allowed.team && (
+            <Link to="/mod/team" className="btn btn-sm bg-raised">
+              Moderation team
+            </Link>
+          )}
+        </div>
       </div>
       <p className="lede mt-4 max-w-2xl">Approve or reject what waits here.</p>
       {videos.length > 0 && <VideoQueue videos={videos} />}

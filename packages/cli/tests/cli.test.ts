@@ -130,12 +130,24 @@ describe("help", () => {
     const overview = await cli.run("help");
     expect(overview.code).toBe(0);
     expect(overview.stdout).toMatch(new RegExp(`^slopper ${manifest.version.replaceAll(".", "\\.")}: `));
-    for (const command of COMMANDS) expect(overview.stdout).toContain(`\n  ${command.name} `);
+    for (const command of COMMANDS.filter((item) => !item.hidden)) {
+      expect(overview.stdout).toContain(`\n  ${command.name} `);
+    }
     for (const flag of ["--token <token>", "--url <url>", "-h, --help", "SLOPPER_TOKEN"]) {
       expect(overview.stdout).toContain(flag);
     }
     for (const argv of [[], ["--help"], ["-h"]]) expect(await cli.run(...argv)).toEqual(overview);
     expect(cli.calls).toEqual([]);
+  });
+
+  it("leaves admins' commands out of the list, but still explains them when asked", async () => {
+    const cli = await harness();
+    const overview = await cli.run("help");
+    expect(overview.stdout).not.toContain("\n  admin ");
+    expect(overview.stdout).not.toMatch(/admin/i);
+    const admin = await cli.run("help", "admin");
+    expect(admin.code).toBe(0);
+    expect(admin.stdout).toContain("Usage: slopper admin analytics [report]");
   });
 
   it.each(COMMANDS.map((command) => command.name))("explains %s, with help, --help or -h", async (name) => {
@@ -346,6 +358,48 @@ const ROUTE_CASES: { name: string; argv: string[]; method: string; path: string;
     method: "POST",
     path: "/api/v1/slops/tiltmaze/money",
     body: { kind: "revenue", amount: 5, date: "2026-10-17" },
+  },
+  {
+    name: "analytics",
+    argv: ["analytics", "tiltmaze"],
+    method: "GET",
+    path: "/api/v1/slops/tiltmaze/analytics",
+    body: null,
+  },
+  {
+    name: "analytics",
+    argv: ["analytics", "tilt maze", "--days", "7"],
+    method: "GET",
+    path: "/api/v1/slops/tilt%20maze/analytics?days=7",
+    body: null,
+  },
+  {
+    name: "admin",
+    argv: ["admin", "analytics"],
+    method: "GET",
+    path: "/api/v1/admin/analytics?report=overview",
+    body: null,
+  },
+  {
+    name: "admin",
+    argv: [
+      "admin",
+      "analytics",
+      "funnel",
+      "--days",
+      "14",
+      "--event",
+      "$pageview",
+      "--step-path",
+      "/",
+      "--event",
+      "slop launched",
+      "--window",
+      "3",
+    ],
+    method: "GET",
+    path: "/api/v1/admin/analytics?report=funnel&days=14&window=3&event=%24pageview&event=slop+launched&stepPath=%2F",
+    body: null,
   },
   ...(["up", "down", "clear"] as const).map((vote) => ({
     name: "vote",

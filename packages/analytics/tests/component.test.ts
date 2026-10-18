@@ -31,6 +31,7 @@ function event(overrides: Partial<WireEvent> = {}): WireEvent {
     properties: {},
     set: null,
     setOnce: null,
+    group: null,
     ...overrides,
   };
 }
@@ -403,5 +404,102 @@ describe("events.recent", () => {
       "$autocapture",
     ]);
     expect(await t.query(api.events.recent, { distinctId: "nobody" })).toEqual([]);
+  });
+});
+
+describe("groups", () => {
+  it("keeps what an event is about, and reads by it", async () => {
+    const t = setup();
+    const start = Date.now() - 10 * MINUTE;
+    await send(t, [
+      event({ group: "slop:a", timestamp: start }),
+      event({ group: "slop:a", name: "$autocapture", timestamp: start + 1 }),
+      event({ group: "slop:b", timestamp: start + 2 }),
+      event({ timestamp: start + 3 }),
+    ]);
+    await t.mutation(api.ingest.capture, {
+      name: "voted",
+      distinctId: "user-1",
+      group: "slop:a",
+      timestamp: start + 4,
+    });
+    const about = await t.query(api.events.recent, { group: "slop:a" });
+    expect(about.map((row) => row.name)).toEqual(["voted", "$autocapture", "$pageview"]);
+    expect(await t.query(api.events.recent, { group: "slop:a", name: "voted" })).toHaveLength(1);
+    const page = await t.query(api.scan.events, {
+      name: "$pageview",
+      group: "slop:a",
+      from: start,
+      to: start + MINUTE,
+      cursor: null,
+      numItems: 10,
+    });
+    expect(page.page.map((row) => [row.name, row.group])).toEqual([["$pageview", "slop:a"]]);
+    const all = await t.query(api.scan.events, {
+      name: null,
+      from: start,
+      to: start + MINUTE,
+      cursor: null,
+      numItems: 10,
+    });
+    expect(all.page.map((row) => row.group)).toEqual(["slop:a", "slop:a", "slop:b", null, "slop:a"]);
+  });
+
+  it("looks up where sessions came from, skipping ones that are gone", async () => {
+    const t = setup();
+    await send(t, [event({ sessionId: "s1", properties: { referrer: "https://t.co/x", country: "US" } })]);
+    expect(await t.query(api.scan.sessionSources, { sessionIds: ["s1", "missing"] })).toEqual([
+      {
+        sessionId: "s1",
+        country: "US",
+        source: { referrerDomain: "t.co", utmSource: null, utmMedium: null, utmCampaign: null, channel: "social" },
+      },
+    ]);
+  });
+});
+
+describe("paging", () => {
+  it("pages through events sharing a timestamp without losing or repeating any", async () => {
+    const t = setup();
+    const at = Date.now() - MINUTE;
+    // 25 events at the same moment, then 5 a millisecond later: pages of 10 split the run.
+    await send(t, [
+      ...Array.from({ length: 25 }, (_, n) => event({ uuid: `same-${n}`, timestamp: at })),
+      ...Array.from({ length: 5 }, (_, n) => event({ uuid: `later-${n}`, timestamp: at + 1 })),
+    ]);
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < 10; page += 1) {
+      const result: { page: { timestamp: number }[]; isDone: boolean; continueCursor: string } = await t.query(
+        api.scan.events,
+        { name: "$pageview", from: at, to: at + MINUTE, cursor, numItems: 10 },
+      );
+      seen.push(...result.page.map((row) => String(row.timestamp)));
+      if (result.isDone) break;
+      cursor = result.continueCursor;
+    }
+    expect(seen).toHaveLength(30);
+    expect(seen.filter((timestamp) => timestamp === String(at))).toHaveLength(25);
+  });
+
+  it("lists people most recently seen first, page by page", async () => {
+    const t = setup();
+    const base = Date.now() - 10 * MINUTE;
+    for (let n = 0; n < 7; n += 1) {
+      await send(t, [event({ distinctId: `person-${n}`, sessionId: `s-${n}`, timestamp: base + n * MINUTE })]);
+    }
+    const first = await t.query(api.persons.list, { cursor: null, numItems: 4 });
+    const second = await t.query(api.persons.list, { cursor: first.continueCursor, numItems: 4 });
+    expect(first.isDone).toBe(false);
+    expect(second.isDone).toBe(true);
+    expect([...first.page, ...second.page].map((person) => person.distinctIds[0])).toEqual([
+      "person-6",
+      "person-5",
+      "person-4",
+      "person-3",
+      "person-2",
+      "person-1",
+      "person-0",
+    ]);
   });
 });

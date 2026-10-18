@@ -42,8 +42,14 @@ async function sweepPage(
     for (const id of ids) await ctx.db.delete(id._id);
     await ctx.db.delete(person._id);
   }
+  // Names nothing has used in the retention period drop off the pickers.
+  const definitions = await ctx.db
+    .query("eventDefinitions")
+    .withIndex("by_last_seen", (q) => q.lt("lastSeenAt", eventCutoff))
+    .take(PAGE);
+  for (const definition of definitions) await ctx.db.delete(definition._id);
   return {
-    deleted: events.length + sessions.length + persons.length,
+    deleted: events.length + sessions.length + persons.length + definitions.length,
     more: events.length === PAGE || sessions.length === PAGE || persons.length === PAGE / 5,
   };
 }

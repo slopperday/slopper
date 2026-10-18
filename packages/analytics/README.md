@@ -74,6 +74,31 @@ await analytics.capture(ctx, { name: "signed up", distinctId: userId, identified
 Query strings are never sent; `sanitizePath` rewrites paths with secrets in them. Bots are dropped at the endpoint. IP
 addresses are never read.
 
+## Groups
+
+Tag events with what they're about, `type:id` (PostHog calls this group analytics): a project, a team, a listing.
+Browsers never set it; the app's server does, from the page's path (`RouteOptions.groupsForPaths`) or in a server capture
+(`group`). Events are indexed by group, so one group's report reads only its own events.
+
+## Insights
+
+`analytics.insight(ctx, query)` answers, from an action, by reading events and sessions a page at a time:
+
+| Kind         | What it answers                                                                         |
+| ------------ | --------------------------------------------------------------------------------------- |
+| `trends`     | Events, people or sessions per day, week or month, for up to four events or a breakdown |
+| `funnel`     | People through ordered steps within a window, with drop-off and time between steps      |
+| `retention`  | Cohorts by first start event, and who came back period by period                        |
+| `paths`      | Journeys between pages, session by session (from a page, or leading to one)             |
+| `stickiness` | How many days in the range people did something                                         |
+| `lifecycle`  | New, returning, resurrecting and dormant people per period                              |
+| `web`        | Visitors, sessions, page views, duration and bounce rate, with sources and devices      |
+| `groups`     | Every group against the period before: climbing, fading, new                            |
+
+`analytics.groupReport` is everything about one group: views, people, sources, clicks and the app's own events.
+`analytics.overview` counts people. Queries are validated by `insightQueryValidator`; the aggregators are pure
+(`src/shared/insights`) and read at most `SCAN_LIMIT` rows, saying `truncated` past it.
+
 ## Privacy controls
 
 `optOut()` sets a first-party cookie (`sa_off`) the SDK and the app's server both read, and deletes the distinct id;
