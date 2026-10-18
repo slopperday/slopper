@@ -77,7 +77,8 @@ export function MoneyLedger({
   const [kind, setKind] = useState<MoneyKind>("cost");
   const categories = kind === "cost" ? COST_CATEGORIES : REVENUE_CATEGORIES;
   return (
-    <section id="money" aria-labelledby="money-ledger-title">
+    // Session replay leaves the owner's ledger out (blocked to an empty box).
+    <section id="money" aria-labelledby="money-ledger-title" data-no-replay>
       <h2 id="money-ledger-title" className="caps">
         Money
       </h2>

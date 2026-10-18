@@ -1,11 +1,12 @@
 // @vitest-environment edge-runtime
 import process from "node:process";
+import { gzipSync } from "node:zlib";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, components } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { analyticsOptedOut, analyticsSetup, countryOf } from "~/.server/analytics";
 import { loadConfig } from "~/.server/config";
-import { sanitizeAnalyticsPath } from "~/lib/analytics";
+import { mayRecordPath, sanitizeAnalyticsPath } from "~/lib/analytics";
 import { convexApp } from "./convexApp";
 
 // convex/http.ts allows browsers from APP_URL, as on the real deployment.
@@ -70,6 +71,15 @@ describe("analytics config", () => {
     expect(loadConfig({ CONVEX_URL: "http://127.0.0.1:3210" }).analyticsEndpoint).toBeNull();
     expect(() => loadConfig({ CONVEX_SITE_URL: "nope" })).toThrow("CONVEX_SITE_URL isn't a URL");
   });
+
+  it("records every session unless told a share", () => {
+    expect(loadConfig({}).analyticsReplayRate).toBe(1);
+    expect(loadConfig({ ANALYTICS_REPLAY_RATE: "0.25" }).analyticsReplayRate).toBe(0.25);
+    expect(loadConfig({ ANALYTICS_REPLAY_RATE: "0" }).analyticsReplayRate).toBe(0);
+    for (const value of ["1.5", "-1", "half"]) {
+      expect(() => loadConfig({ ANALYTICS_REPLAY_RATE: value })).toThrow("ANALYTICS_REPLAY_RATE is a share");
+    }
+  });
 });
 
 describe("analytics on the app server", () => {
@@ -93,6 +103,24 @@ describe("analytics on the app server", () => {
   it("hides unsubscribe tokens in paths", () => {
     expect(sanitizeAnalyticsPath("/unsubscribe/abc123")).toBe("/unsubscribe/:token");
     expect(sanitizeAnalyticsPath("/@ifiok/tiltmaze")).toBe("/@ifiok/tiltmaze");
+  });
+
+  it("never records private pages for replay", () => {
+    for (const path of ["/", "/wall", "/@ifiok/tiltmaze", "/new", "/goal", "/analyticsfans"]) {
+      expect(mayRecordPath(path), path).toBe(true);
+    }
+    for (const path of [
+      "/settings",
+      "/settings/api",
+      "/cli",
+      "/notifications",
+      "/mod/team",
+      "/analytics",
+      "/analytics/sessions/abc",
+      "/@ifiok/tiltmaze/analytics",
+    ]) {
+      expect(mayRecordPath(path), path).toBe(false);
+    }
   });
 });
 
@@ -447,6 +475,83 @@ describe("flags and experiments", () => {
       { action: { type: "experiment", change: "stopped" }, target: "newest-first" },
       { action: { type: "experiment", change: "deleted" }, target: "newest-first" },
     ]);
+  });
+});
+
+describe("session recordings", () => {
+  async function admin(t: ReturnType<typeof setup>["t"], server: Server): Promise<Id<"users">> {
+    const userId = await makeUser(server, "boss");
+    await t.run(async (ctx) => await ctx.db.patch(userId, { role: "admin" }));
+    return userId;
+  }
+
+  function chunk(params: Record<string, string>, body: BodyInit, headers: Record<string, string> = {}) {
+    const now = Date.now();
+    const query = new URLSearchParams({
+      s: "session-r",
+      d: "visitor-r",
+      from: String(now - 2_000),
+      to: String(now - 1_000),
+      n: "2",
+      z: "1",
+      t: String(now),
+      ...params,
+    });
+    return {
+      path: `/a/r?${query.toString()}`,
+      init: {
+        method: "POST",
+        body,
+        headers: { origin: "https://slopper.day", "user-agent": CHROME, "content-type": "text/plain", ...headers },
+      },
+    };
+  }
+
+  it("takes chunks from the site's browsers and hands admins the session's recording", async () => {
+    const { t, server } = setup();
+    const boss = await admin(t, server);
+    const gzipped = new Uint8Array(gzipSync(JSON.stringify([{ type: 4, timestamp: 1 }])));
+    await t.fetch("/a/e", {
+      method: "POST",
+      body: batch([{ distinctId: "visitor-r", sessionId: "session-r" }]),
+      headers: { origin: "https://slopper.day", "user-agent": CHROME },
+    });
+    const sent = chunk({}, gzipped);
+    const response = await t.fetch(sent.path, sent.init);
+    expect(response.headers.get("access-control-allow-origin")).toBe("https://slopper.day");
+    expect(await response.json()).toEqual({ stored: true });
+
+    const found = await server.query(api.analytics.session, { adminId: boss, sessionId: "session-r" });
+    expect(found?.recording?.recording).toMatchObject({ sessionId: "session-r", chunks: 1, events: 2 });
+    expect(found?.recording?.chunks).toEqual([expect.objectContaining({ encoding: "gzip" })]);
+
+    const listed = await server.query(api.analytics.recordings, { adminId: boss, cursor: null });
+    expect(listed.page.map(({ recording, session }) => [recording.sessionId, session?.pageviews])).toEqual([
+      ["session-r", 1],
+    ]);
+    const person = await server.query(api.analytics.person, { adminId: boss, distinctId: "visitor-r" });
+    expect(person?.recorded).toEqual(["session-r"]);
+  });
+
+  it("refuses other sites, bad chunks and crawlers", async () => {
+    const { t, server } = setup();
+    const boss = await admin(t, server);
+    const body = "[]";
+    const other = chunk({}, body, { origin: "https://evil.example" });
+    expect((await t.fetch(other.path, other.init)).status).toBe(403);
+    const unordered = chunk({ from: "10", to: "5" }, body);
+    expect((await t.fetch(unordered.path, unordered.init)).status).toBe(400);
+    const bot = chunk({}, body, { "user-agent": "Googlebot/2.1" });
+    expect((await t.fetch(bot.path, bot.init)).status).toBe(204);
+    // A week old by a clock that agrees with the server's: too old to keep.
+    const old = Date.now() - 8 * 86_400_000;
+    const week = chunk({ from: String(old), to: String(old + 1), t: String(Date.now()) }, body);
+    expect(await (await t.fetch(week.path, week.init)).json()).toEqual({ stored: false });
+    // A browser whose clock is far behind: its times move to the server's, and it's kept.
+    const skewed = chunk({ from: "1000", to: "2000", t: "3000" }, body);
+    expect(await (await t.fetch(skewed.path, skewed.init)).json()).toEqual({ stored: true });
+    const [kept] = (await server.query(api.analytics.recordings, { adminId: boss, cursor: null })).page;
+    expect(kept?.recording.startedAt).toBeGreaterThan(Date.now() - 60_000);
   });
 });
 

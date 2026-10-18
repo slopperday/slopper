@@ -1,8 +1,11 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalMutation, type MutationCtx, mutation } from "./_generated/server";
+import { sweepRecordings } from "./recordings";
 
 const DAY_MS = 86_400_000;
+/** How long recordings are kept unless the app says otherwise: they're big, and old ones are rarely watched. */
+const RECORDING_DAYS = 30;
 /** Rows deleted per table per transaction. */
 const PAGE = 500;
 
@@ -11,11 +14,13 @@ const retentionValidator = v.object({
   eventDays: v.number(),
   /** People not seen for this long are deleted, with their ids. */
   personDays: v.number(),
+  /** Session recordings; 30 days unless set. */
+  recordingDays: v.optional(v.number()),
 });
 
 async function sweepPage(
   ctx: MutationCtx,
-  retention: { eventDays: number; personDays: number },
+  retention: { eventDays: number; personDays: number; recordingDays?: number },
   now: number,
 ): Promise<{ deleted: number; more: boolean }> {
   const eventCutoff = now - retention.eventDays * DAY_MS;
@@ -48,9 +53,10 @@ async function sweepPage(
     .withIndex("by_last_seen", (q) => q.lt("lastSeenAt", eventCutoff))
     .take(PAGE);
   for (const definition of definitions) await ctx.db.delete(definition._id);
+  const recordings = await sweepRecordings(ctx, now - (retention.recordingDays ?? RECORDING_DAYS) * DAY_MS);
   return {
-    deleted: events.length + sessions.length + persons.length + definitions.length,
-    more: events.length === PAGE || sessions.length === PAGE || persons.length === PAGE / 5,
+    deleted: events.length + sessions.length + persons.length + definitions.length + recordings.deleted,
+    more: events.length === PAGE || sessions.length === PAGE || persons.length === PAGE / 5 || recordings.more,
   };
 }
 
@@ -74,6 +80,9 @@ export const sweep = mutation({
   handler: async (ctx, { retention }) => {
     if (retention.eventDays < 1 || retention.personDays < retention.eventDays) {
       throw new Error("Keep events for a day at least, and people at least as long as their events.");
+    }
+    if (retention.recordingDays !== undefined && retention.recordingDays < 1) {
+      throw new Error("Keep recordings for a day at least.");
     }
     const now = Date.now();
     const result = await sweepPage(ctx, retention, now);

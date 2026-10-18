@@ -11,10 +11,16 @@
     "./convex": "./src/convex/index.ts",
     "./browser": "./src/browser/index.ts",
     "./react": "./src/react/index.tsx",
+    "./player": "./src/player/index.ts",
     "./shared": "./src/shared/index.ts",
     "./shared/insights": "./src/shared/insights/index.ts",
     "./shared/flags": "./src/shared/flags.ts",
     "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@rrweb/record": "^2.1.7",
+    "@rrweb/replay": "^2.1.7",
+    "@rrweb/types": "^2.1.7"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

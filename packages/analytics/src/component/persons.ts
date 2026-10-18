@@ -121,7 +121,7 @@ export const forgetPage = internalMutation({
 
 /**
  * Forgets a person: their ids at once, so nothing new lands on them, then
- * their events and sessions in the background. For account deletion and
+ * their events, sessions and recordings in the background. For account deletion and
  * requests to erase someone's data. Returns whether there was anyone to forget.
  */
 export const forget = mutation({
@@ -139,6 +139,7 @@ export const forget = mutation({
       .collect();
     for (const id of ids) await ctx.db.delete(id._id);
     await ctx.scheduler.runAfter(0, internal.persons.forgetPage, { personId: row.personId });
+    await ctx.scheduler.runAfter(0, internal.recordings.forget, { distinctIds: ids.map((id) => id.distinctId) });
     return true;
   },
 });

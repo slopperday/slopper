@@ -1,4 +1,4 @@
-export { Analytics, type AnalyticsOptions, type CaptureOptions } from "./client";
+export { Analytics, type AnalyticsOptions, type CaptureOptions, type ReplayOptions } from "./client";
 export { describeElement, selectorOf } from "./autocapture";
 export { uuidv7 } from "../shared/uuid";
 export { EVENTS } from "../shared/events";

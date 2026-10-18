@@ -1,12 +1,14 @@
 import { Link } from "react-router";
 import type { Route } from "./+types/analytics.session";
 import { api } from "@convex/_generated/api";
+import { EVENTS } from "@slopperday/analytics/shared";
 import { convex } from "~/.server/convex";
 import { requireStaff, viewerContext } from "~/.server/session";
 import { formatDuration, personName } from "~/lib/insights";
 import { seo } from "~/lib/seo";
 import { AnalyticsNav } from "~/components/analytics/AnalyticsNav";
 import { EventList } from "~/components/analytics/EventList";
+import { type ReplayMarker, ReplayPlayer } from "~/components/analytics/ReplayPlayer";
 
 /** One visit, start to finish: where it came from, what it used, and everything that happened. */
 
@@ -19,8 +21,28 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
 export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "Session", noindex: true });
 
+/** Page views and clicks as moments on the recording's timeline. */
+function markersOf(events: Route.ComponentProps["loaderData"]["events"]): ReplayMarker[] {
+  return events.flatMap((event): ReplayMarker[] => {
+    if (event.name === EVENTS.pageview)
+      return [{ at: event.timestamp, label: `Page view of ${event.path ?? "?"}`, kind: "page" }];
+    if (event.name === EVENTS.rageclick) return [{ at: event.timestamp, label: "Rage click", kind: "rage" }];
+    if (event.name === EVENTS.autocapture && event.properties.eventType === "click") {
+      const text = event.properties.text;
+      return [
+        {
+          at: event.timestamp,
+          label: `Clicked ${typeof text === "string" ? `“${text}”` : "something"}`,
+          kind: "click",
+        },
+      ];
+    }
+    return [];
+  });
+}
+
 export default function Session({ loaderData }: Route.ComponentProps) {
-  const { session, events, username } = loaderData;
+  const { session, events, username, recording } = loaderData;
   const started = new Date(session.startedAt);
   const facts: [string, string][] = [
     ["Started", started.toLocaleString("en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }) + " UTC"],
@@ -48,6 +70,7 @@ export default function Session({ loaderData }: Route.ComponentProps) {
           </div>
         ))}
       </dl>
+      {recording && <ReplayPlayer chunks={recording.chunks} markers={markersOf(events)} />}
       <h2 className="title-2 mt-12">What happened</h2>
       <EventList events={events} since={session.startedAt} />
     </section>

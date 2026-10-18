@@ -7,6 +7,8 @@ import { cookieNames, DEFAULT_STORAGE_KEY, ROUTES, stateKey } from "../shared/ro
 import { readCookie, StateStore, type StoredState, writeCookie } from "./storage";
 import { Transport } from "./transport";
 import { uuidv7 } from "../shared/uuid";
+import { bucketOf } from "../shared/hash";
+import type { Recorder } from "./replay";
 
 export interface AnalyticsOptions {
   /**
@@ -35,8 +37,20 @@ export interface AnalyticsOptions {
    * view is stamped with it.
    */
   landedAt?: number;
+  /** Session replay: off unless set. */
+  replay?: ReplayOptions | null;
   /** For tests. */
   fetch?: typeof fetch;
+}
+
+export interface ReplayOptions {
+  /** The share of sessions recorded, from 0 to 1. Decided per session, so every page of one agrees. */
+  sampleRate: number;
+  /**
+   * Whether a page may be recorded, by its path. Pages whose path
+   * `sanitizePath` changes (it holds something private) never are.
+   */
+  mayRecord?: (path: string) => boolean;
 }
 
 export interface CaptureOptions {
@@ -74,6 +88,8 @@ export class Analytics {
   private readonly stops: (() => void)[] = [];
   private id: string;
   private stopped = false;
+  private recorder: Recorder | null = null;
+  private recorderLoading = false;
 
   constructor(private readonly options: AnalyticsOptions) {
     const key = options.storageKey ?? DEFAULT_STORAGE_KEY;
@@ -95,6 +111,7 @@ export class Analytics {
     );
     this.id = this.optedOut ? "" : this.loadDistinctId();
     this.start();
+    this.startReplay();
   }
 
   /** Who events are captured as: anonymous until `identify`. Empty while opted out. */
@@ -249,6 +266,8 @@ export class Analytics {
    * forgets its ids. Events still queued are dropped.
    */
   optOut(): void {
+    this.recorder?.stop(true);
+    this.recorder = null;
     writeCookie(this.cookies.optOut, "1");
     writeCookie(this.cookies.distinctId, null);
     this.store.clear();
@@ -264,6 +283,43 @@ export class Analytics {
     // The page on screen was never recorded while capturing was off.
     this.pages.forget();
     if (this.options.pageviews ?? true) this.pages.view();
+    this.startReplay();
+  }
+
+  /** Whether a session is one that's recorded: by its id, so every page of it agrees without storing anything. */
+  private recorded(sessionId: string): boolean {
+    const rate = this.options.replay?.sampleRate ?? 0;
+    return bucketOf(`replay.${sessionId}`) < rate;
+  }
+
+  /** Loads the recorder (its own chunk, with rrweb) if this session is to be recorded. */
+  private startReplay(): void {
+    const replay = this.options.replay;
+    if (!replay || this.recorder || this.recorderLoading || this.stopped || this.optedOut) return;
+    const sessionId = this.sessionId;
+    if (!sessionId || !this.recorded(sessionId)) return;
+    this.recorderLoading = true;
+    import("./replay")
+      .then(({ Recorder }) => {
+        if (this.stopped || this.optedOut) return;
+        this.recorder = new Recorder({
+          url: `${this.options.endpoint.replace(/\/+$/, "")}${ROUTES.recordings}`,
+          identity: () => {
+            const current = this.sessionId;
+            if (this.stopped || this.optedOut || !this.id || !current || !this.recorded(current)) return null;
+            return { distinctId: this.id, sessionId: current };
+          },
+          mayRecord: (path) => this.sanitizePath(path) === path && (replay.mayRecord?.(path) ?? true),
+          sanitizePath: this.sanitizePath,
+          fetch: this.options.fetch ?? ((input, init) => fetch(input, init)),
+        });
+        this.recorder.start();
+      })
+      // A blocker or a dropped connection kept rrweb away: this visit isn't recorded, and nothing else breaks.
+      .catch((error: unknown) => console.warn("Session replay didn't load.", error))
+      .finally(() => {
+        this.recorderLoading = false;
+      });
   }
 
   /** Sends everything queued now. */
@@ -277,7 +333,12 @@ export class Analytics {
     }
     if (this.options.pageviews ?? true) {
       this.pages.view(this.options.landedAt);
-      this.stops.push(watchHistory(() => this.pages.view()));
+      this.stops.push(
+        watchHistory(() => {
+          this.pages.view();
+          this.recorder?.pageChanged();
+        }),
+      );
     }
     let frame: number | null = null;
     const onScroll = () => {
@@ -291,13 +352,16 @@ export class Analytics {
       this.pages.scrolled();
       this.pages.leave();
       this.transport.beacon();
+      this.recorder?.pageHidden();
     };
     const onPageShow = (event: PageTransitionEvent) => {
       // Back from the back-forward cache: the page is showing again.
       if (event.persisted && (this.options.pageviews ?? true)) this.pages.view();
     };
     const onVisibility = () => {
-      if (document.visibilityState === "hidden") this.transport.beacon();
+      if (document.visibilityState !== "hidden") return;
+      this.transport.beacon();
+      this.recorder?.pageHidden();
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("pagehide", onPageHide);
@@ -317,6 +381,8 @@ export class Analytics {
     if (this.stopped) return;
     for (const stop of this.stops.splice(0)) stop();
     this.transport.beacon();
+    this.recorder?.stop();
+    this.recorder = null;
     this.stopped = true;
   }
 }

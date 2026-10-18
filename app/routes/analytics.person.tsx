@@ -46,7 +46,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 }
 
 export default function Person({ loaderData }: Route.ComponentProps) {
-  const { person, username, sessions, events, canForget } = loaderData;
+  const { person, username, sessions, events, recorded, canForget } = loaderData;
   const name = personName(username, person.distinctIds);
   const properties = Object.entries(person.properties);
   return (
@@ -83,9 +83,15 @@ export default function Person({ loaderData }: Route.ComponentProps) {
             <ul className="mt-6 divide-y divide-line border-y border-line">
               {sessions.map((session) => (
                 <li key={session._id} className="flex flex-wrap items-baseline justify-between gap-3 py-3 text-sm">
-                  <Link to={`/analytics/sessions/${encodeURIComponent(session.sessionId)}`} className="link font-bold">
-                    {timeAgo(session.startedAt)}
-                  </Link>
+                  <span>
+                    <Link
+                      to={`/analytics/sessions/${encodeURIComponent(session.sessionId)}`}
+                      className="link font-bold"
+                    >
+                      {timeAgo(session.startedAt)}
+                    </Link>
+                    {recorded.includes(session.sessionId) && <span className="tag ml-2">Recorded</span>}
+                  </span>
                   <span>
                     {session.pageviews} {session.pageviews === 1 ? "page" : "pages"},{" "}
                     {formatDuration(session.endedAt - session.startedAt)}

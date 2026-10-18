@@ -43,19 +43,22 @@ test.describe("analytics and page load", () => {
     await page.goto("/wall");
     const send = await firstSend;
     await send.response();
+    // The SDK, and session replay's recorder, which the SDK fetches itself.
     const urls = (await Promise.all(sdk)).filter((url): url is string => url !== null);
-    expect(urls).toHaveLength(1);
+    expect(urls.length).toBeGreaterThanOrEqual(1);
     // Wall-clock times: keepalive requests get no resource timing entry of their own.
-    const timing = await page.evaluate((sdkUrl) => {
+    const timing = await page.evaluate((sdkUrls) => {
       const [navigation] = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
-      const resource = performance.getEntriesByType("resource").find((entry) => entry.name === sdkUrl);
+      const resources = performance.getEntriesByType("resource");
       return {
         loaded: performance.timeOrigin + (navigation?.loadEventEnd ?? Number.NaN),
-        sdk: performance.timeOrigin + (resource?.startTime ?? Number.NaN),
+        sdk: sdkUrls.map(
+          (url) => performance.timeOrigin + (resources.find((entry) => entry.name === url)?.startTime ?? Number.NaN),
+        ),
       };
-    }, urls[0] ?? "");
-    expect(timing.sdk).toBeGreaterThanOrEqual(timing.loaded);
-    expect(send.timing().startTime).toBeGreaterThan(timing.sdk);
+    }, urls);
+    for (const started of timing.sdk) expect(started).toBeGreaterThanOrEqual(timing.loaded);
+    expect(send.timing().startTime).toBeGreaterThan(Math.min(...timing.sdk));
   });
 
   test("still sends what a page saw when it's left at once", async ({ seed, stack }) => {

@@ -34,6 +34,7 @@ export const ADMIN_REPORTS = [
   "flags",
   "experiments",
   "experiment",
+  "recordings",
 ] as const;
 
 function days(params: URLSearchParams): number {
@@ -75,6 +76,8 @@ export async function adminReport(admin: User, params: URLSearchParams, now: Dat
       return { events: await convex.query(api.analytics.eventNames, { adminId }) };
     case "flags":
       return { flags: await convex.query(api.analytics.flags, { adminId }) };
+    case "recordings":
+      return await convex.query(api.analytics.recordings, { adminId, cursor: params.get("after") });
     case "experiments":
       return { experiments: await convex.query(api.analytics.experiments, { adminId }) };
     case "experiment": {

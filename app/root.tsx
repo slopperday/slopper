@@ -28,7 +28,7 @@ import { Footer } from "./components/Footer";
 import { FlashBanner } from "./components/FlashBanner";
 import { LiveProvider } from "./components/Live";
 import { Tiles } from "./components/Tiles";
-import { sanitizeAnalyticsPath } from "./lib/analytics";
+import { mayRecordPath, sanitizeAnalyticsPath } from "./lib/analytics";
 import { withoutRedirectMarker } from "./lib/redirect";
 import "./app.css";
 import bigShouldersLatin from "@fontsource-variable/big-shoulders/files/big-shoulders-latin-standard-normal.woff2?url";
@@ -105,7 +105,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body className="flex min-h-dvh flex-col">
         <AnalyticsProvider
-          options={data?.analytics ? { ...data.analytics, sanitizePath: sanitizeAnalyticsPath } : null}
+          options={
+            data?.analytics
+              ? {
+                  ...data.analytics,
+                  sanitizePath: sanitizeAnalyticsPath,
+                  replay: data.analytics.replay && { ...data.analytics.replay, mayRecord: mayRecordPath },
+                }
+              : null
+          }
           flags={data?.flags}
         >
           <IdentifyViewer user={data?.user ?? null} />

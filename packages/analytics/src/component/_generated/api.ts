@@ -17,6 +17,7 @@ import type * as lib_ingest from "../lib/ingest.js";
 import type * as lib_paging from "../lib/paging.js";
 import type * as maintenance from "../maintenance.js";
 import type * as persons from "../persons.js";
+import type * as recordings from "../recordings.js";
 import type * as scan from "../scan.js";
 import type * as sessions from "../sessions.js";
 import type * as shapes from "../shapes.js";
@@ -39,6 +40,7 @@ const fullApi: ApiFromModules<{
   "lib/paging": typeof lib_paging;
   maintenance: typeof maintenance;
   persons: typeof persons;
+  recordings: typeof recordings;
   scan: typeof scan;
   sessions: typeof sessions;
   shapes: typeof shapes;
