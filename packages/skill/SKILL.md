@@ -1,6 +1,6 @@
 ---
 name: slopper
-description: Ship to slopper.day from the terminal with the `slopper` CLI (npm @slopperday/cli). Use when the user wants to launch a project as today's slop or schedule launches for later days, post an update or field test, set a daily shipping goal, log costs or revenue, check today's slop of the day race, search slops, or vote on slops.
+description: Ship to slopper.day from the terminal with the `slopper` CLI (npm @slopperday/cli). Use when the user wants to launch a project as today's slop or schedule launches for later days, post an update or field test, set a daily shipping goal, log costs or revenue, check today's slop of the day race, search slops, vote on slops, review slops they tried, or read their slops' reviews.
 ---
 
 # Slopper
@@ -165,6 +165,18 @@ slopper vote <slop id> up      # or down (private: lowers the ranking, nobody se
 Everyone gets 5 votes per UTC day. Switching today's vote is free and clearing it gives it back. Nobody can vote on
 their own slops. Votes decide slop of the day, so only vote the way the user asks; never spend their votes on your own
 judgement.
+
+## Reviews
+
+```sh
+slopper reviews tiltmaze                                    # what people who tried it said: feedback on the user's slop
+slopper review <slop id> broken --body "Crashes when I tilt left." --image ./shots/crash.png
+```
+
+`review` writes the user's review of someone else's slop: how it went (`works`, `mixed` or `broken`), what it is,
+what they tried and what broke, with up to 4 `--image`s. It goes up at once; one that isn't fit for a general audience
+is refused. One review per slop: writing again replaces it (pass the `--image`s again to keep them). Only review slops
+the user actually tried, in their words. Use `reviews` on the user's own slops to suggest what to fix next.
 
 ## Don't
 

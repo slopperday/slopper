@@ -32,6 +32,8 @@ export type Permission =
   | "slops.deleteAny"
   /** Delete anyone's comment. */
   | "comments.deleteAny"
+  /** Delete anyone's review. */
+  | "reviews.deleteAny"
   /** Take down a video the video check let through. */
   | "videos.takeDown"
   /** Revoke or restore a maker's video trust. */
@@ -56,6 +58,7 @@ const ROLES: Record<StaffRole, { plural: string; permissions: ReadonlySet<Permis
       "slops.hide",
       "slops.deleteAny",
       "comments.deleteAny",
+      "reviews.deleteAny",
       "videos.takeDown",
       "videos.trust",
       "team.manage",

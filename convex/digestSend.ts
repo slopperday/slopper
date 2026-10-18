@@ -14,6 +14,7 @@ const itemValidator = v.object({
     v.literal("upvote"),
     v.literal("feedback"),
     v.literal("kudos"),
+    v.literal("review"),
     v.literal("pledge"),
     v.literal("slop_of_the_day"),
   ),

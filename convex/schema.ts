@@ -136,6 +136,7 @@ export const staffActionValidator = v.union(
   v.object({ type: v.literal("hidden"), slopId: v.id("slops"), hidden: v.boolean() }),
   v.object({ type: v.literal("deleteSlop"), slopId: v.id("slops"), ownerId: v.id("users") }),
   v.object({ type: v.literal("deleteComment"), slopId: v.id("slops"), authorId: v.id("users") }),
+  v.object({ type: v.literal("deleteReview"), slopId: v.id("slops"), authorId: v.id("users") }),
   /** Deleted everything analytics had on someone (the target is their username, or the id they had). */
   v.object({ type: v.literal("forgetPerson") }),
   /** Made, changed, turned on or off, or deleted a feature flag (the target is its key). */
@@ -166,6 +167,17 @@ export const staffActionValidator = v.union(
  * What the video check said about a trusted uploader's video: a verdict, or
  * "unchecked" when it couldn't run (convex/videos.ts).
  */
+export const reviewExperienceValidator = v.union(v.literal("works"), v.literal("mixed"), v.literal("broken"));
+
+/**
+ * What the content check said about a review before it was saved. Blocked
+ * reviews are never saved; "unchecked" means the check couldn't run.
+ */
+export const reviewCheckValidator = v.object({
+  verdict: v.union(v.literal("ok"), v.literal("mature"), v.literal("unchecked")),
+  reason: v.string(),
+});
+
 export const videoVerdictValidator = v.union(
   v.literal("ok"),
   v.literal("mature"),
@@ -392,7 +404,7 @@ export default defineSchema({
 
   /**
    * Every use of a staff power: role changes, queue decisions, takedowns,
-   * trust, hiding, and deleting someone else's slop or comment. Admins read
+   * trust, hiding, and deleting someone else's slop, comment or review. Admins read
    * it at /mod/team. Server-side only: none of it reaches a public shape.
    */
   staffActions: defineTable({
@@ -457,6 +469,27 @@ export default defineSchema({
     kind: v.union(v.literal("feedback"), v.literal("kudos")),
     body: v.string(),
   }).index("by_slop", ["slopId"]),
+
+  /**
+   * Reviews from people who tried a slop: how it went for them, in their
+   * words, with screenshots. One per person per launch; writing again
+   * replaces it. Each passes the content check before it's saved
+   * (app/.server/reviews.ts), so none waits for a moderator.
+   */
+  reviews: defineTable({
+    slopId: v.id("slops"),
+    userId: v.id("users"),
+    experience: reviewExperienceValidator,
+    body: v.string(),
+    /** Screenshots checked at upload, like a slop's (convex/media.ts). */
+    images: v.array(v.id("media")),
+    /** Server-side: only whether it's mature reaches a public shape. */
+    check: reviewCheckValidator,
+    editedAt: v.union(v.number(), v.null()),
+  })
+    .index("by_slop_user", ["slopId", "userId"])
+    // Which of a reviewer's images reviews still show (`releaseMedia`).
+    .index("by_user", ["userId"]),
 
   votes: defineTable({
     slopId: v.id("slops"),
@@ -584,6 +617,7 @@ export default defineSchema({
       v.literal("upvote"),
       v.literal("feedback"),
       v.literal("kudos"),
+      v.literal("review"),
       v.literal("pledge"),
       v.literal("slop_of_the_day"),
     ),

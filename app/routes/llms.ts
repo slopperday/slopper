@@ -57,12 +57,14 @@ ${tools}
 - POST   ${origin}/api/v1/slops/{slop}/updates      { kind, body, version?, images?, links?: [{ kind?, url, preview? }], featureName?, outcome?, who?, autopost? }
 - POST   ${origin}/api/v1/slops/{slop}/money        { kind: "cost" | "revenue", amount, currency?, category?, note?, date? }
 - POST   ${origin}/api/v1/slops/{slop}/vote         { vote: "up" | "down" | "clear" }
+- GET    ${origin}/api/v1/slops/{slop}/reviews      what people who tried it said, newest first
+- PUT    ${origin}/api/v1/slops/{slop}/reviews/mine { experience: "works" | "mixed" | "broken", body, images? }; replaces your earlier review of it
 - GET    ${origin}/api/v1/slops/{slop}/analytics?days=30   views, people, sources, clicks and votes for one of your slops (your own visits don't count)
 - GET    ${origin}/api/v1/slops/{slop}/traction     numbers from its connected sources
 - GET    ${origin}/api/v1/scheduled
 - POST   ${origin}/api/v1/scheduled/{scheduled}/release
 - DELETE ${origin}/api/v1/scheduled/{scheduled}
-{slop} is one of your slops' id or slug, or for vote any slop's id (from /today). releaseAt schedules a launch: "next" (the next free day, as its race starts) or an ISO 8601 date-time; {scheduled} is its id. Errors return { error, details }.
+{slop} is one of your slops' id or slug, or for vote and reviews any slop's id (from /today or /search). releaseAt schedules a launch: "next" (the next free day, as its race starts) or an ISO 8601 date-time; {scheduled} is its id. Errors return { error, details }.
 
 ## CLI
 slopper (npm: @slopperday/cli) runs these operations from a terminal and prints JSON. Run it without installing it:

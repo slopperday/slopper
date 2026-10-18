@@ -214,6 +214,19 @@ export interface CrosspostResult {
 
 export type CommentKind = "feedback" | "kudos";
 
+/** How a slop worked for someone who tried it: the headline of their review. */
+export const REVIEW_EXPERIENCES = {
+  works: { label: "Works for me" },
+  mixed: { label: "Mixed" },
+  broken: { label: "Broken for me" },
+} as const;
+
+export type ReviewExperience = keyof typeof REVIEW_EXPERIENCES;
+
+export function isReviewExperience(value: string): value is ReviewExperience {
+  return Object.hasOwn(REVIEW_EXPERIENCES, value);
+}
+
 export const LIMITS = {
   nameLength: 60,
   taglineLength: 120,
@@ -226,6 +239,9 @@ export const LIMITS = {
   featureNameLength: 60,
   fieldWhoLength: 120,
   commentLength: 1000,
+  /** A review: what it is, how it went, what broke. Up to 4 screenshots. */
+  reviewLength: 2000,
+  reviewImages: 4,
   bioLength: 280,
   launchLabelLength: 40,
   ledgerNoteLength: 120,

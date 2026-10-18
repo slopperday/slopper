@@ -25,6 +25,7 @@ export interface SlopSummary {
   pledged: number;
   feedback: number;
   kudos: number;
+  reviews: number;
   won: boolean;
 }
 
@@ -47,6 +48,7 @@ export function digestLine(summary: SlopSummary): string {
   }
   if (summary.feedback) parts.push(count(summary.feedback, "piece of feedback", "pieces of feedback"));
   if (summary.kudos) parts.push(count(summary.kudos, "kudos", "kudos"));
+  if (summary.reviews) parts.push(count(summary.reviews, "review", "reviews"));
   return joinParts(parts);
 }
 
@@ -64,6 +66,7 @@ export function summariseDigest(username: string, items: readonly DigestItem[]):
         pledged: 0,
         feedback: 0,
         kudos: 0,
+        reviews: 0,
         won: false,
       };
       bySlop.set(slop.id, summary);
@@ -74,6 +77,7 @@ export function summariseDigest(username: string, items: readonly DigestItem[]):
       summary.pledged += amount ?? 0;
     } else if (kind === "feedback") summary.feedback++;
     else if (kind === "kudos") summary.kudos++;
+    else if (kind === "review") summary.reviews++;
     else summary.won = true;
   }
   return [...bySlop.values()].sort(

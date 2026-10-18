@@ -25,6 +25,7 @@ const ACTION_NAMES: Record<string, string> = {
   upvoted: "Upvotes",
   pledged: "Pledges",
   commented: "Comments",
+  reviewed: "Reviews",
   "update posted": "Updates posted",
   "slop launched": "Launched",
 };
