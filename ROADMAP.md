@@ -7,8 +7,8 @@ What's built is in the README. These come next, roughly in order.
 - **Collect pledges for real.** Today "Take my money" pledges are non-binding signals. Next, a maker connects a Solana
   wallet and backers pay in USDC with Solana Pay, straight to the maker (no custody). Stripe Connect is the card option.
   Keep the language to backing and pre-orders: selling "investments" to the public makes it a securities offering.
-- **Verified revenue.** Read-only connections to Stripe, RevenueCat and Lemon Squeezy so revenue syncs itself and gets a
-  "verified" badge, instead of being typed in.
+- **More traction sources.** Stripe, Solana wallets, Google Analytics and PostHog are in. Next: RevenueCat, Lemon
+  Squeezy, Polar and Plausible, each one client in `app/.server/integrations/`.
 
 ## Slopcessful by milestones
 

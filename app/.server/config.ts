@@ -64,6 +64,16 @@ export interface B2Config {
   applicationKey: string;
 }
 
+/**
+ * Slopper's Google service account, for reading Google Analytics. Makers add
+ * its email as a Viewer on their property; no OAuth, no per-person keys.
+ */
+export interface GoogleServiceAccount {
+  clientEmail: string;
+  /** PKCS #8 PEM. */
+  privateKey: string;
+}
+
 export interface Config {
   /** Public origin used for OAuth redirects and absolute links. */
   appUrl: URL;
@@ -117,6 +127,10 @@ export interface Config {
    * browser notifications setting is hidden.
    */
   vapidPublicKey: string | null;
+  /** Google Analytics integration. Without it, Google Analytics isn't offered. */
+  googleAnalytics: GoogleServiceAccount | null;
+  /** Solana JSON-RPC for reading wallet payments. The public endpoint works for small wallets. */
+  solanaRpcUrl: string;
 }
 
 type Env = Record<string, string | undefined>;
@@ -197,6 +211,22 @@ function analyticsEndpoint(env: Env, convexUrl: string | null): string | null {
   return site ? `${site.replace(/\/+$/, "")}${ROUTES.prefix}` : null;
 }
 
+/**
+ * The service account's JSON key, as downloaded from Google Cloud, raw or
+ * base64. A key that's set but unreadable stops the server.
+ */
+function googleServiceAccount(env: Env): GoogleServiceAccount | null {
+  const raw = env.GOOGLE_ANALYTICS_SERVICE_ACCOUNT?.trim();
+  if (!raw) return null;
+  const json = raw.startsWith("{") ? raw : atob(raw);
+  const parsed: unknown = JSON.parse(json);
+  const { client_email: clientEmail, private_key: privateKey } = (parsed ?? {}) as Record<string, unknown>;
+  if (typeof clientEmail !== "string" || typeof privateKey !== "string") {
+    throw new Error("GOOGLE_ANALYTICS_SERVICE_ACCOUNT needs a service account key with client_email and private_key.");
+  }
+  return { clientEmail, privateKey };
+}
+
 export function loadConfig(env: Env = process.env): Config {
   const convexUrl = env.CONVEX_URL?.trim() || env.VITE_CONVEX_URL?.trim() || null;
   return {
@@ -233,6 +263,8 @@ export function loadConfig(env: Env = process.env): Config {
     commentsEnabled: env.COMMENTS_ENABLED?.trim() === "true",
     b2: b2Storage(env),
     vapidPublicKey: env.VAPID_PUBLIC_KEY?.trim() || null,
+    googleAnalytics: googleServiceAccount(env),
+    solanaRpcUrl: env.SOLANA_RPC_URL?.trim() || "https://api.mainnet-beta.solana.com",
   };
 }
 

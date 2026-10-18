@@ -5,7 +5,7 @@ import { api } from "@convex/_generated/api";
 import type { Doc } from "@convex/_generated/dataModel";
 import { requireUser, viewerContext } from "~/.server/session";
 import { convex, convexMessage } from "~/.server/convex";
-import { formText, parseSlopForm, slopFormValues } from "~/.server/forms";
+import { formText, parseSlopForm, slopFormValues, slopValues } from "~/.server/forms";
 import { redirectWithFlash } from "~/.server/http";
 import { deleteOrphanedMedia, screenshotsWithUrls } from "~/.server/media";
 import { finishLaunch, launchFlash, releaseScheduled } from "~/.server/launch";
@@ -48,15 +48,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       ? {
           id: source._id,
           name: source.name,
-          values: {
-            name: source.name,
-            tagline: source.tagline,
-            description: source.description,
-            category: source.category,
-            links: source.links,
-            screenshots: await screenshotsWithUrls(source.screenshots),
-            madeWith: source.madeWith,
-          },
+          values: { ...slopValues(source), screenshots: await screenshotsWithUrls(source.screenshots) },
         }
       : null,
     autopost: accounts

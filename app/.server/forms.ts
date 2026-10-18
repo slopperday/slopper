@@ -8,9 +8,11 @@ import {
   LINK_KINDS,
   POSTABLE_UPDATE_KINDS,
   type PostableUpdateKind,
+  type SlopFeature,
   type SlopLink,
   type UpdateDetails,
 } from "~/lib/model";
+import { type DemoVideo, parseVideoUrl, videoPageUrl } from "~/lib/video";
 /** Everything a person types when shipping or editing a slop. */
 export interface SlopInput {
   name: string;
@@ -21,6 +23,9 @@ export interface SlopInput {
   /** Media ids; Convex re-checks each one belongs to the uploader. */
   screenshots: string[];
   madeWith: string[];
+  demo: DemoVideo | null;
+  features: SlopFeature[];
+  audience: string;
 }
 import { addDays, isIsoDate } from "~/lib/dates";
 import { findGoalPace, paceTarget } from "~/lib/goal";
@@ -102,6 +107,10 @@ export interface SlopDraft {
   links?: readonly { kind?: string; url?: string }[];
   screenshots?: readonly string[];
   madeWith?: readonly string[];
+  /** A YouTube, Loom or Vimeo link; empty for none. */
+  demo?: string;
+  features?: readonly { title?: string; body?: string }[];
+  audience?: string;
   launchNote?: string;
 }
 
@@ -115,8 +124,34 @@ export function slopDraftFromForm(form: FormData): SlopDraft {
     links: all(form, "linkUrl").map((url, index) => ({ kind: kinds[index] ?? "website", url })),
     screenshots: all(form, "screenshot"),
     madeWith: text(form, "madeWith").split(","),
+    demo: text(form, "demo"),
+    features: pairs(all(form, "featureTitle"), all(form, "featureBody")),
+    audience: text(form, "audience"),
     launchNote: text(form, "launchNote"),
   };
+}
+
+function pairs(titles: readonly string[], bodies: readonly string[]): { title: string; body: string }[] {
+  return titles.map((title, index) => ({ title, body: bodies[index] ?? "" }));
+}
+
+/** Rows with nothing typed are dropped; a line with no title is an error. */
+export function parseFeatures(rows: readonly { title?: string; body?: string }[]): {
+  features: SlopFeature[];
+  error: string | null;
+} {
+  const features = rows
+    .map((row) => ({ title: row.title?.trim() ?? "", body: row.body?.trim() ?? "" }))
+    .filter((row) => row.title || row.body);
+  if (features.length > LIMITS.features) return { features, error: `Up to ${LIMITS.features} features.` };
+  if (features.some((feature) => !feature.title)) return { features, error: "Give each feature a short title." };
+  if (features.some((feature) => feature.title.length > LIMITS.featureTitleLength)) {
+    return { features, error: `Keep feature titles under ${LIMITS.featureTitleLength} characters.` };
+  }
+  if (features.some((feature) => feature.body.length > LIMITS.featureBodyLength)) {
+    return { features, error: `Keep each feature to one line, under ${LIMITS.featureBodyLength} characters.` };
+  }
+  return { features, error: null };
 }
 
 /** One validation path for the web form, the REST API and MCP. */
@@ -127,6 +162,9 @@ export function validateSlop(draft: SlopDraft): Parsed<SlopForm> {
   const description = draft.description?.trim() ?? "";
   const category = findCategory(draft.category?.trim() ?? "");
   const launchNote = draft.launchNote?.trim() ?? "";
+  const audience = draft.audience?.trim() ?? "";
+  const demoUrl = draft.demo?.trim() ?? "";
+  const demo = demoUrl ? parseVideoUrl(demoUrl) : null;
 
   if (!name) errors.name = "Give it a name.";
   else if (name.length > LIMITS.nameLength) errors.name = `Keep it under ${LIMITS.nameLength} characters.`;
@@ -137,6 +175,10 @@ export function validateSlop(draft: SlopDraft): Parsed<SlopForm> {
   }
   if (!category) errors.category = "Pick a category.";
   if (launchNote.length > LIMITS.updateLength) errors.launchNote = `Keep it under ${LIMITS.updateLength} characters.`;
+  if (audience.length > LIMITS.audienceLength) errors.audience = `Keep it under ${LIMITS.audienceLength} characters.`;
+  if (demoUrl && !demo) errors.demo = "Link a video on YouTube, Loom or Vimeo.";
+  const { features, error: featureError } = parseFeatures(draft.features ?? []);
+  if (featureError) errors.features = featureError;
 
   const rawLinks = draft.links ?? [];
   const { links, error: linkError } = parseLinks(
@@ -164,6 +206,9 @@ export function validateSlop(draft: SlopDraft): Parsed<SlopForm> {
       links,
       screenshots,
       madeWith,
+      demo,
+      features,
+      audience,
       launchNote,
     },
   };
@@ -343,6 +388,34 @@ export function slopFormValues(form: FormData) {
     }),
     screenshots: (draft.screenshots ?? []).filter((id) => MEDIA_ID.test(id)),
     madeWith: (draft.madeWith ?? []).map((tag) => tag.trim()).filter(Boolean),
+    demo: draft.demo ?? "",
+    features: (draft.features ?? []).map((row) => ({ title: row.title ?? "", body: row.body ?? "" })),
+    audience: draft.audience ?? "",
     launchNote: draft.launchNote ?? "",
+  };
+}
+
+/** A stored slop as the form shows it. */
+export function slopValues(slop: {
+  name: string;
+  tagline: string;
+  description: string;
+  category: string;
+  links: SlopLink[];
+  madeWith: string[];
+  demo?: DemoVideo | null;
+  features?: SlopFeature[];
+  audience?: string;
+}) {
+  return {
+    name: slop.name,
+    tagline: slop.tagline,
+    description: slop.description,
+    category: slop.category,
+    links: slop.links,
+    madeWith: slop.madeWith,
+    demo: slop.demo ? videoPageUrl(slop.demo) : "",
+    features: slop.features ?? [],
+    audience: slop.audience ?? "",
   };
 }

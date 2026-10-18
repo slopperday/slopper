@@ -5,6 +5,7 @@ import type { VideoStatus, VideoToCheck } from "@convex/videos";
 import { config, type ContentCheckConfig } from "./config";
 import { convex, type ConvexCaller } from "./convex";
 import { encodeBase64 } from "./encoding";
+import { videoPageUrl, videoPosterUrl } from "~/lib/video";
 
 /**
  * The automated content check. Every screenshot as it's uploaded, every
@@ -218,9 +219,20 @@ export function slopSubmission(slop: Doc<"slops">, launchNote: string, imageUrls
       launchNote,
       links: slop.links.map((link) => link.url),
       madeWith: slop.madeWith,
+      ...(slop.demo ? { demo: videoPageUrl(slop.demo) } : {}),
+      ...(slop.features?.length
+        ? { features: slop.features.map((feature) => `${feature.title}: ${feature.body}`) }
+        : {}),
+      ...(slop.audience ? { audience: slop.audience } : {}),
     },
     images: imageUrls.map((url) => ({ url })),
   };
+}
+
+/** The video's still, when its host serves one, is checked with the screenshots. */
+function videoStill(slop: Doc<"slops">): string[] {
+  const poster = slop.demo ? videoPosterUrl(slop.demo) : null;
+  return poster ? [poster] : [];
 }
 
 /** Checks a slop's text and screenshots and records the verdict. Null if the check couldn't run. */
@@ -231,11 +243,7 @@ export async function checkSlop(slopId: Id<"slops">, launchNote = ""): Promise<C
     slop.screenshots.slice(0, MAX_IMAGES).map((mediaId) => convex.query(api.media.url, { mediaId })),
   );
   const result = await tryCheck(
-    slopSubmission(
-      slop,
-      launchNote,
-      urls.filter((url): url is string => url !== null),
-    ),
+    slopSubmission(slop, launchNote, [...videoStill(slop), ...urls.filter((url): url is string => url !== null)]),
   );
   if (result) await convex.mutation(api.moderation.applyCheck, { slopId, scope: "slop", ...result });
   return result;
@@ -280,7 +288,20 @@ export async function checkUpdate(slopId: Id<"slops">, update: Doc<"updates">): 
 
 /** The parts of a slop the check reads, to skip re-checking edits that don't change them. */
 export function checkedContent(
-  slop: Pick<Doc<"slops">, "name" | "tagline" | "description" | "links" | "madeWith" | "screenshots">,
+  slop: Pick<
+    Doc<"slops">,
+    "name" | "tagline" | "description" | "links" | "madeWith" | "screenshots" | "demo" | "features" | "audience"
+  >,
 ): string {
-  return JSON.stringify([slop.name, slop.tagline, slop.description, slop.links, slop.madeWith, slop.screenshots]);
+  return JSON.stringify([
+    slop.name,
+    slop.tagline,
+    slop.description,
+    slop.links,
+    slop.madeWith,
+    slop.screenshots,
+    slop.demo ?? null,
+    slop.features ?? [],
+    slop.audience ?? "",
+  ]);
 }

@@ -51,13 +51,14 @@ ${tools}
 - POST   ${origin}/api/v1/media              raw image body (Content-Type: image/png…) or { base64 } → { id, url, nsfw }
 - POST   ${origin}/api/v1/videos             raw MP4 or WebM body (Content-Type: video/mp4…, up to 4 MB) or { base64 } → { id }
 - GET    ${origin}/api/v1/slops
-- POST   ${origin}/api/v1/slops              { name, tagline, category, links, description?, screenshots?, madeWith?, launchNote?, releaseAt?, autopost? }
+- POST   ${origin}/api/v1/slops              { name, tagline, category, links, description?, screenshots?, madeWith?, demo?, features?, audience?, launchNote?, releaseAt?, autopost? }
 - PATCH  ${origin}/api/v1/slops/{slop}       any create_slop field
 - PUT    ${origin}/api/v1/slops/{slop}/video        { video: id | null }; pending until a moderator approves it, then live; once one of yours has been approved, later ones can be live at once
 - POST   ${origin}/api/v1/slops/{slop}/updates      { kind, body, version?, images?, links?: [{ kind?, url, preview? }], featureName?, outcome?, who?, autopost? }
 - POST   ${origin}/api/v1/slops/{slop}/money        { kind: "cost" | "revenue", amount, currency?, category?, note?, date? }
 - POST   ${origin}/api/v1/slops/{slop}/vote         { vote: "up" | "down" | "clear" }
 - GET    ${origin}/api/v1/slops/{slop}/analytics?days=30   views, people, sources, clicks and votes for one of your slops (your own visits don't count)
+- GET    ${origin}/api/v1/slops/{slop}/traction     numbers from its connected sources
 - GET    ${origin}/api/v1/scheduled
 - POST   ${origin}/api/v1/scheduled/{scheduled}/release
 - DELETE ${origin}/api/v1/scheduled/{scheduled}

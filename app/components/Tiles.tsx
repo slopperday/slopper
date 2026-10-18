@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-const SEPARATORS = new Set([":", "/", " ", "."]);
+const SEPARATORS = new Set([":", "/", " ", ".", ","]);
 
 function subscribe(): () => void {
   return () => {};
