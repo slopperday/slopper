@@ -12,6 +12,7 @@ import { Transport } from "./transport";
 import { uuidv7 } from "../shared/uuid";
 import { bucketOf } from "../shared/hash";
 import type { Recorder } from "./replay";
+import type { Vitals } from "./vitals";
 
 export interface AnalyticsOptions {
   /**
@@ -30,6 +31,8 @@ export interface AnalyticsOptions {
   heatmaps?: boolean;
   /** Uncaught errors and unhandled rejections (`$exception`). On unless turned off. */
   errors?: boolean;
+  /** Core Web Vitals of the page a visit lands on (`$webVitals`). On unless turned off. */
+  webVitals?: boolean;
   /** Minutes without activity that end a session. */
   sessionIdleMinutes?: number;
   /** Sent with every event, like the visitor's country, which the app's server knows and the browser doesn't. */
@@ -102,6 +105,7 @@ export class Analytics {
   private stopped = false;
   private recorder: Recorder | null = null;
   private clicks: ClickMap | null = null;
+  private vitals: { measure: Vitals; path: string } | null = null;
   private errorsSent = 0;
   private readonly errorsSeen = new Map<string, number>();
   private recorderLoading = false;
@@ -127,6 +131,27 @@ export class Analytics {
     this.id = this.optedOut ? "" : this.loadDistinctId();
     this.start();
     this.startReplay();
+    this.startVitals();
+  }
+
+  /** Measures the landing page's vitals, with web-vitals in its own small chunk. */
+  private startVitals(): void {
+    if (!(this.options.webVitals ?? true) || this.stopped || this.optedOut) return;
+    const path = this.currentPath();
+    import("./vitals")
+      .then(({ Vitals }) => {
+        if (this.stopped) return;
+        const measure = new Vitals();
+        measure.start();
+        this.vitals = { measure, path };
+      })
+      .catch((error: unknown) => console.warn("Web vitals didn't load.", error));
+  }
+
+  /** Sends the landing page's vitals, once, as the page is hidden. */
+  private sendVitals(): void {
+    const values = this.vitals?.measure.take();
+    if (values && this.vitals) this.record(EVENTS.webVitals, values, { path: this.vitals.path }, true);
   }
 
   /** Who events are captured as: anonymous until `identify`. Empty while opted out. */
@@ -404,6 +429,7 @@ export class Analytics {
     const onPageHide = () => {
       this.pages.scrolled();
       this.clicks?.flush();
+      this.sendVitals();
       this.pages.leave();
       this.transport.beacon();
       this.recorder?.pageHidden();
@@ -415,6 +441,7 @@ export class Analytics {
     const onVisibility = () => {
       if (document.visibilityState !== "hidden") return;
       this.clicks?.flush();
+      this.sendVitals();
       this.transport.beacon();
       this.recorder?.pageHidden();
     };

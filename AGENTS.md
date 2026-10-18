@@ -150,6 +150,9 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   (type and message with numbers, ids and values taken out) at `/analytics/errors`, each issue linked to the sessions
   it happened in and their recordings. Agents: `slopper admin analytics errors`, then `error --q <fingerprint>`. Catch
   an error you handle but still want to know about with `useAnalytics()?.captureException(error)`.
+- **Speed:** the SDK measures the landing page's Core Web Vitals with `web-vitals` (its own lazy chunk) and sends them as
+  `$webVitals` when the page is hidden. `/analytics/speed` shows each vital's 75th percentile with Google's ratings, and
+  per page; agents read it with `slopper admin analytics vitals`. Check it after changing what a page loads.
 - **Traction:** sources are one client each in `app/.server/integrations/` (registered in `index.ts`), read only.
   Syncs run on the app server (it holds the sealing key); Convex stores days in `metrics` and hands due sources out
   with `integrations.claim`. Numbers on the page always say where they came from; typed-in money stays in the ledger.
@@ -160,12 +163,19 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   is never saved, anything else goes up at once with no moderator queue (mature ones blurred like NSFW). Makers can't
   review or delete reviews of their own slops; authors and admins (`reviews.deleteAny`) can delete them. Reviews aren't
   comments: they don't depend on `COMMENTS_ENABLED`.
+- **Charts** are ECharts (`app/components/analytics/EChart.tsx`): the library is its own chunk
+  (`echarts.client.ts`, only what's used, SVG renderer), loaded once a chart mounts, so public pages never fetch it.
+  Colours come from the tokens in either theme; every chart keeps a table behind it. They animate unless motion is
+  turned down: `useReducedMotion` (`app/lib/motion.ts`) follows Settings → Motion (the `slopper_motion` cookie, rendered
+  as `<html data-motion>`) or the device's `prefers-reduced-motion`; app.css stills everything else the same way.
+  Lines compare with the period before (trends `compare`, web and slop reports' `previousSeries`).
 - **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
   gate anything that shows or writes comments on the switch.
 - **Releases:** every change worth releasing gets a changeset, made with `vp exec monochange create` and named with
-  `--output .changeset/<name>.md` (the global `monochange` is older). `user_feat`, `user_fix` and `user_change` are for
-  what people using the site notice and become `/changelog` (`app/changelog/<version>.json`); every other type (`feat`,
-  `fix`, ...) goes to `CHANGELOG.md`. Write two changesets when both audiences care. Never hand-edit `app/changelog/`,
+  `--output .changeset/<name>.md` (the global `monochange` is older). `user_feat` (minor), `user_fix` (patch), `user_change`
+  (minor: works differently, nothing to do) and `user_breaking` (major: people must act) are for what people using the
+  site notice and become `/changelog` (`app/changelog/<version>.json`); every other type (`feat`, `fix`, ...) goes to
+  `CHANGELOG.md`. Write two changesets when both audiences care. Never hand-edit `app/changelog/`,
   `CHANGELOG.md` or `.monochange/releases/`: monochange owns them. A release is a pull request:
   `vp exec monochange run release` (from a clean main) commits it on `chore/release` and opens it; merging it
   publishes. `run publish` only runs in the release workflow.

@@ -225,7 +225,8 @@ Releases are planned by [monochange](https://github.com/monochange/monochange), 
 pinned in `devDependencies`, so run it with `vp exec monochange`. Every change worth releasing gets a changeset in
 `.changeset/`, and its type picks the audience:
 
-- `user_feat`, `user_fix` and `user_change` are what people using slopper.day notice. They become the release notes on
+- `user_feat` (new, minor), `user_fix` (fixed, patch), `user_change` (works differently, minor) and `user_breaking`
+  (people must act, major) are what people using slopper.day notice. They become the release notes on
   [/changelog](https://slopper.day/changelog), one JSON file per release in `app/changelog/`.
 - Every other type (`feat`, `fix`, `major`, `minor`, `patch`, `docs`, `refactor`, `test`, `none`, ...) is a developer
   note in `CHANGELOG.md`.

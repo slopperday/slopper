@@ -8,7 +8,7 @@
 #   vp exec monochange create --package slopper --type user_feat --reason "Pin your best slop" --output .changeset/pin-slops.md
 #   vp exec monochange create --package slopper --type fix --reason "Retry B2 uploads once" --output .changeset/retry-b2.md
 #
-# User types (user_feat, user_fix, user_change) become the release notes on
+# User types (user_feat, user_fix, user_change, user_breaking) become the release notes on
 # slopper.day/changelog. Everything else (feat, fix, major, minor, patch, docs,
 # refactor, test, none, ...) goes to CHANGELOG.md for developers. A change that
 # matters to both audiences gets one changeset for each.
@@ -83,9 +83,12 @@ description = "What people using slopper.day notice: new things to do, fixes the
 [changelog.types]
 user_feat = { bump = "minor", section = "user_new", stream = "user", description = "Something new people can do on slopper.day" }
 user_fix = { bump = "patch", section = "user_fixed", stream = "user", description = "Something that now works the way people expect" }
-user_change = { bump = "major", section = "user_changed", stream = "user", description = "A change people have to act on, such as signing in again" }
+user_change = { bump = "minor", section = "user_changed", stream = "user", description = "Something that works differently now, with nothing for people to do" }
+# Only for changes people must act on: it bumps the site's major version.
+user_breaking = { bump = "major", section = "user_breaking", stream = "user", description = "A change people have to act on, such as signing in again" }
 
 [changelog.sections]
+user_breaking = { heading = "Action needed", priority = 5 }
 user_changed = { heading = "Changed", priority = 10 }
 user_new = { heading = "New", priority = 20 }
 user_fixed = { heading = "Fixed", priority = 30 }

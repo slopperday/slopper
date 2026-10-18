@@ -1,5 +1,5 @@
 import { api } from "@convex/_generated/api";
-import { errorsQuery, heatmapQuery, insightQuery, isInsightKind } from "~/lib/insights";
+import { errorsQuery, heatmapQuery, insightQuery, isInsightKind, vitalsQuery } from "~/lib/insights";
 import { convex } from "../convex";
 import type { User } from "../session";
 import { ApiError } from "./input";
@@ -38,6 +38,7 @@ export const ADMIN_REPORTS = [
   "heatmap",
   "errors",
   "error",
+  "vitals",
 ] as const;
 
 function days(params: URLSearchParams): number {
@@ -79,6 +80,8 @@ export async function adminReport(admin: User, params: URLSearchParams, now: Dat
       return { events: await convex.query(api.analytics.eventNames, { adminId }) };
     case "flags":
       return { flags: await convex.query(api.analytics.flags, { adminId }) };
+    case "vitals":
+      return await convex.action(api.analytics.insight, { adminId, query: vitalsQuery(params, now.getTime()) });
     case "errors":
       return await convex.action(api.analytics.insight, { adminId, query: errorsQuery(params, now.getTime()) });
     case "error": {

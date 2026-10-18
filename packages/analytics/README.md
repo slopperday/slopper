@@ -153,6 +153,13 @@ Extension errors, empty cross-origin "Script error."s and the ResizeObserver loo
 at most, and the same one once a minute. Servers send theirs with `capture` (`exceptionProperties` builds them). The
 `errors` insight groups them into issues, or lists one issue's occurrences given its `fingerprint`.
 
+## Web vitals
+
+The SDK measures the landing page's LCP, INP, CLS, FCP and TTFB with `web-vitals`, loaded in its own chunk after the
+SDK (the browser keeps the entries they're read from), and sends them once as `$webVitals` when the page is hidden.
+The `vitals` insight gives each one's 75th percentile with web.dev's rating, the shares of good, middling and poor
+loads, and the same per page.
+
 ## Privacy controls
 
 `optOut()` sets a first-party cookie (`sa_off`) the SDK and the app's server both read, and deletes the distinct id;

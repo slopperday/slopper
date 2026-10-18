@@ -11,6 +11,7 @@ import {
   ErrorsAggregator,
   GroupsAggregator,
   HeatmapAggregator,
+  VitalsAggregator,
   type InsightAnswer,
   type InsightQuery,
   type InsightResult,
@@ -182,8 +183,9 @@ export async function runInsight(
   switch (query.kind) {
     case "trends": {
       const trends = new TrendsAggregator(query);
+      const range = TrendsAggregator.scanRange(query);
       for (const [event, indexes] of byEvent(query.series.map((series) => series.event))) {
-        await scan.events(event, query.range, (row) => {
+        await scan.events(event, range, (row) => {
           for (const index of indexes) trends.add(index, row);
         });
       }
@@ -240,6 +242,12 @@ export async function runInsight(
       const groups = new GroupsAggregator(query);
       await scan.events(query.event, GroupsAggregator.scanRange(query), (row) => groups.add(row));
       result = groups.result();
+      break;
+    }
+    case "vitals": {
+      const vitals = new VitalsAggregator(query);
+      await scan.events(EVENTS.webVitals, query.range, (row) => vitals.add(row));
+      result = vitals.result();
       break;
     }
     case "errors": {

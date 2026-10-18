@@ -23,6 +23,23 @@ test.describe("settings", () => {
     await expect(page.getByRole("heading", { level: 1 })).toContainText(slop.name);
   });
 
+  test("motion can be kept still, and the next page arrives still", async ({ seed }) => {
+    const page = await seed.pageAs(await seed.user("stillness"));
+    await page.goto("/settings");
+    const motion = page.getByRole("group", { name: "Motion" });
+    await expect(motion.getByRole("radio", { name: /Like my device/ })).toBeChecked();
+    await motion.getByRole("radio", { name: /Keep still/ }).check();
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "reduce");
+    await page.goto("/wall");
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "reduce");
+    await page.goto("/settings");
+    await page
+      .getByRole("group", { name: "Motion" })
+      .getByRole("radio", { name: /Like my device/ })
+      .check();
+    await expect(page.locator("html")).not.toHaveAttribute("data-motion", /.+/);
+  });
+
   test("usernames that are taken or reserved are refused", async ({ seed }) => {
     const taken = await seed.user("taken");
     const page = await seed.pageAs(await seed.user("wannabe"));

@@ -8,7 +8,7 @@ import { slopPath } from "~/lib/display";
 import { DAY_CHOICES, eventLabel, formatBucket, formatChange, formatCount, formatPercent } from "~/lib/insights";
 import { seo } from "~/lib/seo";
 import { AnalyticsNav, DaysPicker } from "~/components/analytics/AnalyticsNav";
-import { ChartPanel, ColumnChart, LineChart, seriesColor, Stat } from "~/components/analytics/Charts";
+import { ChartPanel, ColumnChart, LineChart, Stat } from "~/components/analytics/Charts";
 import { useLive } from "~/components/Live";
 
 /**
@@ -117,8 +117,8 @@ export default function AnalyticsOverview({ loaderData }: Route.ComponentProps) 
               title="Sign-ups and launches"
               labels={labels}
               stacks={[
-                { label: "Sign-ups", values: growth.signups, color: seriesColor(0) },
-                { label: "Launches", values: growth.launches, color: seriesColor(1) },
+                { label: "Sign-ups", values: growth.signups, series: 0 },
+                { label: "Launches", values: growth.launches, series: 1 },
               ]}
             />
           </ChartPanel>

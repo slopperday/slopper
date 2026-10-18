@@ -13,6 +13,7 @@ import { Field } from "~/components/SlopFields";
 import { SettingsNav } from "~/components/Shared";
 import { ProviderIcon } from "~/components/ProviderIcon";
 import { AnalyticsChoice } from "~/components/AnalyticsChoice";
+import { MotionChoice } from "~/components/MotionChoice";
 import { BrowserNotifications } from "~/components/BrowserNotifications";
 
 const HERE = "/settings";
@@ -181,6 +182,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
       </Form>
       <EmailDigest {...digest} />
       {vapidPublicKey && <BrowserNotifications vapidPublicKey={vapidPublicKey} />}
+      <MotionChoice />
       <AnalyticsChoice />
       {methods.length > 0 && <SignInMethods methods={methods} canUnlink={canUnlink} />}
     </section>
