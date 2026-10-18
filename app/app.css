@@ -199,6 +199,7 @@
   --color-board-ink: var(--board-ink);
   --color-board-muted: var(--board-muted);
   --color-tile: var(--tile);
+  --color-tile-top: var(--tile-top);
   --color-slop: var(--slop);
   --color-slop-deep: var(--slop-deep);
   --color-slop-ink: var(--slop-ink);

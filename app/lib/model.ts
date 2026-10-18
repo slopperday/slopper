@@ -114,6 +114,12 @@ export interface SlopLink {
   url: string;
 }
 
+/** One thing a slop does, for its page. */
+export interface SlopFeature {
+  title: string;
+  body: string;
+}
+
 /**
  * OAuth providers people sign in with, in the order the login page offers
  * them. X and LinkedIn also connect accounts for auto-posting. Instagram has
@@ -228,6 +234,11 @@ export const LIMITS = {
   links: 6,
   screenshots: 6,
   madeWith: 6,
+  /** What it does, shown on its page: a short title and one line each. */
+  features: 6,
+  featureTitleLength: 40,
+  featureBodyLength: 160,
+  audienceLength: 160,
   /**
    * Room for a sharp 2400px screenshot. Netlify Functions take 6 MB requests
    * and base64-encode binary ones, so an upload has about 4.5 MB to work with.

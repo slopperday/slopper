@@ -20,6 +20,11 @@ it to people, and keep slopping until one of them is **slopcessful**.
   mature one blurs any slop that shows it. Mature slops are blurred, anything worse is held for a moderator, and nothing
   auto-posts until it passes. Anyone signed in can flag a slop; moderators decide at `/mod`.
 - **Take my money.** Non-binding pledges that show how much people would pay.
+- **Product pages.** Each slop can carry a demo video (YouTube, Loom or Vimeo, loaded on a click), what it does and who
+  it's for. AI drafts them from the maker's words and website; the maker edits before saving.
+- **Traction from the source.** Connect Google Analytics, PostHog, Stripe or a Solana wallet (USDC and USDT) and the
+  slop page shows who's on it now, people and signups per day, revenue and MRR, each labelled with where it came from.
+  Read only, synced while people look, each source shown or hidden by its maker.
 - **Money ledger.** Costs (domain, hosting, AI) and revenue per product, private unless you show the numbers.
 - **Slopcessful hall of fame:** slops that earned it. Nobody can declare it: today it comes from winning the day.
 - **Auto-post** to LinkedIn and Bluesky (X is built but off: its API is pay per use), plus one-tap share
@@ -172,6 +177,23 @@ old ones. `VAPID_SUBJECT` (Convex) defaults to `mailto:hello@slopper.day`.
 Objects get random keys under `screenshots/` and `Cache-Control: public, max-age=31536000, immutable`. When a deleted
 or edited slop leaves a screenshot unused, Convex marks it orphaned and the app server deletes the object, then its
 row. One the bucket won't delete stays marked and is retried the next time a delete or edit orphans another.
+
+### Traction integrations
+
+Makers connect their own sources on a slop's edit page (`#traction`). Each connection's first sync runs before it's
+saved, so a refused key is never stored; keys are sealed with `SLOPPER_SECRET_KEY`. Syncs run on the app server
+(`app/.server/integrations/`), because only it can unseal keys: a slop page with numbers older than five minutes posts
+to `/api/slops/:id/traction`, Convex hands each due source out once, and the live query flips the board.
+
+- **Stripe:** a restricted key with Read on Balance and Subscriptions. Secret keys are refused.
+- **PostHog:** a personal API key with Query Read, the project id and region.
+- **Solana wallet:** just the address. `SOLANA_RPC_URL` picks the RPC (the public endpoint by default).
+- **Google Analytics:** set `GOOGLE_ANALYTICS_SERVICE_ACCOUNT` to a service account's JSON key, with the Analytics Data
+  API enabled in its project. Makers add its email as a Viewer on their property. Without it, Google Analytics isn't
+  offered.
+
+AI drafts of product pages use the content check's OpenRouter settings; without `OPENROUTER_API_KEY` the button is
+hidden.
 
 ### OAuth apps
 

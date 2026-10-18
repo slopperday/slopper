@@ -8,6 +8,22 @@ import { EMBEDDING_DIMENSIONS } from "./lib/embeddings";
  * they happen.
  */
 
+export const integrationProviderValidator = v.union(
+  v.literal("ga4"),
+  v.literal("posthog"),
+  v.literal("stripe"),
+  v.literal("solana"),
+);
+
+/** Minor units by upper-case currency code. */
+export const revenueValidator = v.record(v.string(), v.number());
+
+export const snapshotValidator = v.object({
+  mrr: v.optional(revenueValidator),
+  subscribers: v.optional(v.number()),
+  people30: v.optional(v.number()),
+});
+
 const crosspostMode = v.union(v.literal("post"), v.literal("amplify"), v.literal("off"));
 
 const linkKindValidator = v.union(
@@ -50,6 +66,15 @@ export const updateDetailsValidator = v.union(
     who: v.union(v.string(), v.null()),
   }),
 );
+
+/** A demo video linked on YouTube, Loom or Vimeo (see app/lib/video.ts). Uploaded promo videos are `video`. */
+export const demoVideoValidator = v.object({
+  provider: v.union(v.literal("youtube"), v.literal("loom"), v.literal("vimeo")),
+  id: v.string(),
+  vertical: v.boolean(),
+});
+
+export const featureValidator = v.object({ title: v.string(), body: v.string() });
 
 export const crosspostResultValidator = v.object({
   accountId: v.string(),
@@ -269,6 +294,10 @@ export default defineSchema({
      */
     video: v.optional(v.object({ mediaId: v.id("media"), approvedAt: v.union(v.number(), v.null()) })),
     madeWith: v.array(v.string()),
+    /** The product page: a linked demo video, what it does and who it's for. Absent on slops from before them. */
+    demo: v.optional(v.union(demoVideoValidator, v.null())),
+    features: v.optional(v.array(featureValidator)),
+    audience: v.optional(v.string()),
     /** Calendar date in the owner's zone (goal accounting). */
     launchDate: v.string(),
     /** UTC calendar date (slop of the day race). */
@@ -387,6 +416,10 @@ export default defineSchema({
     links: v.array(linkValidator),
     screenshots: v.array(v.id("media")),
     madeWith: v.array(v.string()),
+    /** The product page, carried onto the launch when it goes out. */
+    demo: v.optional(v.union(demoVideoValidator, v.null())),
+    features: v.optional(v.array(featureValidator)),
+    audience: v.optional(v.string()),
     launchNote: v.string(),
     /** For another launch of a product: its first launch. */
     productId: v.union(v.id("slops"), v.null()),
@@ -471,6 +504,46 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_remote", ["userId", "provider", "remoteId"]),
+
+  /**
+   * Read-only connections that bring a product's traction onto its page
+   * (app/lib/integrations.ts). One per provider per product, keyed by its
+   * first launch like the ledger.
+   */
+  integrations: defineTable({
+    productId: v.id("slops"),
+    userId: v.id("users"),
+    provider: integrationProviderValidator,
+    /** Not secret: a property or project id, a wallet address, the signup event. */
+    settings: v.record(v.string(), v.string()),
+    /** An API key, AES-GCM sealed by the app server. Convex never sees plaintext. */
+    sealedSecret: v.union(v.string(), v.null()),
+    /** Show its numbers to everyone. The owner always sees them. */
+    public: v.boolean(),
+    status: v.union(v.literal("pending"), v.literal("ok"), v.literal("error")),
+    error: v.union(v.string(), v.null()),
+    syncedAt: v.union(v.number(), v.null()),
+    /** Set while a sync runs, so page views don't start a second one. */
+    syncingAt: v.union(v.number(), v.null()),
+    /** Where an incremental source (a wallet) left off. */
+    cursor: v.union(v.string(), v.null()),
+    live: v.union(v.object({ people: v.number(), at: v.number() }), v.null()),
+    snapshot: snapshotValidator,
+  })
+    .index("by_product", ["productId"])
+    .index("by_user", ["userId"]),
+
+  /** One source's numbers for one day. */
+  metrics: defineTable({
+    integrationId: v.id("integrations"),
+    productId: v.id("slops"),
+    date: v.string(),
+    people: v.optional(v.number()),
+    signups: v.optional(v.number()),
+    revenue: v.optional(revenueValidator),
+  })
+    .index("by_integration_date", ["integrationId", "date"])
+    .index("by_product_date", ["productId", "date"]),
 
   apiTokens: defineTable({
     userId: v.id("users"),

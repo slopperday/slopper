@@ -4,6 +4,7 @@ import type { EntryContext, RouterContextProvider } from "react-router";
 import { ServerRouter } from "react-router";
 import { config } from "./.server/config";
 import { APP_VERSION } from "./lib/version";
+import { VIDEO_FRAME_SOURCES } from "~/lib/video";
 
 /**
  * Live queries open a websocket to Convex, and analytics posts to its HTTP
@@ -58,6 +59,8 @@ export default async function handleRequest(
         "font-src 'self'",
         "img-src 'self' data: blob: https:",
         "media-src 'self' blob: https:",
+        // Demo videos play in their host's player, loaded by a click.
+        `frame-src ${VIDEO_FRAME_SOURCES.join(" ")}`,
         `connect-src 'self'${convexSources()}`,
         "object-src 'none'",
         "base-uri 'self'",

@@ -56,6 +56,8 @@ import { MoneyLedger, MoneySummary } from "~/components/Money";
 import { AgentPrompt } from "~/components/AgentPrompt";
 import { useLive } from "~/components/Live";
 import { updatePrompt } from "~/lib/prompts";
+import { DemoVideo } from "~/components/DemoVideo";
+import { LiveTeaser, TractionSection } from "~/components/Traction";
 
 function parseHandle(handle: string): string {
   if (!handle.startsWith("@")) notFound();
@@ -408,10 +410,22 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
         </nav>
 
         <header className="mt-8">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div
+            className={`grid gap-8 lg:items-end ${
+              slop.demo && reveal
+                ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center"
+                : "lg:grid-cols-[minmax(0,1fr)_auto]"
+            }`}
+          >
             <div className="min-w-0">
               <h1 className="display break-words">{slop.name}</h1>
               <p className="mt-4 max-w-2xl text-[1.3rem] leading-snug text-muted sm:text-[1.5rem]">{slop.tagline}</p>
+              {slop.audience && (
+                <p className="mt-5 max-w-xl border-t border-line pt-4">
+                  <span className="caps block text-[0.8rem] text-muted">Who it's for</span>
+                  <span className="mt-1 block text-[1.0625rem]">{slop.audience}</span>
+                </p>
+              )}
               {(slop.launchLabel || slop.slopcessfulAt || slop.slopOfTheDay || slop.nsfw) && (
                 <p className="mt-5 flex flex-wrap gap-1.5">
                   {slop.launchLabel && <LaunchLabelTag label={slop.launchLabel} />}
@@ -420,29 +434,21 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
                   {slop.nsfw && <NsfwTag />}
                 </p>
               )}
-            </div>
-            <div className="flex flex-wrap items-center gap-3 lg:justify-end">
-              <VoteButtons
-                slopId={slop.id}
-                upvotes={slop.upvotes}
-                vote={loaderData.vote}
-                mode={loaderData.voteMode}
-                loginHref={`/login?returnTo=${encodeURIComponent(path)}`}
-                size="lg"
-              />
-              {primary && (
-                <a
-                  href={primary.url}
-                  target="_blank"
-                  rel="noopener"
-                  data-capture={`try:${primary.kind}`}
-                  className="btn btn-slop btn-lg"
-                >
-                  {LINK_KINDS[primary.kind].beta ? "Join the beta" : "Try it"}
-                  <Icon name="out" className="size-5" />
-                </a>
+              {slop.demo && reveal && (
+                <div className="mt-6 grid gap-2">
+                  <HeroActions loaderData={loaderData} path={path} primary={primary} />
+                  <LiveTeaser traction={loaderData.traction} />
+                </div>
               )}
             </div>
+            {slop.demo && reveal ? (
+              <DemoVideo video={slop.demo} name={slop.name} />
+            ) : (
+              <div className="grid gap-2 lg:justify-items-end">
+                <HeroActions loaderData={loaderData} path={path} primary={primary} />
+                <LiveTeaser traction={loaderData.traction} />
+              </div>
+            )}
           </div>
           {slop.slopcessfulAt && slop.slopcessfulNote && (
             <p className="mt-8 rounded-2xl bg-gold-tint px-5 py-4 text-[1.125rem] font-bold">
@@ -517,14 +523,26 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
 
         <div className="mt-14 grid gap-x-16 gap-y-16 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0">
-            {slop.description && (
+            {(slop.description || slop.features.length > 0) && (
               <section aria-labelledby="about">
                 <h2 id="about" className="title-2">
-                  About
+                  {slop.features.length > 0 ? "What it does" : "About"}
                 </h2>
-                <Markdown html={loaderData.descriptionHtml} className="mt-5 max-w-[68ch] text-[1.125rem]" />
+                {slop.description && (
+                  <Markdown html={loaderData.descriptionHtml} className="mt-5 max-w-[68ch] text-[1.125rem]" />
+                )}
+                {slop.features.length > 0 && <Features features={slop.features} />}
               </section>
             )}
+            {isOwner && slop.features.length === 0 && !slop.demo && !slop.video && <ProductPagePrompt path={path} />}
+
+            <TractionSection
+              slopId={slop.id}
+              traction={loaderData.traction}
+              isOwner={isOwner}
+              editPath={`${path}/edit`}
+              className={slop.description || slop.features.length > 0 ? "mt-16" : ""}
+            />
 
             {loaderData.launches.length > 1 && <LaunchHistory loaderData={loaderData} />}
             <Updates loaderData={loaderData} reveal={reveal} />
@@ -535,6 +553,83 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
         </div>
       </article>
     </>
+  );
+}
+
+function HeroActions({
+  loaderData,
+  path,
+  primary,
+}: {
+  loaderData: View;
+  path: string;
+  primary: View["slop"]["links"][number] | undefined;
+}) {
+  const { slop } = loaderData;
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <VoteButtons
+        slopId={slop.id}
+        upvotes={slop.upvotes}
+        vote={loaderData.vote}
+        mode={loaderData.voteMode}
+        loginHref={`/login?returnTo=${encodeURIComponent(path)}`}
+        size="lg"
+      />
+      {primary && (
+        <a
+          href={primary.url}
+          target="_blank"
+          rel="noopener"
+          data-capture={`try:${primary.kind}`}
+          className="btn btn-slop btn-lg"
+        >
+          {LINK_KINDS[primary.kind].beta ? "Join the beta" : "Try it"}
+          <Icon name="out" className="size-5" />
+        </a>
+      )}
+    </div>
+  );
+}
+
+/** What it does, set like a timetable: a number, a title, one line. */
+function Features({ features }: { features: View["slop"]["features"] }) {
+  return (
+    <ol className="mt-8 max-w-[68ch] divide-y divide-line border-y border-line">
+      {features.map((feature, index) => (
+        <li
+          key={`${index}-${feature.title}`}
+          className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-x-4 gap-y-1 py-4 sm:grid-cols-[3rem_minmax(0,14rem)_minmax(0,1fr)] sm:items-baseline"
+        >
+          <span
+            aria-hidden="true"
+            className="font-display text-[1.6rem] leading-none font-extrabold text-faint tabular-nums"
+          >
+            {String(index + 1).padStart(2, "0")}
+          </span>
+          <span className="font-display text-[1.4rem] leading-tight font-extrabold">{feature.title}</span>
+          {feature.body && <span className="col-start-2 text-muted sm:col-start-3">{feature.body}</span>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** For the owner of a bare slop page: make it a product page. */
+function ProductPagePrompt({ path }: { path: string }) {
+  return (
+    <section className="mt-10 rounded-2xl bg-sunk p-5 sm:p-6" aria-labelledby="product-page-title">
+      <h2 id="product-page-title" className="font-display text-[1.75rem] leading-none font-extrabold">
+        Make it a product page
+      </h2>
+      <p className="mt-2 max-w-[56ch]">
+        Add a demo video, what it does and who it's for. Short on words? Let AI draft it from your site, then make it
+        yours.
+      </p>
+      <Link to={`${path}/edit#product-page`} className="btn btn-ink mt-4">
+        <Icon name="spark" className="size-4" /> Fill in the product page
+      </Link>
+    </section>
   );
 }
 

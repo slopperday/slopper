@@ -43,6 +43,9 @@ export const PORTS = {
 /** Written by `e2e/stack.ts`, read by the fixtures. */
 export const STACK_FILE = ".e2e/stack.json";
 
+/** A wallet the stack's fake Solana RPC knows: one USDC token account, paid $12.50 an hour ago. */
+export const E2E_WALLET = "E2eWa11etE2eWa11etE2eWa11etE2eWa11etE2eWa1";
+
 /** The admin the stack lists in ADMIN_IDENTITIES: how they sign in, and the username they get. */
 export const E2E_ADMIN_IDENTITY = { provider: "e2e", providerId: "admin" } as const;
 export const E2E_ADMIN = "e2e-admin";

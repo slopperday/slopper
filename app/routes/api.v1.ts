@@ -68,6 +68,7 @@ function route(method: string, path: string): Match | null {
   if (parts.length === 3 && method === "GET" && action === "analytics") {
     return { operation: "slop_analytics", slop: ref };
   }
+  if (parts.length === 3 && method === "GET" && action === "traction") return { operation: "get_traction", slop: ref };
   return null;
 }
 

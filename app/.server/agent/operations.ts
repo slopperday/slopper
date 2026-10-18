@@ -18,6 +18,8 @@ import { normalizeQuery, SEARCH_LIMIT, SEARCH_QUERY_LENGTH } from "~/lib/search"
 import { formatRelease, parseRelease, releaseProblem } from "~/lib/schedule";
 import { listWords, slopPath } from "~/lib/display";
 import { CURRENCIES } from "~/lib/money";
+import { tractionBoard } from "~/lib/traction";
+import { videoPageUrl } from "~/lib/video";
 import { absoluteUrl, autopostNetworks, config } from "../config";
 import { convex, convexMessage } from "../convex";
 import { validateGoal, validateSlop, validateUpdate } from "../forms";
@@ -32,6 +34,7 @@ import {
   asObject,
   type JsonObject,
   optionalBoolean,
+  optionalFeatures,
   optionalLinks,
   optionalNumber,
   optionalString,
@@ -220,6 +223,29 @@ function summarizeScheduled(item: ScheduledItem, user: User) {
   };
 }
 
+/** The product page fields, shared by create_slop and update_slop. */
+const PRODUCT_PAGE_SCHEMA = {
+  demo: {
+    type: "string",
+    description:
+      "A demo video linked on YouTube (videos or Shorts), Loom or Vimeo, shown beside the name. Uploaded promo videos go through set_video. An empty string removes it.",
+  },
+  features: {
+    type: "array",
+    description: "What it does, shown on its page. Replaces the whole list; [] removes them.",
+    items: {
+      type: "object",
+      properties: {
+        title: { type: "string", maxLength: LIMITS.featureTitleLength },
+        body: { type: "string", maxLength: LIMITS.featureBodyLength, description: "One line." },
+      },
+      required: ["title"],
+    },
+    maxItems: LIMITS.features,
+  },
+  audience: { type: "string", maxLength: LIMITS.audienceLength, description: "Who it's for, in one line." },
+};
+
 const AUTOPOST = {
   type: "boolean",
   description: `Post it to the user's connected ${listWords(autopostNetworks(), "and")} accounts. Defaults to false. When it can't be posted yet (it's waiting for a moderator, marked NSFW or flagged), the result says why.`,
@@ -400,6 +426,7 @@ export const OPERATIONS: Operation[] = [
           description: "Ids from upload_screenshot; the first is the cover.",
         },
         madeWith: { type: "array", items: { type: "string" }, maxItems: LIMITS.madeWith },
+        ...PRODUCT_PAGE_SCHEMA,
         launchNote: {
           type: "string",
           maxLength: LIMITS.updateLength,
@@ -431,6 +458,9 @@ export const OPERATIONS: Operation[] = [
         links: optionalLinks(input, "links"),
         screenshots: optionalStrings(input, "screenshots"),
         madeWith: optionalStrings(input, "madeWith"),
+        demo: optionalString(input, "demo"),
+        features: optionalFeatures(input, "features"),
+        audience: optionalString(input, "audience"),
         launchNote: optionalString(input, "launchNote"),
       });
       if (!parsed.ok) throw new ApiError(422, "The slop needs fixing.", parsed.errors);
@@ -499,6 +529,7 @@ export const OPERATIONS: Operation[] = [
         links: LINKS_SCHEMA,
         screenshots: { type: "array", items: { type: "string" } },
         madeWith: { type: "array", items: { type: "string" } },
+        ...PRODUCT_PAGE_SCHEMA,
       },
       required: ["slop"],
     },
@@ -513,6 +544,9 @@ export const OPERATIONS: Operation[] = [
         links: optionalLinks(input, "links") ?? slop.links,
         screenshots: optionalStrings(input, "screenshots") ?? slop.screenshots,
         madeWith: optionalStrings(input, "madeWith") ?? slop.madeWith,
+        demo: optionalString(input, "demo") ?? (slop.demo ? videoPageUrl(slop.demo) : ""),
+        features: optionalFeatures(input, "features") ?? slop.features ?? [],
+        audience: optionalString(input, "audience") ?? slop.audience ?? "",
       });
       if (!parsed.ok) throw new ApiError(422, "The slop needs fixing.", parsed.errors);
       const { launchNote: _launchNote, ...fields } = parsed.value;
@@ -740,6 +774,41 @@ export const OPERATIONS: Operation[] = [
       });
       if (cancelled.orphaned > 0) await deleteOrphanedMedia();
       return { cancelled: cancelled.name };
+    },
+  },
+  {
+    name: "get_traction",
+    title: "Get a slop's traction",
+    description:
+      "The numbers from the slop's connected sources (Google Analytics, PostHog, Stripe, Solana wallet): people on it now, people and signups today and over 30 days, revenue and MRR in minor units, and the next round number of people. Sources are connected by the maker on the slop's edit page.",
+    inputSchema: { type: "object", properties: { slop: SLOP_REF }, required: ["slop"] },
+    readOnly: true,
+    async run(context, input) {
+      const slop = await ownSlop(context, requiredString(input, "slop"));
+      const page = await convex.query(api.slops.page, {
+        username: context.user.username,
+        slug: slop.slug,
+        asUser: context.user._id,
+      });
+      if (!page) throw new ApiError(404, "Slop not found.");
+      const board = tractionBoard(page.traction, context.now.toISOString().slice(0, 10), context.now.getTime());
+      return {
+        sources: page.traction.sources.map((source) => ({
+          provider: source.provider,
+          public: source.public,
+          status: source.status,
+          error: source.error,
+          syncedAt: source.syncedAt === null ? null : new Date(source.syncedAt).toISOString(),
+        })),
+        board: board && {
+          onItNow: board.live?.people ?? null,
+          people: board.people && { today: board.people.today, last30Days: board.people.days30 },
+          signups: board.signups && { today: board.signups.today, last30Days: board.signups.days30 },
+          revenue: board.revenue && { today: board.revenue.today, last30Days: board.revenue.days30 },
+          mrr: board.mrr && { amounts: board.mrr.amounts, subscribers: board.mrr.subscribers },
+          nextMilestone: board.next,
+        },
+      };
     },
   },
   {

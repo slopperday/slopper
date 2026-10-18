@@ -161,6 +161,27 @@ describe("scheduled launches", () => {
     expect(Math.floor(slop._creationTime)).toBe(at);
   });
 
+  it("keeps the product page it was scheduled with when it goes out", async () => {
+    stubApp();
+    const { t, server } = setup();
+    const maker = await makeUser(server, "maker");
+    const page = {
+      demo: { provider: "youtube" as const, id: "dQw4w9WgXcQ", vertical: false },
+      features: [{ title: "Tilt to roll", body: "The tilt is the only control." }],
+      audience: "Anyone with a spare thumb",
+    };
+    await server.mutation(api.schedule.add, {
+      userId: maker,
+      input: { ...input("Marble Run"), ...page },
+      launchNote: "",
+      when: { kind: "at", at: Date.parse("2026-10-16T09:00:00Z") },
+      autopost: false,
+    });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const [slop] = await server.query(api.slops.listForServer, { userId: maker });
+    expect({ demo: slop.demo, features: slop.features, audience: slop.audience }).toEqual(page);
+  });
+
   it("tries the app server three times, a minute apart and more, then leaves it to the maker", async () => {
     const calls = stubApp(503);
     const { t, server } = setup();

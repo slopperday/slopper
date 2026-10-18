@@ -1,7 +1,8 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import type { LinkPreview, SlopLink, UpdateDetails, UpdateKind } from "../../app/lib/model";
+import type { LinkPreview, SlopFeature, SlopLink, UpdateDetails, UpdateKind } from "../../app/lib/model";
 import { renderMarkdown } from "../../app/lib/markdown";
+import type { DemoVideo } from "../../app/lib/video";
 import { mediaUrl } from "./media";
 
 /**
@@ -51,6 +52,11 @@ export interface PublicSlop {
   /** A video is waiting for a moderator (convex/videos.ts). */
   videoPending: boolean;
   madeWith: string[];
+  /** A demo video linked on YouTube, Loom or Vimeo, shown beside the name. The uploaded promo is `video`. */
+  demo: DemoVideo | null;
+  features: SlopFeature[];
+  /** Who it's for, in one line. Empty when the maker hasn't said. */
+  audience: string;
   launchDate: string;
   raceDate: string;
   launchedAt: number;
@@ -106,6 +112,9 @@ export async function publicSlop(ctx: QueryCtx, slop: Doc<"slops">): Promise<Pub
     video: slop.video?.approvedAt ? await approvedVideoUrl(ctx, slop.video.mediaId) : null,
     videoPending: slop.video !== undefined && slop.video.approvedAt === null,
     madeWith: slop.madeWith,
+    demo: slop.demo ?? null,
+    features: slop.features ?? [],
+    audience: slop.audience ?? "",
     launchDate: slop.launchDate,
     raceDate: slop.raceDate,
     launchedAt: slop._creationTime,
