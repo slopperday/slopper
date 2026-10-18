@@ -13,6 +13,8 @@ export const EVENTS = {
   autocapture: "$autocapture",
   /** Three or more clicks in one spot within a second: someone is frustrated. */
   rageclick: "$rageclick",
+  /** Where on a page people clicked: up to 50 `x,y` points at one viewport width, for heatmaps. */
+  heatmap: "$heatmap",
   /** An anonymous visitor signed in: links their earlier events to their account. */
   identify: "$identify",
   /** An uncaught error, a rejected promise, or one an app reported. */

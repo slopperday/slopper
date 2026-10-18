@@ -85,6 +85,8 @@ export class PageTracker {
         duration: Date.now() - page.shownAt,
         // What was tracked while it was open: by now the address may be another page's.
         scrollDepth: Math.round(page.scrollDepth * 100) / 100,
+        // Heatmaps read scroll depth per kind of screen.
+        viewportWidth: window.innerWidth,
       },
       page.path,
     );

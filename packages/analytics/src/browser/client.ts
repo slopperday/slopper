@@ -2,6 +2,7 @@ import { EVENTS, type WireEvent } from "../shared/events";
 import type { FlagValue } from "../shared/flags";
 import { normalizeProperties, type Properties } from "../shared/properties";
 import { startAutocapture } from "./autocapture";
+import { ClickMap } from "./heatmap";
 import { PageTracker, watchHistory } from "./pageviews";
 import { cookieNames, DEFAULT_STORAGE_KEY, ROUTES, stateKey } from "../shared/routes";
 import { readCookie, StateStore, type StoredState, writeCookie } from "./storage";
@@ -23,6 +24,8 @@ export interface AnalyticsOptions {
   pageviews?: boolean;
   /** Clicks, form submissions and field changes. */
   autocapture?: boolean;
+  /** Where every click lands, for heatmaps (`$heatmap`). On unless turned off. */
+  heatmaps?: boolean;
   /** Minutes without activity that end a session. */
   sessionIdleMinutes?: number;
   /** Sent with every event, like the visitor's country, which the app's server knows and the browser doesn't. */
@@ -89,6 +92,7 @@ export class Analytics {
   private id: string;
   private stopped = false;
   private recorder: Recorder | null = null;
+  private clicks: ClickMap | null = null;
   private recorderLoading = false;
 
   constructor(private readonly options: AnalyticsOptions) {
@@ -336,10 +340,19 @@ export class Analytics {
     if (this.options.autocapture ?? true) {
       this.stops.push(startAutocapture((name, properties) => this.capture(name, properties), this.sanitizePath));
     }
+    if (this.options.heatmaps ?? true) {
+      // Passive: a click is activity already, through autocapture.
+      this.clicks = new ClickMap(
+        (name, properties, path) => this.record(name, properties, { path }, true),
+        () => this.currentPath(),
+      );
+      this.stops.push(this.clicks.start());
+    }
     if (this.options.pageviews ?? true) {
       this.pages.view(this.options.landedAt);
       this.stops.push(
         watchHistory(() => {
+          this.clicks?.flush();
           this.pages.view();
           this.recorder?.pageChanged();
         }),
@@ -355,6 +368,7 @@ export class Analytics {
     };
     const onPageHide = () => {
       this.pages.scrolled();
+      this.clicks?.flush();
       this.pages.leave();
       this.transport.beacon();
       this.recorder?.pageHidden();
@@ -365,6 +379,7 @@ export class Analytics {
     };
     const onVisibility = () => {
       if (document.visibilityState !== "hidden") return;
+      this.clicks?.flush();
       this.transport.beacon();
       this.recorder?.pageHidden();
     };
@@ -385,6 +400,7 @@ export class Analytics {
   shutdown(): void {
     if (this.stopped) return;
     for (const stop of this.stops.splice(0)) stop();
+    this.clicks?.flush();
     this.transport.beacon();
     this.recorder?.stop();
     this.recorder = null;

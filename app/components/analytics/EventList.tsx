@@ -1,4 +1,4 @@
-import type { PropertyValue } from "@slopperday/analytics/shared";
+import { EVENTS, type PropertyValue } from "@slopperday/analytics/shared";
 import { timeAgo } from "~/lib/dates";
 import { eventLabel, formatDuration } from "~/lib/insights";
 
@@ -21,7 +21,9 @@ function show(value: PropertyValue): string {
  * Events in a list: what happened, where, and the properties that say most
  * about it. `since` shows times as offsets from a session's start.
  */
-export function EventList({ events, since }: { events: ListedEvent[]; since?: number }) {
+export function EventList({ events: all, since }: { events: ListedEvent[]; since?: number }) {
+  // Heatmap points are clicks already listed as clicks.
+  const events = all.filter((event) => event.name !== EVENTS.heatmap);
   if (events.length === 0) return <p className="mt-4 text-muted">Nothing yet.</p>;
   return (
     <ol className="mt-6 grid gap-2">

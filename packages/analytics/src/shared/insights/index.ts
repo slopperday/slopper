@@ -1,5 +1,6 @@
 import type { FunnelResult } from "./funnels";
 import type { GroupsResult } from "./groups";
+import type { HeatmapResult } from "./heatmap";
 import type { LifecycleResult } from "./lifecycle";
 import type { PathsResult } from "./paths";
 import type { RetentionResult } from "./retention";
@@ -10,6 +11,7 @@ import type { WebResult } from "./web";
 export * from "./experiments";
 export * from "./funnels";
 export * from "./groups";
+export * from "./heatmap";
 export * from "./lifecycle";
 export * from "./paths";
 export * from "./queries";
@@ -28,7 +30,8 @@ export type InsightResult =
   | StickinessResult
   | LifecycleResult
   | WebResult
-  | GroupsResult;
+  | GroupsResult
+  | HeatmapResult;
 
 /** What an insight answers, and how much it read to answer it. */
 export interface InsightAnswer<Result extends InsightResult = InsightResult> {
