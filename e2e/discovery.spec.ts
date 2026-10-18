@@ -186,9 +186,11 @@ test.describe("finding slop", () => {
     await expect(shown(jar)).toBeVisible();
 
     // One word that starts no other: search splits on hyphens, and this test's id would match its own slops.
-    await box.fill(`zq${id}`);
+    // Letters only, since digits split it into short words other slops' names share.
+    const nothing = `zq${id.replace(/\d/g, (digit) => "abcdefghij"[Number(digit)])}`;
+    await box.fill(nothing);
     await box.press("Enter");
-    await expect(page.getByText(`No slop matches “zq${id}” yet.`)).toBeVisible();
+    await expect(page.getByText(`No slop matches “${nothing}” yet.`)).toBeVisible();
   });
 
   test("the chips and the search box work without JavaScript", async ({ browser, seed, stack }) => {
