@@ -28,7 +28,7 @@ import { generateServerKeys, generateVapidKeys } from "../scripts/server-keys.ts
 import { EMBEDDING_MODEL } from "../convex/lib/embeddings.ts";
 import { fakeEmbedding } from "./fake-embeddings.ts";
 import { sha256Hex, startFakeS3 } from "./fake-s3.ts";
-import { E2E_ADMIN, type FakeCheckRequest, type FakeEmail, PORTS, STACK_FILE, type Stack } from "./ports.ts";
+import { E2E_ADMIN_IDENTITY, type FakeCheckRequest, type FakeEmail, PORTS, STACK_FILE, type Stack } from "./ports.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const STATE = join(ROOT, ".e2e");
@@ -256,7 +256,7 @@ async function main(): Promise<void> {
       SLOPPER_JWT_ISSUER: APP_URL,
       SLOPPER_JWT_PRIVATE_KEY: keys.privateKey,
       SLOPPER_SECRET_KEY: randomBytes(32).toString("base64"),
-      ADMIN_USERNAMES: E2E_ADMIN,
+      ADMIN_IDENTITIES: `${E2E_ADMIN_IDENTITY.provider}:${E2E_ADMIN_IDENTITY.providerId}`,
       OPENROUTER_API_KEY: "e2e-key",
       OPENROUTER_BASE_URL: CHECK_URL,
       VAPID_PUBLIC_KEY: vapid.publicKey,

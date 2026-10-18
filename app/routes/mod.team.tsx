@@ -1,21 +1,25 @@
 import { Form, Link } from "react-router";
 import type { Route } from "./+types/mod.team";
 import { api } from "@convex/_generated/api";
-import type { StaffRole } from "@convex/lib/auth";
-import type { TeamMember } from "@convex/team";
+import type { Id } from "@convex/_generated/dataModel";
+import type { StaffRole } from "@convex/lib/permissions";
+import type { StaffLogEntry, TeamMember } from "@convex/team";
 import { config } from "~/.server/config";
 import { convex, convexMessage } from "~/.server/convex";
 import { formText } from "~/.server/forms";
 import { outOfDateForm, redirectWithFlash } from "~/.server/http";
 import { requireStaff, viewerContext } from "~/.server/session";
+import { timeAgo } from "~/lib/dates";
 import { seo } from "~/lib/seo";
+import { typedUsername } from "~/lib/username";
 import { Avatar } from "~/components/Avatar";
 import { EmptyState } from "~/components/Shared";
 
 /**
  * The moderation team, for admins: find an account by username, then make it
- * a moderator or an admin, or take it off the team. ADMIN_USERNAMES are
- * always admins, so they have no buttons here.
+ * a moderator or an admin, or take it off the team. Whoever signs in with an
+ * account in ADMIN_IDENTITIES is always an admin, so they have no buttons
+ * here. Below the team, the staff log: every use of a staff power.
  */
 
 const ROLE_CHANGES = {
@@ -30,35 +34,40 @@ function isRoleChange(value: string): value is RoleChange {
   return Object.hasOwn(ROLE_CHANGES, value);
 }
 
-/** Whether ADMIN_USERNAMES lists this person, which keeps them an admin. */
-function listed(username: string): boolean {
-  return config.adminUsernames.has(username.toLowerCase());
+/** The accounts that sign in with an account in ADMIN_IDENTITIES, which keeps them admins. */
+async function listedAdmins(): Promise<{ id: Id<"users">; username: string }[]> {
+  if (config.adminIdentities.length === 0) return [];
+  return await convex.query(api.team.listed, { identities: [...config.adminIdentities] });
 }
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  requireStaff(context.get(viewerContext), request, "admin");
+  requireStaff(context.get(viewerContext), request, "team.manage");
   const query = new URL(request.url).searchParams.get("q")?.trim() ?? "";
-  const [members, results] = await Promise.all([
+  const [members, results, listed, log] = await Promise.all([
     convex.query(api.team.members, {}),
     query ? convex.query(api.team.search, { prefix: query }) : [],
+    listedAdmins(),
+    convex.query(api.team.log, {}),
   ]);
-  // A listed admin who hasn't loaded a page since is an admin all the same.
+  const listedIds = new Set(listed.map((admin) => admin.id));
+  // A listed admin who hasn't signed in since is an admin all the same.
   const withListing = (member: TeamMember) => {
-    const always = listed(member.username);
+    const always = listedIds.has(member.id);
     return { ...member, role: always ? ("admin" as const) : member.role, listed: always };
   };
-  return { members: members.map(withListing), results: results.map(withListing), query };
+  return { members: members.map(withListing), results: results.map(withListing), query, log };
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
-  const admin = requireStaff(context.get(viewerContext), request, "admin");
+  const admin = requireStaff(context.get(viewerContext), request, "team.manage");
   const form = await request.formData();
   const change = formText(form, "role");
   const username = formText(form, "username");
   const query = formText(form, "q");
   const back = query ? `/mod/team?q=${encodeURIComponent(query)}` : "/mod/team";
   if (!isRoleChange(change)) return outOfDateForm(back);
-  if (listed(username) && change !== "admin") {
+  const listed = await listedAdmins();
+  if (change !== "admin" && listed.some((member) => member.username === typedUsername(username))) {
     return redirectWithFlash(back, {
       tone: "error",
       message: `@${username} stays an admin.`,
@@ -88,7 +97,7 @@ type Member = Route.ComponentProps["loaderData"]["members"][number];
 const ROLE_NAMES: Record<StaffRole, string> = { admin: "Admin", moderator: "Moderator" };
 
 export default function Team({ loaderData }: Route.ComponentProps) {
-  const { members, results, query } = loaderData;
+  const { members, results, query, log } = loaderData;
   return (
     <section className="mx-auto max-w-4xl px-4 pt-14">
       <p>
@@ -143,8 +152,60 @@ export default function Team({ loaderData }: Route.ComponentProps) {
           </div>
         )}
       </section>
+
+      <section className="mt-12" aria-labelledby="log-title">
+        <h2 id="log-title" className="title-2">
+          Staff log
+        </h2>
+        <p className="mt-2 max-w-2xl text-muted">Who on the team did what, newest first.</p>
+        {log.length === 0 ? (
+          <div className="mt-6">
+            <EmptyState>Nothing yet.</EmptyState>
+          </div>
+        ) : (
+          <ul className="mt-6 divide-y divide-line border-y border-line">
+            {log.map((entry) => (
+              <li key={entry.id} className="py-2.5">
+                <span className="font-bold">{entry.actor ? `@${entry.actor}` : "A deleted account"}</span>{" "}
+                {describe(entry)}
+                <span className="ml-2 text-sm text-muted">{timeAgo(entry.at)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </section>
   );
+}
+
+/** What a staff log entry says its actor did. */
+function describe({ action, target }: StaffLogEntry): string {
+  switch (action.type) {
+    case "role":
+      return action.role
+        ? `made ${target} ${action.role === "admin" ? "an admin" : "a moderator"}`
+        : `took ${target} off the team`;
+    case "listedAdmin":
+      return "became an admin when they signed in";
+    case "flags":
+      return {
+        fine: `cleared the flags on ${target}`,
+        nsfw: `kept ${target} up, blurred as NSFW`,
+        hide: `hid ${target} after its flags`,
+      }[action.decision];
+    case "video":
+      return action.approved ? `approved ${target}'s video` : `took ${target}'s video off`;
+    case "takeDown":
+      return `took down ${target}'s video`;
+    case "trust":
+      return action.trusted ? `trusted ${target}` : `stopped trusting ${target}`;
+    case "hidden":
+      return action.hidden ? `hid ${target}` : `brought ${target} back`;
+    case "deleteSlop":
+      return `deleted ${target}`;
+    case "deleteComment":
+      return `deleted a comment on ${target}`;
+  }
 }
 
 function MemberRow({ member, query }: { member: Member; query: string }) {

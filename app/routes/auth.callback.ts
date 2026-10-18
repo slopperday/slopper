@@ -1,7 +1,7 @@
 import type { Route } from "./+types/auth.callback";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { startSession, viewerContext } from "~/.server/session";
+import { grantListedAdmin, startSession, viewerContext } from "~/.server/session";
 import { convex } from "~/.server/convex";
 import type { OAuthClientCredentials } from "~/.server/config";
 import {
@@ -92,6 +92,7 @@ async function completeLogin(
     timeZone: decodeURIComponent(readCookie(request, TZ_COOKIE) ?? "UTC"),
   });
   if (created && picture) await copyAvatar(userId, picture);
+  await grantListedAdmin(profile);
   const user = await convex.query(api.users.get, { userId });
   const response = created
     ? redirectWithFlash("/goal", {
@@ -123,6 +124,7 @@ async function completeLink(
     email: profile.email,
   });
   if (result.ok) {
+    await grantListedAdmin({ provider, providerId: profile.providerId });
     return redirectWithFlash(
       pending.returnTo,
       result.alreadyLinked

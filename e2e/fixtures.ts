@@ -12,7 +12,14 @@ import type { Id } from "../convex/_generated/dataModel";
 import { hashToken, randomToken } from "../app/.server/encoding.ts";
 import type { CategoryId } from "../app/lib/model.ts";
 import type { FakeObject } from "./fake-s3.ts";
-import { E2E_ADMIN, type FakeCheckRequest, type FakeEmail, STACK_FILE, type Stack } from "./ports.ts";
+import {
+  E2E_ADMIN,
+  E2E_ADMIN_IDENTITY,
+  type FakeCheckRequest,
+  type FakeEmail,
+  STACK_FILE,
+  type Stack,
+} from "./ports.ts";
 
 /**
  * Shared setup for the journeys. Tests that aren't about signing in start
@@ -51,8 +58,8 @@ export interface Seed {
   /** A person with a live session. Usernames are unique per test. */
   user(prefix?: string, options?: { email?: string }): Promise<SeededUser>;
   /**
-   * The admin the stack lists in ADMIN_USERNAMES, with a fresh session. Convex
-   * learns the role when the app server first sees them, as in production.
+   * The admin the stack lists in ADMIN_IDENTITIES, with a fresh session, made
+   * an admin as the app server does when they sign in.
    */
   admin(): Promise<SeededUser>;
   /** A new moderator, made so by the admin as /mod/team would. */
@@ -196,15 +203,14 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
       },
 
       async admin() {
-        const user = await signIn("admin", E2E_ADMIN, "Moderator");
+        const user = await signIn(E2E_ADMIN_IDENTITY.providerId, E2E_ADMIN, "Moderator");
         if (user.username !== E2E_ADMIN) throw new Error(`The moderator was seeded as @${user.username}.`);
+        await convex.mutation(api.team.bootstrap, E2E_ADMIN_IDENTITY);
         return user;
       },
 
       async moderator() {
         const admin = await seed.admin();
-        // What the app server does the first time it sees a listed admin.
-        await convex.mutation(api.team.bootstrap, { userId: admin.id });
         const moderator = await seed.user("mod");
         await convex.mutation(api.team.setRole, { adminId: admin.id, username: moderator.username, role: "moderator" });
         return moderator;
@@ -212,7 +218,6 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
 
       async trust(user) {
         const admin = await seed.admin();
-        await convex.mutation(api.team.bootstrap, { userId: admin.id });
         await convex.mutation(api.videos.setTrust, { adminId: admin.id, userId: user.id, trusted: true });
       },
 

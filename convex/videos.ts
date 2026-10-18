@@ -1,8 +1,10 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
-import { requireRole, requireServer } from "./lib/auth";
+import { requireServer } from "./lib/auth";
 import { isVideo, mediaUrl, releaseMedia } from "./lib/media";
+import { requireMayJudge, requirePermission } from "./lib/permissions";
+import { logStaffAction } from "./lib/staffLog";
 import { videoVerdictValidator } from "./schema";
 
 /**
@@ -167,6 +169,7 @@ export const queue = query({
         name: slop.name,
         slug: slop.slug,
         owner: owner.username,
+        ownerId: owner._id,
         trust: trustState(await trustOf(ctx, owner._id)),
         check: await lastCheck(ctx, slop._id, review.mediaId),
         url,
@@ -180,7 +183,8 @@ export const queue = query({
 /**
  * A moderator's call on the video they watched: approve plays it for
  * everyone, anything else takes it off the slop. Approving someone's video
- * for the first time trusts them; a revoked trust stays revoked.
+ * for the first time trusts them; a revoked trust stays revoked. Moderators
+ * don't decide on their own videos, or they could trust themselves.
  */
 export const decide = mutation({
   args: { moderatorId: v.id("users"), slopId: v.id("slops"), mediaId: v.id("media"), approve: v.boolean() },
@@ -189,14 +193,16 @@ export const decide = mutation({
     { moderatorId, slopId, mediaId, approve },
   ): Promise<{ decided: boolean; newlyTrusted: boolean; orphaned: number }> => {
     await requireServer(ctx);
-    await requireRole(ctx, moderatorId, "moderator");
+    const moderator = await requirePermission(ctx, moderatorId, "queue.decide");
     const review = await reviewOf(ctx, slopId);
     const slop = await ctx.db.get(slopId);
     // A replacement sent since the page loaded waits for its own review.
     if (!review || review.mediaId !== mediaId || slop?.video?.mediaId !== mediaId) {
       return { decided: false, newlyTrusted: false, orphaned: 0 };
     }
+    requireMayJudge(moderator, slop);
     await ctx.db.delete(review._id);
+    await logStaffAction(ctx, moderatorId, { type: "video", slopId, approved: approve }, slop);
     if (!approve) {
       await ctx.db.patch(slopId, { video: undefined });
       return { decided: true, newlyTrusted: false, orphaned: await releaseMedia(ctx, slop.userId, [mediaId]) };
@@ -213,7 +219,7 @@ export const takeDown = mutation({
   args: { adminId: v.id("users"), slopId: v.id("slops"), mediaId: v.id("media") },
   handler: async (ctx, { adminId, slopId, mediaId }): Promise<{ removed: boolean; orphaned: number }> => {
     await requireServer(ctx);
-    await requireRole(ctx, adminId, "admin");
+    await requirePermission(ctx, adminId, "videos.takeDown");
     const slop = await ctx.db.get(slopId);
     if (!slop?.video || slop.video.mediaId !== mediaId) return { removed: false, orphaned: 0 };
     const reviews = await ctx.db
@@ -222,6 +228,7 @@ export const takeDown = mutation({
       .collect();
     for (const review of reviews) await ctx.db.delete(review._id);
     await ctx.db.patch(slopId, { video: undefined });
+    await logStaffAction(ctx, adminId, { type: "takeDown", slopId }, slop);
     return { removed: true, orphaned: await releaseMedia(ctx, slop.userId, [mediaId]) };
   },
 });
@@ -231,12 +238,13 @@ export const setTrust = mutation({
   args: { adminId: v.id("users"), userId: v.id("users"), trusted: v.boolean() },
   handler: async (ctx, { adminId, userId, trusted }): Promise<string> => {
     await requireServer(ctx);
-    await requireRole(ctx, adminId, "admin");
+    await requirePermission(ctx, adminId, "videos.trust");
     const user = await ctx.db.get(userId);
     if (!user) throw new ConvexError("That account is gone.");
     const trust = await trustOf(ctx, userId);
     if (trust) await ctx.db.patch(trust._id, { trusted, by: adminId, at: Date.now() });
     else await ctx.db.insert("videoTrust", { userId, trusted, by: adminId, at: Date.now() });
+    await logStaffAction(ctx, adminId, { type: "trust", userId, trusted }, user);
     return user.username;
   },
 });

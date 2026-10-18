@@ -21,6 +21,11 @@ const RESERVED = new Set([
 
 export const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9_-]{0,28}[a-z0-9])?$/;
 
+/** A username someone typed to look an account up: no spaces around it, no @, lower case. */
+export function typedUsername(input: string): string {
+  return input.trim().replace(/^@/, "").toLowerCase();
+}
+
 export function normalizeUsername(input: string): string {
   return input
     .trim()

@@ -1,5 +1,5 @@
 import { Form, Link, NavLink } from "react-router";
-import type { StaffRole } from "@convex/lib/auth";
+import type { Permission } from "@convex/lib/permissions";
 import { NotificationsBell } from "./NotificationsBell";
 import { Avatar } from "./Avatar";
 import { Countdown } from "./Countdown";
@@ -26,7 +26,16 @@ export interface HeaderUser {
   avatarUrl: string | null;
 }
 
-export function Header({ user, role, path }: { user: HeaderUser | null; role: StaffRole | null; path: string }) {
+export function Header({
+  user,
+  permissions,
+  path,
+}: {
+  user: HeaderUser | null;
+  /** The signed-in person's staff permissions, if they're on the moderation team. */
+  permissions: readonly Permission[];
+  path: string;
+}) {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-ground/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:gap-6">
@@ -61,8 +70,8 @@ export function Header({ user, role, path }: { user: HeaderUser | null; role: St
                   <MenuLink to="/goal">Your goal</MenuLink>
                   <MenuLink to="/settings/autopost">Auto-post</MenuLink>
                   <MenuLink to="/settings">Settings</MenuLink>
-                  {role && <MenuLink to="/mod">Moderation</MenuLink>}
-                  {role === "admin" && <MenuLink to="/mod/team">Moderation team</MenuLink>}
+                  {permissions.includes("queue.decide") && <MenuLink to="/mod">Moderation</MenuLink>}
+                  {permissions.includes("team.manage") && <MenuLink to="/mod/team">Moderation team</MenuLink>}
                   <Form method="post" action="/auth/logout" className="mt-1 border-t border-line pt-1">
                     <button
                       type="submit"

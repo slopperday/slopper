@@ -88,11 +88,30 @@ export const mediaCheckValidator = v.object({
 });
 
 /**
- * The moderation team. Moderators work the queues at /mod; admins also run
- * the team at /mod/team. ADMIN_USERNAMES makes people admins too (see
- * app/.server/session.ts).
+ * The moderation team. What each role may do is in convex/lib/permissions.ts.
+ * ADMIN_IDENTITIES makes people admins too (see convex/team.ts).
  */
 export const staffRoleValidator = v.union(v.literal("admin"), v.literal("moderator"));
+
+/** A way into an account: a sign-in provider ("github", "x"…) and that provider's id for the person. */
+export const signInIdentityValidator = v.object({ provider: v.string(), providerId: v.string() });
+
+/** A moderator's call on a flagged slop (convex/moderation.ts). */
+export const flagDecisionValidator = v.union(v.literal("fine"), v.literal("nsfw"), v.literal("hide"));
+
+/** One use of a staff power, for the staff log (convex/lib/staffLog.ts). */
+export const staffActionValidator = v.union(
+  v.object({ type: v.literal("role"), userId: v.id("users"), role: v.union(staffRoleValidator, v.null()) }),
+  /** Made an admin on signing in with an account in ADMIN_IDENTITIES. */
+  v.object({ type: v.literal("listedAdmin"), userId: v.id("users") }),
+  v.object({ type: v.literal("flags"), slopId: v.id("slops"), decision: flagDecisionValidator }),
+  v.object({ type: v.literal("video"), slopId: v.id("slops"), approved: v.boolean() }),
+  v.object({ type: v.literal("takeDown"), slopId: v.id("slops") }),
+  v.object({ type: v.literal("trust"), userId: v.id("users"), trusted: v.boolean() }),
+  v.object({ type: v.literal("hidden"), slopId: v.id("slops"), hidden: v.boolean() }),
+  v.object({ type: v.literal("deleteSlop"), slopId: v.id("slops"), ownerId: v.id("users") }),
+  v.object({ type: v.literal("deleteComment"), slopId: v.id("slops"), authorId: v.id("users") }),
+);
 
 /**
  * What the video check said about a trusted uploader's video: a verdict, or
@@ -317,6 +336,18 @@ export default defineSchema({
     /** Live when the check passed; anything else left it in the queue. */
     outcome: v.union(v.literal("live"), v.literal("queued")),
   }).index("by_slop", ["slopId"]),
+
+  /**
+   * Every use of a staff power: role changes, queue decisions, takedowns,
+   * trust, hiding, and deleting someone else's slop or comment. Admins read
+   * it at /mod/team. Server-side only: none of it reaches a public shape.
+   */
+  staffActions: defineTable({
+    actorId: v.id("users"),
+    action: staffActionValidator,
+    /** What it was done to, named as it was then: a slop's name or "@username". */
+    target: v.string(),
+  }),
 
   /**
    * Launches waiting to go out (see app/lib/schedule.ts). Nobody but the

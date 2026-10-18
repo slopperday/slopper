@@ -1,6 +1,6 @@
 import type { APIRequestContext } from "@playwright/test";
 import { bucketObjects, checkRequests, expect, type SeededSlop, test } from "./fixtures.ts";
-import type { Stack } from "./ports.ts";
+import { E2E_ADMIN, type Stack } from "./ports.ts";
 
 /** The smallest file that reads as an MP4: an `ftyp` box. */
 const MP4 = Buffer.from([0, 0, 0, 24, ...Buffer.from("ftypisom"), 0, 0, 2, 0, ...Buffer.from("isomiso2")]);
@@ -180,7 +180,7 @@ test.describe("the moderation team", () => {
     await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Moderation team");
     // Admins from the server's settings show as plain admins.
     await expect(admin.getByRole("region", { name: "The team" })).toContainText("Admin");
-    await expect(admin.getByRole("main")).not.toContainText("ADMIN_USERNAMES");
+    await expect(admin.getByRole("main")).not.toContainText("ADMIN_");
     await admin.getByLabel("Username").fill(`@${helper.username}`);
     await admin.getByRole("button", { name: "Find" }).click();
     const found = admin
@@ -215,6 +215,35 @@ test.describe("the moderation team", () => {
         .getByRole("listitem")
         .filter({ hasText: `@${maker.username}` }),
     ).toContainText(`trusted by @${helper.username}`);
+
+    // The staff log says who did what.
+    await admin.goto("/mod/team");
+    const log = admin.getByRole("region", { name: "Staff log" }).getByRole("listitem");
+    await expect(log.filter({ hasText: `made @${helper.username} a moderator` })).toContainText(`@${E2E_ADMIN}`);
+    await expect(log.filter({ hasText: `approved ${slop.name}'s video` })).toContainText(`@${helper.username}`);
+  });
+
+  test("a moderator's own video waits for someone else", async ({ seed, stack, request }) => {
+    const moderator = await seed.moderator();
+    const slop = await seed.slop(moderator);
+    expect(await sendVideo(request, stack, await seed.apiToken(moderator), slop, MP4)).toMatchObject({
+      slop: { video: "pending" },
+    });
+
+    const own = await seed.pageAs(moderator);
+    await own.goto("/mod");
+    const mine = own.getByRole("region", { name: "Videos to review" }).getByRole("article", { name: slop.name });
+    await expect(mine).toContainText("It's your slop, so another moderator decides on it.");
+    await expect(mine.getByRole("button", { name: "Approve video" })).toHaveCount(0);
+
+    const admin = await seed.pageAs(await seed.admin());
+    await admin.goto("/mod");
+    await admin
+      .getByRole("region", { name: "Videos to review" })
+      .getByRole("article", { name: slop.name })
+      .getByRole("button", { name: "Approve video" })
+      .click();
+    await expect(admin.getByRole("status")).toContainText(`${slop.name}: its video plays for everyone now.`);
   });
 
   test("a trusted maker's next video is checked and plays at once", async ({ seed, stack, request }) => {

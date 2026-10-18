@@ -1,8 +1,10 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
-import { isAdmin, requireServer } from "./lib/auth";
+import { requireServer } from "./lib/auth";
 import { releaseMedia, updateMedia } from "./lib/media";
+import { can } from "./lib/permissions";
+import { logStaffAction } from "./lib/staffLog";
 import { notify } from "./lib/notify";
 import { consume } from "./lib/rate";
 import { checkScreenshots } from "./moderation";
@@ -144,7 +146,7 @@ export const addComment = mutation({
   },
 });
 
-/** Authors, the slop's owner and moderators may delete feedback. */
+/** Authors, the slop's owner and admins may delete feedback; the staff log records an admin doing it. */
 export const deleteComment = mutation({
   args: { userId: v.id("users"), commentId: v.string() },
   handler: async (ctx, { userId, commentId: rawId }) => {
@@ -153,8 +155,11 @@ export const deleteComment = mutation({
     const comment = commentId ? await ctx.db.get(commentId) : null;
     if (!comment) return;
     const slop = await ctx.db.get(comment.slopId);
-    if (comment.userId !== userId && slop?.userId !== userId && !isAdmin(await ctx.db.get(userId))) {
-      throw new ConvexError("That isn't yours to delete.");
+    if (comment.userId !== userId && slop?.userId !== userId) {
+      if (!can(await ctx.db.get(userId), "comments.deleteAny")) throw new ConvexError("That isn't yours to delete.");
+      if (slop) {
+        await logStaffAction(ctx, userId, { type: "deleteComment", slopId: slop._id, authorId: comment.userId }, slop);
+      }
     }
     if (slop) await ctx.db.patch(slop._id, { commentCount: Math.max(0, slop.commentCount - 1) });
     await ctx.db.delete(comment._id);

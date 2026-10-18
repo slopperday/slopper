@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
 import type { Route } from "./+types/slop";
 import { api } from "@convex/_generated/api";
-import { isAdmin } from "@convex/lib/auth";
+import { can, permissionsOf } from "@convex/lib/permissions";
 import { requireUser, viewerContext } from "~/.server/session";
 import { convex, convexMessage } from "~/.server/convex";
 import { absoluteUrl, config } from "~/.server/config";
@@ -91,8 +91,8 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     slug: params.slug,
     extras: {
       commentsEnabled: config.commentsEnabled,
-      /** Moderators can see a hidden slop; only admins can hide, unhide or delete it. */
-      role: viewer.user?.role ?? null,
+      /** The viewer's staff permissions: who sees a hidden slop, and who can hide it. */
+      permissions: permissionsOf(viewer.user),
       signedIn: viewer.user !== null,
       autopostCount,
       /** Only the owner learns when editing closes. */
@@ -291,7 +291,7 @@ export async function action({ params, request, context }: Route.ActionArgs) {
 
       case "hide":
       case "unhide": {
-        if (!isAdmin(user)) forbidden();
+        if (!can(user, "slops.hide")) forbidden();
         await convex.mutation(api.slops.setHidden, { adminId: user._id, slopId: slop.id, hidden: intent === "hide" });
         return redirectWithFlash(here, {
           tone: "info",
@@ -300,7 +300,7 @@ export async function action({ params, request, context }: Route.ActionArgs) {
       }
 
       case "delete": {
-        if (!isOwner && !isAdmin(user)) forbidden();
+        if (!isOwner && !can(user, "slops.deleteAny")) forbidden();
         if (formText(form, "confirm") !== slop.slug) {
           return redirectWithFlash(`${here}/edit#delete`, {
             tone: "error",
@@ -373,7 +373,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
       {slop.hidden && (
         <p className="bg-hot px-4 py-2.5 text-center font-bold text-hot-ink">
           {loaderData.heldForReview ? "Held for review" : "Hidden by a moderator"}. Only you
-          {loaderData.role ? " and mods" : ""} can see this.
+          {loaderData.permissions.includes("slops.viewHidden") ? " and mods" : ""} can see this.
         </p>
       )}
 
@@ -974,7 +974,7 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
         </section>
       )}
 
-      {loaderData.role === "admin" && (
+      {loaderData.permissions.includes("slops.hide") && (
         <Form method="post" className="rounded-2xl bg-hot-tint p-5" aria-labelledby="moderation-title">
           <h2 id="moderation-title" className="caps text-ink">
             Moderation

@@ -1,10 +1,10 @@
 import { createContext, type MiddlewareFunction, redirect } from "react-router";
 import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
-import { canModerate, isAdmin, type StaffRole } from "@convex/lib/auth";
+import { can, type Permission } from "@convex/lib/permissions";
 import type { Flash } from "~/lib/model";
 import { isValidTimeZone } from "~/lib/dates";
-import { config } from "./config";
+import { config, isListed, type SignInIdentity } from "./config";
 import { convex } from "./convex";
 import { hashToken, randomToken } from "./encoding";
 import {
@@ -22,9 +22,9 @@ import {
 export type User = Doc<"users">;
 
 /**
- * Who is asking, resolved once per request by the root middleware. Their
- * moderation role is on `user.role`: check it with `canModerate` and
- * `isAdmin` (convex/lib/auth.ts), or `requireStaff`.
+ * Who is asking, resolved once per request by the root middleware. What
+ * their moderation role lets them do: `can(user, permission)`
+ * (convex/lib/permissions.ts), or `requireStaff`.
  */
 export interface Viewer {
   user: User | null;
@@ -62,13 +62,7 @@ export const csrfMiddleware: MiddlewareFunction<Response> = async ({ request }, 
 
 export const viewerMiddleware: MiddlewareFunction<Response> = async ({ request, context }, next) => {
   const token = readCookie(request, SESSION_COOKIE);
-  let user = token ? await convex.query(api.users.resolveSession, { tokenHash: await hashToken(token) }) : null;
-  // ADMIN_USERNAMES are always admins. The first time the server sees one,
-  // Convex stores it too, so Convex checks their role like anyone else's.
-  if (user && config.adminUsernames.has(user.username.toLowerCase()) && user.role !== "admin") {
-    await convex.mutation(api.team.bootstrap, { userId: user._id });
-    user = { ...user, role: "admin" };
-  }
+  const user = token ? await convex.query(api.users.resolveSession, { tokenHash: await hashToken(token) }) : null;
   const browserZone = decodeURIComponent(readCookie(request, TZ_COOKIE) ?? "");
   const flash = readFlash(request);
   context.set(viewerContext, {
@@ -91,13 +85,23 @@ export function requireUser(viewer: Viewer, request: Request): User {
 }
 
 /**
- * The signed-in moderator (anyone on the team) or admin. Everyone else gets a
- * 404, not a 403: nobody else needs to know the moderation pages exist.
+ * The signed-in staff member with `permission`. Everyone else gets a 404,
+ * not a 403: nobody else needs to know the moderation pages exist.
  */
-export function requireStaff(viewer: Viewer, request: Request, role: StaffRole): User {
+export function requireStaff(viewer: Viewer, request: Request, permission: Permission): User {
   const user = requireUser(viewer, request);
-  if (role === "admin" ? !isAdmin(user) : !canModerate(user)) notFound();
+  if (!can(user, permission)) notFound();
   return user;
+}
+
+/**
+ * Whoever signs in with an account in ADMIN_IDENTITIES is an admin. Call it
+ * whenever someone signs in or links a sign-in account: Convex stores the
+ * role then, and checks it like anyone else's from that point on.
+ */
+export async function grantListedAdmin(identity: SignInIdentity): Promise<void> {
+  if (!isListed(config.adminIdentities, identity)) return;
+  await convex.mutation(api.team.bootstrap, { provider: identity.provider, providerId: identity.providerId });
 }
 
 /** Starts a session and sets its cookie on `headers`. */

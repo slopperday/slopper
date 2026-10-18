@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import schema from "@convex/schema";
+import { can, permissionsOf } from "@convex/lib/permissions";
 import { EDITING_CLOSED } from "~/lib/editing";
 
 const modules = import.meta.glob("../convex/**/*.ts");
@@ -528,14 +529,29 @@ describe("signing in the CLI from the browser", () => {
 });
 
 describe("the moderation team", () => {
-  it("bootstraps admins, and only admins change roles", async () => {
+  it("bootstraps admins by sign-in account, and only admins change roles", async () => {
     const { t, server } = setup();
     const ifiok = await makeUser(server, "ifiokjr");
     const newcomer = await makeUser(server, "newcomer");
-    await server.mutation(api.team.bootstrap, { userId: ifiok });
+    const listed = { provider: "dev", providerId: "ifiokjr" };
+    // An account nobody signs in with yet makes nobody an admin.
+    await server.mutation(api.team.bootstrap, { provider: "github", providerId: "1160934" });
+    expect(await server.query(api.team.members, {})).toEqual([]);
+    await server.mutation(api.team.bootstrap, listed);
     // Running it again changes nothing.
-    await server.mutation(api.team.bootstrap, { userId: ifiok });
+    await server.mutation(api.team.bootstrap, listed);
     expect(await server.query(api.team.members, {})).toMatchObject([{ username: "ifiokjr", role: "admin" }]);
+    expect(await server.query(api.team.log, {})).toMatchObject([
+      { actor: "ifiokjr", action: { type: "listedAdmin", userId: ifiok }, target: "@ifiokjr" },
+    ]);
+    // The account stays listed whatever its username becomes.
+    await t.run(async (ctx) => await ctx.db.patch(ifiok, { username: "ifiok" }));
+    expect(
+      await server.query(api.team.listed, { identities: [listed, { provider: "github", providerId: "1160934" }] }),
+    ).toEqual([{ id: ifiok, username: "ifiok" }]);
+    await expect(t.query(api.team.listed, { identities: [listed] })).rejects.toThrow("Only the Slopper server");
+    await expect(t.mutation(api.team.bootstrap, listed)).rejects.toThrow("Only the Slopper server");
+    await t.run(async (ctx) => await ctx.db.patch(ifiok, { username: "ifiokjr" }));
 
     expect(
       await server.mutation(api.team.setRole, { adminId: ifiok, username: "@NewComer", role: "moderator" }),
@@ -561,7 +577,7 @@ describe("the moderation team", () => {
     const { server } = setup();
     const first = await makeUser(server, "first");
     await makeUser(server, "second");
-    await server.mutation(api.team.bootstrap, { userId: first });
+    await server.mutation(api.team.bootstrap, { provider: "dev", providerId: "first" });
 
     await expect(server.mutation(api.team.setRole, { adminId: first, username: "first", role: null })).rejects.toThrow(
       "Slopper needs at least one admin.",
@@ -632,6 +648,100 @@ describe("the moderation team", () => {
     await server.mutation(api.slops.remove, { slopId, byUserId: admin });
     expect(await server.query(api.slops.getForServer, { slopId })).toBeNull();
   });
+
+  it("gives each role its permissions, and nobody else any", async () => {
+    const { t, server } = setup();
+    const ids = [
+      await makeUser(server, "visitor"),
+      await makeStaff(t, server, "mia", "moderator"),
+      await makeStaff(t, server, "ada", "admin"),
+    ];
+    const [visitor, moderator, admin] = await t.run(async (ctx) => await Promise.all(ids.map((id) => ctx.db.get(id))));
+    expect(permissionsOf(null)).toEqual([]);
+    expect(permissionsOf(visitor)).toEqual([]);
+    expect(permissionsOf(moderator).sort()).toEqual(["queue.decide", "slops.viewHidden"]);
+    expect(permissionsOf(admin).sort()).toEqual([
+      "comments.deleteAny",
+      "queue.decide",
+      "queue.decideOwn",
+      "slops.deleteAny",
+      "slops.hide",
+      "slops.viewHidden",
+      "team.manage",
+      "videos.takeDown",
+      "videos.trust",
+    ]);
+    expect(can(moderator, "slops.viewHidden")).toBe(true);
+    expect(can(moderator, "slops.hide")).toBe(false);
+    expect(can(visitor, "queue.decide")).toBe(false);
+  });
+
+  it("leaves a moderator's own flagged slop to someone else", async () => {
+    const { t, server } = setup();
+    const moderator = await makeStaff(t, server, "mia", "moderator");
+    const admin = await makeStaff(t, server, "ada", "admin");
+    const flagger = await makeUser(server, "flagger");
+    const { slopId } = await ship(server, moderator, "2026-10-17");
+    await server.mutation(api.moderation.flag, { userId: flagger, slopId, reason: "Spam" });
+    await server.mutation(api.slops.setHidden, { adminId: admin, slopId, hidden: true });
+    await server.mutation(api.moderation.flag, { userId: flagger, slopId, reason: "Spam" });
+
+    // Clearing their own flags would unhide it and restart its auto-posts.
+    await expect(
+      server.mutation(api.moderation.decide, { moderatorId: moderator, slopId, decision: "fine" }),
+    ).rejects.toThrow("That's your slop, so another moderator decides on it.");
+    expect(await server.query(api.moderation.queue, {})).toMatchObject([{ id: slopId, ownerId: moderator }]);
+    // Admins may: they can unhide any slop anyway.
+    await server.mutation(api.moderation.decide, { moderatorId: admin, slopId, decision: "fine" });
+    expect(await server.query(api.moderation.queue, {})).toEqual([]);
+    expect((await server.query(api.slops.getForServer, { slopId }))?.hidden).toBe(false);
+  });
+
+  it("logs every use of a staff power, and nothing else", async () => {
+    const { t, server } = setup();
+    const owner = await makeUser(server, "owner");
+    const fan = await makeUser(server, "fan");
+    const helper = await makeUser(server, "helper");
+    const admin = await makeStaff(t, server, "ada", "admin");
+    const { slopId } = await ship(server, owner, "2026-10-17");
+    const mine = await server.mutation(api.slops.create, {
+      userId: fan,
+      input: { ...input, name: "Fan Game" },
+      launchNote: "Mine",
+      today: "2026-10-17",
+    });
+
+    await server.mutation(api.team.setRole, { adminId: admin, username: "helper", role: "moderator" });
+    // Setting the role someone already has changes nothing, so it isn't logged.
+    await server.mutation(api.team.setRole, { adminId: admin, username: "helper", role: "moderator" });
+    await server.mutation(api.moderation.flag, { userId: fan, slopId, reason: "Spam" });
+    await server.mutation(api.moderation.decide, { moderatorId: helper, slopId, decision: "nsfw" });
+    await server.mutation(api.slops.setHidden, { adminId: admin, slopId, hidden: true });
+    await server.mutation(api.slops.setHidden, { adminId: admin, slopId, hidden: false });
+    const commentId = await server.mutation(api.activity.addComment, {
+      userId: fan,
+      slopId,
+      kind: "feedback",
+      body: "Nice.",
+    });
+    await server.mutation(api.activity.deleteComment, { userId: admin, commentId });
+    // Owners deleting their own slops are no staff business.
+    await server.mutation(api.slops.remove, { slopId: mine.slopId, byUserId: fan });
+    await server.mutation(api.slops.remove, { slopId, byUserId: admin });
+
+    const log = await server.query(api.team.log, {});
+    expect(log.map(({ actor, action, target }) => ({ actor, action, target }))).toEqual([
+      { actor: "ada", action: { type: "deleteSlop", slopId, ownerId: owner }, target: "TiltMaze" },
+      { actor: "ada", action: { type: "deleteComment", slopId, authorId: fan }, target: "TiltMaze" },
+      { actor: "ada", action: { type: "hidden", slopId, hidden: false }, target: "TiltMaze" },
+      { actor: "ada", action: { type: "hidden", slopId, hidden: true }, target: "TiltMaze" },
+      { actor: "helper", action: { type: "flags", slopId, decision: "nsfw" }, target: "TiltMaze" },
+      { actor: "ada", action: { type: "role", userId: helper, role: "moderator" }, target: "@helper" },
+    ]);
+    // It never leaves the server.
+    await expect(t.query(api.team.log, {})).rejects.toThrow("Only the Slopper server");
+    await expect(t.withIdentity({ subject: admin }).query(api.team.log, {})).rejects.toThrow("Only the Slopper server");
+  });
 });
 
 describe("promo videos", () => {
@@ -686,6 +796,34 @@ describe("promo videos", () => {
     expect(await decide(moderator, video)).toEqual({ decided: false, newlyTrusted: false, orphaned: 0 });
     expect(await server.query(api.videos.trustList, {})).toMatchObject([
       { userId: owner, username: "owner", trusted: true, by: "mia" },
+    ]);
+  });
+
+  it("leaves a moderator's own video to someone else, so nobody trusts themselves", async () => {
+    const { t, server } = setup();
+    const moderator = await makeStaff(t, server, "mia", "moderator");
+    const admin = await makeStaff(t, server, "ada", "admin");
+    const { slopId } = await ship(server, moderator, "2026-10-17");
+    const video = await upload(t, server, moderator, "video/mp4");
+    await server.mutation(api.videos.set, { userId: moderator, slopId, mediaId: video });
+
+    await expect(
+      server.mutation(api.videos.decide, { moderatorId: moderator, slopId, mediaId: video, approve: true }),
+    ).rejects.toThrow("That's your slop, so another moderator decides on it.");
+    expect(await server.query(api.videos.queue, {})).toMatchObject([{ slopId, ownerId: moderator }]);
+    expect(await server.query(api.videos.trustList, {})).toEqual([]);
+
+    expect(
+      await server.mutation(api.videos.decide, { moderatorId: admin, slopId, mediaId: video, approve: true }),
+    ).toMatchObject({ decided: true, newlyTrusted: true });
+    await server.mutation(api.videos.takeDown, { adminId: admin, slopId, mediaId: video });
+    await server.mutation(api.videos.setTrust, { adminId: admin, userId: moderator, trusted: false });
+    expect(
+      (await server.query(api.team.log, {})).map(({ actor, action, target }) => ({ actor, action, target })),
+    ).toEqual([
+      { actor: "ada", action: { type: "trust", userId: moderator, trusted: false }, target: "@mia" },
+      { actor: "ada", action: { type: "takeDown", slopId }, target: "TiltMaze" },
+      { actor: "ada", action: { type: "video", slopId, approved: true }, target: "TiltMaze" },
     ]);
   });
 

@@ -13,6 +13,7 @@ import type { Route } from "./+types/root";
 import { autopostNetworks, config } from "./.server/config";
 import { redirectQueryMiddleware } from "./.server/http";
 import { csrfMiddleware, viewerContext, viewerMiddleware } from "./.server/session";
+import { permissionsOf } from "@convex/lib/permissions";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { FlashBanner } from "./components/FlashBanner";
@@ -31,7 +32,7 @@ export function loader({ context }: Route.LoaderArgs) {
   const user = viewer.user;
   return {
     user: user ? { username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl } : null,
-    role: user?.role ?? null,
+    permissions: permissionsOf(user),
     flash: viewer.flash,
     origin: config.appUrl.origin,
     convexUrl: config.convexUrl,
@@ -85,7 +86,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           >
             Skip to content
           </a>
-          <Header user={data?.user ?? null} role={data?.role ?? null} path={location.pathname} />
+          <Header user={data?.user ?? null} permissions={data?.permissions ?? []} path={location.pathname} />
           {data?.flash && <FlashBanner key={location.key} flash={data.flash} />}
           <main id="main" className="flex-1">
             {children}

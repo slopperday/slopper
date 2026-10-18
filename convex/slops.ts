@@ -1,8 +1,10 @@
 import { ConvexError, type Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
-import { canModerate, isAdmin, readerFor, requireRole, requireServer } from "./lib/auth";
+import { readerFor, requireServer } from "./lib/auth";
 import { notify } from "./lib/notify";
+import { can, requirePermission } from "./lib/permissions";
+import { logStaffAction } from "./lib/staffLog";
 import { consume, nextCounter } from "./lib/rate";
 import { isVisibleTo, productIdOf, publicSlop, publicUpdate, publicUser, toCards, voteOf } from "./lib/shape";
 import { linkValidator } from "./schema";
@@ -212,13 +214,16 @@ export const setCrosspost = mutation({
   },
 });
 
-/** Moderation: the server checks the caller is an admin. */
+/** An admin hides a slop from Slopper, or brings it back. Hiding closes its flags. */
 export const setHidden = mutation({
   args: { adminId: v.id("users"), slopId: v.id("slops"), hidden: v.boolean() },
   handler: async (ctx, { adminId, slopId, hidden }) => {
     await requireServer(ctx);
-    await requireRole(ctx, adminId, "admin");
+    await requirePermission(ctx, adminId, "slops.hide");
+    const slop = await ctx.db.get(slopId);
+    if (!slop) throw new ConvexError("That slop is gone.");
     await ctx.db.patch(slopId, { hidden });
+    if (slop.hidden !== hidden) await logStaffAction(ctx, adminId, { type: "hidden", slopId, hidden }, slop);
     if (hidden) {
       const reports = await ctx.db
         .query("reports")
@@ -229,15 +234,19 @@ export const setHidden = mutation({
   },
 });
 
-/** Scrapes a launch off the wall with everything attached to it. */
+/**
+ * Scrapes a launch off the wall with everything attached to it. Its owner
+ * can; so can admins, and the staff log records it when they do.
+ */
 export const remove = mutation({
   args: { slopId: v.id("slops"), byUserId: v.id("users") },
   handler: async (ctx, { slopId, byUserId }) => {
     await requireServer(ctx);
     const slop = await ctx.db.get(slopId);
     if (!slop) return { orphaned: 0 };
-    if (slop.userId !== byUserId && !isAdmin(await ctx.db.get(byUserId))) {
-      throw new ConvexError("That slop isn't yours.");
+    if (slop.userId !== byUserId) {
+      if (!can(await ctx.db.get(byUserId), "slops.deleteAny")) throw new ConvexError("That slop isn't yours.");
+      await logStaffAction(ctx, byUserId, { type: "deleteSlop", slopId, ownerId: slop.userId }, slop);
     }
     const later = await ctx.db
       .query("slops")
@@ -460,7 +469,7 @@ export const page = query({
     const reader = await readerFor(ctx, asUser);
     const isOwner = reader?._id === owner._id;
     // Moderators see hidden slops too, to judge them.
-    if (slop.hidden && !isOwner && !canModerate(reader)) return null;
+    if (slop.hidden && !isOwner && !can(reader, "slops.viewHidden")) return null;
 
     const updates = await ctx.db
       .query("updates")
@@ -529,7 +538,7 @@ export const page = query({
           html: renderMarkdown(comment.body),
           createdAt: comment._creationTime,
           author: author ? publicUser(author) : null,
-          canDelete: reader !== null && (reader._id === comment.userId || isOwner || isAdmin(reader)),
+          canDelete: reader !== null && (reader._id === comment.userId || isOwner || can(reader, "comments.deleteAny")),
         };
       }),
       launches: launches
