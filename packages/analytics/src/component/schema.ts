@@ -77,10 +77,22 @@ export default defineSchema({
     timestamp: v.number(),
     path: v.union(v.string(), v.null()),
     properties,
+    /** What it's about, `type:id` (shared/events.ts `WireEvent.group`); absent for most events. */
+    group: v.optional(v.string()),
   })
     .index("by_uuid", ["uuid"])
     .index("by_timestamp", ["timestamp"])
     .index("by_name_timestamp", ["name", "timestamp"])
     .index("by_person_timestamp", ["personId", "timestamp"])
-    .index("by_session_timestamp", ["sessionId", "timestamp"]),
+    .index("by_session_timestamp", ["sessionId", "timestamp"])
+    .index("by_group_timestamp", ["group", "timestamp"]),
+
+  /** Every event name seen, for pickers: when it was first and last seen (to the hour). */
+  eventDefinitions: defineTable({
+    name: v.string(),
+    firstSeenAt: v.number(),
+    lastSeenAt: v.number(),
+  })
+    .index("by_name", ["name"])
+    .index("by_last_seen", ["lastSeenAt"]),
 });

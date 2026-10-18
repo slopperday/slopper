@@ -90,6 +90,7 @@ describe("parseBatch", () => {
           properties: { title: "Wall" },
           set: null,
           setOnce: null,
+          group: null,
         },
       ],
     });

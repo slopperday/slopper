@@ -73,6 +73,8 @@ export function TakeMyMoney({
             <fetcher.Form
               method="post"
               action={`/api/slops/${slopId}/pledge`}
+              // Who pledged what is private: analytics records the pledge on the server, without the amount.
+              data-no-capture
               className="mt-4 grid gap-2"
               onSubmit={() => setOpen(false)}
             >

@@ -34,6 +34,8 @@ export const capture = mutation({
     timestamp: v.optional(v.number()),
     /** The distinct id is an account's, so its person counts as signed in. */
     identified: v.optional(v.boolean()),
+    /** What it's about, `type:id`, like the slop that was voted on. */
+    group: v.optional(v.string()),
   },
   returns: resultValidator,
   handler: async (ctx, args) => {
@@ -49,6 +51,7 @@ export const capture = mutation({
       properties: normalizeProperties(args.properties ?? {}),
       set: set && Object.keys(set).length > 0 ? set : null,
       setOnce: setOnce && Object.keys(setOnce).length > 0 ? setOnce : null,
+      group: args.group?.slice(0, BATCH_LIMITS.idLength) ?? null,
     };
     return await ingestEvents(ctx, [event], null, { identified: args.identified });
   },

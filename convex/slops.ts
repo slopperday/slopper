@@ -144,6 +144,7 @@ export async function insertLaunch(ctx: MutationCtx, draft: LaunchDraft) {
   await scheduleEmbedding(ctx, slopId);
   await captureFor(ctx, userId, {
     name: "slop launched",
+    slopId,
     properties: { category: input.category, relaunch: source !== null, goalDay },
   });
   return { slopId, updateId, slug, blurred };
@@ -354,7 +355,10 @@ export const vote = mutation({
     if (value === 1) {
       await notify(ctx, { userId: slop.userId, kind: "upvote", slopId: slop._id, actorId: userId, amount: null });
     }
-    await captureFor(ctx, userId, { name: "voted", properties: { value } });
+    await captureFor(ctx, userId, {
+      name: value === 1 ? "upvoted" : value === -1 ? "downvoted" : "unvoted",
+      slopId: slop._id,
+    });
     const returned = value === 0 && castToday ? 1 : 0;
     return { upvotes, vote: value, votesLeft: LIMITS.votesPerDay - used - (spends ? 1 : 0) + returned };
   },
@@ -398,7 +402,7 @@ export const pledge = mutation({
       await notify(ctx, { userId: slop.userId, kind: "pledge", slopId: slop._id, actorId: userId, amount });
     }
     // Who pledged what stays private, here too: only that someone did.
-    if (amount !== previous) await captureFor(ctx, userId, { name: "pledged" });
+    if (amount !== previous) await captureFor(ctx, userId, { name: "pledged", slopId: slop._id });
     return { backers, pledged, amount };
   },
 });

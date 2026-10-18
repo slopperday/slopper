@@ -111,6 +111,8 @@ export const staffActionValidator = v.union(
   v.object({ type: v.literal("hidden"), slopId: v.id("slops"), hidden: v.boolean() }),
   v.object({ type: v.literal("deleteSlop"), slopId: v.id("slops"), ownerId: v.id("users") }),
   v.object({ type: v.literal("deleteComment"), slopId: v.id("slops"), authorId: v.id("users") }),
+  /** Deleted everything analytics had on someone (the target is their username, or the id they had). */
+  v.object({ type: v.literal("forgetPerson") }),
 );
 
 /**

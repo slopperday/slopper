@@ -158,6 +158,8 @@ export class Analytics {
       properties: normalizeProperties({ ...this.options.properties, ...state.superProperties, ...properties }),
       set: set && Object.keys(set).length > 0 ? set : null,
       setOnce: setOnce && Object.keys(setOnce).length > 0 ? setOnce : null,
+      // Set by the app's server from the path, never by the browser.
+      group: null,
     };
     this.transport.enqueue(event);
   }

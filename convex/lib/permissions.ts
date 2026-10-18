@@ -37,7 +37,11 @@ export type Permission =
   /** Revoke or restore a maker's video trust. */
   | "videos.trust"
   /** Put people on the team, change their roles, and read the staff log. */
-  | "team.manage";
+  | "team.manage"
+  /** See analytics: who visits, what they do, people's histories. */
+  | "analytics.view"
+  /** Change what analytics does and keeps: forget a person. */
+  | "analytics.manage";
 
 const MODERATOR: readonly Permission[] = ["queue.decide", "slops.viewHidden"];
 
@@ -55,6 +59,8 @@ const ROLES: Record<StaffRole, { plural: string; permissions: ReadonlySet<Permis
       "videos.takeDown",
       "videos.trust",
       "team.manage",
+      "analytics.view",
+      "analytics.manage",
     ]),
   },
 };

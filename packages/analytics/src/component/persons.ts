@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation, query } from "./_generated/server";
+import { pageArgs, pageByKey } from "./lib/paging";
 import { personDoc } from "./shapes";
 
 /** Rows moved or deleted per transaction, well inside Convex's write limits. */
@@ -57,6 +58,39 @@ export const get = query({
       .withIndex("by_person", (q) => q.eq("personId", person._id))
       .collect();
     return { ...person, distinctIds: ids.map((id) => id.distinctId) };
+  },
+});
+
+const listedPerson = v.object({ ...personDoc.fields, distinctIds: v.array(v.string()) });
+
+/** People, most recently seen first, with the ids they've used (a few of them). */
+export const list = query({
+  args: pageArgs,
+  returns: v.object({ page: v.array(listedPerson), isDone: v.boolean(), continueCursor: v.string() }),
+  handler: async (ctx, { cursor, numItems }) => {
+    const persons = () => ctx.db.query("persons");
+    const result = await pageByKey<Doc<"persons">>({
+      cursor,
+      numItems,
+      key: (person) => person.lastSeenAt,
+      sameKey: (at) =>
+        persons()
+          .withIndex("by_last_seen", (q) => q.eq("lastSeenAt", at.key).lt("_creationTime", at.created))
+          .order("desc"),
+      rest: (at) =>
+        persons()
+          .withIndex("by_last_seen", (q) => (at ? q.lt("lastSeenAt", at.key) : q))
+          .order("desc"),
+    });
+    const page = [];
+    for (const person of result.page) {
+      const ids = await ctx.db
+        .query("distinctIds")
+        .withIndex("by_person", (q) => q.eq("personId", person._id))
+        .take(5);
+      page.push({ ...person, distinctIds: ids.map((id) => id.distinctId) });
+    }
+    return { page, isDone: result.isDone, continueCursor: result.continueCursor };
   },
 });
 

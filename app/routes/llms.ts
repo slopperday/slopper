@@ -57,6 +57,7 @@ ${tools}
 - POST   ${origin}/api/v1/slops/{slop}/updates      { kind, body, version?, images?, links?: [{ kind?, url, preview? }], featureName?, outcome?, who?, autopost? }
 - POST   ${origin}/api/v1/slops/{slop}/money        { kind: "cost" | "revenue", amount, currency?, category?, note?, date? }
 - POST   ${origin}/api/v1/slops/{slop}/vote         { vote: "up" | "down" | "clear" }
+- GET    ${origin}/api/v1/slops/{slop}/analytics?days=30   views, people, sources, clicks and votes for one of your slops (your own visits don't count)
 - GET    ${origin}/api/v1/scheduled
 - POST   ${origin}/api/v1/scheduled/{scheduled}/release
 - DELETE ${origin}/api/v1/scheduled/{scheduled}

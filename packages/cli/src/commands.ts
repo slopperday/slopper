@@ -62,6 +62,8 @@ interface CommandInfo {
   /** Flag → what it does, for `slopper help <command>`. */
   flags?: Record<string, string>;
   options?: ParseArgsOptionsConfig;
+  /** Left out of `slopper help`: for admins, documented in the repository only. */
+  hidden?: true;
 }
 
 /**
@@ -582,6 +584,80 @@ export const COMMANDS: Command[] = [
         throw usageError(`A vote is up, down or clear, not “${vote}”.`);
       }
       return context.api.post(`${slopPath(slop)}/vote`, { vote });
+    },
+  },
+  {
+    name: "analytics",
+    args: "<slop>",
+    summary:
+      "How one of your slops is doing: views and people (against the days before), where they came from, what they clicked, votes and pledges.",
+    flags: { "--days <n>": "How far back, from 1 to 90. Defaults to 30." },
+    options: { days: { type: "string" } },
+    run(context) {
+      const slop = positional(context, 0, "slop");
+      const days = wholeNumber(context.values, "days");
+      return context.api.get(`${slopPath(slop)}/analytics${days === undefined ? "" : `?days=${days}`}`);
+    },
+  },
+  // Admins' platform analytics: undocumented outside the repository (AGENTS.md has it).
+  {
+    name: "admin",
+    args: "analytics [report]",
+    summary:
+      "Slopper's own analytics, for admins: overview, growth, projects, traffic, trends, funnel, retention, paths, stickiness, lifecycle, people, person, live or events.",
+    flags: {
+      "--days <n>": "How far back, from 1 to 365. Defaults to 30.",
+      "--event <name>": "An event, for trends, funnel steps, stickiness and lifecycle. Repeat for more.",
+      "--step-path <path>": "For funnels: the page each step's event happened on, in order. Repeat per step.",
+      "--math <total|persons|sessions>": "For trends: count events, people or sessions.",
+      "--breakdown <key>": "For trends: split by an event property, or path.",
+      "--interval <day|week|month>": "How to bucket time.",
+      "--start <event|path>": "Retention's first event, or where journeys start.",
+      "--return <event>": "Retention's coming-back event.",
+      "--end <path>": "Where journeys lead.",
+      "--q <@username|id>": "For person: who.",
+    },
+    options: {
+      days: { type: "string" },
+      event: { type: "string", multiple: true },
+      "step-path": { type: "string", multiple: true },
+      math: { type: "string" },
+      breakdown: { type: "string" },
+      interval: { type: "string" },
+      start: { type: "string" },
+      return: { type: "string" },
+      end: { type: "string" },
+      steps: { type: "string" },
+      window: { type: "string" },
+      periods: { type: "string" },
+      q: { type: "string" },
+      after: { type: "string" },
+    },
+    hidden: true,
+    run(context) {
+      const area = positional(context, 0, "area");
+      if (area !== "analytics") throw usageError(`Unknown admin area “${area}”. Try \`slopper admin analytics\`.`);
+      const params = new URLSearchParams({ report: context.positionals[1] ?? "overview" });
+      for (const key of [
+        "days",
+        "math",
+        "breakdown",
+        "interval",
+        "start",
+        "return",
+        "end",
+        "steps",
+        "window",
+        "periods",
+        "q",
+        "after",
+      ]) {
+        const value = text(context.values, key);
+        if (value !== undefined) params.set(key, value);
+      }
+      for (const event of list(context.values, "event") ?? []) params.append("event", event);
+      for (const path of list(context.values, "step-path") ?? []) params.append("stepPath", path);
+      return context.api.get(`/admin/analytics?${params.toString()}`);
     },
   },
   {

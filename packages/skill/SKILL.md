@@ -120,6 +120,17 @@ After that the original post is locked (its `video` isn't): share what's new wit
 `video` puts a promo (MP4 or WebM, up to 4 MB) on a slop, replacing its last. It says `pending` while it waits for a
 moderator, then `live`. Once one of the user's videos has been approved, later ones can say `live` straight away. `video <slop> --remove` takes it off.
 
+## See how it's doing
+
+```sh
+slopper analytics tiltmaze             # the last 30 days
+slopper analytics tiltmaze --days 7    # up to 90
+```
+
+Views and the people behind them (against the days before, and day by day), where visitors came from, what they clicked
+on the slop's page, and its votes, pledges and updates. The user's own visits don't count. Use it to suggest what to do
+next: a repromote when views are fading, a post where the visitors come from, a fix where people click and leave.
+
 ## Goals
 
 Ask how many days first (7, 14, 30 or 100 are common), then how hard: one slop every five days is safe, every other day

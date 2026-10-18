@@ -127,6 +127,16 @@
   --hot-tint: rgb(196 55 27 / 0.1);
 
   --focus: #3b6608;
+
+  /*
+   * Chart series for /analytics, in this order and never cycled. Checked
+   * with the data-viz palette validator on the raised surface, both themes:
+   * Slopper green, blue, orange, violet.
+   */
+  --series-1: #5f9a12;
+  --series-2: #2a78d6;
+  --series-3: #eb6834;
+  --series-4: #6250d6;
   color-scheme: light;
 }
 
@@ -163,6 +173,11 @@
     --hot-tint: rgb(255 106 77 / 0.14);
 
     --focus: #b4f23c;
+
+    --series-1: #68a80e;
+    --series-2: #3987e5;
+    --series-3: #d95926;
+    --series-4: #9085e9;
     color-scheme: dark;
   }
 }
@@ -195,6 +210,10 @@
   --color-hot: var(--hot);
   --color-hot-ink: var(--hot-ink);
   --color-hot-tint: var(--hot-tint);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
 }
 
 @layer base {

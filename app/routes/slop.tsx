@@ -385,6 +385,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
               {(["x", "linkedin", "bluesky", "threads"] as const).map((network) => (
                 <a
                   key={network}
+                  data-capture={`share:${network}`}
                   className="btn btn-sm bg-slop-ink text-slop hover:bg-slop-ink/85"
                   href={intents[network]}
                   target="_blank"
@@ -430,7 +431,13 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
                 size="lg"
               />
               {primary && (
-                <a href={primary.url} target="_blank" rel="noopener" className="btn btn-slop btn-lg">
+                <a
+                  href={primary.url}
+                  target="_blank"
+                  rel="noopener"
+                  data-capture={`try:${primary.kind}`}
+                  className="btn btn-slop btn-lg"
+                >
                   {LINK_KINDS[primary.kind].beta ? "Join the beta" : "Try it"}
                   <Icon name="out" className="size-5" />
                 </a>
@@ -483,6 +490,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
               {slop.screenshots.map((url, index) => (
                 <a
                   key={url}
+                  data-capture="screenshot"
                   href={reveal ? url : "?reveal=1"}
                   target={reveal ? "_blank" : undefined}
                   rel="noopener"
@@ -897,6 +905,7 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
                   href={link.url}
                   target="_blank"
                   rel="noopener"
+                  data-capture={`link:${link.kind}`}
                   className="group flex min-h-12 items-center justify-between gap-3"
                 >
                   <span className="font-bold group-hover:underline">{LINK_KINDS[link.kind].label}</span>
@@ -964,6 +973,9 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
                 Edit details
               </Link>
             )}
+            <Link to={`${path}/analytics`} className="btn">
+              Views and clicks
+            </Link>
             <Link to={`${path}/edit#autopost`} className="btn">
               Auto-post for this slop
             </Link>

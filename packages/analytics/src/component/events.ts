@@ -5,18 +5,28 @@ import { eventDoc } from "./shapes";
 const MAX_RECENT = 200;
 
 /**
- * The latest events, newest first: everyone's, one event's, or one
- * person's (by any of their distinct ids). A live feed when subscribed to.
+ * The latest events, newest first: everyone's, one event's, one group's,
+ * or one person's (by any of their distinct ids). A live feed when
+ * subscribed to.
  */
 export const recent = query({
   args: {
     distinctId: v.optional(v.string()),
     name: v.optional(v.string()),
+    /** Only events about this, `type:id`. */
+    group: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
   returns: v.array(eventDoc),
-  handler: async (ctx, { distinctId, name, limit }) => {
+  handler: async (ctx, { distinctId, name, group, limit }) => {
     const take = Math.max(1, Math.min(limit ?? 50, MAX_RECENT));
+    if (group !== undefined) {
+      const about = ctx.db
+        .query("events")
+        .withIndex("by_group_timestamp", (q) => q.eq("group", group))
+        .order("desc");
+      return await (name === undefined ? about : about.filter((q) => q.eq(q.field("name"), name))).take(take);
+    }
     if (distinctId !== undefined) {
       const row = await ctx.db
         .query("distinctIds")
