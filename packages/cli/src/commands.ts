@@ -587,6 +587,41 @@ export const COMMANDS: Command[] = [
     },
   },
   {
+    name: "review",
+    args: "<slop> <works|mixed|broken>",
+    summary:
+      "Review someone else's slop by its id (from `slopper today` or `slopper search`): how it went, in your words, with screenshots. Writing again replaces your review.",
+    flags: {
+      "--body <markdown>": "What it is, what you tried, how it went and what broke.",
+      "--image <file|id>": "A screenshot file (uploaded for you) or an id from `slopper upload`; repeat for up to 4.",
+    },
+    options: { body: { type: "string" }, image: { type: "string", multiple: true } },
+    async run(context) {
+      const { api, values } = context;
+      const slop = positional(context, 0, "slop");
+      const experience = positional(context, 1, "works|mixed|broken");
+      if (experience !== "works" && experience !== "mixed" && experience !== "broken") {
+        throw usageError(`How it went is works, mixed or broken, not “${experience}”.`);
+      }
+      const body = required(text(values, "body"), "--body <markdown>");
+      const images = list(values, "image");
+      return api.put(`${slopPath(slop)}/reviews/mine`, {
+        experience,
+        body,
+        images: images ? await screenshotIds(api, images) : undefined,
+      });
+    },
+  },
+  {
+    name: "reviews",
+    args: "<slop>",
+    summary:
+      "What people who tried a slop said, newest first. On your own slops (by id or slug), that's your feedback.",
+    run(context) {
+      return context.api.get(`${slopPath(positional(context, 0, "slop"))}/reviews`);
+    },
+  },
+  {
     name: "analytics",
     args: "<slop>",
     summary:

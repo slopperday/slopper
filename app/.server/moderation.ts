@@ -9,11 +9,12 @@ import { videoPageUrl, videoPosterUrl } from "~/lib/video";
 
 /**
  * The automated content check. Every screenshot as it's uploaded, every
- * launch (text and screenshots), every edit that changes them, and every
- * update that's about to be auto-posted goes past a model once (DeepSeek V4.1
- * Flash through OpenRouter by default), which sorts it into ok, mature or
- * blocked. Trusted uploaders' promo videos go past the same policy, with a
- * model that watches video (Gemini 3.1 Flash Lite by default; `checkVideo`).
+ * launch (text and screenshots), every edit that changes them, every update
+ * that's about to be auto-posted, and every review before it's saved goes
+ * past a model once (DeepSeek V4.1 Flash through OpenRouter by default),
+ * which sorts it into ok, mature or blocked. Trusted uploaders' promo videos
+ * go past the same policy, with a model that watches video (Gemini 3.1 Flash
+ * Lite by default; `checkVideo`).
  *
  * The policy is the first message and never changes between calls, so the
  * provider's automatic prefix cache serves it (on DeepSeek a cache hit costs
@@ -284,6 +285,17 @@ export async function checkUpdate(slopId: Id<"slops">, update: Doc<"updates">): 
   );
   if (result) await convex.mutation(api.moderation.applyCheck, { slopId, scope: "update", ...result });
   return result;
+}
+
+/** What the check reads from a review: the slop it's about, how it went, the text and its screenshots. */
+export function reviewSubmission(
+  review: { slopName: string; experience: string; body: string },
+  imageUrls: readonly string[],
+): Submission {
+  return {
+    fields: { reviewOf: review.slopName, experience: review.experience, review: review.body },
+    images: imageUrls.slice(0, MAX_IMAGES).map((url) => ({ url })),
+  };
 }
 
 /** The parts of a slop the check reads, to skip re-checking edits that don't change them. */

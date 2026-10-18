@@ -25,6 +25,8 @@ import { findOperation, runOperation } from "~/.server/agent/operations";
  *   POST   /api/v1/slops/:slop/updates
  *   POST   /api/v1/slops/:slop/money
  *   POST   /api/v1/slops/:slop/vote
+ *   GET    /api/v1/slops/:slop/reviews
+ *   PUT    /api/v1/slops/:slop/reviews/mine
  *   GET    /api/v1/slops/:slop/analytics?days=…
  *   GET    /api/v1/scheduled
  *   POST   /api/v1/scheduled/:scheduled/release
@@ -65,6 +67,10 @@ function route(method: string, path: string): Match | null {
   if (parts.length === 3 && method === "POST" && action === "updates") return { operation: "post_update", slop: ref };
   if (parts.length === 3 && method === "POST" && action === "money") return { operation: "log_money", slop: ref };
   if (parts.length === 3 && method === "POST" && action === "vote") return { operation: "vote", slop: ref };
+  if (parts.length === 3 && method === "GET" && action === "reviews") return { operation: "list_reviews", slop: ref };
+  if (parts.length === 4 && method === "PUT" && action === "reviews" && parts[3] === "mine") {
+    return { operation: "review_slop", slop: ref };
+  }
   if (parts.length === 3 && method === "GET" && action === "analytics") {
     return { operation: "slop_analytics", slop: ref };
   }

@@ -6,11 +6,12 @@ import { can, permissionsOf } from "@convex/lib/permissions";
 import { requireUser, viewerContext } from "~/.server/session";
 import { convex, convexMessage } from "~/.server/convex";
 import { absoluteUrl, config } from "~/.server/config";
-import { formText, updateDraftFromForm, validateUpdate } from "~/.server/forms";
+import { formText, reviewDraftFromForm, updateDraftFromForm, validateReview, validateUpdate } from "~/.server/forms";
 import { badRequest, forbidden, notFound, redirectWithFlash } from "~/.server/http";
 import { deleteOrphanedMedia } from "~/.server/media";
 import { announce, retryFailed, summarize } from "~/.server/social/announce";
 import { missedPreviewsNote, postUpdate } from "~/.server/updates";
+import { postReview } from "~/.server/reviews";
 import { modeFor } from "~/.server/social/crosspost";
 import { shareIntents } from "~/lib/compose";
 import { formatDay, localDate, timeAgo } from "~/lib/dates";
@@ -28,6 +29,8 @@ import {
   POSTABLE_UPDATE_KINDS,
   type PostableUpdateKind,
   REVENUE_CATEGORIES,
+  REVIEW_EXPERIENCES,
+  type ReviewExperience,
   UPDATE_KINDS,
 } from "~/lib/model";
 import { CURRENCIES } from "~/lib/money";
@@ -169,6 +172,33 @@ export async function action({ params, request, context }: Route.ActionArgs) {
           commentId: formText(form, "id"),
         });
         return redirectWithFlash(`${here}#feedback`, { tone: "info", message: "Removed." });
+      }
+
+      case "review": {
+        if (isOwner) forbidden();
+        const parsed = validateReview(reviewDraftFromForm(form));
+        if (!parsed.ok) {
+          return redirectWithFlash(`${here}#reviews`, {
+            tone: "error",
+            message: Object.values(parsed.errors).join(" "),
+          });
+        }
+        const posted = await postReview(user._id, { id: slop.id, name: slop.name }, parsed.value);
+        if (!posted.ok) return redirectWithFlash(`${here}#reviews`, { tone: "error", message: posted.error });
+        if (posted.orphaned > 0) await deleteOrphanedMedia();
+        return redirectWithFlash(`${here}#review-${posted.reviewId}`, {
+          tone: "success",
+          message: posted.created ? "Review posted. Thanks for trying it." : "Review updated.",
+        });
+      }
+
+      case "delete-review": {
+        const removed = await convex.mutation(api.reviews.remove, {
+          userId: user._id,
+          reviewId: formText(form, "id"),
+        });
+        if (removed.orphaned > 0) await deleteOrphanedMedia();
+        return redirectWithFlash(`${here}#reviews`, { tone: "info", message: "Review deleted." });
       }
 
       case "update": {
@@ -546,6 +576,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
 
             {loaderData.launches.length > 1 && <LaunchHistory loaderData={loaderData} />}
             <Updates loaderData={loaderData} reveal={reveal} />
+            <Reviews loaderData={loaderData} path={path} />
             {loaderData.commentsEnabled && <Feedback loaderData={loaderData} path={path} />}
           </div>
 
@@ -904,6 +935,163 @@ function GoOutside({ path }: { path: string }) {
         Log a field test
       </Link>
     </section>
+  );
+}
+
+const EXPERIENCE_TONES: Record<ReviewExperience, string> = {
+  works: "tag-slop",
+  mixed: "tag-gold",
+  broken: "tag-hot",
+};
+
+/** "3 works for me · 1 broken for me", in REVIEW_EXPERIENCES order. */
+function experienceCounts(reviews: LoaderData["reviews"]): string {
+  return (Object.keys(REVIEW_EXPERIENCES) as ReviewExperience[])
+    .map((experience) => {
+      const count = reviews.filter((review) => review.experience === experience).length;
+      return count ? `${count} ${REVIEW_EXPERIENCES[experience].label.toLowerCase()}` : null;
+    })
+    .filter((part) => part !== null)
+    .join(" · ");
+}
+
+/**
+ * Reviews from people who tried it: how it went, in their words, with
+ * screenshots. They go up as soon as the content check passes them.
+ */
+function Reviews({ loaderData, path }: { loaderData: LoaderData; path: string }) {
+  const { reviews, mine, isOwner, signedIn, slop } = loaderData;
+  return (
+    <section id="reviews" className="mt-16 scroll-mt-24" aria-labelledby="reviews-title">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 id="reviews-title" className="title-2">
+          Reviews
+        </h2>
+        <span className="text-muted">
+          {reviews.length > 0 ? experienceCounts(reviews) : plural(0, "review", "reviews")}
+        </span>
+      </div>
+      <ol className="mt-6 grid gap-3">
+        {reviews.length === 0 && (
+          <li className="rounded-2xl bg-sunk p-5 text-muted">
+            {isOwner
+              ? "No reviews yet. People who try it can say how it went here."
+              : "No reviews yet. Tried it? Say what it is, how it went, and what broke."}
+          </li>
+        )}
+        {reviews.map((review) => (
+          <li key={review.id} id={`review-${review.id}`} className="scroll-mt-24 rounded-2xl bg-sunk p-4 sm:p-5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              {review.author && <Avatar user={review.author} size="xs" />}
+              {review.author ? (
+                <Link to={`/@${review.author.username}`} className="-my-2.5 py-2.5 font-bold hover:underline">
+                  @{review.author.username}
+                </Link>
+              ) : (
+                <span className="font-bold">Deleted account</span>
+              )}
+              <span className={`tag ${EXPERIENCE_TONES[review.experience]}`}>
+                {REVIEW_EXPERIENCES[review.experience].label}
+              </span>
+              <span className="ml-auto text-sm text-muted">
+                {timeAgo(review.createdAt)}
+                {review.editedAt ? " · edited" : ""}
+              </span>
+            </div>
+            {review.blur ? (
+              <details className="mt-2">
+                <summary className="flex min-h-11 cursor-pointer items-center font-bold text-muted hover:text-ink">
+                  Mature · show anyway
+                </summary>
+                <ReviewContent review={review} name={slop.name} />
+              </details>
+            ) : (
+              <ReviewContent review={review} name={slop.name} />
+            )}
+            {review.canDelete && (
+              <Form method="post" className="text-right">
+                <input type="hidden" name="intent" value="delete-review" />
+                <input type="hidden" name="id" value={review.id} />
+                <button type="submit" className="min-h-11 text-sm text-muted underline hover:text-hot">
+                  Delete
+                </button>
+              </Form>
+            )}
+          </li>
+        ))}
+      </ol>
+      {isOwner ? null : signedIn ? (
+        // Keyed on the reader's review, so posting or editing it refills the form.
+        <ReviewForm key={mine ? `${mine.id}:${mine.editedAt ?? 0}` : "new"} mine={mine} />
+      ) : (
+        <Link to={`/login?returnTo=${encodeURIComponent(`${path}#reviews`)}`} className="btn btn-lg mt-6">
+          Sign in to write a review
+        </Link>
+      )}
+    </section>
+  );
+}
+
+function ReviewContent({ review, name }: { review: LoaderData["reviews"][number]; name: string }) {
+  return (
+    <>
+      <Markdown html={review.html} className="mt-2" />
+      {review.images.length > 0 && <UpdateImages images={review.images} name={name} reveal />}
+    </>
+  );
+}
+
+function ReviewForm({ mine }: { mine: LoaderData["mine"] }) {
+  return (
+    <Form method="post" className="panel mt-6">
+      <input type="hidden" name="intent" value="review" />
+      <fieldset className="flex flex-wrap items-center gap-1.5">
+        <legend className="field-label mb-2">{mine ? "Your review" : "Tried it? How did it go?"}</legend>
+        {(Object.keys(REVIEW_EXPERIENCES) as ReviewExperience[]).map((experience) => (
+          <label key={experience} className="cursor-pointer">
+            <input
+              type="radio"
+              name="experience"
+              value={experience}
+              required
+              defaultChecked={mine?.experience === experience}
+              className="peer sr-only"
+            />
+            <span className="flex min-h-10 items-center rounded-lg border border-line-strong px-3 font-bold text-muted transition-colors peer-checked:border-ink peer-checked:bg-ink peer-checked:text-ground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--focus) hover:text-ink">
+              {REVIEW_EXPERIENCES[experience].label}
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <label htmlFor="review-body" className="sr-only">
+        Review
+      </label>
+      <textarea
+        id="review-body"
+        name="body"
+        required
+        maxLength={LIMITS.reviewLength}
+        defaultValue={mine?.body}
+        className="input mt-3 min-h-28"
+        placeholder="What is it, what did you try, and how did it go? If it broke, say where."
+      />
+      <div className="mt-3 grid gap-1.5">
+        <span className="field-label">Screenshots</span>
+        <ScreenshotPicker
+          initial={mine?.images ?? []}
+          max={LIMITS.reviewImages}
+          name="image"
+          cover={false}
+          blurs="your review"
+        />
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="field-hint">Reviews are checked automatically and go up straight away.</p>
+        <button type="submit" className="btn btn-slop">
+          {mine ? "Update review" : "Post review"}
+        </button>
+      </div>
+    </Form>
   );
 }
 

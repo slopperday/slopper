@@ -69,6 +69,7 @@ export type ProductEvent =
   | { name: "pledged"; slopId: Id<"slops"> }
   | { name: "update posted"; slopId: Id<"slops">; properties: { kind: string } }
   | { name: "commented"; slopId: Id<"slops">; properties: { kind: "feedback" | "kudos" } }
+  | { name: "reviewed"; slopId: Id<"slops">; properties: { experience: string } }
   | { name: "goal set"; properties: { days: number; target: number } };
 
 export async function captureFor(ctx: MutationCtx, userId: Id<"users">, event: ProductEvent): Promise<void> {
@@ -583,7 +584,13 @@ export const slopForReport = internalQuery({
  * visits don't count.
  */
 /** What a maker's report shows of what people did: never downvotes, which are private. */
-export const MAKER_ACTIONS: ReadonlySet<string> = new Set(["upvoted", "pledged", "commented", "update posted"]);
+export const MAKER_ACTIONS: ReadonlySet<string> = new Set([
+  "upvoted",
+  "pledged",
+  "commented",
+  "reviewed",
+  "update posted",
+]);
 
 export interface SlopReport {
   slop: ReportedSlop;

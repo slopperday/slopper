@@ -205,6 +205,8 @@ function describe({ action, target }: StaffLogEntry): string {
       return `deleted ${target}`;
     case "deleteComment":
       return `deleted a comment on ${target}`;
+    case "deleteReview":
+      return `deleted a review of ${target}`;
     case "forgetPerson":
       return `deleted everything analytics had on ${target}`;
     case "flag":

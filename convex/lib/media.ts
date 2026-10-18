@@ -35,11 +35,11 @@ export function updateMedia(update: Doc<"updates">): Id<"media">[] {
 }
 
 /**
- * Lets go of images none of their owner's launches or updates show any
- * more, after a slop or update is deleted, its screenshots change, a link
- * card is removed or a scheduled launch is cancelled. Media is only ever
- * attached to its owner's slops, updates and scheduled launches, so those
- * are the only places to look.
+ * Lets go of images none of their owner's launches, updates or reviews show
+ * any more, after a slop, update or review is deleted, its screenshots
+ * change, a link card is removed or a scheduled launch is cancelled. Media is
+ * only ever attached to its owner's slops, updates, reviews and scheduled
+ * launches, so those are the only places to look.
  *
  * Convex-stored files go now, in this transaction. B2 objects can only be
  * deleted by the app server, which holds the bucket key, so they're marked
@@ -67,6 +67,11 @@ export async function releaseMedia(
     .withIndex("by_user", (q) => q.eq("userId", ownerId))
     .collect();
   for (const update of updates) for (const id of updateMedia(update)) shown.add(id);
+  const reviews = await ctx.db
+    .query("reviews")
+    .withIndex("by_user", (q) => q.eq("userId", ownerId))
+    .collect();
+  for (const review of reviews) for (const id of review.images) shown.add(id);
 
   let waiting = 0;
   for (const id of new Set(ids)) {

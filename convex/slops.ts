@@ -7,6 +7,7 @@ import { notify } from "./lib/notify";
 import { can, requirePermission } from "./lib/permissions";
 import { logStaffAction } from "./lib/staffLog";
 import { consume, nextCounter } from "./lib/rate";
+import { reviewsFor } from "./lib/reviews";
 import { isVisibleTo, productIdOf, publicSlop, publicUpdate, publicUser, toCards, voteOf } from "./lib/shape";
 import { demoVideoValidator, featureValidator, linkValidator } from "./schema";
 import { openGoal } from "./goals";
@@ -281,6 +282,16 @@ export const remove = mutation({
       .withIndex("by_slop", (q) => q.eq("slopId", slopId))
       .collect();
     for (const row of comments) await ctx.db.delete(row._id);
+    // Reviewers own their screenshots, so each one's are let go on their own.
+    const reviews = await ctx.db
+      .query("reviews")
+      .withIndex("by_slop_user", (q) => q.eq("slopId", slopId))
+      .collect();
+    let reviewImages = 0;
+    for (const row of reviews) {
+      await ctx.db.delete(row._id);
+      reviewImages += await releaseMedia(ctx, row.userId, row.images);
+    }
     const reports = await ctx.db
       .query("reports")
       .withIndex("by_slop", (q) => q.eq("slopId", slopId))
@@ -321,7 +332,7 @@ export const remove = mutation({
     if (slop.embeddingId) await ctx.db.delete(slop.embeddingId);
     await ctx.db.delete(slopId);
     const media = [...slop.screenshots, ...(slop.video ? [slop.video.mediaId] : []), ...updateImages];
-    return { orphaned: await releaseMedia(ctx, slop.userId, media) };
+    return { orphaned: (await releaseMedia(ctx, slop.userId, media)) + reviewImages };
   },
 });
 
@@ -559,6 +570,7 @@ export const page = query({
           crossposts: isOwner ? update.crossposts : [],
         })),
       ),
+      ...(await reviewsFor(ctx, slop._id, reader)),
       comments: comments.map((comment) => {
         const author = authors.get(comment.userId);
         return {

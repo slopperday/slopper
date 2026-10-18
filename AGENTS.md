@@ -155,6 +155,11 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   with `integrations.claim`. Numbers on the page always say where they came from; typed-in money stays in the ledger.
 - **Product pages:** a linked demo video (`demo`, not the uploaded promo `video`) is stored as `{ provider, id }` and embed URLs are built in `app/lib/video.ts`, never taken
   from input. AI drafts (`app/.server/draft.ts`) only fill the form; saving runs the content check as usual.
+- **Reviews** (`convex/reviews.ts`): people who tried a slop say how it went (works, mixed, broken) with up to 4
+  screenshots, one per person per launch. `postReview` (`app/.server/reviews.ts`) runs the content check first: blocked
+  is never saved, anything else goes up at once with no moderator queue (mature ones blurred like NSFW). Makers can't
+  review or delete reviews of their own slops; authors and admins (`reviews.deleteAny`) can delete them. Reviews aren't
+  comments: they don't depend on `COMMENTS_ENABLED`.
 - **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
   gate anything that shows or writes comments on the switch.
 - **Releases:** every change worth releasing gets a changeset, made with `vp exec monochange create` and named with

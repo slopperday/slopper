@@ -61,6 +61,8 @@ interface ScreenshotPickerProps {
   noun?: string;
   /** Whether the first image is the cover and others can be made it. */
   cover?: boolean;
+  /** What a mature image blurs, for the notice: "this slop" or "your review". */
+  blurs?: string;
 }
 
 export function ScreenshotPicker({
@@ -69,6 +71,7 @@ export function ScreenshotPicker({
   name = "screenshot",
   noun = "screenshot",
   cover = true,
+  blurs = "this slop",
 }: ScreenshotPickerProps) {
   const capitalized = noun[0].toUpperCase() + noun.slice(1);
   const [shots, setShots] = useState<Screenshot[]>([...initial]);
@@ -93,7 +96,7 @@ export function ScreenshotPicker({
         const { id, url } = result;
         if (!response.ok || !id || !url) throw new Error(result.error ?? "Upload failed");
         setShots((current) => [...current, { id, url }]);
-        if (result.nsfw) setNotice("That one looks NSFW, so this slop will be blurred.");
+        if (result.nsfw) setNotice(`That one looks NSFW, so ${blurs} will be blurred.`);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Upload failed");
       } finally {

@@ -663,6 +663,7 @@ describe("the moderation team", () => {
       "comments.deleteAny",
       "queue.decide",
       "queue.decideOwn",
+      "reviews.deleteAny",
       "slops.deleteAny",
       "slops.hide",
       "slops.viewHidden",

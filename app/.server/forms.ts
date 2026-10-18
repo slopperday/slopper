@@ -4,10 +4,13 @@ import {
   isFieldOutcome,
   isLinkKind,
   isPostableUpdateKind,
+  isReviewExperience,
   LIMITS,
   LINK_KINDS,
   POSTABLE_UPDATE_KINDS,
   type PostableUpdateKind,
+  REVIEW_EXPERIENCES,
+  type ReviewExperience,
   type SlopFeature,
   type SlopLink,
   type UpdateDetails,
@@ -323,6 +326,40 @@ export function validateUpdate(draft: UpdateDraft): Parsed<UpdateForm> {
 
   if (Object.keys(errors).length > 0 || !isPostableUpdateKind(kind)) return { ok: false, errors };
   return { ok: true, value: { kind, body, version: version || null, images, links, details } };
+}
+
+/** A review as typed on a slop's page or sent by an agent, before validation. */
+export interface ReviewDraft {
+  experience?: string;
+  body?: string;
+  images?: readonly string[];
+}
+
+export interface ReviewForm {
+  experience: ReviewExperience;
+  body: string;
+  /** Media ids; Convex re-checks each one belongs to the reviewer. */
+  images: string[];
+}
+
+export function reviewDraftFromForm(form: FormData): ReviewDraft {
+  return { experience: text(form, "experience"), body: text(form, "body"), images: all(form, "image") };
+}
+
+/** One validation path for the review form, the REST API and MCP. */
+export function validateReview(draft: ReviewDraft): Parsed<ReviewForm> {
+  const errors: FieldErrors = {};
+  const experience = draft.experience?.trim() ?? "";
+  const body = draft.body?.trim() ?? "";
+  if (!isReviewExperience(experience)) {
+    errors.experience = `Say how it went: ${Object.keys(REVIEW_EXPERIENCES).join(", ")}.`;
+  }
+  if (!body) errors.body = "Say what you tried and how it went.";
+  else if (body.length > LIMITS.reviewLength) errors.body = `Keep it under ${LIMITS.reviewLength} characters.`;
+  const images = [...new Set((draft.images ?? []).map((id) => id.trim()))].filter((id) => MEDIA_ID.test(id));
+  if (images.length > LIMITS.reviewImages) errors.images = `Up to ${LIMITS.reviewImages} screenshots.`;
+  if (Object.keys(errors).length > 0 || !isReviewExperience(experience)) return { ok: false, errors };
+  return { ok: true, value: { experience, body, images } };
 }
 
 export interface GoalForm {

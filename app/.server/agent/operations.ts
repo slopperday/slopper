@@ -11,6 +11,7 @@ import {
   LINK_KINDS,
   POSTABLE_UPDATE_KINDS,
   REVENUE_CATEGORIES,
+  REVIEW_EXPERIENCES,
 } from "~/lib/model";
 import { localDate } from "~/lib/dates";
 import { editableUntil } from "~/lib/editing";
@@ -22,12 +23,13 @@ import { tractionBoard } from "~/lib/traction";
 import { videoPageUrl } from "~/lib/video";
 import { absoluteUrl, autopostNetworks, config } from "../config";
 import { convex, convexMessage } from "../convex";
-import { validateGoal, validateSlop, validateUpdate } from "../forms";
+import { validateGoal, validateReview, validateSlop, validateUpdate } from "../forms";
 import { deleteOrphanedMedia, uploadImage, uploadVideo } from "../media";
 import { checkedContent, checkSlop, checkVideo } from "../moderation";
 import { finishLaunch, releaseScheduled } from "../launch";
 import { announce } from "../social/announce";
 import { postUpdate } from "../updates";
+import { postReview } from "../reviews";
 import type { User } from "../session";
 import {
   ApiError,
@@ -250,6 +252,14 @@ const AUTOPOST = {
   type: "boolean",
   description: `Post it to the user's connected ${listWords(autopostNetworks(), "and")} accounts. Defaults to false. When it can't be posted yet (it's waiting for a moderator, marked NSFW or flagged), the result says why.`,
 };
+
+/** A slop's reviews by its id, or by slug for the user's own. */
+async function reviewsOf(context: OperationContext, ref: string) {
+  const own = await convex.query(api.slops.findForServer, { userId: context.user._id, ref: ref.trim() });
+  const listed = await convex.query(api.reviews.listForServer, { slopId: own?._id ?? ref.trim() });
+  if (!listed) throw new ApiError(404, "Slop not found.");
+  return listed;
+}
 
 export const OPERATIONS: Operation[] = [
   {
@@ -913,6 +923,72 @@ export const OPERATIONS: Operation[] = [
         value: VOTE_INPUTS[vote],
       });
       return { vote: voteName(result.vote), upvotes: result.upvotes, votesLeft: result.votesLeft };
+    },
+  },
+  {
+    name: "review_slop",
+    title: "Review a slop",
+    description: `Write the user's review of someone else's slop: how it went (${Object.keys(REVIEW_EXPERIENCES).join(", ")}), what it is and what they tried, and what broke, in their words, with up to ${LIMITS.reviewImages} screenshots from upload_screenshot. One review per person per slop: writing again replaces theirs. It goes up at once; one that isn't fit for a general audience is refused. Only review a slop the user actually tried, saying what they told you.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        slop: { type: "string", description: "The slop's id (from todays_race or search_slops)." },
+        experience: { type: "string", enum: Object.keys(REVIEW_EXPERIENCES), description: "How it went for them." },
+        body: { type: "string", maxLength: LIMITS.reviewLength, description: "Markdown." },
+        images: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: LIMITS.reviewImages,
+          description: "Screenshot ids from upload_screenshot, in order. Writing again without them keeps none.",
+        },
+      },
+      required: ["slop", "experience", "body"],
+    },
+    readOnly: false,
+    async run(context, input) {
+      const parsed = validateReview({
+        experience: requiredString(input, "experience"),
+        body: requiredString(input, "body"),
+        images: optionalStrings(input, "images"),
+      });
+      if (!parsed.ok) throw new ApiError(422, "The review needs fixing.", parsed.errors);
+      const { slop } = await reviewsOf(context, requiredString(input, "slop"));
+      const posted = await postReview(context.user._id, { id: slop.id, name: slop.name }, parsed.value);
+      if (!posted.ok) throw new ApiError(422, posted.error);
+      if (posted.orphaned > 0) await deleteOrphanedMedia();
+      return {
+        review: {
+          id: posted.reviewId,
+          experience: parsed.value.experience,
+          url: `${absoluteUrl(slopPath(slop.username, slop.slug))}#review-${posted.reviewId}`,
+          replaced: !posted.created,
+        },
+      };
+    },
+  },
+  {
+    name: "list_reviews",
+    title: "Read a slop's reviews",
+    description:
+      "What people who tried a slop said: how it went (works, mixed or broken), their words and screenshots, newest first. Use it on the user's own slops for feedback: what to fix and what people like.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slop: { type: "string", description: "Any slop's id, or the slug of one of the user's slops." },
+      },
+      required: ["slop"],
+    },
+    readOnly: true,
+    async run(context, input) {
+      const { slop, reviews } = await reviewsOf(context, requiredString(input, "slop"));
+      return {
+        slop: { id: slop.id, name: slop.name, url: absoluteUrl(slopPath(slop.username, slop.slug)) },
+        reviews: reviews.map((review) => ({
+          ...review,
+          createdAt: new Date(review.createdAt).toISOString(),
+          editedAt: review.editedAt === null ? null : new Date(review.editedAt).toISOString(),
+        })),
+      };
     },
   },
 ];

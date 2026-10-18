@@ -3,7 +3,7 @@ import { formatMoney } from "./money";
 
 /** Shared by the notifications page and browser notifications, so both say the same thing. */
 
-export type NotificationKind = "upvote" | "feedback" | "kudos" | "pledge" | "slop_of_the_day";
+export type NotificationKind = "upvote" | "feedback" | "kudos" | "review" | "pledge" | "slop_of_the_day";
 
 export interface NotificationFacts {
   kind: NotificationKind;
@@ -24,6 +24,8 @@ export function notificationText({ kind, actorUsername, slop, amount }: Notifica
       return `${who} left feedback on ${title}`;
     case "kudos":
       return `${who} says ${title} is good 🔥`;
+    case "review":
+      return `${who} reviewed ${title}`;
     case "pledge":
       return `${who} pledged ${formatMoney(amount ?? 0, "USD")} to ${title}`;
     case "slop_of_the_day":

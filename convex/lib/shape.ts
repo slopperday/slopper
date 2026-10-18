@@ -1,6 +1,13 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import type { LinkPreview, SlopFeature, SlopLink, UpdateDetails, UpdateKind } from "../../app/lib/model";
+import type {
+  LinkPreview,
+  ReviewExperience,
+  SlopFeature,
+  SlopLink,
+  UpdateDetails,
+  UpdateKind,
+} from "../../app/lib/model";
 import { renderMarkdown } from "../../app/lib/markdown";
 import type { DemoVideo } from "../../app/lib/video";
 import { mediaUrl } from "./media";
@@ -182,6 +189,38 @@ export async function publicUpdate(ctx: QueryCtx, update: Doc<"updates">): Promi
     images: await screenshotUrls(ctx, update.images ?? []),
     links,
     details: update.details ?? null,
+  };
+}
+
+/** A review as the slop page shows it. What the content check said stays in Convex, but for `mature`. */
+export interface PublicReview {
+  id: Id<"reviews">;
+  experience: ReviewExperience;
+  html: string;
+  createdAt: number;
+  editedAt: number | null;
+  /** Image URLs, in order. */
+  images: string[];
+  /** Blur it for readers who haven't opted in to NSFW. */
+  mature: boolean;
+  /** Null when the reviewer's account is gone. */
+  author: PublicUser | null;
+}
+
+export async function publicReview(
+  ctx: QueryCtx,
+  review: Doc<"reviews">,
+  author: PublicUser | null,
+): Promise<PublicReview> {
+  return {
+    id: review._id,
+    experience: review.experience,
+    html: renderMarkdown(review.body),
+    createdAt: review._creationTime,
+    editedAt: review.editedAt,
+    images: await screenshotUrls(ctx, review.images),
+    mature: review.check.verdict === "mature",
+    author,
   };
 }
 

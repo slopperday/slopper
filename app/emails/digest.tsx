@@ -59,6 +59,7 @@ function tiles(slop: SlopSummary): { value: string; label: string }[] {
       : null,
     slop.feedback ? { value: String(slop.feedback), label: "feedback" } : null,
     slop.kudos ? { value: String(slop.kudos), label: "kudos" } : null,
+    slop.reviews ? { value: String(slop.reviews), label: slop.reviews === 1 ? "review" : "reviews" } : null,
   ].filter((tile) => tile !== null);
 }
 
