@@ -352,7 +352,7 @@ describe("search by meaning", () => {
     });
     expect(embedding?.category).toBe("music");
 
-    await server.mutation(api.slops.remove, { slopId, byUserId: maker, asAdmin: false });
+    await server.mutation(api.slops.remove, { slopId, byUserId: maker });
     expect(await t.run(async (ctx) => await ctx.db.query("slopEmbeddings").collect())).toEqual([]);
   });
 

@@ -266,7 +266,7 @@ describe("letting go of update images", () => {
     expect(await server.mutation(api.activity.deleteUpdate, { userId: owner, updateId: first })).toEqual({
       orphaned: 0,
     });
-    expect(await server.mutation(api.slops.remove, { slopId, byUserId: owner, asAdmin: false })).toEqual({
+    expect(await server.mutation(api.slops.remove, { slopId, byUserId: owner })).toEqual({
       orphaned: 1,
     });
   });
