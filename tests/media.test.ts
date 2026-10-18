@@ -195,7 +195,7 @@ describe("upload check", () => {
     if (!unconfigured.ok) throw new Error(unconfigured.error);
     const { slopId, blurred } = await ship(server, owner, [unconfigured.id]);
     expect(blurred).toBe(false);
-    expect(await server.query(api.moderation.autopostHoldFor, { slopId })).toBe("the content check hasn't passed yet");
+    expect(await server.query(api.moderation.autopostHoldFor, { slopId })).toBe("it hasn't been cleared yet");
   });
 
   it("refuses a mature avatar too: avatars are never blurred", async () => {

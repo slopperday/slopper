@@ -97,7 +97,7 @@ test.describe("agents run the slopper CLI", () => {
         "slopper",
       ]),
     );
-    expect(launched).toMatchObject({ slop: { name, upvotes: 0 }, contentCheck: "ok" });
+    expect(launched).toMatchObject({ slop: { name, upvotes: 0, nsfw: false, hidden: false } });
     const slop = launched.slop as { id: string; slug: string; url: string };
     const stored = (await bucketObjects(stack)).find(
       (object) => object.sha256 === createHash("sha256").update(shot).digest("hex"),

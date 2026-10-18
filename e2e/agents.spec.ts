@@ -66,8 +66,13 @@ test.describe("agents run Slopper", () => {
       },
     });
     expect(created.status()).toBe(201);
-    const body = (await created.json()) as { contentCheck: string; autopost: unknown; slop: { url: string } };
-    expect(body.contentCheck).toBe("ok");
+    const body = (await created.json()) as Record<string, unknown> & {
+      autopost: unknown;
+      slop: { url: string; nsfw: boolean; hidden: boolean };
+    };
+    // It says what people see, never how it was checked.
+    expect(body.slop).toMatchObject({ nsfw: false, hidden: false });
+    expect(body).not.toHaveProperty("contentCheck");
     // Nothing is connected, so nothing went out.
     expect(body.autopost).toEqual({ status: "posted", results: [] });
 
@@ -127,7 +132,7 @@ test.describe("agents run Slopper", () => {
       "--link",
       "https://cli.example/",
     );
-    expect(launched).toMatchObject({ slop: { name }, contentCheck: "ok" });
+    expect(launched).toMatchObject({ slop: { name, nsfw: false, hidden: false } });
     const slug = (launched.slop as { slug: string }).slug;
     expect(await slopper(env, "post", slug, "--kind", "feature", "--body", "Now with flags")).toMatchObject({
       update: { kind: "feature" },

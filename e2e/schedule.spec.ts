@@ -147,8 +147,7 @@ test.describe("scheduled launches", () => {
     const released = await request.post(`/api/v1/scheduled/${scheduled.id}/release`, { headers });
     expect(released.status()).toBe(201);
     expect(await released.json()).toMatchObject({
-      slop: { name: "Agent one", launchDate: today() },
-      contentCheck: "ok",
+      slop: { name: "Agent one", launchDate: today(), hidden: false },
     });
 
     const dropped = await request.delete(`/api/v1/scheduled/${later.scheduled.id}`, { headers });

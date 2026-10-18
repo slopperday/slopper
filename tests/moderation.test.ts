@@ -307,7 +307,7 @@ describe("auto-post gate", () => {
     const slopId = await ship(server, owner);
     const hold = () => server.query(api.moderation.autopostHoldFor, { slopId });
 
-    expect(await hold()).toBe("the content check hasn't passed yet");
+    expect(await hold()).toBe("it hasn't been cleared yet");
     await server.mutation(api.moderation.applyCheck, { slopId, scope: "slop", verdict: "ok", reason: "Fine." });
     expect(await hold()).toBeNull();
 
@@ -322,7 +322,7 @@ describe("auto-post gate", () => {
     await server.mutation(api.moderation.applyCheck, { slopId, scope: "slop", verdict: "blocked", reason: "Porn." });
     const slop = await server.query(api.slops.getForServer, { slopId });
     expect(slop).toMatchObject({ nsfw: true, hidden: true, check: { verdict: "blocked", reason: "Porn." } });
-    expect(await hold()).toBe("it's held for review");
+    expect(await hold()).toBe("it's waiting for a moderator");
   });
 
   it("never lets the maker set NSFW, and a clean re-check doesn't undo a blur", async () => {

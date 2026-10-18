@@ -76,8 +76,10 @@ function summarizeSlop(slop: Doc<"slops">, owner: User) {
     launchLabel: slop.launchLabel,
     name: slop.name,
     tagline: slop.tagline,
-    /** Blurred by the content check, a mature screenshot, flags or a moderator. */
+    /** Blurred for everyone who hasn't opted in to NSFW. */
     nsfw: slop.nsfw,
+    /** Only the user can see it: it's waiting for a moderator, or a moderator took it down. */
+    hidden: slop.hidden,
     url: absoluteUrl(slopPath(owner.username, slop.slug)),
     launchDate: slop.launchDate,
     /** When update_slop stops working; post_update is the way to add news after that. */
@@ -178,7 +180,7 @@ function summarizeScheduled(item: ScheduledItem, user: User) {
 
 const AUTOPOST = {
   type: "boolean",
-  description: `Post it to the user's connected ${listWords(autopostNetworks(), "and")} accounts. Defaults to false. Held (with the reason) unless the slop passed the content check and nobody has flagged it.`,
+  description: `Post it to the user's connected ${listWords(autopostNetworks(), "and")} accounts. Defaults to false. When it can't be posted yet (it's waiting for a moderator, marked NSFW or flagged), the result says why.`,
 };
 
 export const OPERATIONS: Operation[] = [
@@ -277,7 +279,7 @@ export const OPERATIONS: Operation[] = [
   {
     name: "upload_screenshot",
     title: "Upload a screenshot",
-    description: `Upload a PNG, JPEG, WebP or GIF (max ${LIMITS.mediaBytes / 1024 / 1024} MB) as base64. It's checked first: explicit or hateful images are refused, and a mature one blurs any slop that shows it. Returns an id to pass in create_slop or update_slop screenshots or post_update images, and the check's verdict (ok, mature, or unchecked when it couldn't run).`,
+    description: `Upload a PNG, JPEG, WebP or GIF (max ${LIMITS.mediaBytes / 1024 / 1024} MB) as base64. Explicit or hateful images are refused. Returns an id to pass in create_slop or update_slop screenshots or post_update images, and nsfw: true when the image will blur any slop that shows it.`,
     inputSchema: {
       type: "object",
       properties: { base64: { type: "string", description: "Image bytes, base64 encoded (no data: prefix)." } },
@@ -287,13 +289,13 @@ export const OPERATIONS: Operation[] = [
     async run({ user }, input) {
       const result = await uploadImage(user._id, { bytes: base64Bytes(input) });
       if (!result.ok) throw new ApiError(400, result.error);
-      return { id: result.id, url: result.url, contentCheck: result.contentCheck };
+      return { id: result.id, url: result.url, nsfw: result.contentCheck === "mature" };
     },
   },
   {
     name: "upload_video",
     title: "Upload a promo video",
-    description: `Upload an MP4 or WebM (max ${LIMITS.videoBytes / 1024 / 1024} MB) as base64, for set_video. Once it's on a slop it plays for everyone after a moderator approves it; after your first approved video, the next ones are checked automatically.`,
+    description: `Upload an MP4 or WebM (max ${LIMITS.videoBytes / 1024 / 1024} MB) as base64, for set_video.`,
     inputSchema: {
       type: "object",
       properties: { base64: { type: "string", description: "Video bytes, base64 encoded (no data: prefix)." } },
@@ -310,7 +312,7 @@ export const OPERATIONS: Operation[] = [
     name: "set_video",
     title: "Set a slop's promo video",
     description:
-      "Put a video from upload_video on one of your slops, replacing its last one, or pass null to take it off. Your first video waits for a moderator: video is pending until it's approved, then live. Once one is approved you're trusted, and each new video is checked as you set it: video is live at once if it passes, and pending (waiting for a moderator) if it doesn't.",
+      "Put a video from upload_video on one of your slops, replacing its last one, or pass null to take it off. video is pending while it waits for a moderator, then live. Once one of the user's videos has been approved, later ones can be live straight away.",
     inputSchema: {
       type: "object",
       properties: {
@@ -435,7 +437,6 @@ export const OPERATIONS: Operation[] = [
       const finished = await finishLaunch(user, created, launchNote, autopost);
       return {
         slop: summarizeSlop(await slopById(created.slopId), user),
-        contentCheck: finished.check?.verdict ?? "unchecked",
         autopost: finished.autopost,
       };
     },
@@ -480,11 +481,8 @@ export const OPERATIONS: Operation[] = [
       });
       if (edited.orphaned > 0) await deleteOrphanedMedia();
       const saved = await slopById(slop._id);
-      const check = checkedContent(saved) !== checkedContent(slop) ? await checkSlop(slop._id) : null;
-      return {
-        slop: summarizeSlop(await slopById(slop._id), context.user),
-        ...(check ? { contentCheck: check.verdict } : {}),
-      };
+      if (checkedContent(saved) !== checkedContent(slop)) await checkSlop(slop._id);
+      return { slop: summarizeSlop(await slopById(slop._id), context.user) };
     },
   },
   {
@@ -640,7 +638,7 @@ export const OPERATIONS: Operation[] = [
     name: "list_scheduled",
     title: "List scheduled launches",
     description:
-      "Launches waiting to go out, soonest first. Only the user sees them until they go out. One marked `out` went out but its content check and auto-post haven't run yet: release_scheduled finishes it.",
+      "Launches waiting to go out, soonest first. Only the user sees them until they go out. One marked `out` has gone out but isn't finished yet: release_scheduled finishes it.",
     inputSchema: { type: "object", properties: {} },
     readOnly: true,
     async run({ user }) {
@@ -659,7 +657,6 @@ export const OPERATIONS: Operation[] = [
       const out = await releaseScheduled(user, requiredString(input, "scheduled").trim());
       return {
         slop: summarizeSlop(await slopById(out.slopId), user),
-        contentCheck: out.finished.check?.verdict ?? "unchecked",
         autopost: out.finished.autopost,
       };
     },

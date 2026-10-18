@@ -72,10 +72,11 @@ slopper launch \
 Link kinds: `website`, `app_store`, `testflight`, `play_store`, `play_beta`, `source`, `other`. A bare URL is a
 website. Store links must use their store's domain.
 
-The result has the slop's `id`, `slug` and `url`, and the content check's verdict. Give the user the URL.
+The result has the slop's `id`, `slug` and `url`. Give the user the URL. `hidden: true` means only they can see it
+while it waits for a moderator, and `nsfw: true` that it's blurred.
 
-`--autopost` posts the launch to the user's connected X, LinkedIn and Bluesky accounts. It's held (with the reason)
-unless the slop passed the automated content check and nobody has flagged it. Write the `--note` in the user's voice,
+`--autopost` posts the launch to the user's connected X, LinkedIn and Bluesky accounts. When it can't be posted yet,
+the result says why. Write the `--note` in the user's voice,
 two sentences at most.
 
 A new platform or a 2.0 is a new launch with its own shot at slop of the day:
@@ -116,9 +117,8 @@ and who tried it (`--who`). `--preview` shows a card read from each linked page:
 `slopper slops`). `edit` changes only the flags passed; `--link` and `--screenshot` replace the whole list. Editing
 closes at the end of the launch day, or 12 hours after launch if that's later (`editableUntil` in `slopper slops`).
 After that the original post is locked (its `video` isn't): share what's new with `slopper post`.
-`video` puts a promo (MP4 or WebM, up to 4 MB) on a slop, replacing its last. The user's first video says `pending`
-until a moderator approves it. After that they're trusted: each new video is checked as it's set, and says `live` if it
-passed or `pending` if it waits for a moderator. `video <slop> --remove` takes it off.
+`video` puts a promo (MP4 or WebM, up to 4 MB) on a slop, replacing its last. It says `pending` while it waits for a
+moderator, then `live`. Once one of the user's videos has been approved, later ones can say `live` straight away. `video <slop> --remove` takes it off.
 
 ## Goals
 

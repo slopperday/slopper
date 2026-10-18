@@ -31,11 +31,11 @@ async function clearFlags(ctx: MutationCtx, slopId: Id<"slops">): Promise<void> 
  * posts only once it has passed the content check, with no open flags.
  */
 export function autopostHold(slop: Doc<"slops">, flags: number): string | null {
-  if (slop.hidden) return "it's held for review";
+  if (slop.hidden) return "it's waiting for a moderator";
   if (slop.nsfw) return "it's marked NSFW";
   if (flags > 0) return "someone flagged it";
-  if (!slop.check) return "the content check hasn't passed yet";
-  if (slop.check.verdict !== "ok") return "the content check flagged it";
+  if (!slop.check) return "it hasn't been cleared yet";
+  if (slop.check.verdict !== "ok") return "it wasn't cleared for posting";
   return null;
 }
 

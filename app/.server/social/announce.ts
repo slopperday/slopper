@@ -20,8 +20,8 @@ async function holdReason(slopId: Id<"slops">, update: Doc<"updates">): Promise<
   if (held) return held;
   if (update.kind === "launch") return null;
   const check = await checkUpdate(slopId, update);
-  if (!check) return "the content check couldn't run";
-  return check.verdict === "ok" ? null : "the content check flagged this update";
+  if (!check) return "it couldn't be cleared just now";
+  return check.verdict === "ok" ? null : "this update wasn't cleared for posting";
 }
 
 /** The post carries the update's first image, or the slop's cover when it has none. */
