@@ -1,5 +1,7 @@
 import type {
   ErrorsQuery,
+  Vital,
+  VitalsQuery,
   HeatmapDevice,
   HeatmapQuery,
   InsightQuery,
@@ -106,6 +108,25 @@ export const HEATMAP_DEVICE_LABELS: Record<HeatmapDevice, string> = {
   tablet: "Tablet",
   desktop: "Desktop",
 };
+
+export const VITAL_LABELS: Record<Vital, string> = {
+  lcp: "Largest paint (LCP)",
+  inp: "Response to input (INP)",
+  cls: "Layout shift (CLS)",
+  fcp: "First paint (FCP)",
+  ttfb: "Server response (TTFB)",
+};
+
+/** A vital's value as people read it: seconds from a second up, milliseconds below, CLS as it is. */
+export function formatVital(vital: Vital, value: number): string {
+  if (vital === "cls") return value.toFixed(2);
+  return value >= 1_000 ? `${(value / 1_000).toFixed(1)} s` : `${Math.round(value)} ms`;
+}
+
+/** Core Web Vitals over `days`. */
+export function vitalsQuery(params: Params, now: number): VitalsQuery {
+  return { kind: "vitals", range: { from: now - daysOf(params) * 86_400_000, to: now + 1 } };
+}
 
 /** Errors over `days`, grouped into issues; with `fingerprint`, one issue. */
 export function errorsQuery(params: Params, now: number, fingerprint?: string): ErrorsQuery {

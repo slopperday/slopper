@@ -121,6 +121,12 @@ export const errorsQueryValidator = v.object({
   fingerprint: v.optional(v.string()),
 });
 
+/** Core Web Vitals from real visits: 75th percentiles and how many loads were good, overall and per page. */
+export const vitalsQueryValidator = v.object({
+  kind: v.literal("vitals"),
+  range: rangeValidator,
+});
+
 export const insightQueryValidator = v.union(
   trendsQueryValidator,
   funnelQueryValidator,
@@ -132,6 +138,7 @@ export const insightQueryValidator = v.union(
   groupsQueryValidator,
   heatmapQueryValidator,
   errorsQueryValidator,
+  vitalsQueryValidator,
 );
 
 export type PropertyFilter = Infer<typeof propertyFilterValidator>;
@@ -147,4 +154,5 @@ export type GroupsQuery = Infer<typeof groupsQueryValidator>;
 export type HeatmapQuery = Infer<typeof heatmapQueryValidator>;
 export type HeatmapDevice = Infer<typeof heatmapDeviceValidator>;
 export type ErrorsQuery = Infer<typeof errorsQueryValidator>;
+export type VitalsQuery = Infer<typeof vitalsQueryValidator>;
 export type InsightQuery = Infer<typeof insightQueryValidator>;

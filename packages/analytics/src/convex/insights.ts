@@ -11,6 +11,7 @@ import {
   ErrorsAggregator,
   GroupsAggregator,
   HeatmapAggregator,
+  VitalsAggregator,
   type InsightAnswer,
   type InsightQuery,
   type InsightResult,
@@ -240,6 +241,12 @@ export async function runInsight(
       const groups = new GroupsAggregator(query);
       await scan.events(query.event, GroupsAggregator.scanRange(query), (row) => groups.add(row));
       result = groups.result();
+      break;
+    }
+    case "vitals": {
+      const vitals = new VitalsAggregator(query);
+      await scan.events(EVENTS.webVitals, query.range, (row) => vitals.add(row));
+      result = vitals.result();
       break;
     }
     case "errors": {

@@ -192,11 +192,13 @@ describe("afterLoad", () => {
 
 describe("landedAt", () => {
   it("is when the page was opened, while the address is still the one it landed on", () => {
-    vi.spyOn(performance, "getEntriesByType").mockReturnValue([{ name: location.href } as unknown as PerformanceEntry]);
+    vi.spyOn(performance, "getEntriesByType").mockReturnValue([
+      { name: location.href } as unknown as PerformanceNavigationTiming,
+    ]);
     vi.spyOn(performance, "timeOrigin", "get").mockReturnValue(1_792_300_000_000.4);
     expect(landedAt()).toBe(1_792_300_000_000);
     vi.spyOn(performance, "getEntriesByType").mockReturnValue([
-      { name: "http://localhost:3000/elsewhere" } as unknown as PerformanceEntry,
+      { name: "http://localhost:3000/elsewhere" } as unknown as PerformanceNavigationTiming,
     ]);
     expect(landedAt()).toBeUndefined();
   });

@@ -7,6 +7,21 @@ import type { WireBatch, WireEvent } from "../src/shared/events";
 import type { RecorderHost } from "../src/browser/replay";
 import { bucketOf } from "../src/shared/hash";
 
+/** What the stand-in for web-vitals measured: the real one needs a browser's performance timeline. */
+let measured: Record<string, number> | null = null;
+
+vi.mock("../src/browser/vitals", () => ({
+  Vitals: class {
+    private taken = false;
+    start() {}
+    take() {
+      if (this.taken || !measured) return null;
+      this.taken = true;
+      return measured;
+    }
+  },
+}));
+
 /** Recorders the client made: the real one needs rrweb, which these tests leave out. */
 const recorders: { host: RecorderHost; started: boolean; pages: number; hidden: number; stopped: string | null }[] = [];
 
@@ -690,5 +705,42 @@ describe("errors", () => {
     client.captureException(new Error("nor this"));
     await client.flush();
     expect(named("$exception")).toEqual([]);
+  });
+});
+
+describe("web vitals", () => {
+  /** What beacons carried, decoded. */
+  async function beaconed(spy: { mock: { calls: unknown[][] } }): Promise<WireEvent[]> {
+    const batches = await Promise.all(
+      spy.mock.calls.map(async ([, body]) =>
+        body instanceof Blob ? (JSON.parse(await body.text()) as WireBatch) : null,
+      ),
+    );
+    return batches.flatMap((batch) => batch?.events ?? []);
+  }
+
+  it("sends the landing page's vitals once, as it's hidden", async () => {
+    measured = { lcp: 1800, cls: 0.02, inp: 80 };
+    const beacon = vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
+    history.replaceState(null, "", "/wall");
+    make({ pageviews: false });
+    await tick();
+    history.pushState(null, "", "/today");
+    window.dispatchEvent(new Event("pagehide"));
+    window.dispatchEvent(new Event("pagehide"));
+    const vitals = (await beaconed(beacon)).filter((event) => event.name === "$webVitals");
+    expect(vitals).toHaveLength(1);
+    expect(vitals[0]).toMatchObject({ path: "/wall", properties: { lcp: 1800, cls: 0.02, inp: 80 } });
+    measured = null;
+  });
+
+  it("measures nothing when turned off", async () => {
+    measured = { lcp: 1800 };
+    const beacon = vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
+    make({ pageviews: false, webVitals: false });
+    await tick();
+    window.dispatchEvent(new Event("pagehide"));
+    expect((await beaconed(beacon)).filter((event) => event.name === "$webVitals")).toEqual([]);
+    measured = null;
   });
 });

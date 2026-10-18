@@ -150,6 +150,9 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   (type and message with numbers, ids and values taken out) at `/analytics/errors`, each issue linked to the sessions
   it happened in and their recordings. Agents: `slopper admin analytics errors`, then `error --q <fingerprint>`. Catch
   an error you handle but still want to know about with `useAnalytics()?.captureException(error)`.
+- **Speed:** the SDK measures the landing page's Core Web Vitals with `web-vitals` (its own lazy chunk) and sends them as
+  `$webVitals` when the page is hidden. `/analytics/speed` shows each vital's 75th percentile with Google's ratings, and
+  per page; agents read it with `slopper admin analytics vitals`. Check it after changing what a page loads.
 - **Traction:** sources are one client each in `app/.server/integrations/` (registered in `index.ts`), read only.
   Syncs run on the app server (it holds the sealing key); Convex stores days in `metrics` and hands due sources out
   with `integrations.claim`. Numbers on the page always say where they came from; typed-in money stays in the ledger.

@@ -30,6 +30,7 @@ export default [
   route("analytics/recordings", "routes/analytics.recordings.tsx"),
   route("analytics/heatmaps", "routes/analytics.heatmaps.tsx"),
   route("analytics/errors", "routes/analytics.errors.tsx"),
+  route("analytics/speed", "routes/analytics.speed.tsx"),
   route("analytics/errors/:fingerprint", "routes/analytics.error.tsx"),
   route("analytics/flags", "routes/analytics.flags.tsx"),
   route("analytics/flags/:key", "routes/analytics.flag.tsx"),
