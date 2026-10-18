@@ -213,3 +213,4 @@ export * from "../shared/insights/queries";
 export type * from "../shared/insights";
 export type { Experiment, ExperimentAnswer } from "./experiments";
 export * from "../shared/flags";
+export * from "../shared/surveys";

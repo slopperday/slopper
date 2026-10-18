@@ -752,6 +752,18 @@
   animation: now 2.4s ease-in-out infinite;
 }
 
+/* A survey's question slides up into the corner (SurveyCard.tsx). */
+@keyframes survey-in {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+}
+
+.survey-card {
+  animation: survey-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 /* Still for whoever asks, on their device or in Settings (data-motion, app/lib/motion.ts). */
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-motion="full"]) *,

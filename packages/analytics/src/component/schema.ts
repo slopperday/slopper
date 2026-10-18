@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { flagConditionValidator, flagVariantValidator } from "../shared/flags";
 import { propertyFilterValidator } from "../shared/insights/queries";
+import { surveyKindValidator, surveyTargetValidator } from "../shared/surveys";
 import { deviceValidator, properties, sourceValidator } from "./validators";
 
 /**
@@ -143,6 +144,24 @@ export default defineSchema({
     .index("by_session_started", ["sessionId", "startedAt"])
     .index("by_started", ["startedAt"])
     .index("by_distinct_id", ["distinctId"]),
+
+  /** Surveys (shared/surveys.ts): one question each; answers are events, so results are worked out from them. */
+  surveys: defineTable({
+    key: v.string(),
+    /** What admins call it; people only see the question. */
+    name: v.string(),
+    question: v.string(),
+    kind: surveyKindValidator,
+    choices: v.array(v.string()),
+    followUp: v.union(v.string(), v.null()),
+    target: surveyTargetValidator,
+    status: v.union(v.literal("draft"), v.literal("running"), v.literal("stopped")),
+    createdAt: v.number(),
+    startedAt: v.union(v.number(), v.null()),
+    endedAt: v.union(v.number(), v.null()),
+  })
+    .index("by_key", ["key"])
+    .index("by_status", ["status"]),
 
   /** Experiments on flags with variants: results come from events, worked out when asked for. */
   experiments: defineTable({

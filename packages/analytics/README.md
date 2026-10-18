@@ -160,6 +160,15 @@ SDK (the browser keeps the entries they're read from), and sends them once as `$
 The `vitals` insight gives each one's 75th percentile with web.dev's rating, the shares of good, middling and poor
 loads, and the same per page.
 
+## Surveys
+
+A survey is one question (a 1–5 rating, 0–10, one of a few options, or words) with an optional open follow-up, for
+pages under a path, for anyone, signed-in people or visitors, after a delay. The component keeps them
+(`surveys.save/start/stop/remove`; `surveys.definitions` is what pages need). Pick the one to ask with `surveyFor`
+and record `$surveyShown`, `$surveySent` (`value`, `choice` and/or `text`) and `$surveyDismissed` with
+`survey: key`. The `survey` insight counts who saw, answered and closed it, the answers, the average or Net Promoter
+Score, and the latest words.
+
 ## Privacy controls
 
 `optOut()` sets a first-party cookie (`sa_off`) the SDK and the app's server both read, and deletes the distinct id;

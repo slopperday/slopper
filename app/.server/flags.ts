@@ -1,60 +1,25 @@
 import { api } from "@convex/_generated/api";
 import { type FlagDefinition, type FlagState, flagState } from "@slopperday/analytics/shared/flags";
 import { convex } from "./convex";
+import { remembered } from "./memory";
 import type { User } from "./session";
 
 /**
  * Feature flags for whoever is rendering a page. Definitions come from
- * Convex and are kept in memory: a page within half a minute of the last
- * read uses them as they are, and one within five minutes uses them while
- * they're read again in the background, so only a server's first page (or
- * its first after a long quiet spell) waits for them. Evaluating them is
- * pure, so flags add no request of their own to a page.
+ * Convex and are kept in memory (memory.ts), so flags add no request of
+ * their own to most pages; evaluating them is pure.
  */
 
-const FRESH_MS = 30_000;
-const STALE_MS = 300_000;
-
-interface Cached {
-  at: number;
-  flags: Promise<FlagDefinition[]>;
-}
-
-let cache: Cached | null = null;
-let refreshing: Cached | null = null;
-/** Bumped when an admin changes a flag, so a read that started before it is never kept. */
-let generation = 0;
-
-function startRead(now: number): Cached {
-  const started = generation;
-  const next: Cached = { at: now, flags: convex.query(api.analytics.flagDefinitions, {}) };
-  next.flags.then(
-    () => {
-      if (refreshing === next) refreshing = null;
-      if (started === generation && (!cache || cache.at < next.at)) cache = next;
-    },
-    // A failed read isn't kept: the next page tries again.
-    () => {
-      if (refreshing === next) refreshing = null;
-      if (cache === next) cache = null;
-    },
-  );
-  return next;
-}
+const definitions = remembered(() => convex.query(api.analytics.flagDefinitions, {}));
 
 /** Active flags' definitions, from memory while they're recent enough. */
 export async function flagDefinitions(now: number = Date.now()): Promise<FlagDefinition[]> {
-  const age = cache ? now - cache.at : Infinity;
-  if (!cache || age > STALE_MS) cache = startRead(now);
-  else if (age > FRESH_MS && !refreshing) refreshing = startRead(now);
-  return await cache.flags;
+  return await definitions.get(now);
 }
 
 /** Forgets the definitions in memory, for an admin who just changed a flag. */
 export function forgetFlagDefinitions(): void {
-  generation += 1;
-  cache = null;
-  refreshing = null;
+  definitions.forget();
 }
 
 /**

@@ -34,6 +34,8 @@ export default [
   route("analytics/errors/:fingerprint", "routes/analytics.error.tsx"),
   route("analytics/flags", "routes/analytics.flags.tsx"),
   route("analytics/flags/:key", "routes/analytics.flag.tsx"),
+  route("analytics/surveys", "routes/analytics.surveys.tsx"),
+  route("analytics/surveys/:key", "routes/analytics.survey.tsx"),
   route("analytics/experiments", "routes/analytics.experiments.tsx"),
   route("analytics/experiments/:key", "routes/analytics.experiment.tsx"),
   route("cli", "routes/cli.tsx"),

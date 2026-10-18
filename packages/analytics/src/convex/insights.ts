@@ -11,6 +11,7 @@ import {
   ErrorsAggregator,
   GroupsAggregator,
   HeatmapAggregator,
+  SurveyAggregator,
   VitalsAggregator,
   type InsightAnswer,
   type InsightQuery,
@@ -242,6 +243,14 @@ export async function runInsight(
       const groups = new GroupsAggregator(query);
       await scan.events(query.event, GroupsAggregator.scanRange(query), (row) => groups.add(row));
       result = groups.result();
+      break;
+    }
+    case "survey": {
+      const survey = new SurveyAggregator(query);
+      for (const event of [EVENTS.surveyShown, EVENTS.surveySent, EVENTS.surveyDismissed]) {
+        await scan.events(event, query.range, (row) => survey.add(row));
+      }
+      result = survey.result();
       break;
     }
     case "vitals": {
