@@ -5,6 +5,154 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.10.0 (2026-10-18)
+
+### Features
+
+#### First-party analytics as a Convex component
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 195eec1
+
+- **packages/analytics** (private, with nothing Slopper-specific so it can move out): a Convex component with events, people (anonymous until identify, merged into the account on sign-in, two accounts never merged) and sessions with source, channel, device and country; a browser SDK with page views and leaves, autocapture, rage clicks, opt-out and beaconed batches; React bindings; and shared pure logic.
+- **Wiring.** Mounted in `convex/convex.config.ts`. Browsers post to the deployment's HTTP actions (`convex/http.ts`, `/a/e`), so no Netlify function runs per event. `CONVEX_SITE_URL` names the site URL for self-hosted backends; cloud deployments work it out from `CONVEX_URL`. The CSP allows it.
+- **Product events** are captured in their mutations: signed up, slop launched, voted, pledged, update posted and goal set. A daily cron deletes events older than a year.
+- **Tests** build the Convex app with `tests/convexApp.ts`, which registers the component.
+
+#### Insights, a platform dashboard and analytics per slop
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 7264d88
+
+- **Insights engine** (`packages/analytics`): trends (with breakdowns), funnels, retention, journeys, stickiness, lifecycle, web analytics and a group leaderboard, as pure aggregators that an action feeds page by page (`SCAN_LIMIT` rows at most, `truncated` past it). Components can't `paginate()`, so the component pages by index key.
+- **Group analytics**: events carry `slop:<id>` when they're on a slop's page (resolved on the server from the path) or about it (votes, pledges, updates, comments). Downvotes are kept from makers.
+- **/analytics** for admins only: growth (accounts, launches, makers), slops climbing and fading, traffic, insights and people (with forgetting someone, logged in the staff log). Charts use a validated palette in both themes.
+- **Makers' analytics** at `/@username/slug/analytics`, the `slop_analytics` operation (MCP and `GET /api/v1/slops/:slop/analytics`) and `slopper analytics <slop>`.
+- **Admins' agents**: `slopper admin analytics [report]` over `GET /api/v1/admin/analytics`, deliberately undocumented outside AGENTS.md.
+
+#### Analytics dashboards read daily rollups
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 49b9c42
+
+- A daily cron (04:00 UTC) rolls each finished day of first-party analytics into rollup rows: web analytics, each event's count and people, and each slop's page views. Web analytics, trends without filters or breakdown, and the projects leaderboard read whole past days from them and raw events only for today and the partial day at the start, with the same answers. On a seeded month of 2,000 visits, the 30-day traffic page read 13.9 MB of events before and 0.9 MB after.
+- A day is read raw again as soon as anything changes it (a late batch, a session past midnight, a merge, a forgotten person), until the next roll-up does it again.
+- Events lose their timestamp-only index: reading every event and the retention sweep go name by name instead. After deploying, backfill once with `convex run analytics:rollUp '{"lookbackDays": 365}'`.
+
+- **API answers say what people see instead of the check's verdict.** The REST API and MCP tools no longer return `contentCheck`. Uploads (`POST /api/v1/media`, `upload_screenshot`, and the site's `/api/media`) return `nsfw: true` when the image will blur a slop, and every slop summary has `hidden` (only its maker can see it) next to `nsfw`. Auto-post hold reasons (`autopostHold`, `holdReason`) no longer mention the content check.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ d2fda0c
+
+#### Reviews, checked before they're saved
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ cc9184e
+
+- **Reviews** (convex/reviews.ts): one per person per launch, replaced when written again; not for the maker's own slop or a hidden one. Screenshots must be the reviewer's own uploads, and a mature one makes the review mature (blurred for people who haven't opted in to NSFW).
+- **postReview** (app/.server/reviews.ts) runs the content check on the text and screenshots first: blocked is refused and never saved, ok and mature go up at once, and when the check can't run the review is saved as unchecked, like uploads. No moderator queue.
+- Authors and admins (new reviews.deleteAny permission, logged as deleteReview) can delete a review; makers can't. releaseMedia and slop deletion know about review screenshots.
+- New notification kind review, counted in the daily digest. Analytics event reviewed, shown to makers.
+- Agents: review_slop and list_reviews operations, PUT /api/v1/slops/:slop/reviews/mine and GET /api/v1/slops/:slop/reviews.
+
+#### Charts on ECharts, with comparisons
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ cacbc98
+
+- The analytics charts are ECharts now, loaded in their own chunk once a chart is on screen (about 167 KB brotli, never on public pages): lines with a crosshair tooltip and a legend that turns lines on and off, stacked columns, funnels that show who dropped off, and journeys as a Sankey diagram you can trace by hovering. Long ranges zoom with ctrl and the wheel, or a pinch. Every chart keeps its table.
+- Comparisons with the period before: trends take `compare` ("Compare with the period before" on /analytics/insights), and traffic and a slop's views draw the days before as a dashed line, with the change in the tooltip. Web and slop reports carry `previousSeries`.
+- Charts animate unless motion is turned down, in Settings or on the device.
+
+#### Error tracking
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ ef45366
+
+- The analytics SDK records uncaught errors and unhandled rejections as `$exception` events (type, message, a short stack without query strings, a fingerprint that groups the same error across deploys), at most 25 a page and the same one once a minute; extension noise is left out. `captureException` records caught ones, and the root error boundary uses it.
+- The app server reports errors in loaders, actions and rendering (`handleError`) through `analytics.captureServerError`, tied to the visitor's analytics id unless they turned analytics off. Server events can now say which page they happened on.
+- Admins see issues at /analytics/errors: how often, for how many people, where, the stack, and the sessions they happened in, with their recordings. Agents get them with `slopper admin analytics errors` and `error --q <fingerprint>`.
+
+#### Feature flags and experiments
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 633e877
+
+- **Flags** (`packages/analytics`): on or off, or weighted variants, for people matching conditions and a rollout. Buckets hash the flag's key with the distinct id, so people keep their value as a rollout grows. Evaluating is pure; the app server evaluates active flags while it renders (definitions kept in memory: fresh for 30s, used for up to 5 minutes while they're read again), and `useFeatureFlag`, `useFeatureFlagEnabled` and `useFeatureFlagPayload` read them on the first render. The SDK records each value someone sees once a session (`$featureFlagCalled`).
+- **First-page ids**: the root middleware sets the `sa_id` cookie on a visitor's first page (unless they opted out), so flags can bucket them before the SDK loads; the SDK keeps it.
+- **Experiments**: a flag with variants and a goal event, compared the Bayesian way (each variant's rate, 95% interval and chance of being best; a winner once each has 100 people and one is 95% likely best), seeded so results are stable.
+- **/analytics/flags** and **/analytics/experiments** for admins, with each flag's recent views by variant, and every change in the staff log. Admins' agents read them with `slopper admin analytics flags|experiments|experiment`.
+
+#### Heatmaps
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 8a67573
+
+- The analytics SDK sends where every click lands as `$heatmap` events (up to 50 points per page and viewport width), and page leaves carry the viewport width. Clicks inside `data-no-capture` aren't kept, and the SDK doesn't run inside frames.
+- A `heatmap` insight places clicks for phones, tablets or desktops, and counts views, scroll depth and the most-clicked links and buttons.
+- Admins see it at /analytics/heatmaps: the page as it is now, in a same-origin frame (the CSP now allows Slopper to frame its own pages), with its clicks over it. Agents get it with `slopper admin analytics heatmap`.
+
+#### Made-with tags are counted and spelled one way
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ ac8f81b
+
+- **Tags** (`app/lib/tags.ts`): a registry of kinds (model, harness, framework, platform, other) and known tags with aliases. `cleanTags` spells known ones our way and drops repeats in any case.
+- **Counts** live in `madeWithTags`, kept by `retag` (`convex/lib/tags.ts`) when a slop launches, is edited or deleted, so "claude code" and "Claude Code" are one tag. `tags.popular` feeds the picker; people's own tags are suggested once two slops use them.
+- **Backfill.** `tags:backfill` runs after every Convex deploy (`scripts/release.ts`): it counts and respells existing slops' tags once, then does nothing.
+- **Agents:** `list_tags` (MCP) and `GET /api/v1/tags`. Slops can have up to 8 tags (was 6).
+
+#### Session replay
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ a396e65
+
+- The analytics SDK records a share of sessions (`ANALYTICS_REPLAY_RATE`, every one unless set) with rrweb, loaded only for those sessions after the SDK itself, and sends gzipped chunks every few seconds to `/a/r` on the Convex site. The analytics component keeps them in its file storage for 30 days, and `forget` deletes them with everything else.
+- What's private stays in the browser: fields are masked, hidden inputs and `data-no-capture`/`data-no-replay` parts are blocked out, scripts are left out, query strings are cut from every address, and private pages (settings, the CLI sign-in, notifications, staff pages and a slop's own analytics) aren't recorded. The owner's money ledger is blocked out.
+- Admins watch recordings at /analytics/recordings and on each session's page, with page views and clicks marked on the timeline, speeds up to 8× and quiet bits skipped. A person's sessions say which were recorded, and `slopper admin analytics recordings` lists them for agents.
+
+#### Staff permissions in one table, and a staff log
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ a1fed56
+
+- **Permissions, not roles.** `convex/lib/permissions.ts` maps each role to what it may do (`queue.decide`, `slops.hide`, `team.manage`, ...). Convex checks `requirePermission`, routes `requireStaff(viewer, request, permission)`, and loaders send `permissionsOf(user)` instead of the role, so a new role or a moved power is one change in that table. `canModerate`, `isAdmin` and `requireRole` are gone.
+- **Staff log.** Every use of a staff power (role changes, queue decisions, takedowns, trust, hiding, and deleting someone else's slop or comment) is written to `staffActions` in the same mutation. Admins see the latest 50 at /mod/team. It never reaches a public shape.
+
+#### Surveys
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 4f94381
+
+- Admins ask one question on the pages they pick, at /analytics/surveys: a rating, 0 to 10, one of a few options, or words, with an optional follow-up, for anyone, signed-in people or visitors, after a delay. Starting, stopping and changes go in the staff log.
+- Pages get running surveys from the root loader (kept in memory, so they cost a page nothing) unless analytics is off. A small card asks the first one this browser hasn't answered or closed, once. Answers are analytics events, so a survey's results (who saw it, answered and closed it, the answers charted, the average or Net Promoter Score, and what people wrote, linked to their visits) come from a `survey` insight. Agents read them with `slopper admin analytics surveys` and `survey --q <key>`.
+- Flags and surveys share one in-memory cache on the app server (`remembered`).
+
+- **Traction integrations and product page fields for agents and operators.** New integrations and metrics tables, read-only clients for Stripe, PostHog, Google Analytics (service account, GOOGLE_ANALYTICS_SERVICE_ACCOUNT) and Solana (SOLANA_RPC_URL), syncs claimed through Convex and run by the app server. create_slop and update_slop take video, features and audience; get_traction (GET /api/v1/slops/{slop}/traction) reads the board.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 85cae12
+
+#### Web vitals
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 67f3fad
+
+- The analytics SDK measures the landing page's Core Web Vitals (LCP, INP, CLS, FCP, TTFB) with `web-vitals`, in its own chunk loaded after the SDK, and sends them as `$webVitals` when the page is hidden.
+- A `vitals` insight gives each one's 75th percentile with web.dev's rating and the shares of good, middling and poor loads, overall and per page. Admins see it at /analytics/speed; agents with `slopper admin analytics vitals`.
+
+### Fixes
+
+#### Admins are listed by sign-in account, and moderators don't judge their own slops
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ a1fed56
+
+- **`ADMIN_IDENTITIES` replaces `ADMIN_USERNAMES`.** It lists sign-in accounts as `provider:id` (`github:1160934`), and whoever signs in or links one becomes an admin (`grantListedAdmin`, `team.bootstrap`). Usernames can be changed in Settings and are picked from provider handles at sign-up, so a listed username that someone renamed away from, or never claimed, made whoever took it an admin on their next page load. A malformed entry stops the server. Set it with `vp run env:netlify`; `ADMIN_USERNAMES` is ignored and can be unset on Netlify. Stored roles are unchanged, so nobody loses theirs.
+- **Moderators can't decide on their own slops.** `videos.decide` and `moderation.decide` refuse a moderator's own video or flagged slop (`mayJudge`): approving their own video would have trusted them, and clearing their own flags would have restarted its auto-posts. Admins still can. /mod shows a moderator's own items without decision buttons.
+
+#### Analytics costs a page's first load nothing
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 1145846
+
+- The analytics SDK isn't in any script a page loads to render: the React provider imports it after the load event, when the browser is idle, and the landing page view is stamped with when the page was opened. A failed import leaves the page uncounted and nothing else broken.
+- A burst of activity writes the session to localStorage once, not once per event.
+- e2e: the browser launches with a real user agent. Requests a page finishes after it's gone (analytics' leave beacons) carry the browser's own, which says HeadlessChrome and was dropped as a bot's; `e2e/performance.spec.ts` checks the SDK stays out of the first load, arrives and sends after it, and that a page left at once still sends what it saw.
+
+- **Only retry auto-posts on the signed-in person's own updates, and send Strict-Transport-Security on production pages.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ afa01df
+- **`vp run env:netlify` works again.** netlify-cli saw the workspace packages (`packages/*`) from the repo root, stopped to ask which project to use, and failed on the first variable. The sync now starts netlify-cli in `scripts/` and points `--cwd` at the app, as `scripts/release.ts` does for deploys.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 54484b3
+- **Only connect Bluesky accounts whose PDS is a public web address, so a connected account can't aim the server's auto-post requests at private networks.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ afa01df
+
+### Refactoring
+
+- **Drop the old admin flags from Convex.** `slops.page`, `slops.remove` and `activity.deleteComment` no longer accept the `isAdmin`/`asAdmin` arguments they ignored while v1.6.0 deployed. They read the caller's stored role (`canModerate`/`isAdmin` in `convex/lib/auth.ts`), and no app server since v1.6.0 sends them.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ d70dd30
+
 ## 1.9.0 (2026-10-18)
 
 ### Features

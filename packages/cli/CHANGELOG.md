@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## cli 0.1.6 (2026-10-18)
+
+Grouped release for `cli`.
+
+### Features
+
+- **slopper analytics shows how a slop is doing.** slopper analytics <slop> [--days n] prints a slop's views, people, sources, clicks and votes; the skill explains when to use it.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 7264d88
+- **slopper review and slopper reviews.** slopper review <slop> <works|mixed|broken> --body … [--image …] writes or replaces your review of someone's slop; slopper reviews <slop> reads what people said. The skill says when to use them.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ cc9184e
+- **slopper tags.** slopper tags lists made-with tags, most used first, each with its kind (model, harness, framework, platform). The skill asks agents to tag the model and harness that built a slop.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ ac8f81b
+
+### Fixes
+
+- **slopper help and the skill describe results, not Slopper's internals.** `slopper screenshot` reports `nsfw: true` when an image will blur a slop, `launch --autopost` and `video` describe what happens without explaining the checks, and the skill reads `hidden` and `nsfw` on a launch.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ d2fda0c
+- **slopper help no longer promises auto-posting to X.** The --autopost flag and the skill now say it posts to whichever accounts the user connected on slopper.day.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ f785de1
+
 ## cli 0.1.5 (2026-10-18)
 
 Grouped release for `cli`.
