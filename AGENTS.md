@@ -158,9 +158,10 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
 - **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
   gate anything that shows or writes comments on the switch.
 - **Releases:** every change worth releasing gets a changeset, made with `vp exec monochange create` and named with
-  `--output .changeset/<name>.md` (the global `monochange` is older). `user_feat`, `user_fix` and `user_change` are for
-  what people using the site notice and become `/changelog` (`app/changelog/<version>.json`); every other type (`feat`,
-  `fix`, ...) goes to `CHANGELOG.md`. Write two changesets when both audiences care. Never hand-edit `app/changelog/`,
+  `--output .changeset/<name>.md` (the global `monochange` is older). `user_feat` (minor), `user_fix` (patch), `user_change`
+  (minor: works differently, nothing to do) and `user_breaking` (major: people must act) are for what people using the
+  site notice and become `/changelog` (`app/changelog/<version>.json`); every other type (`feat`, `fix`, ...) goes to
+  `CHANGELOG.md`. Write two changesets when both audiences care. Never hand-edit `app/changelog/`,
   `CHANGELOG.md` or `.monochange/releases/`: monochange owns them. A release is a pull request:
   `vp exec monochange run release` (from a clean main) commits it on `chore/release` and opens it; merging it
   publishes. `run publish` only runs in the release workflow.
