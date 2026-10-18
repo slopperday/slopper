@@ -3,7 +3,17 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { AnalyticsOptions } from "../src/browser/client";
-import { AnalyticsProvider, afterLoad, landedAt, useAnalytics, useIdentify } from "../src/react";
+import {
+  AnalyticsProvider,
+  afterLoad,
+  type FlagState,
+  landedAt,
+  useAnalytics,
+  useFeatureFlag,
+  useFeatureFlagEnabled,
+  useFeatureFlagPayload,
+  useIdentify,
+} from "../src/react";
 
 /**
  * The provider keeps the SDK out of the page's first load: it imports it
@@ -11,13 +21,13 @@ import { AnalyticsProvider, afterLoad, landedAt, useAnalytics, useIdentify } fro
  * here, to see when it's made and what with.
  */
 
-const made: { options: AnalyticsOptions; identified: string[]; shutdown: boolean }[] = [];
+const made: { options: AnalyticsOptions; identified: string[]; flagsSeen: string[]; shutdown: boolean }[] = [];
 
 vi.mock("../src/browser/client", () => ({
   Analytics: class {
     readonly record: (typeof made)[number];
     constructor(options: AnalyticsOptions) {
-      this.record = { options, identified: [], shutdown: false };
+      this.record = { options, identified: [], flagsSeen: [], shutdown: false };
       made.push(this.record);
     }
     get identified() {
@@ -27,6 +37,9 @@ vi.mock("../src/browser/client", () => ({
       this.record.identified.push(distinctId);
     }
     reset() {}
+    flagSeen(flag: string, value: boolean | string) {
+      this.record.flagsSeen.push(`${flag}:${String(value)}`);
+    }
     shutdown() {
       this.record.shutdown = true;
     }
@@ -177,5 +190,65 @@ describe("landedAt", () => {
       { name: "http://localhost:3000/elsewhere" } as unknown as PerformanceEntry,
     ]);
     expect(landedAt()).toBeUndefined();
+  });
+});
+
+describe("feature flags", () => {
+  const FLAGS: FlagState = {
+    values: { "wall-order": "newest", "new-wall": true, "old-thing": false },
+    payloads: { "wall-order": { columns: 3 } },
+  };
+
+  function Flags() {
+    const order = useFeatureFlag("wall-order");
+    const wall = useFeatureFlagEnabled("new-wall");
+    const old = useFeatureFlagEnabled("old-thing");
+    const unknown = useFeatureFlag("never-made");
+    const payload = useFeatureFlagPayload("wall-order");
+    return <p>{JSON.stringify({ order, wall, old, unknown, payload })}</p>;
+  }
+
+  it("reads the server's values on the first render, before the SDK is there", () => {
+    act(() => {
+      root.render(
+        <AnalyticsProvider options={{ endpoint: "https://x.convex.site/a" }} flags={FLAGS}>
+          <Flags />
+        </AnalyticsProvider>,
+      );
+    });
+    expect(JSON.parse(container.textContent ?? "")).toEqual({
+      order: "newest",
+      wall: true,
+      old: false,
+      unknown: false,
+      payload: { columns: 3 },
+    });
+    expect(made).toHaveLength(0);
+  });
+
+  it("reports what was seen once the SDK loads, and works with analytics off", async () => {
+    readyState = "complete";
+    act(() => {
+      root.render(
+        <AnalyticsProvider options={{ endpoint: "https://x.convex.site/a" }} flags={FLAGS}>
+          <Flags />
+        </AnalyticsProvider>,
+      );
+    });
+    act(() => idle[0]?.());
+    await settle();
+    // useFeatureFlagPayload reads its flag too, and the SDK sends each value once a session.
+    expect(made[0]?.flagsSeen).toEqual(
+      expect.arrayContaining(["wall-order:newest", "new-wall:true", "old-thing:false", "never-made:false"]),
+    );
+
+    act(() => {
+      root.render(
+        <AnalyticsProvider options={null} flags={FLAGS}>
+          <Flags />
+        </AnalyticsProvider>,
+      );
+    });
+    expect(JSON.parse(container.textContent ?? "")).toMatchObject({ order: "newest", wall: true });
   });
 });

@@ -7,6 +7,7 @@ import process from "node:process";
 import { type BrowserContext, expect, type Page, test as base } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
 import { importJWK, type JWK, SignJWT } from "jose";
+import { cookieNames, stateKey } from "@slopperday/analytics/shared";
 import { api } from "../convex/_generated/api.js";
 import type { Id } from "../convex/_generated/dataModel";
 import { hashToken, randomToken } from "../app/.server/encoding.ts";
@@ -123,6 +124,19 @@ function convexCli(stack: Stack, args: string[]): string {
       CONVEX_SELF_HOSTED_ADMIN_KEY: stack.adminKey,
     },
   }).toString("utf8");
+}
+
+/**
+ * The visitor's analytics id, once the SDK is running in the page. The id
+ * cookie alone says nothing: the server sets it on the first page, and the
+ * SDK only loads after the load event. The SDK keeps its state in
+ * localStorage from its first event, so that's the sign it's listening.
+ */
+export async function analyticsIdOf(page: Page): Promise<string> {
+  await page.waitForFunction((key) => localStorage.getItem(key) !== null, stateKey());
+  const id = (await page.context().cookies()).find((cookie) => cookie.name === cookieNames().distinctId)?.value;
+  if (!id) throw new Error("The analytics SDK is running without an id cookie.");
+  return id;
 }
 
 /** One event as the analytics component stores it (packages/analytics). */

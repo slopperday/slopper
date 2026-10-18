@@ -1,16 +1,10 @@
-import type { Page } from "@playwright/test";
-import { analyticsEvents, expect, test } from "./fixtures.ts";
+import { analyticsEvents, analyticsIdOf, expect, test } from "./fixtures.ts";
 
 /**
  * What analytics gives back: admins' dashboard at /analytics (and nobody
  * else's), makers' view of their own slop, and the same through the API
  * and MCP. The database is shared, so each test reads only what it made.
  */
-
-async function distinctIdOf(page: Page): Promise<string> {
-  await expect.poll(async () => (await page.context().cookies()).some((cookie) => cookie.name === "sa_id")).toBe(true);
-  return (await page.context().cookies()).find((cookie) => cookie.name === "sa_id")?.value ?? "";
-}
 
 test.describe("analytics, given back", () => {
   test("is for admins: everyone else gets a 404", async ({ seed }) => {
@@ -32,7 +26,7 @@ test.describe("analytics, given back", () => {
     // "Try it" opens the slop's own site in a new tab; it never needs to load.
     await visitor.context().route("https://example.com/**", (route) => route.fulfill({ body: "the slop itself" }));
     await visitor.goto(`${slop.path}?utm_source=e2e-newsletter`);
-    const visitorId = await distinctIdOf(visitor);
+    const visitorId = await analyticsIdOf(visitor);
     await visitor.getByRole("link", { name: /Try it/ }).click();
     await expect
       .poll(() => analyticsEvents(stack, visitorId).map((event) => event.name), { timeout: 20_000 })
@@ -61,7 +55,7 @@ test.describe("analytics, given back", () => {
     const slop = await seed.slop(maker);
     const visitor = await seed.visitorPage();
     await visitor.goto(slop.path);
-    const visitorId = await distinctIdOf(visitor);
+    const visitorId = await analyticsIdOf(visitor);
     await expect.poll(() => analyticsEvents(stack, visitorId).length, { timeout: 20_000 }).toBeGreaterThan(0);
 
     const token = await seed.apiToken(maker);
@@ -99,7 +93,7 @@ test.describe("analytics, given back", () => {
     const slop = await seed.slop(maker);
     const visitor = await seed.visitorPage();
     await visitor.goto(slop.path);
-    const visitorId = await distinctIdOf(visitor);
+    const visitorId = await analyticsIdOf(visitor);
     await expect.poll(() => analyticsEvents(stack, visitorId).length, { timeout: 20_000 }).toBeGreaterThan(0);
 
     const admin = await seed.pageAs(await seed.admin());

@@ -11,8 +11,15 @@ import {
 import { useEffect } from "react";
 import { AnalyticsProvider, useIdentify } from "@slopperday/analytics/react";
 import type { Route } from "./+types/root";
-import { analyticsOptedOut, analyticsSetup } from "./.server/analytics";
+import {
+  analyticsIdContext,
+  analyticsMiddleware,
+  analyticsOptedOut,
+  analyticsSetup,
+  countryOf,
+} from "./.server/analytics";
 import { autopostNetworks, config } from "./.server/config";
+import { flagProperties, flagsFor } from "./.server/flags";
 import { redirectQueryMiddleware } from "./.server/http";
 import { csrfMiddleware, viewerContext, viewerMiddleware } from "./.server/session";
 import { permissionsOf } from "@convex/lib/permissions";
@@ -28,11 +35,21 @@ import bigShouldersLatin from "@fontsource-variable/big-shoulders/files/big-shou
 import schibstedGroteskLatin from "@fontsource-variable/schibsted-grotesk/files/schibsted-grotesk-latin-wght-normal.woff2?url";
 
 // redirectQueryMiddleware goes first so it sees every redirect, the others' included.
-export const middleware: Route.MiddlewareFunction[] = [redirectQueryMiddleware, csrfMiddleware, viewerMiddleware];
+export const middleware: Route.MiddlewareFunction[] = [
+  redirectQueryMiddleware,
+  csrfMiddleware,
+  viewerMiddleware,
+  analyticsMiddleware,
+];
 
-export function loader({ request, context }: Route.LoaderArgs) {
+export async function loader({ request, context }: Route.LoaderArgs) {
   const viewer = context.get(viewerContext);
   const user = viewer.user;
+  // Signed-in people are bucketed by account, so a flag follows them between devices.
+  const flags = await flagsFor(
+    user?._id ?? context.get(analyticsIdContext),
+    flagProperties(user, countryOf(request), Date.now()),
+  );
   return {
     user: user
       ? { id: user._id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
@@ -45,6 +62,7 @@ export function loader({ request, context }: Route.LoaderArgs) {
     autopostNetworks: autopostNetworks(),
     analytics: analyticsSetup(request),
     analyticsOptedOut: analyticsOptedOut(request),
+    flags,
   };
 }
 
@@ -88,6 +106,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <body className="flex min-h-dvh flex-col">
         <AnalyticsProvider
           options={data?.analytics ? { ...data.analytics, sanitizePath: sanitizeAnalyticsPath } : null}
+          flags={data?.flags}
         >
           <IdentifyViewer user={data?.user ?? null} />
           <LiveProvider url={data?.convexUrl ?? null} signedIn={Boolean(data?.user)}>

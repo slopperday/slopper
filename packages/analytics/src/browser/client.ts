@@ -1,11 +1,12 @@
 import { EVENTS, type WireEvent } from "../shared/events";
+import type { FlagValue } from "../shared/flags";
 import { normalizeProperties, type Properties } from "../shared/properties";
 import { startAutocapture } from "./autocapture";
 import { PageTracker, watchHistory } from "./pageviews";
-import { cookieNames, DEFAULT_STORAGE_KEY, ROUTES } from "../shared/routes";
+import { cookieNames, DEFAULT_STORAGE_KEY, ROUTES, stateKey } from "../shared/routes";
 import { readCookie, StateStore, type StoredState, writeCookie } from "./storage";
 import { Transport } from "./transport";
-import { uuidv7 } from "./uuid";
+import { uuidv7 } from "../shared/uuid";
 
 export interface AnalyticsOptions {
   /**
@@ -77,7 +78,7 @@ export class Analytics {
   constructor(private readonly options: AnalyticsOptions) {
     const key = options.storageKey ?? DEFAULT_STORAGE_KEY;
     this.cookies = cookieNames(key);
-    this.store = new StateStore(`${key}_state`);
+    this.store = new StateStore(stateKey(key));
     this.sanitizePath = options.sanitizePath ?? ((path) => path);
     this.idleMs = (options.sessionIdleMinutes ?? 30) * 60_000;
     this.transport = new Transport({
@@ -197,6 +198,22 @@ export class Analytics {
     this.update((state) => ({ ...state, identified: true }));
     const properties: Properties = previous !== distinctId ? { anonDistinctId: previous } : {};
     this.capture(EVENTS.identify, properties, { set, setOnce });
+  }
+
+  /**
+   * Records that this person saw a flag's value (`$featureFlagCalled`), once
+   * a session for each flag and value: what experiments count.
+   */
+  flagSeen(flag: string, value: FlagValue): void {
+    if (this.stopped || this.optedOut) return;
+    const key = `${flag}:${String(value)}`;
+    const before = this.store.read();
+    if (before.flagsSeen.sessionId === before.session?.id && before.flagsSeen.keys.includes(key)) return;
+    this.capture(EVENTS.flagCalled, { flag, variant: String(value) });
+    const after = this.store.read();
+    const sessionId = after.session?.id ?? null;
+    const keys = after.flagsSeen.sessionId === sessionId ? after.flagsSeen.keys : [];
+    this.store.write({ ...after, flagsSeen: { sessionId, keys: [...keys, key].slice(-200) } });
   }
 
   /** Sets properties on the current person without another event of note. */

@@ -13,6 +13,7 @@ import type { Properties } from "../shared/properties";
 import { ROUTES } from "../shared/routes";
 import { hostOf } from "../shared/source";
 import { isBot, parseUserAgent } from "../shared/userAgent";
+import { type ExperimentAnswer, experimentResults } from "./experiments";
 import { groupReport, type Overview, overview, runInsight } from "./insights";
 
 /**
@@ -91,6 +92,11 @@ export class Analytics {
     return await groupReport(ctx, this.component, query);
   }
 
+  /** An experiment and how its variants are converting, from its flag's exposures and its goal. From an action. */
+  async experiment(ctx: RunActionCtx, key: string, now: number = Date.now()): Promise<ExperimentAnswer | null> {
+    return await experimentResults(ctx, this.component, key, now);
+  }
+
   /** How many people there are, how many signed in, and how many were active lately. From an action. */
   async overview(ctx: RunActionCtx, now: number = Date.now()): Promise<Overview> {
     return await overview(ctx, this.component, now);
@@ -165,3 +171,5 @@ export class Analytics {
 export { checkRange, MAX_RANGE_DAYS, type Overview, SCAN_LIMIT } from "./insights";
 export * from "../shared/insights/queries";
 export type * from "../shared/insights";
+export type { Experiment, ExperimentAnswer } from "./experiments";
+export * from "../shared/flags";

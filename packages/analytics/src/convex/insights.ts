@@ -52,7 +52,8 @@ export interface Overview {
   truncated: boolean;
 }
 
-class Scanner {
+/** Reads events and sessions page by page for the engines here, counting what it read. */
+export class Scanner {
   scanned = 0;
   truncated = false;
 

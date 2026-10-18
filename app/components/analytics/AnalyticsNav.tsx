@@ -5,6 +5,8 @@ const TABS = [
   { to: "/analytics/traffic", label: "Traffic", end: false },
   { to: "/analytics/insights", label: "Insights", end: false },
   { to: "/analytics/people", label: "People", end: false },
+  { to: "/analytics/flags", label: "Flags", end: false },
+  { to: "/analytics/experiments", label: "Experiments", end: false },
 ] as const;
 
 /** The analytics pages' heading and tabs. */

@@ -1,6 +1,7 @@
 import type { Properties, PropertyValue } from "../properties";
 import type { DeviceType } from "../userAgent";
 import type { Channel } from "../source";
+import { matchesValue } from "../filters";
 import type { PropertyFilter } from "./queries";
 
 /**
@@ -43,31 +44,8 @@ function valueOf(event: EventRow, key: string): PropertyValue | undefined {
   return event.properties[key];
 }
 
-function asText(value: PropertyValue): string {
-  return Array.isArray(value) ? value.join(",") : String(value);
-}
-
 export function matchesFilter(event: EventRow, filter: PropertyFilter): boolean {
-  const value = valueOf(event, filter.key);
-  const present = value !== undefined && value !== null;
-  switch (filter.operator) {
-    case "isSet":
-      return present;
-    case "isNotSet":
-      return !present;
-    case "equals":
-      return present && asText(value) === String(filter.value);
-    case "notEquals":
-      return !present || asText(value) !== String(filter.value);
-    case "contains":
-      return present && asText(value).toLowerCase().includes(String(filter.value).toLowerCase());
-    case "notContains":
-      return !present || !asText(value).toLowerCase().includes(String(filter.value).toLowerCase());
-    case "greaterThan":
-      return typeof value === "number" && typeof filter.value === "number" && value > filter.value;
-    case "lessThan":
-      return typeof value === "number" && typeof filter.value === "number" && value < filter.value;
-  }
+  return matchesValue(valueOf(event, filter.key), filter);
 }
 
 export function matchesAll(event: EventRow, filters: readonly PropertyFilter[] | undefined): boolean {
@@ -77,5 +55,6 @@ export function matchesAll(event: EventRow, filters: readonly PropertyFilter[] |
 /** A breakdown's value for an event: the property as text, or null when it has none. */
 export function breakdownValue(event: EventRow, key: string): string | null {
   const value = valueOf(event, key);
-  return value === undefined || value === null ? null : asText(value);
+  if (value === undefined || value === null) return null;
+  return Array.isArray(value) ? value.join(",") : String(value);
 }

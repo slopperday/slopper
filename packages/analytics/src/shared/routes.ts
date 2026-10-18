@@ -24,3 +24,8 @@ export const DEFAULT_STORAGE_KEY = "sa";
 export function cookieNames(storageKey: string = DEFAULT_STORAGE_KEY) {
   return { distinctId: `${storageKey}_id`, optOut: `${storageKey}_off` } as const;
 }
+
+/** The localStorage key the SDK keeps its session and settings under, from its first event. */
+export function stateKey(storageKey: string = DEFAULT_STORAGE_KEY): string {
+  return `${storageKey}_state`;
+}

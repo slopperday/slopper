@@ -10,6 +10,8 @@
 
 import type * as definitions from "../definitions.js";
 import type * as events from "../events.js";
+import type * as experiments from "../experiments.js";
+import type * as flags from "../flags.js";
 import type * as ingest from "../ingest.js";
 import type * as lib_ingest from "../lib/ingest.js";
 import type * as lib_paging from "../lib/paging.js";
@@ -30,6 +32,8 @@ import { anyApi, componentsGeneric } from "convex/server";
 const fullApi: ApiFromModules<{
   definitions: typeof definitions;
   events: typeof events;
+  experiments: typeof experiments;
+  flags: typeof flags;
   ingest: typeof ingest;
   "lib/ingest": typeof lib_ingest;
   "lib/paging": typeof lib_paging;

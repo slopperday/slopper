@@ -27,6 +27,10 @@ export default [
   route("analytics/people", "routes/analytics.people.tsx"),
   route("analytics/people/:distinctId", "routes/analytics.person.tsx"),
   route("analytics/sessions/:sessionId", "routes/analytics.session.tsx"),
+  route("analytics/flags", "routes/analytics.flags.tsx"),
+  route("analytics/flags/:key", "routes/analytics.flag.tsx"),
+  route("analytics/experiments", "routes/analytics.experiments.tsx"),
+  route("analytics/experiments/:key", "routes/analytics.experiment.tsx"),
   route("cli", "routes/cli.tsx"),
 
   route("auth/logout", "routes/auth.logout.ts"),

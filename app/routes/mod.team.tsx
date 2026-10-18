@@ -207,6 +207,22 @@ function describe({ action, target }: StaffLogEntry): string {
       return `deleted a comment on ${target}`;
     case "forgetPerson":
       return `deleted everything analytics had on ${target}`;
+    case "flag":
+      return {
+        created: `made the flag ${target}`,
+        changed: `changed the flag ${target}`,
+        on: `turned the flag ${target} on`,
+        off: `turned the flag ${target} off`,
+        deleted: `deleted the flag ${target}`,
+      }[action.change];
+    case "experiment":
+      return {
+        created: `set up the experiment ${target}`,
+        changed: `changed the experiment ${target}`,
+        started: `started the experiment ${target}`,
+        stopped: `stopped the experiment ${target}`,
+        deleted: `deleted the experiment ${target}`,
+      }[action.change];
   }
 }
 

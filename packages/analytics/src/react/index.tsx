@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 import type { Analytics, AnalyticsOptions } from "../browser/client";
+import type { FlagState, FlagValue } from "../shared/flags";
 import type { Properties } from "../shared/properties";
 
 /**
@@ -12,6 +13,9 @@ import type { Properties } from "../shared/properties";
  */
 
 const AnalyticsContext = createContext<Analytics | null>(null);
+
+const NO_FLAGS: FlagState = { values: {}, payloads: {} };
+const FlagsContext = createContext<FlagState>(NO_FLAGS);
 
 /** How long an idle callback may wait before it runs anyway. */
 const IDLE_TIMEOUT_MS = 3_000;
@@ -59,10 +63,13 @@ export function landedAt(): number | undefined {
 
 export function AnalyticsProvider({
   options,
+  flags = NO_FLAGS,
   children,
 }: {
   /** Null turns analytics off: nothing is loaded and nothing is sent. */
   options: AnalyticsOptions | null;
+  /** Feature flags for whoever's here, worked out by the server (shared/flags.ts `evaluateFlags`). */
+  flags?: FlagState;
   children: ReactNode;
 }) {
   const [client, setClient] = useState<Analytics | null>(null);
@@ -91,7 +98,11 @@ export function AnalyticsProvider({
     // loader run, and a new client per navigation would mean a new page view.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint]);
-  return <AnalyticsContext value={client}>{children}</AnalyticsContext>;
+  return (
+    <AnalyticsContext value={client}>
+      <FlagsContext value={flags}>{children}</FlagsContext>
+    </AnalyticsContext>
+  );
 }
 
 /** The SDK, once it has loaded; null before that and on the server. */
@@ -115,4 +126,31 @@ export function useIdentify(person: { distinctId: string; set?: Properties } | n
   }, [client, distinctId, set]);
 }
 
+/**
+ * A flag's value for whoever's here: false when it's off or unknown, true
+ * when on, or the variant's key. It reads what the server worked out, so
+ * the first render already has it; once the SDK has loaded it records that
+ * they saw it (once a session), which experiments count.
+ */
+export function useFeatureFlag(key: string): FlagValue {
+  const value = useContext(FlagsContext).values[key] ?? false;
+  const client = useAnalytics();
+  useEffect(() => {
+    client?.flagSeen(key, value);
+  }, [client, key, value]);
+  return value;
+}
+
+/** True when a flag is on, whatever its variant. */
+export function useFeatureFlagEnabled(key: string): boolean {
+  return useFeatureFlag(key) !== false;
+}
+
+/** The parsed JSON payload of the flag's value, when it has one. */
+export function useFeatureFlagPayload(key: string): unknown {
+  useFeatureFlag(key);
+  return useContext(FlagsContext).payloads[key];
+}
+
 export type { Analytics, AnalyticsOptions } from "../browser/client";
+export type { FlagState, FlagValue } from "../shared/flags";

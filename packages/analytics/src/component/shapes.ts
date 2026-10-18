@@ -7,7 +7,7 @@ import schema from "./schema";
  * `ComponentApi` types every result.
  */
 
-const system = <Table extends "events" | "persons" | "sessions">(table: Table) => ({
+const system = <Table extends "events" | "persons" | "sessions" | "flags" | "experiments">(table: Table) => ({
   _id: v.id(table),
   _creationTime: v.number(),
 });
@@ -15,3 +15,5 @@ const system = <Table extends "events" | "persons" | "sessions">(table: Table) =
 export const eventDoc = v.object({ ...system("events"), ...schema.tables.events.validator.fields });
 export const personDoc = v.object({ ...system("persons"), ...schema.tables.persons.validator.fields });
 export const sessionDoc = v.object({ ...system("sessions"), ...schema.tables.sessions.validator.fields });
+export const flagDoc = v.object({ ...system("flags"), ...schema.tables.flags.validator.fields });
+export const experimentDoc = v.object({ ...system("experiments"), ...schema.tables.experiments.validator.fields });
