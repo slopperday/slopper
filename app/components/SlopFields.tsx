@@ -1,4 +1,5 @@
-import { CATEGORIES, LIMITS, type SlopLink } from "~/lib/model";
+import { CATEGORIES, LIMITS, type SlopFeature, type SlopLink } from "~/lib/model";
+import { FeatureFields } from "./FeatureFields";
 import { LinkFields } from "./LinkFields";
 import { type Screenshot, ScreenshotPicker } from "./ScreenshotPicker";
 
@@ -12,6 +13,10 @@ export interface SlopFormValues {
   links: SlopLink[];
   screenshots: Screenshot[];
   madeWith: string[];
+  /** A YouTube, Loom or Vimeo link. */
+  demo: string;
+  features: SlopFeature[];
+  audience: string;
 }
 
 export function Field({
@@ -122,6 +127,70 @@ export function SlopFields({ values, errors }: { values: Partial<SlopFormValues>
           defaultValue={values.description ?? ""}
         />
       </Field>
+
+      <ProductPageFields values={values} errors={errors} />
     </div>
+  );
+}
+
+/**
+ * The extras that turn a slop page into the product's home: a demo video,
+ * what it does and who it's for. Optional, and folded away until there's
+ * something in them so shipping stays quick.
+ */
+function ProductPageFields({ values, errors }: { values: Partial<SlopFormValues>; errors: FieldErrors }) {
+  const filled = Boolean(values.demo || values.audience || values.features?.length);
+  const failed = Boolean(errors.demo || errors.audience || errors.features);
+  return (
+    <details id="product-page" className="group scroll-mt-24 border-t border-line pt-5" open={filled || failed}>
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3">
+        <span>
+          <span className="block font-display text-[1.5rem] leading-none font-extrabold">Product page</span>
+          <span className="mt-1 block text-[0.9375rem] text-muted">
+            Optional. A demo video, what it does and who it's for.
+          </span>
+        </span>
+        <span aria-hidden="true" className="font-display text-[1.75rem] text-muted group-open:rotate-45">
+          +
+        </span>
+      </summary>
+      <div className="mt-6 grid gap-6">
+        <Field
+          id="demo"
+          label="Demo video"
+          error={errors.demo}
+          hint="A YouTube video or Short, a Loom, or a Vimeo link. It plays on the slop page."
+        >
+          <input
+            id="demo"
+            name="demo"
+            type="url"
+            inputMode="url"
+            className="input font-mono text-[0.9375rem]"
+            defaultValue={values.demo ?? ""}
+            placeholder="https://youtu.be/…"
+            autoComplete="off"
+          />
+        </Field>
+        <Field id="audience" label="Who it's for" error={errors.audience} hint="One line.">
+          <input
+            id="audience"
+            name="audience"
+            className="input"
+            maxLength={LIMITS.audienceLength}
+            defaultValue={values.audience ?? ""}
+            placeholder="Anyone stuck on a bus with a phone and five minutes"
+            autoComplete="off"
+          />
+        </Field>
+        <Field
+          label="What it does"
+          error={errors.features}
+          hint={`Up to ${LIMITS.features}: a short title, then one line.`}
+        >
+          <FeatureFields initial={values.features ?? []} />
+        </Field>
+      </div>
+    </details>
   );
 }

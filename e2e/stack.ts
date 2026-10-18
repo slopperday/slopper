@@ -28,7 +28,15 @@ import { generateServerKeys, generateVapidKeys } from "../scripts/server-keys.ts
 import { EMBEDDING_MODEL } from "../convex/lib/embeddings.ts";
 import { fakeEmbedding } from "./fake-embeddings.ts";
 import { sha256Hex, startFakeS3 } from "./fake-s3.ts";
-import { E2E_ADMIN_IDENTITY, type FakeCheckRequest, type FakeEmail, PORTS, STACK_FILE, type Stack } from "./ports.ts";
+import {
+  E2E_ADMIN_IDENTITY,
+  E2E_WALLET,
+  type FakeCheckRequest,
+  type FakeEmail,
+  PORTS,
+  STACK_FILE,
+  type Stack,
+} from "./ports.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const STATE = join(ROOT, ".e2e");
@@ -83,6 +91,48 @@ async function readBody(request: IncomingMessage): Promise<string> {
   return body;
 }
 
+interface RpcCall {
+  id: number;
+  method: string;
+  params: unknown[];
+}
+
+const E2E_TOKEN_ACCOUNT = "E2eT0kenAcc0untE2eT0kenAcc0untE2eT0kenAcc0";
+const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+/** Stands in for Solana JSON-RPC: just enough for the wallet integration to find one payment. */
+function fakeSolana({ id, method, params }: RpcCall): { jsonrpc: "2.0"; id: number; result: unknown } {
+  const reply = (result: unknown) => ({ jsonrpc: "2.0" as const, id, result });
+  const [address, options] = params as [string, { mint?: string }];
+  switch (method) {
+    case "getTokenAccountsByOwner":
+      return reply({
+        context: { slot: 1 },
+        value: address === E2E_WALLET && options.mint === USDC ? [{ pubkey: E2E_TOKEN_ACCOUNT }] : [],
+      });
+    case "getSignaturesForAddress":
+      return reply(
+        address === E2E_TOKEN_ACCOUNT
+          ? [{ signature: "e2e-payment", err: null, blockTime: Math.floor(Date.now() / 1000) - 3600 }]
+          : [],
+      );
+    case "getTransaction":
+      return reply({
+        blockTime: Math.floor(Date.now() / 1000) - 3600,
+        meta: {
+          err: null,
+          preTokenBalances: [{ accountIndex: 1, mint: USDC, owner: E2E_WALLET, uiTokenAmount: { amount: "0" } }],
+          postTokenBalances: [
+            { accountIndex: 1, mint: USDC, owner: E2E_WALLET, uiTokenAmount: { amount: "12500000" } },
+          ],
+        },
+        transaction: { message: { accountKeys: [{ pubkey: "E2ePayer", signer: true }] } },
+      });
+    default:
+      return reply(null);
+  }
+}
+
 /**
  * Stands in for OpenRouter's chat completions. It rejects requests that drift
  * from what the real check must send (policy first, JSON mode, no reasoning,
@@ -126,6 +176,14 @@ function startFakeCheck(): void {
       response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ data }));
       return;
     }
+    if (request.method === "POST" && request.url === "/solana") {
+      const calls = JSON.parse(await readBody(request)) as RpcCall[];
+      // Answer in reverse order: JSON-RPC batches may come back in any order.
+      response
+        .writeHead(200, { "content-type": "application/json" })
+        .end(JSON.stringify(calls.map(fakeSolana).reverse()));
+      return;
+    }
     const body = JSON.parse(await readBody(request)) as {
       model: string;
       messages: {
@@ -137,6 +195,22 @@ function startFakeCheck(): void {
       provider?: { require_parameters?: boolean };
     };
     const [system, user] = body.messages;
+    // A product page draft: its own prompt, the slop as one JSON string.
+    if (typeof system?.content === "string" && system.content.startsWith("You write the product page")) {
+      const draft = {
+        tagline: "Tilt your phone to roll a marble through a maze you drew",
+        description: "Draw a maze with a finger, then tilt the phone to roll a marble home. Drafted for the e2e test.",
+        features: [
+          { title: "Draw any maze", body: "Sketch walls with a finger." },
+          { title: "Tilt to roll", body: "The phone's tilt is the only control." },
+        ],
+        audience: "Anyone with a phone and five spare minutes",
+      };
+      response
+        .writeHead(200, { "content-type": "application/json" })
+        .end(JSON.stringify({ choices: [{ message: { role: "assistant", content: JSON.stringify(draft) } }] }));
+      return;
+    }
     const parts = Array.isArray(user?.content) ? user.content : [];
     const text = parts.map((part) => part.text ?? "").join("\n");
     // Images must arrive inline, as the real check sends them.
@@ -262,6 +336,7 @@ async function main(): Promise<void> {
       ADMIN_IDENTITIES: `${E2E_ADMIN_IDENTITY.provider}:${E2E_ADMIN_IDENTITY.providerId}`,
       OPENROUTER_API_KEY: "e2e-key",
       OPENROUTER_BASE_URL: CHECK_URL,
+      SOLANA_RPC_URL: `${CHECK_URL}/solana`,
       VAPID_PUBLIC_KEY: vapid.publicKey,
       B2_ENDPOINT: S3_URL,
       B2_REGION: S3_CREDENTIALS.region,

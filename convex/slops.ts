@@ -8,8 +8,9 @@ import { can, requirePermission } from "./lib/permissions";
 import { logStaffAction } from "./lib/staffLog";
 import { consume, nextCounter } from "./lib/rate";
 import { isVisibleTo, productIdOf, publicSlop, publicUpdate, publicUser, toCards, voteOf } from "./lib/shape";
-import { linkValidator } from "./schema";
+import { demoVideoValidator, featureValidator, linkValidator } from "./schema";
 import { openGoal } from "./goals";
+import { tractionFor } from "./integrations";
 import { utcToday } from "./race";
 import { isVideo, releaseMedia, updateMedia } from "./lib/media";
 import { checkScreenshots } from "./moderation";
@@ -32,6 +33,10 @@ export const slopInput = v.object({
   /** Media ids as typed or sent by an agent; checked against ownership. */
   screenshots: v.array(v.string()),
   madeWith: v.array(v.string()),
+  /** The product page. Left out, they stay as they are. */
+  demo: v.optional(v.union(demoVideoValidator, v.null())),
+  features: v.optional(v.array(featureValidator)),
+  audience: v.optional(v.string()),
 });
 
 /**
@@ -294,6 +299,18 @@ export const remove = mutation({
         .withIndex("by_product", (q) => q.eq("productId", slopId))
         .collect();
       for (const entry of ledger) await ctx.db.delete(entry._id);
+      const sources = await ctx.db
+        .query("integrations")
+        .withIndex("by_product", (q) => q.eq("productId", slopId))
+        .collect();
+      for (const source of sources) {
+        const metrics = await ctx.db
+          .query("metrics")
+          .withIndex("by_integration_date", (q) => q.eq("integrationId", source._id))
+          .collect();
+        for (const row of metrics) await ctx.db.delete(row._id);
+        await ctx.db.delete(source._id);
+      }
     }
     for (const review of await ctx.db
       .query("videoReviews")
@@ -564,6 +581,8 @@ export const page = query({
           slopOfTheDay: launch.slopOfTheDay,
           slug: launch.slug,
         })),
+      // Days are UTC dates; a page a day out of date still shows the right 90.
+      traction: await tractionFor(ctx, productId, isOwner, new Date().toISOString().slice(0, 10)),
       money: {
         isPublic: moneyPublic,
         totals: moneyTotals(ledger),

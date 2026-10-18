@@ -69,10 +69,10 @@ async function putOut(ctx: MutationCtx, entry: Doc<"scheduledLaunches">) {
   if (!owner) throw new Error(`Scheduled launch ${entry._id} has no owner.`);
   // Deleting a product with launches queued is refused (`slops.remove`), so the source is still here.
   const source = entry.productId ? await ctx.db.get(entry.productId) : null;
-  const { name, tagline, description, category, links, madeWith } = entry;
+  const { name, tagline, description, category, links, madeWith, demo, features, audience } = entry;
   return await insertLaunch(ctx, {
     userId: entry.userId,
-    input: { name, tagline, description, category, links, madeWith },
+    input: { name, tagline, description, category, links, madeWith, demo, features, audience },
     screenshots: await ownedMedia(ctx, entry.userId, entry.screenshots, source?.screenshots),
     launchNote: entry.launchNote,
     source,

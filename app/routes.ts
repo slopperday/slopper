@@ -51,6 +51,7 @@ export default [
   route("api/slops/:id", "routes/api.slop.ts"),
   route("api/slops/:id/vote", "routes/api.vote.ts"),
   route("api/slops/:id/pledge", "routes/api.pledge.ts"),
+  route("api/slops/:id/traction", "routes/api.traction.ts"),
   route("feed.xml", "routes/feed.ts"),
 
   route(":handle/card.png", "routes/card.profile.ts"),

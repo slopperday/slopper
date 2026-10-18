@@ -75,6 +75,16 @@ export function optionalUpdateLinks(
   });
 }
 
+export function optionalFeatures(input: JsonObject, key: string): { title?: string; body?: string }[] | undefined {
+  const value = input[key];
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) throw new ApiError(400, `${key} must be a list of { title, body }.`);
+  return value.map((item, index) => {
+    const feature = asObject(item, `${key}[${index}]`);
+    return { title: optionalString(feature, "title"), body: optionalString(feature, "body") };
+  });
+}
+
 export function optionalLinks(input: JsonObject, key: string): { kind?: string; url?: string }[] | undefined {
   const value = input[key];
   if (value === undefined || value === null) return undefined;

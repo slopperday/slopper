@@ -140,6 +140,11 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   masked, hidden inputs and `[data-no-capture]`/`[data-no-replay]` elements are blocked out, query strings are cut
   from every address, and private pages aren't recorded (`mayRecordPath` in `app/lib/analytics.ts`). A new page
   that shows something only its owner should see goes in `mayRecordPath`, or marks that part `data-no-replay`.
+- **Traction:** sources are one client each in `app/.server/integrations/` (registered in `index.ts`), read only.
+  Syncs run on the app server (it holds the sealing key); Convex stores days in `metrics` and hands due sources out
+  with `integrations.claim`. Numbers on the page always say where they came from; typed-in money stays in the ledger.
+- **Product pages:** a linked demo video (`demo`, not the uploaded promo `video`) is stored as `{ provider, id }` and embed URLs are built in `app/lib/video.ts`, never taken
+  from input. AI drafts (`app/.server/draft.ts`) only fill the form; saving runs the content check as usual.
 - **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
   gate anything that shows or writes comments on the switch.
 - **Releases:** every change worth releasing gets a changeset, made with `vp exec monochange create` and named with
