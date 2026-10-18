@@ -1,0 +1,54 @@
+{
+  "title": "1.9.0 (2026-10-18)",
+  "summary": [],
+  "sections": [
+    {
+      "title": "New",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Updates with more to show",
+          "details_markdown": "Updates can carry more than text now. Tag the version that shipped, add up to four images and three links, name the feature you shipped, or say how a field test went (worked, mixed or broke) and who tried it.\n\nA link can show a preview card with the page's title, description and image. Cards are off until you ask for one, and you can remove one from a posted update at any time; the link stays.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "expanded",
+          "provenance": {
+            "source_path": ".changeset/rich-updates.md",
+            "changeset_path": ".changeset/rich-updates.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "bd47777"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Fixed",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Messages say what happened, not how Slopper works inside",
+          "details_markdown": "The moderation pages, settings, sign-in and auto-post messages no longer mention servers, configuration or which AI model checked something. A failed auto-post shows the network's own reason, or a plain \"try again later\", instead of a status code and raw response.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/plain-user-copy.md",
+            "changeset_path": ".changeset/plain-user-copy.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "e4ec917"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
