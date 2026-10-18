@@ -533,9 +533,11 @@ describe("load cost", () => {
 });
 
 describe("session replay", () => {
-  /** Lets the recorder's dynamic import settle. */
+  /** Lets the recorder's dynamic import settle: done when no client is still loading one. */
   async function loaded() {
-    for (let round = 0; round < 5; round += 1) await tick();
+    await vi.waitFor(() => {
+      if (clients.some((client) => client.replayLoading)) throw new Error("A recorder is still loading.");
+    });
   }
 
   it("records no session unless replay is on, and every one at a rate of 1", async () => {
@@ -554,6 +556,8 @@ describe("session replay", () => {
   it("decides by the session, so every page of one agrees", async () => {
     const client = make({ pageviews: true, replay: { sampleRate: 0.5 } });
     const picked = bucketOf(`replay.${client.sessionId}`) < 0.5;
+    // Vitest's module mocks can't serve two imports at once (browsers share the module): one page at a time.
+    await loaded();
     // The next page in the same session.
     make({ pageviews: true, replay: { sampleRate: 0.5 } });
     await loaded();

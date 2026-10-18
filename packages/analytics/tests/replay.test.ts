@@ -267,7 +267,11 @@ describe("Recorder", () => {
     rrweb.emit(move(3));
     await recorder.flush();
     await settle();
-    expect(sent.map((chunk) => [chunk.url.searchParams.get("d"), chunk.events.length])).toEqual([
+    // Compressing takes as long as it takes: chunks are filed by when they start, not when they arrive.
+    const byStart = sent.toSorted(
+      (a, b) => Number(a.url.searchParams.get("from")) - Number(b.url.searchParams.get("from")),
+    );
+    expect(byStart.map((chunk) => [chunk.url.searchParams.get("d"), chunk.events.length])).toEqual([
       ["visitor-1", 2],
       ["user-1", 1],
     ]);

@@ -124,6 +124,11 @@ export class Analytics {
     return readCookie(this.cookies.optOut) === "1";
   }
 
+  /** Whether session replay's recorder is still being fetched. */
+  get replayLoading(): boolean {
+    return this.recorderLoading;
+  }
+
   /** Whether `identify` linked this browser to an account. */
   get identified(): boolean {
     return this.store.read().identified;
