@@ -27,7 +27,13 @@ test.describe("a maker's day", () => {
       .setInputFiles({ name: "shot.png", mimeType: "image/png", buffer: screenshot });
     await expect(page.getByRole("img", { name: "Screenshot 1" })).toBeVisible();
     await page.getByLabel("Category").selectOption("games");
-    await page.getByLabel("Made with").fill("Claude Code, Vite");
+    // Made with: a comma turns what's typed into a tag, a suggestion is a click, and a full name picks itself.
+    const madeWith = page.getByRole("combobox", { name: "Made with" });
+    await madeWith.fill("Claude Code,");
+    await page.getByRole("button", { name: "Add Opus 5.5" }).click();
+    await madeWith.pressSequentially("vite");
+    await expect(page.getByRole("button", { name: "Remove Vite" })).toBeVisible();
+    await expect(madeWith).toHaveValue("");
     await page.getByLabel("Description").fill("Tilt to roll. **Sound on.**");
     await page.getByLabel("Launch note").fill("Day 1. Built on the bus.");
     await page.getByRole("button", { name: "Throw it at the wall" }).click();
@@ -38,6 +44,8 @@ test.describe("a maker's day", () => {
     await expect(page.getByText("Day 1/30 · Launched")).toBeVisible();
     await expect(page.getByRole("img", { name: `${name} screenshot 1` })).toBeVisible();
     await expect(page.locator(".prose-slop strong")).toHaveText("Sound on.");
+    await expect(page.locator(".tag-kind-harness", { hasText: "Claude Code" })).toBeVisible();
+    await expect(page.locator(".tag-kind-model", { hasText: "Opus 5.5" })).toBeVisible();
 
     // The content check saw the text and the screenshot.
     const checked = (await checkRequests(stack)).find((request) => request.text.includes(name));

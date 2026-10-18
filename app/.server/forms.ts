@@ -16,6 +16,8 @@ import {
   type UpdateDetails,
 } from "~/lib/model";
 import { type DemoVideo, parseVideoUrl, videoPageUrl } from "~/lib/video";
+import { cleanTags } from "~/lib/tags";
+
 /** Everything a person types when shipping or editing a slop. */
 export interface SlopInput {
   name: string;
@@ -126,7 +128,8 @@ export function slopDraftFromForm(form: FormData): SlopDraft {
     category: text(form, "category"),
     links: all(form, "linkUrl").map((url, index) => ({ kind: kinds[index] ?? "website", url })),
     screenshots: all(form, "screenshot"),
-    madeWith: text(form, "madeWith").split(","),
+    // One input per picked tag, plus whatever is still typed in the box (commas split it).
+    madeWith: all(form, "madeWith"),
     demo: text(form, "demo"),
     features: pairs(all(form, "featureTitle"), all(form, "featureBody")),
     audience: text(form, "audience"),
@@ -193,10 +196,7 @@ export function validateSlop(draft: SlopDraft): Parsed<SlopForm> {
   const screenshots = [...new Set((draft.screenshots ?? []).map((id) => id.trim()))].filter((id) => MEDIA_ID.test(id));
   if (screenshots.length > LIMITS.screenshots) errors.screenshots = `Up to ${LIMITS.screenshots} screenshots.`;
 
-  const madeWith = [...new Set((draft.madeWith ?? []).map((tag) => tag.trim().slice(0, 24)).filter(Boolean))].slice(
-    0,
-    LIMITS.madeWith,
-  );
+  const madeWith = cleanTags(draft.madeWith ?? []);
 
   if (Object.keys(errors).length > 0 || !category) return { ok: false, errors };
   return {
@@ -424,7 +424,7 @@ export function slopFormValues(form: FormData) {
       return { kind: isLinkKind(kind) ? kind : "website", url: link.url ?? "" };
     }),
     screenshots: (draft.screenshots ?? []).filter((id) => MEDIA_ID.test(id)),
-    madeWith: (draft.madeWith ?? []).map((tag) => tag.trim()).filter(Boolean),
+    madeWith: cleanTags(draft.madeWith ?? []),
     demo: draft.demo ?? "",
     features: (draft.features ?? []).map((row) => ({ title: row.title ?? "", body: row.body ?? "" })),
     audience: draft.audience ?? "",

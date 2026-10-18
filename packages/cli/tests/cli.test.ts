@@ -189,6 +189,7 @@ const ROUTE_CASES: { name: string; argv: string[]; method: string; path: string;
   { name: "whoami", argv: ["whoami"], method: "GET", path: "/api/v1/me", body: null },
   { name: "today", argv: ["today"], method: "GET", path: "/api/v1/today", body: null },
   { name: "categories", argv: ["categories"], method: "GET", path: "/api/v1/categories", body: null },
+  { name: "tags", argv: ["tags"], method: "GET", path: "/api/v1/tags", body: null },
   { name: "search", argv: ["search", "budget app"], method: "GET", path: "/api/v1/search?q=budget+app", body: null },
   {
     name: "search",

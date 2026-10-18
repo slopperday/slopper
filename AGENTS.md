@@ -156,6 +156,10 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
 - **Traction:** sources are one client each in `app/.server/integrations/` (registered in `index.ts`), read only.
   Syncs run on the app server (it holds the sealing key); Convex stores days in `metrics` and hands due sources out
   with `integrations.claim`. Numbers on the page always say where they came from; typed-in money stays in the ledger.
+- **Made with tags** (`app/lib/tags.ts`): kinds (model, harness, framework, platform, other) and known tags with
+  aliases are hardcoded there; add kinds or tags there (a kind also needs a `.tag-kind-…` colour in app.css). Slops
+  store names, cleaned with `cleanTags`; write them through `retag` (`convex/lib/tags.ts`), which keeps the counts in
+  `madeWithTags` that rank suggestions. People's own tags are suggested once `SUGGEST_AFTER_USES` slops use them.
 - **Product pages:** a linked demo video (`demo`, not the uploaded promo `video`) is stored as `{ provider, id }` and embed URLs are built in `app/lib/video.ts`, never taken
   from input. AI drafts (`app/.server/draft.ts`) only fill the form; saving runs the content check as usual.
 - **Reviews** (`convex/reviews.ts`): people who tried a slop say how it went (works, mixed, broken) with up to 4

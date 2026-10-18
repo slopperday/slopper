@@ -238,7 +238,8 @@ const SLOP_FLAGS = {
     "Where to try it; repeat for more. Kinds: website, app_store, testflight, play_store, play_beta, source, other. A bare URL is a website.",
   "--screenshot <file|id>":
     "An image file (uploaded for you) or an id from `slopper upload`; repeat for more. The first is the cover.",
-  "--made-with <tool>": "What built it; repeat for more.",
+  "--made-with <tag>":
+    "What built it: the model, the harness, the framework; repeat for more. Spellings from `slopper tags`.",
 };
 
 const AUTOPOST_FLAG = {
@@ -362,6 +363,11 @@ export const COMMANDS: Command[] = [
     name: "categories",
     summary: "Valid categories, link kinds, currencies and money categories.",
     run: ({ api }) => api.get("/categories"),
+  },
+  {
+    name: "tags",
+    summary: "Made-with tags, most used first: models, harnesses, frameworks and platforms.",
+    run: ({ api }) => api.get("/tags"),
   },
   {
     name: "goal",

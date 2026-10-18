@@ -17,7 +17,7 @@ export function launchPrompt(origin: string): string {
 Task: launch this project as today's slop.
 1. Read the project: README, package.json or pubspec.yaml, and any deployed URL, App Store, TestFlight or Play beta links you can find.
 2. Take 1–3 screenshots of it running (the first is the cover) and upload each with upload_screenshot.
-3. Call create_slop with a short name, a one-line tagline, a short Markdown description (what it is, why I built it, what's next), the best category (list_categories), every public link, and madeWith listing the tools used.
+3. Call create_slop with a short name, a one-line tagline, a short Markdown description (what it is, why I built it, what's next), the best category (list_categories), every public link, and madeWith tags from list_tags: the model you are, the harness running you and what it's built on.
 4. Write a launchNote in my voice, two sentences max, and set autopost: true.
 5. Give me the slop URL.`;
 }

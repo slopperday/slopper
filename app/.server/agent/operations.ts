@@ -21,6 +21,7 @@ import { listWords, slopPath } from "~/lib/display";
 import { CURRENCIES } from "~/lib/money";
 import { tractionBoard } from "~/lib/traction";
 import { videoPageUrl } from "~/lib/video";
+import { TAG_KINDS, tagOptions } from "~/lib/tags";
 import { absoluteUrl, autopostNetworks, config } from "../config";
 import { convex, convexMessage } from "../convex";
 import { validateGoal, validateReview, validateSlop, validateUpdate } from "../forms";
@@ -300,6 +301,21 @@ export const OPERATIONS: Operation[] = [
     },
   },
   {
+    name: "list_tags",
+    title: "List made-with tags",
+    description:
+      "Tags for a slop's madeWith, most used first, each with its kind: the model (Opus 5.5), the harness that ran it (Claude Code), the framework or the platform. Use these spellings; anything else becomes a new tag.",
+    inputSchema: { type: "object", properties: {} },
+    readOnly: true,
+    async run() {
+      const counted = await convex.query(api.tags.popular, {});
+      return {
+        kinds: TAG_KINDS.map(({ id, label }) => ({ id, label })),
+        tags: tagOptions(counted).map(({ name, kind, uses }) => ({ name, kind, uses })),
+      };
+    },
+  },
+  {
     name: "list_categories",
     title: "List categories and link kinds",
     description: "Valid values for a slop's category, link kinds, currencies and money categories.",
@@ -435,7 +451,12 @@ export const OPERATIONS: Operation[] = [
           maxItems: LIMITS.screenshots,
           description: "Ids from upload_screenshot; the first is the cover.",
         },
-        madeWith: { type: "array", items: { type: "string" }, maxItems: LIMITS.madeWith },
+        madeWith: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: LIMITS.madeWith,
+          description: "The model, the harness and what it's built on, spelled as list_tags has them.",
+        },
         ...PRODUCT_PAGE_SCHEMA,
         launchNote: {
           type: "string",

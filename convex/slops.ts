@@ -16,6 +16,7 @@ import { utcToday } from "./race";
 import { isVideo, releaseMedia, updateMedia } from "./lib/media";
 import { checkScreenshots } from "./moderation";
 import { scheduleEmbedding } from "./search";
+import { retag } from "./lib/tags";
 import { EDITING_CLOSED, editableUntil } from "../app/lib/editing";
 import { goalDayFor } from "../app/lib/goal";
 import { categoryFilter, LIMITS } from "../app/lib/model";
@@ -115,6 +116,7 @@ export async function insertLaunch(ctx: MutationCtx, draft: LaunchDraft) {
     launchLabel: source ? (launchLabel ?? "").trim().slice(0, LIMITS.launchLabelLength) : null,
     slug,
     ...input,
+    madeWith: await retag(ctx, [], input.madeWith),
     // Set by the content check, flags or moderators; never by the maker.
     nsfw: false,
     screenshots,
@@ -205,7 +207,8 @@ export const edit = mutation({
     const until = editableUntil({ launchedAt: slop._creationTime, launchDate: slop.launchDate }, owner.timeZone);
     if (Date.now() >= until) throw new ConvexError(EDITING_CLOSED);
     const screenshots = await ownedMedia(ctx, userId, input.screenshots, slop.screenshots);
-    await ctx.db.patch(slopId, { ...input, screenshots });
+    const madeWith = await retag(ctx, slop.madeWith, input.madeWith);
+    await ctx.db.patch(slopId, { ...input, madeWith, screenshots });
     if (embeddingText(input) !== embeddingText(slop)) await scheduleEmbedding(ctx, slopId);
     const blurred = await checkScreenshots(ctx, slopId, screenshots, slop.screenshots);
     const dropped = slop.screenshots.filter((id) => !screenshots.includes(id));
@@ -330,6 +333,7 @@ export const remove = mutation({
       await ctx.db.delete(review._id);
     }
     if (slop.embeddingId) await ctx.db.delete(slop.embeddingId);
+    await retag(ctx, slop.madeWith, []);
     await ctx.db.delete(slopId);
     const media = [...slop.screenshots, ...(slop.video ? [slop.video.mediaId] : []), ...updateImages];
     return { orphaned: (await releaseMedia(ctx, slop.userId, media)) + reviewImages };

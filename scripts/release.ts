@@ -192,6 +192,8 @@ async function deploy(ifReleased: boolean, dryRun: boolean): Promise<void> {
     ? []
     : ["monosecret", "--reason", `Deploy slopper.day v${current} to Convex`, "run", "--profile", "deploy", "--"];
   step("Convex", [...withDeployKey, "convex", "deploy"]);
+  // Counts "Made with" tags the first time there's a table for them; a no-op on every later deploy.
+  step("Convex tag counts", [...withDeployKey, "convex", "run", "tags:backfill"]);
   // From the repo root, netlify-cli sees the workspace packages (packages/*), asks which one to deploy, and fails
   // in CI. It skips that question when --cwd names a directory it wasn't started in, so it starts in scripts/ and
   // --cwd points it back at the app.
