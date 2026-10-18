@@ -1,0 +1,2727 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-10-18T14:07:39Z",
+  "command": "release",
+  "version": null,
+  "versions": {
+    "cli": "0.1.6",
+    "slopper": "1.10.0"
+  },
+  "release_targets": [
+    {
+      "id": "cli",
+      "kind": "group",
+      "version": "0.1.6",
+      "version_format": "namespaced",
+      "tag": true,
+      "release": false,
+      "tag_name": "cli/v0.1.6",
+      "rendered_title": "cli v0.1.6 (2026-10-18)",
+      "rendered_changelog_title": "cli 0.1.6 (2026-10-18)",
+      "members": ["@slopperday/cli", "@slopperday/skill"]
+    },
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.10.0",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.10.0",
+      "rendered_title": "v1.10.0 (2026-10-18)",
+      "rendered_changelog_title": "1.10.0 (2026-10-18)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["@slopperday/cli", "@slopperday/skill", "slopper"],
+  "changed_files": [
+    "CHANGELOG.md",
+    "app/changelog/1.10.0.json",
+    "package.json",
+    "packages/cli/CHANGELOG.md",
+    "packages/cli/package.json",
+    "packages/skill/package.json"
+  ],
+  "package_publications": [
+    {
+      "package": "@slopperday/cli",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.6",
+      "mode": "builtin",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    },
+    {
+      "package": "@slopperday/skill",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.6",
+      "mode": "builtin",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    }
+  ],
+  "updated_changelogs": ["CHANGELOG.md", "app/changelog/1.10.0.json", "packages/cli/CHANGELOG.md"],
+  "deleted_changesets": [
+    ".changeset/admin-identities.md",
+    ".changeset/agent-copy.md",
+    ".changeset/analytics-component.md",
+    ".changeset/analytics-insights.md",
+    ".changeset/analytics-light-load.md",
+    ".changeset/api-nsfw-hidden.md",
+    ".changeset/app-reviews-internals.md",
+    ".changeset/app-reviews.md",
+    ".changeset/autopost-ownership-hsts.md",
+    ".changeset/charts.md",
+    ".changeset/cli-agent-copy.md",
+    ".changeset/cli-analytics.md",
+    ".changeset/cli-reviews.md",
+    ".changeset/drop-admin-flags.md",
+    ".changeset/error-tracking.md",
+    ".changeset/feature-flags.md",
+    ".changeset/first-party-analytics.md",
+    ".changeset/flags-privacy.md",
+    ".changeset/heatmaps.md",
+    ".changeset/motion-setting.md",
+    ".changeset/netlify-env-workspaces.md",
+    ".changeset/product-pages.md",
+    ".changeset/public-pds-only.md",
+    ".changeset/replay-privacy.md",
+    ".changeset/session-replay.md",
+    ".changeset/slop-analytics.md",
+    ".changeset/staff-permissions.md",
+    ".changeset/surveys-privacy.md",
+    ".changeset/surveys.md",
+    ".changeset/traction-board.md",
+    ".changeset/traction-integrations.md",
+    ".changeset/web-vitals.md",
+    ".changeset/x-off-cli.md",
+    ".changeset/x-off-privacy.md"
+  ],
+  "changesets": [
+    {
+      "path": ".changeset/admin-identities.md",
+      "summary": "Admins are listed by sign-in account, and moderators don't judge their own slops",
+      "details": "- **`ADMIN_IDENTITIES` replaces `ADMIN_USERNAMES`.** It lists sign-in accounts as `provider:id` (`github:1160934`), and whoever signs in or links one becomes an admin (`grantListedAdmin`, `team.bootstrap`). Usernames can be changed in Settings and are picked from provider handles at sign-up, so a listed username that someone renamed away from, or never claimed, made whoever took it an admin on their next page load. A malformed entry stops the server. Set it with `vp run env:netlify`; `ADMIN_USERNAMES` is ignored and can be unset on Netlify. Stored roles are unchanged, so nobody loses theirs.\n- **Moderators can't decide on their own slops.** `videos.decide` and `moderation.decide` refuse a moderator's own video or flagged slop (`mayJudge`): approving their own video would have trusted them, and clearing their own flags would have restarted its auto-posts. Admins still can. /mod shows a moderator's own items without decision buttons.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a1fed5624e42b95fa08fb0a0fe079fe0d2acdc85",
+            "short_sha": "a1fed56",
+            "url": null,
+            "authored_at": "2026-10-18T10:00:19+01:00",
+            "committed_at": "2026-10-18T10:00:19+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a1fed5624e42b95fa08fb0a0fe079fe0d2acdc85",
+            "short_sha": "a1fed56",
+            "url": null,
+            "authored_at": "2026-10-18T10:00:19+01:00",
+            "committed_at": "2026-10-18T10:00:19+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/agent-copy.md",
+      "summary": "Agent docs say what happens, not how Slopper works inside",
+      "details": "What agents read on Slopper (the tool descriptions, llms.txt and the API's answers) now says what will happen, like \"pending until a moderator approves it\", without explaining how launches and videos are checked behind the scenes. An auto-post that's held says why in plain words.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d2fda0c8fadca9c267e5daeafdaff94b3df17a38",
+            "short_sha": "d2fda0c",
+            "url": null,
+            "authored_at": "2026-10-18T10:04:42+01:00",
+            "committed_at": "2026-10-18T10:04:42+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d2fda0c8fadca9c267e5daeafdaff94b3df17a38",
+            "short_sha": "d2fda0c",
+            "url": null,
+            "authored_at": "2026-10-18T10:04:42+01:00",
+            "committed_at": "2026-10-18T10:04:42+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/analytics-component.md",
+      "summary": "First-party analytics as a Convex component",
+      "details": "- **packages/analytics** (private, with nothing Slopper-specific so it can move out): a Convex component with events, people (anonymous until identify, merged into the account on sign-in, two accounts never merged) and sessions with source, channel, device and country; a browser SDK with page views and leaves, autocapture, rage clicks, opt-out and beaconed batches; React bindings; and shared pure logic.\n- **Wiring.** Mounted in `convex/convex.config.ts`. Browsers post to the deployment's HTTP actions (`convex/http.ts`, `/a/e`), so no Netlify function runs per event. `CONVEX_SITE_URL` names the site URL for self-hosted backends; cloud deployments work it out from `CONVEX_URL`. The CSP allows it.\n- **Product events** are captured in their mutations: signed up, slop launched, voted, pledged, update posted and goal set. A daily cron deletes events older than a year.\n- **Tests** build the Convex app with `tests/convexApp.ts`, which registers the component.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "195eec1dfee763c89ab021e52403d89885e62fa6",
+            "short_sha": "195eec1",
+            "url": null,
+            "authored_at": "2026-10-18T12:06:26+01:00",
+            "committed_at": "2026-10-18T12:06:26+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "195eec1dfee763c89ab021e52403d89885e62fa6",
+            "short_sha": "195eec1",
+            "url": null,
+            "authored_at": "2026-10-18T12:06:26+01:00",
+            "committed_at": "2026-10-18T12:06:26+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/analytics-insights.md",
+      "summary": "Insights, a platform dashboard and analytics per slop",
+      "details": "- **Insights engine** (`packages/analytics`): trends (with breakdowns), funnels, retention, journeys, stickiness, lifecycle, web analytics and a group leaderboard, as pure aggregators that an action feeds page by page (`SCAN_LIMIT` rows at most, `truncated` past it). Components can't `paginate()`, so the component pages by index key.\n- **Group analytics**: events carry `slop:<id>` when they're on a slop's page (resolved on the server from the path) or about it (votes, pledges, updates, comments). Downvotes are kept from makers.\n- **/analytics** for admins only: growth (accounts, launches, makers), slops climbing and fading, traffic, insights and people (with forgetting someone, logged in the staff log). Charts use a validated palette in both themes.\n- **Makers' analytics** at `/@username/slug/analytics`, the `slop_analytics` operation (MCP and `GET /api/v1/slops/:slop/analytics`) and `slopper analytics <slop>`.\n- **Admins' agents**: `slopper admin analytics [report]` over `GET /api/v1/admin/analytics`, deliberately undocumented outside AGENTS.md.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7264d88066d16b39f4dc799e9f072cdc98148c9c",
+            "short_sha": "7264d88",
+            "url": null,
+            "authored_at": "2026-10-18T12:06:27+01:00",
+            "committed_at": "2026-10-18T12:06:27+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7264d88066d16b39f4dc799e9f072cdc98148c9c",
+            "short_sha": "7264d88",
+            "url": null,
+            "authored_at": "2026-10-18T12:06:27+01:00",
+            "committed_at": "2026-10-18T12:06:27+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/analytics-light-load.md",
+      "summary": "Analytics costs a page's first load nothing",
+      "details": "- The analytics SDK isn't in any script a page loads to render: the React provider imports it after the load event, when the browser is idle, and the landing page view is stamped with when the page was opened. A failed import leaves the page uncounted and nothing else broken.\n- A burst of activity writes the session to localStorage once, not once per event.\n- e2e: the browser launches with a real user agent. Requests a page finishes after it's gone (analytics' leave beacons) carry the browser's own, which says HeadlessChrome and was dropped as a bot's; `e2e/performance.spec.ts` checks the SDK stays out of the first load, arrives and sends after it, and that a page left at once still sends what it saw.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "1145846e38e41d096eac0b9b63c54ee86116d870",
+            "short_sha": "1145846",
+            "url": null,
+            "authored_at": "2026-10-18T12:06:27+01:00",
+            "committed_at": "2026-10-18T12:06:27+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "1145846e38e41d096eac0b9b63c54ee86116d870",
+            "short_sha": "1145846",
+            "url": null,
+            "authored_at": "2026-10-18T12:06:27+01:00",
+            "committed_at": "2026-10-18T12:06:27+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/api-nsfw-hidden.md",
+      "summary": "API answers say what people see instead of the check's verdict",
+      "details": "The REST API and MCP tools no longer return `contentCheck`. Uploads (`POST /api/v1/media`, `upload_screenshot`, and the site's `/api/media`) return `nsfw: true` when the image will blur a slop, and every slop summary has `hidden` (only its maker can see it) next to `nsfw`. Auto-post hold reasons (`autopostHold`, `holdReason`) no longer mention the content check.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d2fda0c8fadca9c267e5daeafdaff94b3df17a38",
+            "short_sha": "d2fda0c",
+            "url": null,
+            "authored_at": "2026-10-18T10:04:42+01:00",
+            "committed_at": "2026-10-18T10:04:42+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d2fda0c8fadca9c267e5daeafdaff94b3df17a38",
+            "short_sha": "d2fda0c",
+            "url": null,
+            "authored_at": "2026-10-18T10:04:42+01:00",
+            "committed_at": "2026-10-18T10:04:42+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/app-reviews-internals.md",
+      "summary": "Reviews, checked before they're saved",
+      "details": "- **Reviews** (convex/reviews.ts): one per person per launch, replaced when written again; not for the maker's own slop or a hidden one. Screenshots must be the reviewer's own uploads, and a mature one makes the review mature (blurred for people who haven't opted in to NSFW).\n- **postReview** (app/.server/reviews.ts) runs the content check on the text and screenshots first: blocked is refused and never saved, ok and mature go up at once, and when the check can't run the review is saved as unchecked, like uploads. No moderator queue.\n- Authors and admins (new reviews.deleteAny permission, logged as deleteReview) can delete a review; makers can't. releaseMedia and slop deletion know about review screenshots.\n- New notification kind review, counted in the daily digest. Analytics event reviewed, shown to makers.\n- Agents: review_slop and list_reviews operations, PUT /api/v1/slops/:slop/reviews/mine and GET /api/v1/slops/:slop/reviews.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "cc9184e8fedf6ffb4f7a486dda301f2f3101638d",
+            "short_sha": "cc9184e",
+            "url": null,
+            "authored_at": "2026-10-18T14:37:51+01:00",
+            "committed_at": "2026-10-18T14:37:51+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "cc9184e8fedf6ffb4f7a486dda301f2f3101638d",
+            "short_sha": "cc9184e",
+            "url": null,
+            "authored_at": "2026-10-18T14:37:51+01:00",
+            "committed_at": "2026-10-18T14:37:51+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/app-reviews.md",
+      "summary": "Review apps you tried",
+      "details": "Tried someone's slop? Write a review on its page: say whether it works for you, is mixed, or is broken, describe what it is and what happened, and add up to 4 screenshots. Reviews go up straight away after an automatic check for offensive content, and the maker gets a notification. Makers read what people said under Reviews; agents can write and read reviews too (review_slop, list_reviews, slopper review and slopper reviews).",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "cc9184e8fedf6ffb4f7a486dda301f2f3101638d",
+            "short_sha": "cc9184e",
+            "url": null,
+            "authored_at": "2026-10-18T14:37:51+01:00",
+            "committed_at": "2026-10-18T14:37:51+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "cc9184e8fedf6ffb4f7a486dda301f2f3101638d",
+            "short_sha": "cc9184e",
+            "url": null,
+            "authored_at": "2026-10-18T14:37:51+01:00",
+            "committed_at": "2026-10-18T14:37:51+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/autopost-ownership-hsts.md",
+      "summary": "Only retry auto-posts on the signed-in person's own updates, and send Strict-Transport-Security on production pages",
+      "details": null,
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "afa01dfefde82a589887275e087560dab3099204",
+            "short_sha": "afa01df",
+            "url": null,
+            "authored_at": "2026-10-18T13:09:58+01:00",
+            "committed_at": "2026-10-18T13:09:58+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "afa01dfefde82a589887275e087560dab3099204",
+            "short_sha": "afa01df",
+            "url": null,
+            "authored_at": "2026-10-18T13:09:58+01:00",
+            "committed_at": "2026-10-18T13:09:58+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/charts.md",
+      "summary": "Charts on ECharts, with comparisons",
+      "details": "- The analytics charts are ECharts now, loaded in their own chunk once a chart is on screen (about 167 KB brotli, never on public pages): lines with a crosshair tooltip and a legend that turns lines on and off, stacked columns, funnels that show who dropped off, and journeys as a Sankey diagram you can trace by hovering. Long ranges zoom with ctrl and the wheel, or a pinch. Every chart keeps its table.\n- Comparisons with the period before: trends take `compare` (\"Compare with the period before\" on /analytics/insights), and traffic and a slop's views draw the days before as a dashed line, with the change in the tooltip. Web and slop reports carry `previousSeries`.\n- Charts animate unless motion is turned down, in Settings or on the device.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "cacbc98bdede48251ff4d74c947cbf521379baf1",
+            "short_sha": "cacbc98",
+            "url": null,
+            "authored_at": "2026-10-18T14:01:25+01:00",
+            "committed_at": "2026-10-18T14:01:25+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "cacbc98bdede48251ff4d74c947cbf521379baf1",
+            "short_sha": "cacbc98",
+            "url": null,
+            "authored_at": "2026-10-18T14:01:25+01:00",
+            "committed_at": "2026-10-18T14:01:25+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/cli-agent-copy.md",
+      "summary": "slopper help and the skill describe results, not Slopper's internals",
+      "details": "`slopper screenshot` reports `nsfw: true` when an image will blur a slop, `launch --autopost` and `video` describe what happens without explaining the checks, and the skill reads `hidden` and `nsfw` on a launch.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d2fda0c8fadca9c267e5daeafdaff94b3df17a38",
+            "short_sha": "d2fda0c",
+            "url": null,
+            "authored_at": "2026-10-18T10:04:42+01:00",
+            "committed_at": "2026-10-18T10:04:42+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d2fda0c8fadca9c267e5daeafdaff94b3df17a38",
+            "short_sha": "d2fda0c",
+            "url": null,
+            "authored_at": "2026-10-18T10:04:42+01:00",
+            "committed_at": "2026-10-18T10:04:42+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/cli-analytics.md",
+      "summary": "slopper analytics shows how a slop is doing",
+      "details": "slopper analytics <slop> [--days n] prints a slop's views, people, sources, clicks and votes; the skill explains when to use it.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7264d88066d16b39f4dc799e9f072cdc98148c9c",
+            "short_sha": "7264d88",
+            "url": null,
+            "authored_at": "2026-10-18T12:06:27+01:00",
+            "committed_at": "2026-10-18T12:06:27+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7264d88066d16b39f4dc799e9f072cdc98148c9c",
+            "short_sha": "7264d88",
+            "url": null,
+            "authored_at": "2026-10-18T12:06:27+01:00",
+            "committed_at": "2026-10-18T12:06:27+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/cli-reviews.md",
+      "summary": "slopper review and slopper reviews",
+      "details": "slopper review <slop> <works|mixed|broken> --body … [--image …] writes or replaces your review of someone's slop; slopper reviews <slop> reads what people said. The skill says when to use them.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "cc9184e8fedf6ffb4f7a486dda301f2f3101638d",
+            "short_sha": "cc9184e",
+            "url": null,
+            "authored_at": "2026-10-18T14:37:51+01:00",
+            "committed_at": "2026-10-18T14:37:51+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "cc9184e8fedf6ffb4f7a486dda301f2f3101638d",
+            "short_sha": "cc9184e",
+            "url": null,
+            "authored_at": "2026-10-18T14:37:51+01:00",
+            "committed_at": "2026-10-18T14:37:51+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/drop-admin-flags.md",
+      "summary": "Drop the old admin flags from Convex",
+      "details": "`slops.page`, `slops.remove` and `activity.deleteComment` no longer accept the `isAdmin`/`asAdmin` arguments they ignored while v1.6.0 deployed. They read the caller's stored role (`canModerate`/`isAdmin` in `convex/lib/auth.ts`), and no app server since v1.6.0 sends them.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "refactor"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d70dd30dc1bb176379f87dd7f635b4d53ba9422a",
+            "short_sha": "d70dd30",
+            "url": null,
+            "authored_at": "2026-10-18T10:00:19+01:00",
+            "committed_at": "2026-10-18T10:00:19+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d70dd30dc1bb176379f87dd7f635b4d53ba9422a",
+            "short_sha": "d70dd30",
+            "url": null,
+            "authored_at": "2026-10-18T10:00:19+01:00",
+            "committed_at": "2026-10-18T10:00:19+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/error-tracking.md",
+      "summary": "Error tracking",
+      "details": "- The analytics SDK records uncaught errors and unhandled rejections as `$exception` events (type, message, a short stack without query strings, a fingerprint that groups the same error across deploys), at most 25 a page and the same one once a minute; extension noise is left out. `captureException` records caught ones, and the root error boundary uses it.\n- The app server reports errors in loaders, actions and rendering (`handleError`) through `analytics.captureServerError`, tied to the visitor's analytics id unless they turned analytics off. Server events can now say which page they happened on.\n- Admins see issues at /analytics/errors: how often, for how many people, where, the stack, and the sessions they happened in, with their recordings. Agents get them with `slopper admin analytics errors` and `error --q <fingerprint>`.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ef45366bf3e356f63e290ffaca6d2aa903f4821e",
+            "short_sha": "ef45366",
+            "url": null,
+            "authored_at": "2026-10-18T13:28:17+01:00",
+            "committed_at": "2026-10-18T13:28:17+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "ef45366bf3e356f63e290ffaca6d2aa903f4821e",
+            "short_sha": "ef45366",
+            "url": null,
+            "authored_at": "2026-10-18T13:28:17+01:00",
+            "committed_at": "2026-10-18T13:28:17+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/feature-flags.md",
+      "summary": "Feature flags and experiments",
+      "details": "- **Flags** (`packages/analytics`): on or off, or weighted variants, for people matching conditions and a rollout. Buckets hash the flag's key with the distinct id, so people keep their value as a rollout grows. Evaluating is pure; the app server evaluates active flags while it renders (definitions kept in memory: fresh for 30s, used for up to 5 minutes while they're read again), and `useFeatureFlag`, `useFeatureFlagEnabled` and `useFeatureFlagPayload` read them on the first render. The SDK records each value someone sees once a session (`$featureFlagCalled`).\n- **First-page ids**: the root middleware sets the `sa_id` cookie on a visitor's first page (unless they opted out), so flags can bucket them before the SDK loads; the SDK keeps it.\n- **Experiments**: a flag with variants and a goal event, compared the Bayesian way (each variant's rate, 95% interval and chance of being best; a winner once each has 100 people and one is 95% likely best), seeded so results are stable.\n- **/analytics/flags** and **/analytics/experiments** for admins, with each flag's recent views by variant, and every change in the staff log. Admins' agents read them with `slopper admin analytics flags|experiments|experiment`.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "633e877736151b5500bc6c9a0a66e96fff0d8ef6",
+            "short_sha": "633e877",
+            "url": null,
+            "authored_at": "2026-10-18T12:35:36+01:00",
+            "committed_at": "2026-10-18T12:35:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "633e877736151b5500bc6c9a0a66e96fff0d8ef6",
+            "short_sha": "633e877",
+            "url": null,
+            "authored_at": "2026-10-18T12:35:36+01:00",
+            "committed_at": "2026-10-18T12:35:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/first-party-analytics.md",
+      "summary": "Slopper keeps its own analytics",
+      "details": "Slopper now records how it's used (pages opened, clicks, where visits come from) to learn what works and what's broken. It's first-party: it stays in Slopper's own database and no analytics company sees it. Turn it off in any browser from Settings or the privacy page, which now explains it all.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "195eec1dfee763c89ab021e52403d89885e62fa6",
+            "short_sha": "195eec1",
+            "url": null,
+            "authored_at": "2026-10-18T12:06:26+01:00",
+            "committed_at": "2026-10-18T12:06:26+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "195eec1dfee763c89ab021e52403d89885e62fa6",
+            "short_sha": "195eec1",
+            "url": null,
+            "authored_at": "2026-10-18T12:06:26+01:00",
+            "committed_at": "2026-10-18T12:06:26+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/flags-privacy.md",
+      "summary": "The privacy policy covers trying two versions of something",
+      "details": "Slopper may now show some people one version of a feature and others another, to see which works better. The random analytics id decides which you get, and we record which one you saw. With analytics turned off you get the usual version.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_change"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "633e877736151b5500bc6c9a0a66e96fff0d8ef6",
+            "short_sha": "633e877",
+            "url": null,
+            "authored_at": "2026-10-18T12:35:36+01:00",
+            "committed_at": "2026-10-18T12:35:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "633e877736151b5500bc6c9a0a66e96fff0d8ef6",
+            "short_sha": "633e877",
+            "url": null,
+            "authored_at": "2026-10-18T12:35:36+01:00",
+            "committed_at": "2026-10-18T12:35:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/heatmaps.md",
+      "summary": "Heatmaps",
+      "details": "- The analytics SDK sends where every click lands as `$heatmap` events (up to 50 points per page and viewport width), and page leaves carry the viewport width. Clicks inside `data-no-capture` aren't kept, and the SDK doesn't run inside frames.\n- A `heatmap` insight places clicks for phones, tablets or desktops, and counts views, scroll depth and the most-clicked links and buttons.\n- Admins see it at /analytics/heatmaps: the page as it is now, in a same-origin frame (the CSP now allows Slopper to frame its own pages), with its clicks over it. Agents get it with `slopper admin analytics heatmap`.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8a675735d1e1230981e718ef047f0cdd5d1fc5b5",
+            "short_sha": "8a67573",
+            "url": null,
+            "authored_at": "2026-10-18T13:20:20+01:00",
+            "committed_at": "2026-10-18T13:20:20+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8a675735d1e1230981e718ef047f0cdd5d1fc5b5",
+            "short_sha": "8a67573",
+            "url": null,
+            "authored_at": "2026-10-18T13:20:20+01:00",
+            "committed_at": "2026-10-18T13:20:20+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/motion-setting.md",
+      "summary": "Choose how much Slopper moves",
+      "details": "Settings has a Motion choice: like your device, animate, or keep still. Keep still turns off the animations on charts, the race clock and the rest of the site, and it's remembered in this browser.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "cacbc98bdede48251ff4d74c947cbf521379baf1",
+            "short_sha": "cacbc98",
+            "url": null,
+            "authored_at": "2026-10-18T14:01:25+01:00",
+            "committed_at": "2026-10-18T14:01:25+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "cacbc98bdede48251ff4d74c947cbf521379baf1",
+            "short_sha": "cacbc98",
+            "url": null,
+            "authored_at": "2026-10-18T14:01:25+01:00",
+            "committed_at": "2026-10-18T14:01:25+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/netlify-env-workspaces.md",
+      "summary": "`vp run env:netlify` works again",
+      "details": "netlify-cli saw the workspace packages (`packages/*`) from the repo root, stopped to ask which project to use, and failed on the first variable. The sync now starts netlify-cli in `scripts/` and points `--cwd` at the app, as `scripts/release.ts` does for deploys.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "54484b3872f6273cc469ef9087654bc9e68e3b0a",
+            "short_sha": "54484b3",
+            "url": null,
+            "authored_at": "2026-10-18T10:22:27+01:00",
+            "committed_at": "2026-10-18T10:22:27+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "54484b3872f6273cc469ef9087654bc9e68e3b0a",
+            "short_sha": "54484b3",
+            "url": null,
+            "authored_at": "2026-10-18T10:22:27+01:00",
+            "committed_at": "2026-10-18T10:22:27+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/product-pages.md",
+      "summary": "Slop pages are product pages: a demo video, what it does and who it's for, drafted by AI",
+      "details": "Add a YouTube, Loom or Vimeo demo that loads when someone presses play, list what your slop does and who it's for, and let AI draft it all from your words and your website. Read it over, make it yours, save.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "85cae12bd4d3e946054eaf109e2c4b3fb618c06b",
+            "short_sha": "85cae12",
+            "url": null,
+            "authored_at": "2026-10-18T13:00:28+01:00",
+            "committed_at": "2026-10-18T13:00:28+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "85cae12bd4d3e946054eaf109e2c4b3fb618c06b",
+            "short_sha": "85cae12",
+            "url": null,
+            "authored_at": "2026-10-18T13:00:28+01:00",
+            "committed_at": "2026-10-18T13:00:28+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/public-pds-only.md",
+      "summary": "Only connect Bluesky accounts whose PDS is a public web address, so a connected account can't aim the server's auto-post requests at private networks",
+      "details": null,
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "afa01dfefde82a589887275e087560dab3099204",
+            "short_sha": "afa01df",
+            "url": null,
+            "authored_at": "2026-10-18T13:09:58+01:00",
+            "committed_at": "2026-10-18T13:09:58+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "afa01dfefde82a589887275e087560dab3099204",
+            "short_sha": "afa01df",
+            "url": null,
+            "authored_at": "2026-10-18T13:09:58+01:00",
+            "committed_at": "2026-10-18T13:09:58+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/replay-privacy.md",
+      "summary": "The privacy policy covers visit recordings",
+      "details": "Slopper now records visits to play them back and see where people get stuck: what the pages looked like and how the mouse moved, scrolled and clicked. What you type shows as stars, your private pages (settings, API keys, notifications, your money) aren't recorded, and recordings are deleted after 30 days. Turning analytics off stops it too.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_change"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a396e65c1d1d5d9d5ded7c3d67845524e2e8fdf4",
+            "short_sha": "a396e65",
+            "url": null,
+            "authored_at": "2026-10-18T13:07:23+01:00",
+            "committed_at": "2026-10-18T13:07:23+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a396e65c1d1d5d9d5ded7c3d67845524e2e8fdf4",
+            "short_sha": "a396e65",
+            "url": null,
+            "authored_at": "2026-10-18T13:07:23+01:00",
+            "committed_at": "2026-10-18T13:07:23+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/session-replay.md",
+      "summary": "Session replay",
+      "details": "- The analytics SDK records a share of sessions (`ANALYTICS_REPLAY_RATE`, every one unless set) with rrweb, loaded only for those sessions after the SDK itself, and sends gzipped chunks every few seconds to `/a/r` on the Convex site. The analytics component keeps them in its file storage for 30 days, and `forget` deletes them with everything else.\n- What's private stays in the browser: fields are masked, hidden inputs and `data-no-capture`/`data-no-replay` parts are blocked out, scripts are left out, query strings are cut from every address, and private pages (settings, the CLI sign-in, notifications, staff pages and a slop's own analytics) aren't recorded. The owner's money ledger is blocked out.\n- Admins watch recordings at /analytics/recordings and on each session's page, with page views and clicks marked on the timeline, speeds up to 8× and quiet bits skipped. A person's sessions say which were recorded, and `slopper admin analytics recordings` lists them for agents.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a396e65c1d1d5d9d5ded7c3d67845524e2e8fdf4",
+            "short_sha": "a396e65",
+            "url": null,
+            "authored_at": "2026-10-18T13:07:23+01:00",
+            "committed_at": "2026-10-18T13:07:23+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a396e65c1d1d5d9d5ded7c3d67845524e2e8fdf4",
+            "short_sha": "a396e65",
+            "url": null,
+            "authored_at": "2026-10-18T13:07:23+01:00",
+            "committed_at": "2026-10-18T13:07:23+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/slop-analytics.md",
+      "summary": "See who's looking at your slop",
+      "details": "Your slop now has its own analytics: open Views and clicks from its page to see how many people viewed it (against the days before), where they came from, what they clicked, and its votes and pledges. Your own visits don't count. Agents get the same with slopper analytics, the slop_analytics tool and the API.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7264d88066d16b39f4dc799e9f072cdc98148c9c",
+            "short_sha": "7264d88",
+            "url": null,
+            "authored_at": "2026-10-18T12:06:27+01:00",
+            "committed_at": "2026-10-18T12:06:27+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7264d88066d16b39f4dc799e9f072cdc98148c9c",
+            "short_sha": "7264d88",
+            "url": null,
+            "authored_at": "2026-10-18T12:06:27+01:00",
+            "committed_at": "2026-10-18T12:06:27+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/staff-permissions.md",
+      "summary": "Staff permissions in one table, and a staff log",
+      "details": "- **Permissions, not roles.** `convex/lib/permissions.ts` maps each role to what it may do (`queue.decide`, `slops.hide`, `team.manage`, ...). Convex checks `requirePermission`, routes `requireStaff(viewer, request, permission)`, and loaders send `permissionsOf(user)` instead of the role, so a new role or a moved power is one change in that table. `canModerate`, `isAdmin` and `requireRole` are gone.\n- **Staff log.** Every use of a staff power (role changes, queue decisions, takedowns, trust, hiding, and deleting someone else's slop or comment) is written to `staffActions` in the same mutation. Admins see the latest 50 at /mod/team. It never reaches a public shape.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a1fed5624e42b95fa08fb0a0fe079fe0d2acdc85",
+            "short_sha": "a1fed56",
+            "url": null,
+            "authored_at": "2026-10-18T10:00:19+01:00",
+            "committed_at": "2026-10-18T10:00:19+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a1fed5624e42b95fa08fb0a0fe079fe0d2acdc85",
+            "short_sha": "a1fed56",
+            "url": null,
+            "authored_at": "2026-10-18T10:00:19+01:00",
+            "committed_at": "2026-10-18T10:00:19+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/surveys-privacy.md",
+      "summary": "Now and then, a quick question",
+      "details": "A page may sometimes ask you one quick question. Answer it or close it; either way you won't be asked that one again. Your answer stays with your visit, and nobody who turned analytics off is asked. The privacy policy says so.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_change"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "4f943814d79990437c6d42830d9e6c1496dca2d3",
+            "short_sha": "4f94381",
+            "url": null,
+            "authored_at": "2026-10-18T15:00:36+01:00",
+            "committed_at": "2026-10-18T15:00:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "4f943814d79990437c6d42830d9e6c1496dca2d3",
+            "short_sha": "4f94381",
+            "url": null,
+            "authored_at": "2026-10-18T15:00:36+01:00",
+            "committed_at": "2026-10-18T15:00:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/surveys.md",
+      "summary": "Surveys",
+      "details": "- Admins ask one question on the pages they pick, at /analytics/surveys: a rating, 0 to 10, one of a few options, or words, with an optional follow-up, for anyone, signed-in people or visitors, after a delay. Starting, stopping and changes go in the staff log.\n- Pages get running surveys from the root loader (kept in memory, so they cost a page nothing) unless analytics is off. A small card asks the first one this browser hasn't answered or closed, once. Answers are analytics events, so a survey's results (who saw it, answered and closed it, the answers charted, the average or Net Promoter Score, and what people wrote, linked to their visits) come from a `survey` insight. Agents read them with `slopper admin analytics surveys` and `survey --q <key>`.\n- Flags and surveys share one in-memory cache on the app server (`remembered`).",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "4f943814d79990437c6d42830d9e6c1496dca2d3",
+            "short_sha": "4f94381",
+            "url": null,
+            "authored_at": "2026-10-18T15:00:36+01:00",
+            "committed_at": "2026-10-18T15:00:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "4f943814d79990437c6d42830d9e6c1496dca2d3",
+            "short_sha": "4f94381",
+            "url": null,
+            "authored_at": "2026-10-18T15:00:36+01:00",
+            "committed_at": "2026-10-18T15:00:36+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/traction-board.md",
+      "summary": "Show real traction on your slop: connect Google Analytics, PostHog, Stripe or a Solana wallet",
+      "details": "Your slop page grows a board with who's on it now, people and signups per day, revenue and MRR, each number labelled with where it came from. Connections are read only, and you choose which ones everyone sees.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "85cae12bd4d3e946054eaf109e2c4b3fb618c06b",
+            "short_sha": "85cae12",
+            "url": null,
+            "authored_at": "2026-10-18T13:00:28+01:00",
+            "committed_at": "2026-10-18T13:00:28+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "85cae12bd4d3e946054eaf109e2c4b3fb618c06b",
+            "short_sha": "85cae12",
+            "url": null,
+            "authored_at": "2026-10-18T13:00:28+01:00",
+            "committed_at": "2026-10-18T13:00:28+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/traction-integrations.md",
+      "summary": "Traction integrations and product page fields for agents and operators",
+      "details": "New integrations and metrics tables, read-only clients for Stripe, PostHog, Google Analytics (service account, GOOGLE_ANALYTICS_SERVICE_ACCOUNT) and Solana (SOLANA_RPC_URL), syncs claimed through Convex and run by the app server. create_slop and update_slop take video, features and audience; get_traction (GET /api/v1/slops/{slop}/traction) reads the board.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "85cae12bd4d3e946054eaf109e2c4b3fb618c06b",
+            "short_sha": "85cae12",
+            "url": null,
+            "authored_at": "2026-10-18T13:00:28+01:00",
+            "committed_at": "2026-10-18T13:00:28+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "85cae12bd4d3e946054eaf109e2c4b3fb618c06b",
+            "short_sha": "85cae12",
+            "url": null,
+            "authored_at": "2026-10-18T13:00:28+01:00",
+            "committed_at": "2026-10-18T13:00:28+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/web-vitals.md",
+      "summary": "Web vitals",
+      "details": "- The analytics SDK measures the landing page's Core Web Vitals (LCP, INP, CLS, FCP, TTFB) with `web-vitals`, in its own chunk loaded after the SDK, and sends them as `$webVitals` when the page is hidden.\n- A `vitals` insight gives each one's 75th percentile with web.dev's rating and the shares of good, middling and poor loads, overall and per page. Admins see it at /analytics/speed; agents with `slopper admin analytics vitals`.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "67f3fadc5ce9e6aa4a918046a1ee7d04e4bc2957",
+            "short_sha": "67f3fad",
+            "url": null,
+            "authored_at": "2026-10-18T13:47:11+01:00",
+            "committed_at": "2026-10-18T13:47:11+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "67f3fadc5ce9e6aa4a918046a1ee7d04e4bc2957",
+            "short_sha": "67f3fad",
+            "url": null,
+            "authored_at": "2026-10-18T13:47:11+01:00",
+            "committed_at": "2026-10-18T13:47:11+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/x-off-cli.md",
+      "summary": "slopper help no longer promises auto-posting to X",
+      "details": "The --autopost flag and the skill now say it posts to whichever accounts the user connected on slopper.day.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f785de117e5101499f7e1da3511f331bd01b60b2",
+            "short_sha": "f785de1",
+            "url": null,
+            "authored_at": "2026-10-18T12:25:08+01:00",
+            "committed_at": "2026-10-18T12:25:08+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f785de117e5101499f7e1da3511f331bd01b60b2",
+            "short_sha": "f785de1",
+            "url": null,
+            "authored_at": "2026-10-18T12:25:08+01:00",
+            "committed_at": "2026-10-18T12:25:08+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/x-off-privacy.md",
+      "summary": "The privacy policy only names the networks Slopper actually uses",
+      "details": "Signing in works with GitHub, Google, LinkedIn and Facebook, and auto-posting with LinkedIn and Bluesky. X is no longer listed: it isn't offered.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f785de117e5101499f7e1da3511f331bd01b60b2",
+            "short_sha": "f785de1",
+            "url": null,
+            "authored_at": "2026-10-18T12:25:08+01:00",
+            "committed_at": "2026-10-18T12:25:08+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f785de117e5101499f7e1da3511f331bd01b60b2",
+            "short_sha": "f785de1",
+            "url": null,
+            "authored_at": "2026-10-18T12:25:08+01:00",
+            "committed_at": "2026-10-18T12:25:08+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.10.0 (2026-10-18)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "#### First-party analytics as a Convex component\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 195eec1\n\n- **packages/analytics** (private, with nothing Slopper-specific so it can move out): a Convex component with events, people (anonymous until identify, merged into the account on sign-in, two accounts never merged) and sessions with source, channel, device and country; a browser SDK with page views and leaves, autocapture, rage clicks, opt-out and beaconed batches; React bindings; and shared pure logic.\n- **Wiring.** Mounted in `convex/convex.config.ts`. Browsers post to the deployment's HTTP actions (`convex/http.ts`, `/a/e`), so no Netlify function runs per event. `CONVEX_SITE_URL` names the site URL for self-hosted backends; cloud deployments work it out from `CONVEX_URL`. The CSP allows it.\n- **Product events** are captured in their mutations: signed up, slop launched, voted, pledged, update posted and goal set. A daily cron deletes events older than a year.\n- **Tests** build the Convex app with `tests/convexApp.ts`, which registers the component.",
+              "#### Insights, a platform dashboard and analytics per slop\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 7264d88\n\n- **Insights engine** (`packages/analytics`): trends (with breakdowns), funnels, retention, journeys, stickiness, lifecycle, web analytics and a group leaderboard, as pure aggregators that an action feeds page by page (`SCAN_LIMIT` rows at most, `truncated` past it). Components can't `paginate()`, so the component pages by index key.\n- **Group analytics**: events carry `slop:<id>` when they're on a slop's page (resolved on the server from the path) or about it (votes, pledges, updates, comments). Downvotes are kept from makers.\n- **/analytics** for admins only: growth (accounts, launches, makers), slops climbing and fading, traffic, insights and people (with forgetting someone, logged in the staff log). Charts use a validated palette in both themes.\n- **Makers' analytics** at `/@username/slug/analytics`, the `slop_analytics` operation (MCP and `GET /api/v1/slops/:slop/analytics`) and `slopper analytics <slop>`.\n- **Admins' agents**: `slopper admin analytics [report]` over `GET /api/v1/admin/analytics`, deliberately undocumented outside AGENTS.md.",
+              "- **API answers say what people see instead of the check's verdict.** The REST API and MCP tools no longer return `contentCheck`. Uploads (`POST /api/v1/media`, `upload_screenshot`, and the site's `/api/media`) return `nsfw: true` when the image will blur a slop, and every slop summary has `hidden` (only its maker can see it) next to `nsfw`. Auto-post hold reasons (`autopostHold`, `holdReason`) no longer mention the content check.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d2fda0c",
+              "#### Reviews, checked before they're saved\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ cc9184e\n\n- **Reviews** (convex/reviews.ts): one per person per launch, replaced when written again; not for the maker's own slop or a hidden one. Screenshots must be the reviewer's own uploads, and a mature one makes the review mature (blurred for people who haven't opted in to NSFW).\n- **postReview** (app/.server/reviews.ts) runs the content check on the text and screenshots first: blocked is refused and never saved, ok and mature go up at once, and when the check can't run the review is saved as unchecked, like uploads. No moderator queue.\n- Authors and admins (new reviews.deleteAny permission, logged as deleteReview) can delete a review; makers can't. releaseMedia and slop deletion know about review screenshots.\n- New notification kind review, counted in the daily digest. Analytics event reviewed, shown to makers.\n- Agents: review_slop and list_reviews operations, PUT /api/v1/slops/:slop/reviews/mine and GET /api/v1/slops/:slop/reviews.",
+              "#### Charts on ECharts, with comparisons\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ cacbc98\n\n- The analytics charts are ECharts now, loaded in their own chunk once a chart is on screen (about 167 KB brotli, never on public pages): lines with a crosshair tooltip and a legend that turns lines on and off, stacked columns, funnels that show who dropped off, and journeys as a Sankey diagram you can trace by hovering. Long ranges zoom with ctrl and the wheel, or a pinch. Every chart keeps its table.\n- Comparisons with the period before: trends take `compare` (\"Compare with the period before\" on /analytics/insights), and traffic and a slop's views draw the days before as a dashed line, with the change in the tooltip. Web and slop reports carry `previousSeries`.\n- Charts animate unless motion is turned down, in Settings or on the device.",
+              "#### Error tracking\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ ef45366\n\n- The analytics SDK records uncaught errors and unhandled rejections as `$exception` events (type, message, a short stack without query strings, a fingerprint that groups the same error across deploys), at most 25 a page and the same one once a minute; extension noise is left out. `captureException` records caught ones, and the root error boundary uses it.\n- The app server reports errors in loaders, actions and rendering (`handleError`) through `analytics.captureServerError`, tied to the visitor's analytics id unless they turned analytics off. Server events can now say which page they happened on.\n- Admins see issues at /analytics/errors: how often, for how many people, where, the stack, and the sessions they happened in, with their recordings. Agents get them with `slopper admin analytics errors` and `error --q <fingerprint>`.",
+              "#### Feature flags and experiments\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 633e877\n\n- **Flags** (`packages/analytics`): on or off, or weighted variants, for people matching conditions and a rollout. Buckets hash the flag's key with the distinct id, so people keep their value as a rollout grows. Evaluating is pure; the app server evaluates active flags while it renders (definitions kept in memory: fresh for 30s, used for up to 5 minutes while they're read again), and `useFeatureFlag`, `useFeatureFlagEnabled` and `useFeatureFlagPayload` read them on the first render. The SDK records each value someone sees once a session (`$featureFlagCalled`).\n- **First-page ids**: the root middleware sets the `sa_id` cookie on a visitor's first page (unless they opted out), so flags can bucket them before the SDK loads; the SDK keeps it.\n- **Experiments**: a flag with variants and a goal event, compared the Bayesian way (each variant's rate, 95% interval and chance of being best; a winner once each has 100 people and one is 95% likely best), seeded so results are stable.\n- **/analytics/flags** and **/analytics/experiments** for admins, with each flag's recent views by variant, and every change in the staff log. Admins' agents read them with `slopper admin analytics flags|experiments|experiment`.",
+              "#### Heatmaps\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 8a67573\n\n- The analytics SDK sends where every click lands as `$heatmap` events (up to 50 points per page and viewport width), and page leaves carry the viewport width. Clicks inside `data-no-capture` aren't kept, and the SDK doesn't run inside frames.\n- A `heatmap` insight places clicks for phones, tablets or desktops, and counts views, scroll depth and the most-clicked links and buttons.\n- Admins see it at /analytics/heatmaps: the page as it is now, in a same-origin frame (the CSP now allows Slopper to frame its own pages), with its clicks over it. Agents get it with `slopper admin analytics heatmap`.",
+              "#### Session replay\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ a396e65\n\n- The analytics SDK records a share of sessions (`ANALYTICS_REPLAY_RATE`, every one unless set) with rrweb, loaded only for those sessions after the SDK itself, and sends gzipped chunks every few seconds to `/a/r` on the Convex site. The analytics component keeps them in its file storage for 30 days, and `forget` deletes them with everything else.\n- What's private stays in the browser: fields are masked, hidden inputs and `data-no-capture`/`data-no-replay` parts are blocked out, scripts are left out, query strings are cut from every address, and private pages (settings, the CLI sign-in, notifications, staff pages and a slop's own analytics) aren't recorded. The owner's money ledger is blocked out.\n- Admins watch recordings at /analytics/recordings and on each session's page, with page views and clicks marked on the timeline, speeds up to 8× and quiet bits skipped. A person's sessions say which were recorded, and `slopper admin analytics recordings` lists them for agents.",
+              "#### Staff permissions in one table, and a staff log\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ a1fed56\n\n- **Permissions, not roles.** `convex/lib/permissions.ts` maps each role to what it may do (`queue.decide`, `slops.hide`, `team.manage`, ...). Convex checks `requirePermission`, routes `requireStaff(viewer, request, permission)`, and loaders send `permissionsOf(user)` instead of the role, so a new role or a moved power is one change in that table. `canModerate`, `isAdmin` and `requireRole` are gone.\n- **Staff log.** Every use of a staff power (role changes, queue decisions, takedowns, trust, hiding, and deleting someone else's slop or comment) is written to `staffActions` in the same mutation. Admins see the latest 50 at /mod/team. It never reaches a public shape.",
+              "#### Surveys\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 4f94381\n\n- Admins ask one question on the pages they pick, at /analytics/surveys: a rating, 0 to 10, one of a few options, or words, with an optional follow-up, for anyone, signed-in people or visitors, after a delay. Starting, stopping and changes go in the staff log.\n- Pages get running surveys from the root loader (kept in memory, so they cost a page nothing) unless analytics is off. A small card asks the first one this browser hasn't answered or closed, once. Answers are analytics events, so a survey's results (who saw it, answered and closed it, the answers charted, the average or Net Promoter Score, and what people wrote, linked to their visits) come from a `survey` insight. Agents read them with `slopper admin analytics surveys` and `survey --q <key>`.\n- Flags and surveys share one in-memory cache on the app server (`remembered`).",
+              "- **Traction integrations and product page fields for agents and operators.** New integrations and metrics tables, read-only clients for Stripe, PostHog, Google Analytics (service account, GOOGLE_ANALYTICS_SERVICE_ACCOUNT) and Solana (SOLANA_RPC_URL), syncs claimed through Convex and run by the app server. create_slop and update_slop take video, features and audience; get_traction (GET /api/v1/slops/{slop}/traction) reads the board.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 85cae12",
+              "#### Web vitals\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 67f3fad\n\n- The analytics SDK measures the landing page's Core Web Vitals (LCP, INP, CLS, FCP, TTFB) with `web-vitals`, in its own chunk loaded after the SDK, and sends them as `$webVitals` when the page is hidden.\n- A `vitals` insight gives each one's 75th percentile with web.dev's rating and the shares of good, middling and poor loads, overall and per page. Admins see it at /analytics/speed; agents with `slopper admin analytics vitals`."
+            ]
+          },
+          {
+            "title": "Fixes",
+            "collapsed": false,
+            "entries": [
+              "#### Admins are listed by sign-in account, and moderators don't judge their own slops\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ a1fed56\n\n- **`ADMIN_IDENTITIES` replaces `ADMIN_USERNAMES`.** It lists sign-in accounts as `provider:id` (`github:1160934`), and whoever signs in or links one becomes an admin (`grantListedAdmin`, `team.bootstrap`). Usernames can be changed in Settings and are picked from provider handles at sign-up, so a listed username that someone renamed away from, or never claimed, made whoever took it an admin on their next page load. A malformed entry stops the server. Set it with `vp run env:netlify`; `ADMIN_USERNAMES` is ignored and can be unset on Netlify. Stored roles are unchanged, so nobody loses theirs.\n- **Moderators can't decide on their own slops.** `videos.decide` and `moderation.decide` refuse a moderator's own video or flagged slop (`mayJudge`): approving their own video would have trusted them, and clearing their own flags would have restarted its auto-posts. Admins still can. /mod shows a moderator's own items without decision buttons.",
+              "#### Analytics costs a page's first load nothing\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 1145846\n\n- The analytics SDK isn't in any script a page loads to render: the React provider imports it after the load event, when the browser is idle, and the landing page view is stamped with when the page was opened. A failed import leaves the page uncounted and nothing else broken.\n- A burst of activity writes the session to localStorage once, not once per event.\n- e2e: the browser launches with a real user agent. Requests a page finishes after it's gone (analytics' leave beacons) carry the browser's own, which says HeadlessChrome and was dropped as a bot's; `e2e/performance.spec.ts` checks the SDK stays out of the first load, arrives and sends after it, and that a page left at once still sends what it saw.",
+              "- **Only retry auto-posts on the signed-in person's own updates, and send Strict-Transport-Security on production pages.**\n  _Owner:_ Ifiok Jr. · _Introduced in:_ afa01df",
+              "- **`vp run env:netlify` works again.** netlify-cli saw the workspace packages (`packages/*`) from the repo root, stopped to ask which project to use, and failed on the first variable. The sync now starts netlify-cli in `scripts/` and points `--cwd` at the app, as `scripts/release.ts` does for deploys.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 54484b3",
+              "- **Only connect Bluesky accounts whose PDS is a public web address, so a connected account can't aim the server's auto-post requests at private networks.**\n  _Owner:_ Ifiok Jr. · _Introduced in:_ afa01df"
+            ]
+          },
+          {
+            "title": "Refactoring",
+            "collapsed": false,
+            "entries": [
+              "- **Drop the old admin flags from Convex.** `slops.page`, `slops.remove` and `activity.deleteComment` no longer accept the `isAdmin`/`asAdmin` arguments they ignored while v1.6.0 deployed. They read the caller's stored role (`canModerate`/`isAdmin` in `convex/lib/auth.ts`), and no app server since v1.6.0 sends them.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d70dd30"
+            ]
+          }
+        ]
+      },
+      "rendered": "## 1.10.0 (2026-10-18)\n\n### Features\n\n#### First-party analytics as a Convex component\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 195eec1\n\n- **packages/analytics** (private, with nothing Slopper-specific so it can move out): a Convex component with events, people (anonymous until identify, merged into the account on sign-in, two accounts never merged) and sessions with source, channel, device and country; a browser SDK with page views and leaves, autocapture, rage clicks, opt-out and beaconed batches; React bindings; and shared pure logic.\n- **Wiring.** Mounted in `convex/convex.config.ts`. Browsers post to the deployment's HTTP actions (`convex/http.ts`, `/a/e`), so no Netlify function runs per event. `CONVEX_SITE_URL` names the site URL for self-hosted backends; cloud deployments work it out from `CONVEX_URL`. The CSP allows it.\n- **Product events** are captured in their mutations: signed up, slop launched, voted, pledged, update posted and goal set. A daily cron deletes events older than a year.\n- **Tests** build the Convex app with `tests/convexApp.ts`, which registers the component.\n\n#### Insights, a platform dashboard and analytics per slop\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 7264d88\n\n- **Insights engine** (`packages/analytics`): trends (with breakdowns), funnels, retention, journeys, stickiness, lifecycle, web analytics and a group leaderboard, as pure aggregators that an action feeds page by page (`SCAN_LIMIT` rows at most, `truncated` past it). Components can't `paginate()`, so the component pages by index key.\n- **Group analytics**: events carry `slop:<id>` when they're on a slop's page (resolved on the server from the path) or about it (votes, pledges, updates, comments). Downvotes are kept from makers.\n- **/analytics** for admins only: growth (accounts, launches, makers), slops climbing and fading, traffic, insights and people (with forgetting someone, logged in the staff log). Charts use a validated palette in both themes.\n- **Makers' analytics** at `/@username/slug/analytics`, the `slop_analytics` operation (MCP and `GET /api/v1/slops/:slop/analytics`) and `slopper analytics <slop>`.\n- **Admins' agents**: `slopper admin analytics [report]` over `GET /api/v1/admin/analytics`, deliberately undocumented outside AGENTS.md.\n\n- **API answers say what people see instead of the check's verdict.** The REST API and MCP tools no longer return `contentCheck`. Uploads (`POST /api/v1/media`, `upload_screenshot`, and the site's `/api/media`) return `nsfw: true` when the image will blur a slop, and every slop summary has `hidden` (only its maker can see it) next to `nsfw`. Auto-post hold reasons (`autopostHold`, `holdReason`) no longer mention the content check.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d2fda0c\n#### Reviews, checked before they're saved\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ cc9184e\n\n- **Reviews** (convex/reviews.ts): one per person per launch, replaced when written again; not for the maker's own slop or a hidden one. Screenshots must be the reviewer's own uploads, and a mature one makes the review mature (blurred for people who haven't opted in to NSFW).\n- **postReview** (app/.server/reviews.ts) runs the content check on the text and screenshots first: blocked is refused and never saved, ok and mature go up at once, and when the check can't run the review is saved as unchecked, like uploads. No moderator queue.\n- Authors and admins (new reviews.deleteAny permission, logged as deleteReview) can delete a review; makers can't. releaseMedia and slop deletion know about review screenshots.\n- New notification kind review, counted in the daily digest. Analytics event reviewed, shown to makers.\n- Agents: review_slop and list_reviews operations, PUT /api/v1/slops/:slop/reviews/mine and GET /api/v1/slops/:slop/reviews.\n\n#### Charts on ECharts, with comparisons\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ cacbc98\n\n- The analytics charts are ECharts now, loaded in their own chunk once a chart is on screen (about 167 KB brotli, never on public pages): lines with a crosshair tooltip and a legend that turns lines on and off, stacked columns, funnels that show who dropped off, and journeys as a Sankey diagram you can trace by hovering. Long ranges zoom with ctrl and the wheel, or a pinch. Every chart keeps its table.\n- Comparisons with the period before: trends take `compare` (\"Compare with the period before\" on /analytics/insights), and traffic and a slop's views draw the days before as a dashed line, with the change in the tooltip. Web and slop reports carry `previousSeries`.\n- Charts animate unless motion is turned down, in Settings or on the device.\n\n#### Error tracking\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ ef45366\n\n- The analytics SDK records uncaught errors and unhandled rejections as `$exception` events (type, message, a short stack without query strings, a fingerprint that groups the same error across deploys), at most 25 a page and the same one once a minute; extension noise is left out. `captureException` records caught ones, and the root error boundary uses it.\n- The app server reports errors in loaders, actions and rendering (`handleError`) through `analytics.captureServerError`, tied to the visitor's analytics id unless they turned analytics off. Server events can now say which page they happened on.\n- Admins see issues at /analytics/errors: how often, for how many people, where, the stack, and the sessions they happened in, with their recordings. Agents get them with `slopper admin analytics errors` and `error --q <fingerprint>`.\n\n#### Feature flags and experiments\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 633e877\n\n- **Flags** (`packages/analytics`): on or off, or weighted variants, for people matching conditions and a rollout. Buckets hash the flag's key with the distinct id, so people keep their value as a rollout grows. Evaluating is pure; the app server evaluates active flags while it renders (definitions kept in memory: fresh for 30s, used for up to 5 minutes while they're read again), and `useFeatureFlag`, `useFeatureFlagEnabled` and `useFeatureFlagPayload` read them on the first render. The SDK records each value someone sees once a session (`$featureFlagCalled`).\n- **First-page ids**: the root middleware sets the `sa_id` cookie on a visitor's first page (unless they opted out), so flags can bucket them before the SDK loads; the SDK keeps it.\n- **Experiments**: a flag with variants and a goal event, compared the Bayesian way (each variant's rate, 95% interval and chance of being best; a winner once each has 100 people and one is 95% likely best), seeded so results are stable.\n- **/analytics/flags** and **/analytics/experiments** for admins, with each flag's recent views by variant, and every change in the staff log. Admins' agents read them with `slopper admin analytics flags|experiments|experiment`.\n\n#### Heatmaps\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 8a67573\n\n- The analytics SDK sends where every click lands as `$heatmap` events (up to 50 points per page and viewport width), and page leaves carry the viewport width. Clicks inside `data-no-capture` aren't kept, and the SDK doesn't run inside frames.\n- A `heatmap` insight places clicks for phones, tablets or desktops, and counts views, scroll depth and the most-clicked links and buttons.\n- Admins see it at /analytics/heatmaps: the page as it is now, in a same-origin frame (the CSP now allows Slopper to frame its own pages), with its clicks over it. Agents get it with `slopper admin analytics heatmap`.\n\n#### Session replay\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ a396e65\n\n- The analytics SDK records a share of sessions (`ANALYTICS_REPLAY_RATE`, every one unless set) with rrweb, loaded only for those sessions after the SDK itself, and sends gzipped chunks every few seconds to `/a/r` on the Convex site. The analytics component keeps them in its file storage for 30 days, and `forget` deletes them with everything else.\n- What's private stays in the browser: fields are masked, hidden inputs and `data-no-capture`/`data-no-replay` parts are blocked out, scripts are left out, query strings are cut from every address, and private pages (settings, the CLI sign-in, notifications, staff pages and a slop's own analytics) aren't recorded. The owner's money ledger is blocked out.\n- Admins watch recordings at /analytics/recordings and on each session's page, with page views and clicks marked on the timeline, speeds up to 8× and quiet bits skipped. A person's sessions say which were recorded, and `slopper admin analytics recordings` lists them for agents.\n\n#### Staff permissions in one table, and a staff log\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ a1fed56\n\n- **Permissions, not roles.** `convex/lib/permissions.ts` maps each role to what it may do (`queue.decide`, `slops.hide`, `team.manage`, ...). Convex checks `requirePermission`, routes `requireStaff(viewer, request, permission)`, and loaders send `permissionsOf(user)` instead of the role, so a new role or a moved power is one change in that table. `canModerate`, `isAdmin` and `requireRole` are gone.\n- **Staff log.** Every use of a staff power (role changes, queue decisions, takedowns, trust, hiding, and deleting someone else's slop or comment) is written to `staffActions` in the same mutation. Admins see the latest 50 at /mod/team. It never reaches a public shape.\n\n#### Surveys\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 4f94381\n\n- Admins ask one question on the pages they pick, at /analytics/surveys: a rating, 0 to 10, one of a few options, or words, with an optional follow-up, for anyone, signed-in people or visitors, after a delay. Starting, stopping and changes go in the staff log.\n- Pages get running surveys from the root loader (kept in memory, so they cost a page nothing) unless analytics is off. A small card asks the first one this browser hasn't answered or closed, once. Answers are analytics events, so a survey's results (who saw it, answered and closed it, the answers charted, the average or Net Promoter Score, and what people wrote, linked to their visits) come from a `survey` insight. Agents read them with `slopper admin analytics surveys` and `survey --q <key>`.\n- Flags and surveys share one in-memory cache on the app server (`remembered`).\n\n- **Traction integrations and product page fields for agents and operators.** New integrations and metrics tables, read-only clients for Stripe, PostHog, Google Analytics (service account, GOOGLE_ANALYTICS_SERVICE_ACCOUNT) and Solana (SOLANA_RPC_URL), syncs claimed through Convex and run by the app server. create_slop and update_slop take video, features and audience; get_traction (GET /api/v1/slops/{slop}/traction) reads the board.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 85cae12\n#### Web vitals\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 67f3fad\n\n- The analytics SDK measures the landing page's Core Web Vitals (LCP, INP, CLS, FCP, TTFB) with `web-vitals`, in its own chunk loaded after the SDK, and sends them as `$webVitals` when the page is hidden.\n- A `vitals` insight gives each one's 75th percentile with web.dev's rating and the shares of good, middling and poor loads, overall and per page. Admins see it at /analytics/speed; agents with `slopper admin analytics vitals`.\n\n### Fixes\n\n#### Admins are listed by sign-in account, and moderators don't judge their own slops\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ a1fed56\n\n- **`ADMIN_IDENTITIES` replaces `ADMIN_USERNAMES`.** It lists sign-in accounts as `provider:id` (`github:1160934`), and whoever signs in or links one becomes an admin (`grantListedAdmin`, `team.bootstrap`). Usernames can be changed in Settings and are picked from provider handles at sign-up, so a listed username that someone renamed away from, or never claimed, made whoever took it an admin on their next page load. A malformed entry stops the server. Set it with `vp run env:netlify`; `ADMIN_USERNAMES` is ignored and can be unset on Netlify. Stored roles are unchanged, so nobody loses theirs.\n- **Moderators can't decide on their own slops.** `videos.decide` and `moderation.decide` refuse a moderator's own video or flagged slop (`mayJudge`): approving their own video would have trusted them, and clearing their own flags would have restarted its auto-posts. Admins still can. /mod shows a moderator's own items without decision buttons.\n\n#### Analytics costs a page's first load nothing\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 1145846\n\n- The analytics SDK isn't in any script a page loads to render: the React provider imports it after the load event, when the browser is idle, and the landing page view is stamped with when the page was opened. A failed import leaves the page uncounted and nothing else broken.\n- A burst of activity writes the session to localStorage once, not once per event.\n- e2e: the browser launches with a real user agent. Requests a page finishes after it's gone (analytics' leave beacons) carry the browser's own, which says HeadlessChrome and was dropped as a bot's; `e2e/performance.spec.ts` checks the SDK stays out of the first load, arrives and sends after it, and that a page left at once still sends what it saw.\n\n- **Only retry auto-posts on the signed-in person's own updates, and send Strict-Transport-Security on production pages.**\n  _Owner:_ Ifiok Jr. · _Introduced in:_ afa01df\n- **`vp run env:netlify` works again.** netlify-cli saw the workspace packages (`packages/*`) from the repo root, stopped to ask which project to use, and failed on the first variable. The sync now starts netlify-cli in `scripts/` and points `--cwd` at the app, as `scripts/release.ts` does for deploys.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 54484b3\n- **Only connect Bluesky accounts whose PDS is a public web address, so a connected account can't aim the server's auto-post requests at private networks.**\n  _Owner:_ Ifiok Jr. · _Introduced in:_ afa01df\n\n### Refactoring\n\n- **Drop the old admin flags from Convex.** `slops.page`, `slops.remove` and `activity.deleteComment` no longer accept the `isAdmin`/`asAdmin` arguments they ignored while v1.6.0 deployed. They read the caller's stored role (`canModerate`/`isAdmin` in `convex/lib/auth.ts`), and no app server since v1.6.0 sends them.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d70dd30"
+    },
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "user",
+      "stream": "user",
+      "path": "app/changelog/1.10.0.json",
+      "format": "json",
+      "notes": {
+        "title": "1.10.0 (2026-10-18)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Changed",
+            "collapsed": false,
+            "entries": [
+              "- **The privacy policy covers trying two versions of something.** Slopper may now show some people one version of a feature and others another, to see which works better. The random analytics id decides which you get, and we record which one you saw. With analytics turned off you get the usual version.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 633e877",
+              "- **The privacy policy covers visit recordings.** Slopper now records visits to play them back and see where people get stuck: what the pages looked like and how the mouse moved, scrolled and clicked. What you type shows as stars, your private pages (settings, API keys, notifications, your money) aren't recorded, and recordings are deleted after 30 days. Turning analytics off stops it too.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ a396e65",
+              "- **Now and then, a quick question.** A page may sometimes ask you one quick question. Answer it or close it; either way you won't be asked that one again. Your answer stays with your visit, and nobody who turned analytics off is asked. The privacy policy says so.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 4f94381"
+            ]
+          },
+          {
+            "title": "New",
+            "collapsed": false,
+            "entries": [
+              "- **Review apps you tried.** Tried someone's slop? Write a review on its page: say whether it works for you, is mixed, or is broken, describe what it is and what happened, and add up to 4 screenshots. Reviews go up straight away after an automatic check for offensive content, and the maker gets a notification. Makers read what people said under Reviews; agents can write and read reviews too (review_slop, list_reviews, slopper review and slopper reviews).\n  _Owner:_ Ifiok Jr. · _Introduced in:_ cc9184e",
+              "- **Slopper keeps its own analytics.** Slopper now records how it's used (pages opened, clicks, where visits come from) to learn what works and what's broken. It's first-party: it stays in Slopper's own database and no analytics company sees it. Turn it off in any browser from Settings or the privacy page, which now explains it all.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 195eec1",
+              "- **Choose how much Slopper moves.** Settings has a Motion choice: like your device, animate, or keep still. Keep still turns off the animations on charts, the race clock and the rest of the site, and it's remembered in this browser.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ cacbc98",
+              "- **Slop pages are product pages: a demo video, what it does and who it's for, drafted by AI.** Add a YouTube, Loom or Vimeo demo that loads when someone presses play, list what your slop does and who it's for, and let AI draft it all from your words and your website. Read it over, make it yours, save.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 85cae12",
+              "- **See who's looking at your slop.** Your slop now has its own analytics: open Views and clicks from its page to see how many people viewed it (against the days before), where they came from, what they clicked, and its votes and pledges. Your own visits don't count. Agents get the same with slopper analytics, the slop_analytics tool and the API.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 7264d88",
+              "- **Show real traction on your slop: connect Google Analytics, PostHog, Stripe or a Solana wallet.** Your slop page grows a board with who's on it now, people and signups per day, revenue and MRR, each number labelled with where it came from. Connections are read only, and you choose which ones everyone sees.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 85cae12"
+            ]
+          },
+          {
+            "title": "Fixed",
+            "collapsed": false,
+            "entries": [
+              "- **Agent docs say what happens, not how Slopper works inside.** What agents read on Slopper (the tool descriptions, llms.txt and the API's answers) now says what will happen, like \"pending until a moderator approves it\", without explaining how launches and videos are checked behind the scenes. An auto-post that's held says why in plain words.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d2fda0c",
+              "- **The privacy policy only names the networks Slopper actually uses.** Signing in works with GitHub, Google, LinkedIn and Facebook, and auto-posting with LinkedIn and Bluesky. X is no longer listed: it isn't offered.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ f785de1"
+            ]
+          }
+        ]
+      },
+      "rendered": "{\n  \"title\": \"1.10.0 (2026-10-18)\",\n  \"summary\": [],\n  \"sections\": [\n    {\n      \"title\": \"Changed\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"The privacy policy covers trying two versions of something\",\n          \"details_markdown\": \"Slopper may now show some people one version of a feature and others another, to see which works better. The random analytics id decides which you get, and we record which one you saw. With analytics turned off you get the usual version.\",\n          \"change_type\": \"user_change\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/flags-privacy.md\",\n            \"changeset_path\": \".changeset/flags-privacy.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"633e877\"\n            }\n          }\n        },\n        {\n          \"summary\": \"The privacy policy covers visit recordings\",\n          \"details_markdown\": \"Slopper now records visits to play them back and see where people get stuck: what the pages looked like and how the mouse moved, scrolled and clicked. What you type shows as stars, your private pages (settings, API keys, notifications, your money) aren't recorded, and recordings are deleted after 30 days. Turning analytics off stops it too.\",\n          \"change_type\": \"user_change\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/replay-privacy.md\",\n            \"changeset_path\": \".changeset/replay-privacy.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"a396e65\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Now and then, a quick question\",\n          \"details_markdown\": \"A page may sometimes ask you one quick question. Answer it or close it; either way you won't be asked that one again. Your answer stays with your visit, and nobody who turned analytics off is asked. The privacy policy says so.\",\n          \"change_type\": \"user_change\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/surveys-privacy.md\",\n            \"changeset_path\": \".changeset/surveys-privacy.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"4f94381\"\n            }\n          }\n        }\n      ]\n    },\n    {\n      \"title\": \"New\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Review apps you tried\",\n          \"details_markdown\": \"Tried someone's slop? Write a review on its page: say whether it works for you, is mixed, or is broken, describe what it is and what happened, and add up to 4 screenshots. Reviews go up straight away after an automatic check for offensive content, and the maker gets a notification. Makers read what people said under Reviews; agents can write and read reviews too (review_slop, list_reviews, slopper review and slopper reviews).\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/app-reviews.md\",\n            \"changeset_path\": \".changeset/app-reviews.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"cc9184e\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Slopper keeps its own analytics\",\n          \"details_markdown\": \"Slopper now records how it's used (pages opened, clicks, where visits come from) to learn what works and what's broken. It's first-party: it stays in Slopper's own database and no analytics company sees it. Turn it off in any browser from Settings or the privacy page, which now explains it all.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/first-party-analytics.md\",\n            \"changeset_path\": \".changeset/first-party-analytics.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"195eec1\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Choose how much Slopper moves\",\n          \"details_markdown\": \"Settings has a Motion choice: like your device, animate, or keep still. Keep still turns off the animations on charts, the race clock and the rest of the site, and it's remembered in this browser.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/motion-setting.md\",\n            \"changeset_path\": \".changeset/motion-setting.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"cacbc98\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Slop pages are product pages: a demo video, what it does and who it's for, drafted by AI\",\n          \"details_markdown\": \"Add a YouTube, Loom or Vimeo demo that loads when someone presses play, list what your slop does and who it's for, and let AI draft it all from your words and your website. Read it over, make it yours, save.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/product-pages.md\",\n            \"changeset_path\": \".changeset/product-pages.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"85cae12\"\n            }\n          }\n        },\n        {\n          \"summary\": \"See who's looking at your slop\",\n          \"details_markdown\": \"Your slop now has its own analytics: open Views and clicks from its page to see how many people viewed it (against the days before), where they came from, what they clicked, and its votes and pledges. Your own visits don't count. Agents get the same with slopper analytics, the slop_analytics tool and the API.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/slop-analytics.md\",\n            \"changeset_path\": \".changeset/slop-analytics.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"7264d88\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Show real traction on your slop: connect Google Analytics, PostHog, Stripe or a Solana wallet\",\n          \"details_markdown\": \"Your slop page grows a board with who's on it now, people and signups per day, revenue and MRR, each number labelled with where it came from. Connections are read only, and you choose which ones everyone sees.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/traction-board.md\",\n            \"changeset_path\": \".changeset/traction-board.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"85cae12\"\n            }\n          }\n        }\n      ]\n    },\n    {\n      \"title\": \"Fixed\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Agent docs say what happens, not how Slopper works inside\",\n          \"details_markdown\": \"What agents read on Slopper (the tool descriptions, llms.txt and the API's answers) now says what will happen, like \\\"pending until a moderator approves it\\\", without explaining how launches and videos are checked behind the scenes. An auto-post that's held says why in plain words.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/agent-copy.md\",\n            \"changeset_path\": \".changeset/agent-copy.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"d2fda0c\"\n            }\n          }\n        },\n        {\n          \"summary\": \"The privacy policy only names the networks Slopper actually uses\",\n          \"details_markdown\": \"Signing in works with GitHub, Google, LinkedIn and Facebook, and auto-posting with LinkedIn and Bluesky. X is no longer listed: it isn't offered.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/x-off-privacy.md\",\n            \"changeset_path\": \".changeset/x-off-privacy.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"f785de1\"\n            }\n          }\n        }\n      ]\n    }\n  ]\n}"
+    },
+    {
+      "owner_id": "cli",
+      "owner_kind": "group",
+      "output": "default",
+      "stream": "default",
+      "path": "packages/cli/CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "cli 0.1.6 (2026-10-18)",
+        "summary": ["Grouped release for `cli`."],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "- **slopper analytics shows how a slop is doing.** slopper analytics <slop> [--days n] prints a slop's views, people, sources, clicks and votes; the skill explains when to use it.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 7264d88",
+              "- **slopper review and slopper reviews.** slopper review <slop> <works|mixed|broken> --body … [--image …] writes or replaces your review of someone's slop; slopper reviews <slop> reads what people said. The skill says when to use them.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ cc9184e"
+            ]
+          },
+          {
+            "title": "Fixes",
+            "collapsed": false,
+            "entries": [
+              "- **slopper help and the skill describe results, not Slopper's internals.** `slopper screenshot` reports `nsfw: true` when an image will blur a slop, `launch --autopost` and `video` describe what happens without explaining the checks, and the skill reads `hidden` and `nsfw` on a launch.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d2fda0c",
+              "- **slopper help no longer promises auto-posting to X.** The --autopost flag and the skill now say it posts to whichever accounts the user connected on slopper.day.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ f785de1"
+            ]
+          }
+        ]
+      },
+      "rendered": "## cli 0.1.6 (2026-10-18)\n\nGrouped release for `cli`.\n\n### Features\n\n- **slopper analytics shows how a slop is doing.** slopper analytics <slop> [--days n] prints a slop's views, people, sources, clicks and votes; the skill explains when to use it.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 7264d88\n- **slopper review and slopper reviews.** slopper review <slop> <works|mixed|broken> --body … [--image …] writes or replaces your review of someone's slop; slopper reviews <slop> reads what people said. The skill says when to use them.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ cc9184e\n\n### Fixes\n\n- **slopper help and the skill describe results, not Slopper's internals.** `slopper screenshot` reports `nsfw: true` when an image will blur a slop, `launch --autopost` and `video` describe what happens without explaining the checks, and the skill reads `hidden` and `nsfw` on a launch.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d2fda0c\n- **slopper help no longer promises auto-posting to X.** The --autopost flag and the skill now say it posts to whichever accounts the user connected on slopper.day.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ f785de1"
+    }
+  ],
+  "provider": null
+}

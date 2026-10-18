@@ -1,0 +1,222 @@
+{
+  "title": "1.10.0 (2026-10-18)",
+  "summary": [],
+  "sections": [
+    {
+      "title": "Changed",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "The privacy policy covers trying two versions of something",
+          "details_markdown": "Slopper may now show some people one version of a feature and others another, to see which works better. The random analytics id decides which you get, and we record which one you saw. With analytics turned off you get the usual version.",
+          "change_type": "user_change",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/flags-privacy.md",
+            "changeset_path": ".changeset/flags-privacy.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "633e877"
+            }
+          }
+        },
+        {
+          "summary": "The privacy policy covers visit recordings",
+          "details_markdown": "Slopper now records visits to play them back and see where people get stuck: what the pages looked like and how the mouse moved, scrolled and clicked. What you type shows as stars, your private pages (settings, API keys, notifications, your money) aren't recorded, and recordings are deleted after 30 days. Turning analytics off stops it too.",
+          "change_type": "user_change",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/replay-privacy.md",
+            "changeset_path": ".changeset/replay-privacy.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "a396e65"
+            }
+          }
+        },
+        {
+          "summary": "Now and then, a quick question",
+          "details_markdown": "A page may sometimes ask you one quick question. Answer it or close it; either way you won't be asked that one again. Your answer stays with your visit, and nobody who turned analytics off is asked. The privacy policy says so.",
+          "change_type": "user_change",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/surveys-privacy.md",
+            "changeset_path": ".changeset/surveys-privacy.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "4f94381"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "New",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Review apps you tried",
+          "details_markdown": "Tried someone's slop? Write a review on its page: say whether it works for you, is mixed, or is broken, describe what it is and what happened, and add up to 4 screenshots. Reviews go up straight away after an automatic check for offensive content, and the maker gets a notification. Makers read what people said under Reviews; agents can write and read reviews too (review_slop, list_reviews, slopper review and slopper reviews).",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/app-reviews.md",
+            "changeset_path": ".changeset/app-reviews.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "cc9184e"
+            }
+          }
+        },
+        {
+          "summary": "Slopper keeps its own analytics",
+          "details_markdown": "Slopper now records how it's used (pages opened, clicks, where visits come from) to learn what works and what's broken. It's first-party: it stays in Slopper's own database and no analytics company sees it. Turn it off in any browser from Settings or the privacy page, which now explains it all.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/first-party-analytics.md",
+            "changeset_path": ".changeset/first-party-analytics.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "195eec1"
+            }
+          }
+        },
+        {
+          "summary": "Choose how much Slopper moves",
+          "details_markdown": "Settings has a Motion choice: like your device, animate, or keep still. Keep still turns off the animations on charts, the race clock and the rest of the site, and it's remembered in this browser.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/motion-setting.md",
+            "changeset_path": ".changeset/motion-setting.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "cacbc98"
+            }
+          }
+        },
+        {
+          "summary": "Slop pages are product pages: a demo video, what it does and who it's for, drafted by AI",
+          "details_markdown": "Add a YouTube, Loom or Vimeo demo that loads when someone presses play, list what your slop does and who it's for, and let AI draft it all from your words and your website. Read it over, make it yours, save.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/product-pages.md",
+            "changeset_path": ".changeset/product-pages.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "85cae12"
+            }
+          }
+        },
+        {
+          "summary": "See who's looking at your slop",
+          "details_markdown": "Your slop now has its own analytics: open Views and clicks from its page to see how many people viewed it (against the days before), where they came from, what they clicked, and its votes and pledges. Your own visits don't count. Agents get the same with slopper analytics, the slop_analytics tool and the API.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/slop-analytics.md",
+            "changeset_path": ".changeset/slop-analytics.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "7264d88"
+            }
+          }
+        },
+        {
+          "summary": "Show real traction on your slop: connect Google Analytics, PostHog, Stripe or a Solana wallet",
+          "details_markdown": "Your slop page grows a board with who's on it now, people and signups per day, revenue and MRR, each number labelled with where it came from. Connections are read only, and you choose which ones everyone sees.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/traction-board.md",
+            "changeset_path": ".changeset/traction-board.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "85cae12"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Fixed",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Agent docs say what happens, not how Slopper works inside",
+          "details_markdown": "What agents read on Slopper (the tool descriptions, llms.txt and the API's answers) now says what will happen, like \"pending until a moderator approves it\", without explaining how launches and videos are checked behind the scenes. An auto-post that's held says why in plain words.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/agent-copy.md",
+            "changeset_path": ".changeset/agent-copy.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "d2fda0c"
+            }
+          }
+        },
+        {
+          "summary": "The privacy policy only names the networks Slopper actually uses",
+          "details_markdown": "Signing in works with GitHub, Google, LinkedIn and Facebook, and auto-posting with LinkedIn and Bluesky. X is no longer listed: it isn't offered.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/x-off-privacy.md",
+            "changeset_path": ".changeset/x-off-privacy.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "f785de1"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
