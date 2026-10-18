@@ -7,6 +7,7 @@ const TABS = [
   { to: "/analytics/people", label: "People", end: false },
   { to: "/analytics/recordings", label: "Recordings", end: false },
   { to: "/analytics/heatmaps", label: "Heatmaps", end: false },
+  { to: "/analytics/errors", label: "Errors", end: false },
   { to: "/analytics/flags", label: "Flags", end: false },
   { to: "/analytics/experiments", label: "Experiments", end: false },
 ] as const;

@@ -604,7 +604,7 @@ export const COMMANDS: Command[] = [
     name: "admin",
     args: "analytics [report]",
     summary:
-      "Slopper's own analytics, for admins: overview, growth, projects, traffic, trends, funnel, retention, paths, stickiness, lifecycle, people, person, live, events, flags, experiments, experiment, recordings or heatmap.",
+      "Slopper's own analytics, for admins: overview, growth, projects, traffic, trends, funnel, retention, paths, stickiness, lifecycle, people, person, live, events, flags, experiments, experiment, recordings, heatmap, errors or error.",
     flags: {
       "--days <n>": "How far back, from 1 to 365. Defaults to 30.",
       "--event <name>": "An event, for trends, funnel steps, stickiness and lifecycle. Repeat for more.",
@@ -615,7 +615,7 @@ export const COMMANDS: Command[] = [
       "--start <event|path>": "Retention's first event, or where journeys start.",
       "--return <event>": "Retention's coming-back event.",
       "--end <path>": "Where journeys lead.",
-      "--q <@username|id|key>": "For person: who. For experiment: its key.",
+      "--q <@username|id|key>": "For person: who. For experiment: its key. For error: its fingerprint.",
       "--path <path>": "For heatmap: the page, like /wall.",
       "--device <mobile|tablet|desktop>": "For heatmap: the kind of screen.",
     },

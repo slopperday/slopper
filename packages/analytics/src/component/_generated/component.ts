@@ -367,6 +367,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           group?: string;
           identified?: boolean;
           name: string;
+          path?: string;
           properties?: Record<
             string,
             string | number | boolean | null | Array<string>

@@ -114,6 +114,13 @@ export const heatmapQueryValidator = v.object({
   device: heatmapDeviceValidator,
 });
 
+/** Errors grouped into issues; with `fingerprint`, one issue and its latest occurrences. */
+export const errorsQueryValidator = v.object({
+  kind: v.literal("errors"),
+  range: rangeValidator,
+  fingerprint: v.optional(v.string()),
+});
+
 export const insightQueryValidator = v.union(
   trendsQueryValidator,
   funnelQueryValidator,
@@ -124,6 +131,7 @@ export const insightQueryValidator = v.union(
   webQueryValidator,
   groupsQueryValidator,
   heatmapQueryValidator,
+  errorsQueryValidator,
 );
 
 export type PropertyFilter = Infer<typeof propertyFilterValidator>;
@@ -138,4 +146,5 @@ export type WebQuery = Infer<typeof webQueryValidator>;
 export type GroupsQuery = Infer<typeof groupsQueryValidator>;
 export type HeatmapQuery = Infer<typeof heatmapQueryValidator>;
 export type HeatmapDevice = Infer<typeof heatmapDeviceValidator>;
+export type ErrorsQuery = Infer<typeof errorsQueryValidator>;
 export type InsightQuery = Infer<typeof insightQueryValidator>;

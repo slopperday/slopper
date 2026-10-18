@@ -3,6 +3,8 @@ import type { FlagValue } from "../shared/flags";
 import { normalizeProperties, type Properties } from "../shared/properties";
 import { startAutocapture } from "./autocapture";
 import { ClickMap } from "./heatmap";
+import { startErrorCapture } from "./errors";
+import { type ExceptionSource, exceptionProperties } from "../shared/errors";
 import { PageTracker, watchHistory } from "./pageviews";
 import { cookieNames, DEFAULT_STORAGE_KEY, ROUTES, stateKey } from "../shared/routes";
 import { readCookie, StateStore, type StoredState, writeCookie } from "./storage";
@@ -26,6 +28,8 @@ export interface AnalyticsOptions {
   autocapture?: boolean;
   /** Where every click lands, for heatmaps (`$heatmap`). On unless turned off. */
   heatmaps?: boolean;
+  /** Uncaught errors and unhandled rejections (`$exception`). On unless turned off. */
+  errors?: boolean;
   /** Minutes without activity that end a session. */
   sessionIdleMinutes?: number;
   /** Sent with every event, like the visitor's country, which the app's server knows and the browser doesn't. */
@@ -67,6 +71,11 @@ export interface CaptureOptions {
   timestamp?: number;
 }
 
+/** Errors one page sends at most: a loop that throws shouldn't flood anything. */
+const ERRORS_PER_PAGE = 25;
+/** The same error again this soon isn't sent again. */
+const ERROR_REPEAT_MS = 60_000;
+
 /** However active, a session ends after a day, so one left-open tab isn't one endless visit. */
 const MAX_SESSION_MS = 86_400_000;
 /**
@@ -93,6 +102,8 @@ export class Analytics {
   private stopped = false;
   private recorder: Recorder | null = null;
   private clicks: ClickMap | null = null;
+  private errorsSent = 0;
+  private readonly errorsSeen = new Map<string, number>();
   private recorderLoading = false;
 
   constructor(private readonly options: AnalyticsOptions) {
@@ -242,6 +253,27 @@ export class Analytics {
     this.store.write({ ...after, flagsSeen: { sessionId, keys: [...keys, key].slice(-200) } });
   }
 
+  /**
+   * Records an error the app caught (an error boundary, a failed save), as
+   * `$exception` with a fingerprint that groups it with the same error
+   * elsewhere. Uncaught ones are recorded on their own.
+   */
+  captureException(error: unknown, properties: Properties = {}): void {
+    this.reportError(error, "reported", properties);
+  }
+
+  private reportError(error: unknown, source: ExceptionSource, extra: Properties = {}): void {
+    if (this.stopped || this.optedOut || this.errorsSent >= ERRORS_PER_PAGE) return;
+    const properties = exceptionProperties(error, source);
+    const fingerprint = String(properties.fingerprint);
+    const now = Date.now();
+    const last = this.errorsSeen.get(fingerprint);
+    if (last !== undefined && now - last < ERROR_REPEAT_MS) return;
+    this.errorsSeen.set(fingerprint, now);
+    this.errorsSent += 1;
+    this.capture(EVENTS.exception, { ...extra, ...properties });
+  }
+
   /** Sets properties on the current person without another event of note. */
   setPersonProperties(set?: Properties, setOnce?: Properties): void {
     this.capture(EVENTS.identify, {}, { set, setOnce });
@@ -339,6 +371,9 @@ export class Analytics {
   private start(): void {
     if (this.options.autocapture ?? true) {
       this.stops.push(startAutocapture((name, properties) => this.capture(name, properties), this.sanitizePath));
+    }
+    if (this.options.errors ?? true) {
+      this.stops.push(startErrorCapture((error, source) => this.reportError(error, source)));
     }
     if (this.options.heatmaps ?? true) {
       // Passive: a click is activity already, through autocapture.

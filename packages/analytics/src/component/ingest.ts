@@ -36,6 +36,8 @@ export const capture = mutation({
     identified: v.optional(v.boolean()),
     /** What it's about, `type:id`, like the slop that was voted on. */
     group: v.optional(v.string()),
+    /** The page it happened on, when there was one (a server error while rendering it). */
+    path: v.optional(v.string()),
   },
   returns: resultValidator,
   handler: async (ctx, args) => {
@@ -47,7 +49,7 @@ export const capture = mutation({
       distinctId: args.distinctId.slice(0, BATCH_LIMITS.idLength),
       sessionId: null,
       timestamp: args.timestamp ?? Date.now(),
-      path: null,
+      path: args.path?.slice(0, BATCH_LIMITS.pathLength) ?? null,
       properties: normalizeProperties(args.properties ?? {}),
       set: set && Object.keys(set).length > 0 ? set : null,
       setOnce: setOnce && Object.keys(setOnce).length > 0 ? setOnce : null,

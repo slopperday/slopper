@@ -9,6 +9,14 @@ export {
   stringProperty,
 } from "./properties";
 export { cookieNames, DEFAULT_STORAGE_KEY, ROUTES, stateKey } from "./routes";
+export {
+  cleanStack,
+  describeError,
+  errorFingerprint,
+  type ExceptionSource,
+  exceptionProperties,
+  normalizeMessage,
+} from "./errors";
 export { type Channel, hostOf, trafficSource, type TrafficSource } from "./source";
 export { type DeviceInfo, type DeviceType, isBot, parseUserAgent } from "./userAgent";
 export { uuidv7 } from "./uuid";

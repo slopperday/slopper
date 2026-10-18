@@ -46,6 +46,8 @@ export interface ServerEvent {
   identified?: boolean;
   /** What it's about, `type:id`, like the slop that was voted on (group analytics). */
   group?: string;
+  /** The page it happened on, if any. */
+  path?: string;
 }
 
 export interface Retention {

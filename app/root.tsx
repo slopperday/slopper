@@ -9,7 +9,7 @@ import {
   useRouteLoaderData,
 } from "react-router";
 import { useEffect } from "react";
-import { AnalyticsProvider, useIdentify } from "@slopperday/analytics/react";
+import { AnalyticsProvider, useAnalytics, useIdentify } from "@slopperday/analytics/react";
 import type { Route } from "./+types/root";
 import {
   analyticsIdContext,
@@ -153,6 +153,21 @@ function IdentifyViewer({ user }: { user: { id: string; username: string } | nul
   return null;
 }
 
+/**
+ * Sends what the error boundary caught to analytics. Errors thrown on the
+ * server reach the browser as "Unexpected Server Error" (React Router hides
+ * the rest): the server reported those itself (app/.server/errors.ts).
+ */
+function ReportError({ error }: { error: unknown }) {
+  const client = useAnalytics();
+  useEffect(() => {
+    if (!client || isRouteErrorResponse(error)) return;
+    if (error instanceof Error && error.message === "Unexpected Server Error") return;
+    client.captureException(error, { boundary: "root" });
+  }, [client, error]);
+  return null;
+}
+
 const ERROR_COPY: Record<number, { title: string; body: string }> = {
   401: { title: "Sign in first", body: "You need an account for that." },
   403: { title: "Not yours", body: "That isn't yours to touch." },
@@ -168,6 +183,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   const stack = import.meta.env.DEV && error instanceof Error ? error.stack : undefined;
   return (
     <section className="mx-auto grid max-w-xl justify-items-center px-4 py-20 text-center">
+      <ReportError error={error} />
       <title>{`${copy.title} · Slopper`}</title>
       <Tiles value={String(status)} className="text-[3.5rem]" />
       <p className="sr-only">Error {status}</p>

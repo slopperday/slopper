@@ -1,5 +1,5 @@
 import { api } from "@convex/_generated/api";
-import { heatmapQuery, insightQuery, isInsightKind } from "~/lib/insights";
+import { errorsQuery, heatmapQuery, insightQuery, isInsightKind } from "~/lib/insights";
 import { convex } from "../convex";
 import type { User } from "../session";
 import { ApiError } from "./input";
@@ -36,6 +36,8 @@ export const ADMIN_REPORTS = [
   "experiment",
   "recordings",
   "heatmap",
+  "errors",
+  "error",
 ] as const;
 
 function days(params: URLSearchParams): number {
@@ -77,6 +79,19 @@ export async function adminReport(admin: User, params: URLSearchParams, now: Dat
       return { events: await convex.query(api.analytics.eventNames, { adminId }) };
     case "flags":
       return { flags: await convex.query(api.analytics.flags, { adminId }) };
+    case "errors":
+      return await convex.action(api.analytics.insight, { adminId, query: errorsQuery(params, now.getTime()) });
+    case "error": {
+      const fingerprint = params.get("q") ?? "";
+      const answer = await convex.action(api.analytics.insight, {
+        adminId,
+        query: errorsQuery(params, now.getTime(), fingerprint),
+      });
+      if (answer.result.kind !== "errors" || answer.result.issues.length === 0) {
+        throw new ApiError(404, `There's no error “${fingerprint}” in that range.`);
+      }
+      return answer;
+    }
     case "heatmap":
       return await convex.action(api.analytics.insight, { adminId, query: heatmapQuery(params, now.getTime()) });
     case "recordings":
