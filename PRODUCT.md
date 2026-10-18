@@ -44,8 +44,8 @@ persistence, where launch sites are built around one big day.
 Goals and streaks, the daily race, the wall (all slops, by category, freshest or sticking), the Slopcessful hall of
 fame, launches and relaunches, updates and field tests, upvotes with private downvotes, feedback and kudos (off for V1,
 back with heavier moderation), "take my money" pledges (non-binding, no money moves), a per-product money ledger
-(private unless shared), auto-posting to X, LinkedIn and Bluesky, live notifications, flags and a moderator queue, API
-tokens. Sign in with GitHub, Google, X, LinkedIn or Facebook, all linked to one account. Everything updates live.
+(private unless shared), auto-posting to LinkedIn and Bluesky (X is built but off: its API is pay per use), live notifications, flags and a moderator queue, API
+tokens. Sign in with GitHub, Google, LinkedIn or Facebook, all linked to one account. Everything updates live.
 
 ## Brand Commitments
 

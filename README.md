@@ -22,7 +22,7 @@ it to people, and keep slopping until one of them is **slopcessful**.
 - **Take my money.** Non-binding pledges that show how much people would pay.
 - **Money ledger.** Costs (domain, hosting, AI) and revenue per product, private unless you show the numbers.
 - **Slopcessful hall of fame:** slops that earned it. Nobody can declare it: today it comes from winning the day.
-- **Auto-post** to X (several accounts: post as the app, repost as you), LinkedIn and Bluesky, plus one-tap share
+- **Auto-post** to LinkedIn and Bluesky (X is built but off: its API is pay per use), plus one-tap share
   buttons everywhere.
 - **For agents:** an MCP server, a REST API, a CLI (`@slopperday/cli`) with its skill (`@slopperday/skill`) and
   a prompt on every form to pass to your agent.
@@ -31,18 +31,18 @@ Everything is live: votes, races, pledges and notifications update on every open
 
 ## Stack
 
-| Piece     | Choice                                                                                                                           |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Toolchain | [Vite+](https://viteplus.dev) (`vp`): Vite 8 + Rolldown, Oxlint, Oxfmt, Vitest, tsgo                                             |
-| App       | React Router 8 framework mode, React 19, server-side rendering with web streams, ESM only                                        |
-| Styles    | Tailwind CSS 4                                                                                                                   |
-| Data      | [Convex](https://convex.dev): realtime queries and crons                                                                         |
-| Media     | Screenshots and copied profile pictures in a [Backblaze B2](https://www.backblaze.com/cloud-storage) bucket (S3 API, aws4fetch)  |
-| Hosting   | [Netlify](https://www.netlify.com): static files on the CDN, the server as one Netlify Function, deployed by GitHub Actions      |
-| Auth      | GitHub, Google, X, LinkedIn and Facebook OAuth; the app signs ES256 JWTs that Convex verifies (`convex/auth.config.ts`)          |
-| Safety    | DeepSeek V4.1 Flash through [OpenRouter](https://openrouter.ai) reads text and screenshots; the policy is a fixed, cached prefix |
-| Secrets   | [Monosecret](https://ifiokjr.github.io/monosecret/) reads production secrets from one 1Password item and sets them on Netlify    |
-| Tests     | Vitest (logic, Convex functions) and Playwright (journeys against the production build)                                          |
+| Piece     | Choice                                                                                                                                       |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Toolchain | [Vite+](https://viteplus.dev) (`vp`): Vite 8 + Rolldown, Oxlint, Oxfmt, Vitest, tsgo                                                         |
+| App       | React Router 8 framework mode, React 19, server-side rendering with web streams, ESM only                                                    |
+| Styles    | Tailwind CSS 4                                                                                                                               |
+| Data      | [Convex](https://convex.dev): realtime queries and crons                                                                                     |
+| Media     | Screenshots and copied profile pictures in a [Backblaze B2](https://www.backblaze.com/cloud-storage) bucket (S3 API, aws4fetch)              |
+| Hosting   | [Netlify](https://www.netlify.com): static files on the CDN, the server as one Netlify Function, deployed by GitHub Actions                  |
+| Auth      | GitHub, Google, LinkedIn and Facebook OAuth (X built, off for cost); the app signs ES256 JWTs that Convex verifies (`convex/auth.config.ts`) |
+| Safety    | DeepSeek V4.1 Flash through [OpenRouter](https://openrouter.ai) reads text and screenshots; the policy is a fixed, cached prefix             |
+| Secrets   | [Monosecret](https://ifiokjr.github.io/monosecret/) reads production secrets from one 1Password item and sets them on Netlify                |
+| Tests     | Vitest (logic, Convex functions) and Playwright (journeys against the production build)                                                      |
 
 Convex gives 1M function calls and 0.5 GB of database free; Backblaze B2 stores the first 10 GB free. Netlify's free
 plan is 300 credits a month, and each production deploy costs 15 of them (bandwidth is 20 per GB, 10k requests 2), so a
@@ -179,14 +179,14 @@ Every provider has one callback URL. Signing in, linking a sign-in method from S
 auto-posting all come back to it: the app remembers which flow it started, so register the URL once. A provider's button
 appears on `/login` (and in Settings) only when both of its keys are set.
 
-| Provider | Keys                                           | Where                                                            | Callback URL                                 | Notes                                                                                                                                                                                  |
-| -------- | ---------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GitHub   | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`     | Settings → Developer settings → OAuth Apps                       | `https://slopper.day/auth/github/callback`   | Sign in.                                                                                                                                                                               |
-| Google   | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`     | Google Cloud console → Credentials → OAuth client (Web)          | `https://slopper.day/auth/google/callback`   | Sign in. Scopes: openid, email, profile.                                                                                                                                               |
-| X        | `X_CLIENT_ID`, `X_CLIENT_SECRET`               | developer.x.com → app → User authentication (OAuth 2.0, Web App) | `https://slopper.day/auth/x/callback`        | Sign in (users.read, tweet.read; X shares no email) and auto-post (tweet.read, tweet.write, users.read, offline.access). **Pay per use:** a post with a link costs about $0.20.        |
-| LinkedIn | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` | linkedin.com/developers → app → Products                         | `https://slopper.day/auth/linkedin/callback` | Add "Sign In with LinkedIn using OpenID Connect" (sign in: openid, profile, email) and "Share on LinkedIn" (auto-post: openid, profile, w_member_social). Posting tokens last 60 days. |
-| Facebook | `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET` | developers.facebook.com → app → Use cases → Facebook Login       | `https://slopper.day/auth/facebook/callback` | Sign in (public_profile, email). See below.                                                                                                                                            |
-| Bluesky  | None                                           | Nothing to register                                              |                                              | People connect with an app password.                                                                                                                                                   |
+| Provider | Keys                                           | Where                                                            | Callback URL                                 | Notes                                                                                                                                                                                                      |
+| -------- | ---------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub   | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`     | Settings → Developer settings → OAuth Apps                       | `https://slopper.day/auth/github/callback`   | Sign in.                                                                                                                                                                                                   |
+| Google   | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`     | Google Cloud console → Credentials → OAuth client (Web)          | `https://slopper.day/auth/google/callback`   | Sign in. Scopes: openid, email, profile.                                                                                                                                                                   |
+| X        | `X_CLIENT_ID`, `X_CLIENT_SECRET`               | developer.x.com → app → User authentication (OAuth 2.0, Web App) | `https://slopper.day/auth/x/callback`        | Sign in (users.read, tweet.read; X shares no email) and auto-post (tweet.read, tweet.write, users.read, offline.access). **Pay per use:** a post with a link costs about $0.20, so it's off in production. |
+| LinkedIn | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` | linkedin.com/developers → app → Products                         | `https://slopper.day/auth/linkedin/callback` | Add "Sign In with LinkedIn using OpenID Connect" (sign in: openid, profile, email) and "Share on LinkedIn" (auto-post: openid, profile, w_member_social). Posting tokens last 60 days.                     |
+| Facebook | `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET` | developers.facebook.com → app → Use cases → Facebook Login       | `https://slopper.day/auth/facebook/callback` | Sign in (public_profile, email). See below.                                                                                                                                                                |
+| Bluesky  | None                                           | Nothing to register                                              |                                              | People connect with an app password.                                                                                                                                                                       |
 
 **Facebook:** the keys are the app's App ID and App Secret. Add the callback under Facebook Login → Settings → Valid
 OAuth Redirect URIs, turn on "Require App Secret" (the server signs its Graph calls with `appsecret_proof`), and use
