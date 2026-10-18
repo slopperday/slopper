@@ -2,8 +2,9 @@ import { EVENTS } from "../events";
 import { stringProperty } from "../properties";
 import type { Channel } from "../source";
 import type { GroupsQuery } from "./queries";
+import type { GroupDay } from "./rollups";
 import type { EventRow } from "./rows";
-import { bucketsIn, bucketStart, type Interval, previousRange, type TimeRange } from "./time";
+import { bucketsIn, bucketStart, type Interval, previousRange, type TimeRange, wholeDayIn } from "./time";
 import type { WebRow } from "./web";
 
 /**
@@ -42,7 +43,11 @@ interface Counts {
   people: Set<string>;
 }
 
-/** Feed the event from the period before the range on (`scanRange`). */
+/**
+ * Feed the event from the period before the range on (`scanRange`). For page
+ * views (`rollupEvent`), whole days can come from rollups instead (`addDay`,
+ * for the days `rollupDay` accepts).
+ */
 export class GroupsAggregator {
   private readonly current = new Map<string, Counts>();
   private readonly before = new Map<string, Counts>();
@@ -54,6 +59,32 @@ export class GroupsAggregator {
 
   static scanRange(query: GroupsQuery): TimeRange {
     return { from: previousRange(query.range).from, to: query.range.to };
+  }
+
+  /** Rollups keep each group's page views per day. */
+  static rollupEvent(query: GroupsQuery): boolean {
+    return query.event === EVENTS.pageview;
+  }
+
+  /** Whether a day can come from its rollup: it lies wholly in the range or wholly in the period before. */
+  static rollupDay(query: GroupsQuery, day: number): boolean {
+    return wholeDayIn(day, query.range) || wholeDayIn(day, previousRange(query.range));
+  }
+
+  /** One group's page views on one whole day, from its rollup, in place of those events. */
+  addDay(day: GroupDay): void {
+    if (!GroupsAggregator.rollupEvent(this.query)) throw new Error("Rollups only keep groups' page views.");
+    if (this.query.prefix !== undefined && !day.group.startsWith(this.query.prefix)) return;
+    const target = wholeDayIn(day.day, this.query.range)
+      ? this.current
+      : wholeDayIn(day.day, this.previous)
+        ? this.before
+        : null;
+    if (!target) throw new Error("That day isn't wholly in the range or the period before.");
+    const counts = target.get(day.group) ?? { count: 0, people: new Set<string>() };
+    counts.count += day.count;
+    for (const personId of day.people) counts.people.add(personId);
+    target.set(day.group, counts);
   }
 
   add(event: EventRow): void {

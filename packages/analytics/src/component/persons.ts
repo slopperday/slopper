@@ -3,6 +3,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation, query } from "./_generated/server";
 import { pageArgs, pageByKey } from "./lib/paging";
+import { markChanged } from "./lib/rollupDays";
 import { personDoc } from "./shapes";
 
 /** Rows moved or deleted per transaction, well inside Convex's write limits. */
@@ -26,6 +27,11 @@ export const finishMerge = internalMutation({
       .withIndex("by_person_started", (q) => q.eq("personId", from))
       .take(PAGE);
     for (const session of sessions) await ctx.db.patch(session._id, { personId: into });
+    // The days they're on counted `from` as someone else.
+    await markChanged(ctx, [
+      ...events.map((event) => event.timestamp),
+      ...sessions.map((session) => session.startedAt),
+    ]);
     if (events.length === PAGE || sessions.length === PAGE) {
       await ctx.scheduler.runAfter(0, internal.persons.finishMerge, { from, into });
       return null;
@@ -106,6 +112,7 @@ async function deletePage(ctx: MutationCtx, personId: Id<"persons">): Promise<bo
     .withIndex("by_person_started", (q) => q.eq("personId", personId))
     .take(PAGE);
   for (const session of sessions) await ctx.db.delete(session._id);
+  await markChanged(ctx, [...events.map((event) => event.timestamp), ...sessions.map((session) => session.startedAt)]);
   return events.length < PAGE && sessions.length < PAGE;
 }
 

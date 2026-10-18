@@ -341,8 +341,8 @@ describe("maintenance", () => {
     await send(t, [event({ distinctId: "kept", sessionId: "older-but-active", timestamp: old })]);
     await send(t, [event({ distinctId: "kept", sessionId: "new" })]);
     const result = await t.mutation(api.maintenance.sweep, { retention: { eventDays: 30, personDays: 30 } });
-    // Two old events, their two sessions, and the person seen only then.
-    expect(result).toEqual({ deleted: 5, more: false });
+    // Two old events, their two sessions, the person seen only then, and the old day's rollup marker.
+    expect(result).toEqual({ deleted: 6, more: false });
     await t.finishAllScheduledFunctions(vi.runAllTimers);
     const { persons, distinctIds, sessions, events } = await all(t);
     expect(sessions.map((row) => row.sessionId)).toEqual(["new"]);
@@ -435,14 +435,16 @@ describe("groups", () => {
       numItems: 10,
     });
     expect(page.page.map((row) => [row.name, row.group])).toEqual([["$pageview", "slop:a"]]);
-    const all = await t.query(api.scan.events, {
-      name: null,
-      from: start,
-      to: start + MINUTE,
-      cursor: null,
-      numItems: 10,
-    });
-    expect(all.page.map((row) => row.group)).toEqual(["slop:a", "slop:a", "slop:b", null, "slop:a"]);
+    // Every event is read name by name: the names seen in the range, and none from before it.
+    expect((await t.query(api.scan.eventNames, { from: start, to: start + MINUTE })).sort()).toEqual([
+      "$autocapture",
+      "$pageview",
+      "voted",
+    ]);
+    expect(await t.query(api.scan.eventNames, { from: start + 2 * 3_600_000, to: start + 3 * 3_600_000 })).toEqual([]);
+    await expect(
+      t.query(api.scan.events, { name: null, from: start, to: start + MINUTE, cursor: null, numItems: 10 }),
+    ).rejects.toThrow("name by name");
   });
 
   it("looks up where sessions came from, skipping ones that are gone", async () => {

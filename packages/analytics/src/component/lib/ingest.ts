@@ -6,6 +6,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import type { deviceValidator, requestContextValidator } from "../validators";
+import { markChanged } from "./rollupDays";
 
 export type RequestContext = Infer<typeof requestContextValidator>;
 type DeviceInfo = Infer<typeof deviceValidator>;
@@ -16,7 +17,7 @@ const UNKNOWN_DEVICE: DeviceInfo = { browser: null, browserVersion: null, os: nu
 const LAST_SEEN_RESOLUTION_MS = 60_000;
 
 /** How stale an event name's last-seen time may get before it's written again. */
-const DEFINITION_RESOLUTION_MS = 3_600_000;
+export const DEFINITION_RESOLUTION_MS = 3_600_000;
 
 /** Events that count as someone doing something on the page, not just looking. */
 const INTERACTIONS = new Set<string>([EVENTS.autocapture, EVENTS.rageclick]);
@@ -29,6 +30,8 @@ interface PersonDraft {
 interface SessionDraft {
   doc: Doc<"sessions">;
   dirty: boolean;
+  /** When it started before this batch, for a stored session: the day its rollup is on. */
+  storedStart: number | null;
 }
 
 export interface IngestResult {
@@ -41,7 +44,9 @@ export interface IngestResult {
  * Stores events and keeps people and sessions up to date, in one
  * transaction per batch. People and sessions are read once, changed in
  * memory, and written once at the end, so a batch of fifty events costs
- * fifty inserts and a couple of patches.
+ * fifty inserts and a couple of patches. Events and sessions on days that
+ * are over (late batches, sessions running past midnight) mark those days'
+ * rollups as changed.
  */
 export async function ingestEvents(
   ctx: MutationCtx,
@@ -50,6 +55,7 @@ export async function ingestEvents(
   options: { identified?: boolean } = {},
 ): Promise<IngestResult> {
   const batch = new IngestBatch(ctx, context);
+  const moments: number[] = [];
   let stored = 0;
   let duplicates = 0;
   for (const event of [...events].sort((a, b) => a.timestamp - b.timestamp)) {
@@ -80,9 +86,11 @@ export async function ingestEvents(
       properties: event.properties,
       ...(event.group ? { group: event.group } : {}),
     });
+    moments.push(event.timestamp);
     stored += 1;
   }
-  await batch.flush();
+  moments.push(...(await batch.flush()));
+  await markChanged(ctx, moments);
   await recordDefinitions(ctx, events);
   return { stored, duplicates };
 }
@@ -273,7 +281,7 @@ class IngestBatch {
         .query("sessions")
         .withIndex("by_session_id", (q) => q.eq("sessionId", sessionId))
         .unique();
-      draft = doc ? { doc, dirty: false } : await this.startSession(event, person);
+      draft = doc ? { doc, dirty: false, storedStart: doc.startedAt } : await this.startSession(event, person);
       this.sessions.set(sessionId, draft);
     }
     const doc = draft.doc;
@@ -325,19 +333,24 @@ class IngestBatch {
       person.doc.initialPath = event.path;
       person.dirty = true;
     }
-    return { doc, dirty: true };
+    return { doc, dirty: true, storedStart: null };
   }
 
-  async flush(): Promise<void> {
+  /** Writes what changed; returns when the changed sessions started, before and after. */
+  async flush(): Promise<number[]> {
     for (const { doc, dirty } of this.persons.values()) {
       if (!dirty) continue;
       const { _id, _creationTime, ...fields } = doc;
       await this.ctx.db.replace(_id, fields);
     }
-    for (const { doc, dirty } of this.sessions.values()) {
+    const starts: number[] = [];
+    for (const { doc, dirty, storedStart } of this.sessions.values()) {
       if (!dirty) continue;
       const { _id, _creationTime, ...fields } = doc;
       await this.ctx.db.replace(_id, fields);
+      starts.push(doc.startedAt);
+      if (storedStart !== null) starts.push(storedStart);
     }
+    return starts;
   }
 }

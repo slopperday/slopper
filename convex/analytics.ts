@@ -16,6 +16,7 @@ import { components, internal } from "./_generated/api";
 import {
   action,
   type ActionCtx,
+  internalAction,
   internalMutation,
   internalQuery,
   mutation,
@@ -87,6 +88,21 @@ export const sweep = internalMutation({
   args: {},
   handler: async (ctx) => {
     await analytics.sweep(ctx, RETENTION);
+  },
+});
+
+/**
+ * Rolls up analytics into daily aggregates (convex/crons.ts), so the
+ * dashboards read a row per day instead of every event: yesterday and any
+ * other recent day not done yet, and older days that changed since. Run it
+ * by hand with a long `lookbackDays` to backfill; it keeps going on its own.
+ */
+export const rollUp = internalAction({
+  args: { lookbackDays: v.optional(v.number()) },
+  handler: async (ctx, { lookbackDays }) => {
+    const result = await analytics.rollUp(ctx, lookbackDays === undefined ? {} : { lookbackDays });
+    if (result.more) await ctx.scheduler.runAfter(0, internal.analytics.rollUp, { lookbackDays });
+    return result;
   },
 });
 
@@ -327,9 +343,10 @@ export const slopGroupsForPaths = internalQuery({
 const DAY_MS = 86_400_000;
 
 /** Up to a year back, whole days, up to and including now (a range's end is exclusive). */
+/** Whole days up to and including now: a whole number of days long, so whole past days come from rollups. */
 function rangeOf(days: number, now: number): { from: number; to: number } {
   const whole = Math.min(365, Math.max(1, Math.round(days)));
-  return { from: now - whole * DAY_MS, to: now + 1 };
+  return { from: now + 1 - whole * DAY_MS, to: now + 1 };
 }
 
 const creationTable = v.union(v.literal("users"), v.literal("slops"), v.literal("updates"));

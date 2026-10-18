@@ -16,6 +16,7 @@ import { isBot, parseUserAgent } from "../shared/userAgent";
 import { parseReplayChunkParams, REPLAY_LIMITS } from "../shared/replay";
 import { type ExperimentAnswer, experimentResults } from "./experiments";
 import { groupReport, type Overview, overview, runInsight } from "./insights";
+import { rollUp, type RollUpOptions, type RollUpResult } from "./rollups";
 
 /**
  * What an app's own Convex functions use: the HTTP endpoints the SDK sends
@@ -105,6 +106,16 @@ export class Analytics {
   /** How many people there are, how many signed in, and how many were active lately. From an action. */
   async overview(ctx: RunActionCtx, now: number = Date.now()): Promise<Overview> {
     return await overview(ctx, this.component, now);
+  }
+
+  /**
+   * Rolls up the days that need it into the daily aggregates the dashboards
+   * read: yesterday and any recent day not done yet, and older days that
+   * changed. Run it daily from an action on a cron, and call again while it
+   * says there's `more` (a long `lookbackDays` backfills).
+   */
+  async rollUp(ctx: RunActionCtx, options?: RollUpOptions): Promise<RollUpResult> {
+    return await rollUp(ctx, this.component, options);
   }
 
   /** Deletes what's past `retention`; run it daily from a cron. */
@@ -208,7 +219,9 @@ export class Analytics {
   }
 }
 
-export { checkRange, MAX_RANGE_DAYS, type Overview, SCAN_LIMIT } from "./insights";
+export { checkRange, MAX_RANGE_DAYS, type Overview } from "./insights";
+export { SCAN_LIMIT } from "./scanner";
+export type { RollDayOutcome, RollUpOptions, RollUpResult } from "./rollups";
 export * from "../shared/insights/queries";
 export type * from "../shared/insights";
 export type { Experiment, ExperimentAnswer } from "./experiments";

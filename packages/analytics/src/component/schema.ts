@@ -2,13 +2,14 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { flagConditionValidator, flagVariantValidator } from "../shared/flags";
 import { propertyFilterValidator } from "../shared/insights/queries";
+import { eventDayValidator, groupDayValidator, webDayValidator } from "./rollupValidators";
 import { deviceValidator, properties, sourceValidator } from "./validators";
 
 /**
  * Everything the component stores. Raw events are kept for a retention
  * period the app chooses (`maintenance.sweep`); people and their sessions
- * are what the dashboards read most, so they carry the counts and context
- * that would otherwise mean scanning every event.
+ * carry the counts and context that would otherwise mean scanning every
+ * event, and daily rollups (`rollups.ts`) hold what the dashboards chart.
  */
 export default defineSchema({
   /**
@@ -82,12 +83,39 @@ export default defineSchema({
     /** What it's about, `type:id` (shared/events.ts `WireEvent.group`); absent for most events. */
     group: v.optional(v.string()),
   })
+    // No index on the timestamp alone (each index is another copy of the table): scans and the
+    // sweep go by name, person, session or group, and the latest-events list by creation time.
     .index("by_uuid", ["uuid"])
-    .index("by_timestamp", ["timestamp"])
     .index("by_name_timestamp", ["name", "timestamp"])
     .index("by_person_timestamp", ["personId", "timestamp"])
     .index("by_session_timestamp", ["sessionId", "timestamp"])
     .index("by_group_timestamp", ["group", "timestamp"]),
+
+  /**
+   * Which days are rolled up. A day is only read from its rollup while
+   * `rolledAt` is set: anything that changes the day's events or sessions
+   * afterwards (a late batch, a session running past midnight, a merge, a
+   * person forgotten) clears it, and the next roll-up does the day again.
+   */
+  rollupDays: defineTable({
+    day: v.number(),
+    rolledAt: v.union(v.number(), v.null()),
+    /** When the day last changed after it ended. */
+    changedAt: v.number(),
+    /** Too busy to fit in rollup rows: read raw until it changes. */
+    oversized: v.boolean(),
+  })
+    .index("by_day", ["day"])
+    .index("by_rolled_day", ["rolledAt", "day"]),
+
+  /** One row per rolled-up day: web analytics (shared/insights/rollups.ts `WebDay`). */
+  webDays: defineTable(webDayValidator).index("by_day", ["day"]),
+
+  /** Each event name's count and people per rolled-up day, and every event's under `ANY_EVENT`. */
+  eventDays: defineTable(eventDayValidator).index("by_name_day", ["name", "day"]).index("by_day", ["day"]),
+
+  /** Each group's page views and people per rolled-up day. */
+  groupDays: defineTable(groupDayValidator).index("by_day", ["day"]),
 
   /** Every event name seen, for pickers: when it was first and last seen (to the hour). */
   eventDefinitions: defineTable({

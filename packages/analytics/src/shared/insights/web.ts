@@ -1,7 +1,16 @@
 import { EVENTS } from "../events";
 import type { WebQuery } from "./queries";
+import type { WebDay } from "./rollups";
 import type { EventRow, SessionRow } from "./rows";
-import { bucketsIn, bucketStart, type Interval, previousRange, type TimeRange } from "./time";
+import {
+  alignedByDays,
+  bucketsIn,
+  bucketStart,
+  type Interval,
+  previousRange,
+  type TimeRange,
+  wholeDayIn,
+} from "./time";
 
 export interface WebTotals {
   /** Unique people. */
@@ -45,6 +54,23 @@ export interface WebResult {
   breakdowns: WebBreakdowns;
 }
 
+export type WebBreakdownKey = keyof WebBreakdowns;
+
+/** Every breakdown, in the order the results list them. */
+export const WEB_BREAKDOWN_KEYS = [
+  "pages",
+  "entryPages",
+  "exitPages",
+  "channels",
+  "referrers",
+  "utmSources",
+  "utmCampaigns",
+  "browsers",
+  "operatingSystems",
+  "devices",
+  "countries",
+] as const satisfies readonly WebBreakdownKey[];
+
 /** Rows per breakdown. */
 export const WEB_ROW_LIMIT = 10;
 const BOUNCE_MS = 10_000;
@@ -61,6 +87,14 @@ class Tally {
     const row = this.rows.get(value) ?? { visitors: new Set<string>(), count: 0 };
     row.visitors.add(personId);
     row.count += 1;
+    this.rows.set(value, row);
+  }
+
+  /** A day's row for one value (`WebDay`): its count, and everyone it counted. */
+  addRow(value: string, count: number, people: readonly string[]): void {
+    const row = this.rows.get(value) ?? { visitors: new Set<string>(), count: 0 };
+    for (const personId of people) row.visitors.add(personId);
+    row.count += count;
     this.rows.set(value, row);
   }
 
@@ -86,6 +120,14 @@ class Totals {
     if (bounced(session)) this.bounces += 1;
   }
 
+  addDay(day: WebDay, visitors: readonly string[]): void {
+    for (const personId of visitors) this.visitors.add(personId);
+    this.sessions += day.sessions;
+    this.pageviews += day.pageviews;
+    this.duration += day.durationMs;
+    this.bounces += day.bounces;
+  }
+
   result(): WebTotals {
     return {
       visitors: this.visitors.size,
@@ -100,7 +142,9 @@ class Totals {
 /**
  * Web analytics: sessions that started in the range (and the period before,
  * for comparison) with `addSession`, and page views with `addPageview`.
- * `scanRange` is what to feed both from.
+ * `scanRange` is what to feed both from. Whole days can come from rollups
+ * instead (`addDay`), for the days `rollupDay` accepts; the rows of those
+ * days must not be added too.
  */
 export class WebAggregator {
   private readonly current = new Totals();
@@ -148,6 +192,15 @@ export class WebAggregator {
 
   static scanRange(query: WebQuery): TimeRange {
     return { from: previousRange(query.range).from, to: query.range.to };
+  }
+
+  /**
+   * Whether a day (its UTC midnight) can come from its rollup: it lies
+   * wholly in the range, or wholly in the period before when that period
+   * is a whole number of days long, so the day lines up with one bucket.
+   */
+  static rollupDay(query: WebQuery, day: number): boolean {
+    return wholeDayIn(day, query.range) || (alignedByDays(query.range) && wholeDayIn(day, previousRange(query.range)));
   }
 
   private bucket(timestamp: number, interval: Interval): number | undefined {
@@ -200,6 +253,39 @@ export class WebAggregator {
     this.tallies.pages.add(event.path, event.personId);
   }
 
+  /** One whole day from its rollup, in place of its sessions and page views. */
+  addDay(day: WebDay): void {
+    const visitors = day.visitors.map((position) => personAt(day, position));
+    if (alignedByDays(this.query.range) && wholeDayIn(day.day, this.previousRange)) {
+      this.before.addDay(day, visitors);
+      const bucket = this.bucketBefore(day.day);
+      if (bucket !== undefined) {
+        for (const personId of visitors) this.beforeVisitors[bucket]?.add(personId);
+        this.beforeSessions[bucket] = (this.beforeSessions[bucket] ?? 0) + day.sessions;
+        this.beforePageviews[bucket] = (this.beforePageviews[bucket] ?? 0) + day.pageviews;
+      }
+      return;
+    }
+    if (!wholeDayIn(day.day, this.query.range))
+      throw new Error("That day isn't wholly in the range or the period before.");
+    this.current.addDay(day, visitors);
+    const bucket = this.bucket(day.day, this.query.interval);
+    if (bucket !== undefined) {
+      for (const personId of visitors) this.seriesVisitors[bucket]?.add(personId);
+      this.seriesSessions[bucket] = (this.seriesSessions[bucket] ?? 0) + day.sessions;
+      this.seriesPageviews[bucket] = (this.seriesPageviews[bucket] ?? 0) + day.pageviews;
+    }
+    for (const key of WEB_BREAKDOWN_KEYS) {
+      for (const row of day.breakdowns[key]) {
+        this.tallies[key].addRow(
+          row.value,
+          row.count,
+          row.people.map((position) => personAt(day, position)),
+        );
+      }
+    }
+  }
+
   result(): WebResult {
     const { tallies } = this;
     const breakdowns: WebBreakdowns = {
@@ -233,4 +319,10 @@ export class WebAggregator {
       breakdowns,
     };
   }
+}
+
+function personAt(day: WebDay, position: number): string {
+  const personId = day.people[position];
+  if (personId === undefined) throw new Error(`A web rollup points past its people (${position}).`);
+  return personId;
 }

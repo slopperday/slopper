@@ -61,3 +61,13 @@ export function lastDays(days: number, now: number): TimeRange {
 export function previousRange(range: TimeRange): TimeRange {
   return { from: range.from - (range.to - range.from), to: range.from };
 }
+
+/** Whether the day starting at `day` lies wholly inside `range`. */
+export function wholeDayIn(day: number, range: TimeRange): boolean {
+  return day >= range.from && day + DAY_MS <= range.to;
+}
+
+/** A range a whole number of days long: shifting a day by it lands on a whole day. */
+export function alignedByDays(range: TimeRange): boolean {
+  return (range.to - range.from) % DAY_MS === 0;
+}

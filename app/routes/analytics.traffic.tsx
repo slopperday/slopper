@@ -31,7 +31,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const metric: Metric = isMetric(metricParam) ? metricParam : "visitors";
   const now = Date.now();
   const interval = intervalOf(url.searchParams, days);
-  const query = { kind: "web" as const, range: { from: now - days * 86_400_000, to: now + 1 }, interval };
+  // Whole days long, so the period before lines up day for day and whole past days come from rollups.
+  const query = { kind: "web" as const, range: { from: now + 1 - days * 86_400_000, to: now + 1 }, interval };
   const web = await convex.action(api.analytics.insight, { adminId: admin._id, query });
   if (web.result.kind !== "web") throw new Error("Web analytics answered with another kind of insight.");
   return {

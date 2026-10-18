@@ -1,9 +1,9 @@
-import type { FunctionReturnType, GenericActionCtx, GenericDataModel } from "convex/server";
+import type { FunctionReturnType } from "convex/server";
 import type { ComponentApi } from "../component/_generated/component";
 import {
   ANY_EVENT,
+  bucketStart,
   DAY_MS,
-  type EventRow,
   FunnelAggregator,
   type GroupReport,
   GroupReportAggregator,
@@ -18,7 +18,7 @@ import {
   LifecycleAggregator,
   PathsAggregator,
   RetentionAggregator,
-  type SessionRow,
+  type RollupPlan,
   StickinessAggregator,
   type TimeRange,
   TrendsAggregator,
@@ -26,20 +26,11 @@ import {
   WEEK_MS,
 } from "../shared/insights";
 import { EVENTS } from "../shared/events";
-import type { Channel } from "../shared/source";
+import { RollupReader } from "./rollups";
+import { PAGE_SIZE, SCAN_LIMIT, type ScanCtx, Scanner } from "./scanner";
 
-type ScanCtx = Pick<GenericActionCtx<GenericDataModel>, "runQuery">;
-type EventsPage = FunctionReturnType<ComponentApi["scan"]["events"]>;
-type SessionsPage = FunctionReturnType<ComponentApi["scan"]["sessions"]>;
 type PersonsPage = FunctionReturnType<ComponentApi["scan"]["persons"]>;
 
-/** Rows per page: one query each, well inside Convex's per-query read limits. */
-const PAGE_SIZE = 2_000;
-/**
- * Most rows one insight reads. Past it the answer says it's `truncated`:
- * the numbers cover the start of the range only.
- */
-export const SCAN_LIMIT = 200_000;
 /** The longest range an insight covers. */
 export const MAX_RANGE_DAYS = 400;
 
@@ -53,103 +44,6 @@ export interface Overview {
   activeThisMonth: number;
   newThisWeek: number;
   truncated: boolean;
-}
-
-/** Reads events and sessions page by page for the engines here, counting what it read. */
-export class Scanner {
-  scanned = 0;
-  truncated = false;
-
-  constructor(
-    private readonly ctx: ScanCtx,
-    private readonly component: ComponentApi,
-  ) {}
-
-  private full(): boolean {
-    if (this.scanned >= SCAN_LIMIT) this.truncated = true;
-    return this.truncated;
-  }
-
-  /**
-   * Every occurrence of `name` (every event for `ANY_EVENT`) in the range,
-   * oldest first; only one group's with `group`.
-   */
-  async events(name: string, range: TimeRange, each: (row: EventRow) => void, group?: string): Promise<void> {
-    let cursor: string | null = null;
-    while (!this.full()) {
-      const result: EventsPage = await this.ctx.runQuery(this.component.scan.events, {
-        name: name === ANY_EVENT ? null : name,
-        ...(group === undefined ? {} : { group }),
-        from: range.from,
-        to: range.to,
-        cursor,
-        numItems: PAGE_SIZE,
-      });
-      for (const row of result.page) each(row);
-      this.scanned += result.page.length;
-      if (result.isDone) return;
-      cursor = result.continueCursor;
-    }
-  }
-
-  /** Sessions that started in the range, oldest first. */
-  async sessions(range: TimeRange, each: (row: SessionRow) => void): Promise<void> {
-    let cursor: string | null = null;
-    while (!this.full()) {
-      const result: SessionsPage = await this.ctx.runQuery(this.component.scan.sessions, {
-        from: range.from,
-        to: range.to,
-        cursor,
-        numItems: PAGE_SIZE,
-      });
-      for (const session of result.page) {
-        each({
-          sessionId: session.sessionId,
-          personId: session.personId,
-          startedAt: session.startedAt,
-          endedAt: session.endedAt,
-          pageviews: session.pageviews,
-          interactions: session.interactions,
-          entryPath: session.entryPath,
-          exitPath: session.exitPath,
-          channel: session.source.channel,
-          referrerDomain: session.source.referrerDomain,
-          utmSource: session.source.utmSource,
-          utmCampaign: session.source.utmCampaign,
-          browser: session.device.browser,
-          os: session.device.os,
-          deviceType: session.device.deviceType,
-          country: session.country,
-        });
-      }
-      this.scanned += result.page.length;
-      if (result.isDone) return;
-      cursor = result.continueCursor;
-    }
-  }
-
-  async sources(
-    sessionIds: readonly string[],
-    each: (sessionId: string, source: { referrerDomain: string | null; channel: Channel }) => void,
-  ): Promise<void> {
-    for (let start = 0; start < sessionIds.length; start += 500) {
-      const found = await this.ctx.runQuery(this.component.scan.sessionSources, {
-        sessionIds: sessionIds.slice(start, start + 500),
-      });
-      for (const { sessionId, source } of found) each(sessionId, source);
-    }
-  }
-
-  async firstSeen(personIds: readonly string[]): Promise<Map<string, number>> {
-    const seen = new Map<string, number>();
-    for (let start = 0; start < personIds.length; start += 500) {
-      const found = await this.ctx.runQuery(this.component.scan.firstSeen, {
-        personIds: personIds.slice(start, start + 500),
-      });
-      for (const { personId, createdAt } of found) seen.set(personId, createdAt);
-    }
-    return seen;
-  }
 }
 
 /** Refuses ranges that are backwards or too long to answer. */
@@ -168,7 +62,10 @@ function byEvent(events: readonly string[]): Map<string, number[]> {
 
 /**
  * Answers an insight from an action: reads the events and sessions it needs
- * page by page and aggregates as it goes. `now` caps how far ahead
+ * page by page and aggregates as it goes. Trends without filters or
+ * breakdown, web analytics and groups' page views read whole days from
+ * daily rollups where there are any, and only the rest (today, the partial
+ * days at either end, days not rolled up yet) raw. `now` caps how far ahead
  * follow-up periods (funnel windows, retention) are read.
  */
 export async function runInsight(
@@ -179,15 +76,36 @@ export async function runInsight(
 ): Promise<InsightAnswer> {
   checkRange(query.range);
   const scan = new Scanner(ctx, component);
+  const rollups = new RollupReader(ctx, component);
   let result: InsightResult;
   switch (query.kind) {
     case "trends": {
       const trends = new TrendsAggregator(query);
       const range = TrendsAggregator.scanRange(query);
-      for (const [event, indexes] of byEvent(query.series.map((series) => series.event))) {
-        await scan.events(event, range, (row) => {
-          for (const index of indexes) trends.add(index, row);
-        });
+      const series = query.series.map((_, index) => index);
+      const rolling = series.filter((index) => TrendsAggregator.rollupSeries(query, index));
+      const plan: RollupPlan =
+        rolling.length > 0
+          ? await rollups.plan(range, (day) => TrendsAggregator.rollupDay(query, day))
+          : { days: [], raw: [range] };
+      const planned = new Set(plan.days);
+      for (const [event, indexes] of byEvent(query.series.map((definition) => definition.event))) {
+        const fromRollups = indexes.filter((index) => rolling.includes(index));
+        const raw = indexes.filter((index) => !rolling.includes(index));
+        if (fromRollups.length > 0) {
+          await rollups.events(event, plan.days, (day) => {
+            for (const index of fromRollups) trends.addDay(index, day);
+          });
+        }
+        // A series that can't use rollups reads the whole range, and the others take its rows off their days.
+        for (const segment of raw.length > 0 ? [range] : plan.raw) {
+          await scan.events(event, segment, (row) => {
+            for (const index of raw) trends.add(index, row);
+            // Already counted from its day's rollup.
+            if (planned.has(bucketStart(row.timestamp, "day"))) return;
+            for (const index of fromRollups) trends.add(index, row);
+          });
+        }
       }
       result = trends.result();
       break;
@@ -240,7 +158,12 @@ export async function runInsight(
     }
     case "groups": {
       const groups = new GroupsAggregator(query);
-      await scan.events(query.event, GroupsAggregator.scanRange(query), (row) => groups.add(row));
+      const range = GroupsAggregator.scanRange(query);
+      const plan: RollupPlan = GroupsAggregator.rollupEvent(query)
+        ? await rollups.plan(range, (day) => GroupsAggregator.rollupDay(query, day))
+        : { days: [], raw: [range] };
+      await rollups.groups(plan.days, (day) => groups.addDay(day));
+      for (const segment of plan.raw) await scan.events(query.event, segment, (row) => groups.add(row));
       result = groups.result();
       break;
     }
@@ -266,9 +189,12 @@ export async function runInsight(
     }
     case "web": {
       const web = new WebAggregator(query);
-      const range = WebAggregator.scanRange(query);
-      await scan.sessions(range, (row) => web.addSession(row));
-      await scan.events(EVENTS.pageview, range, (row) => web.addPageview(row));
+      const plan = await rollups.plan(WebAggregator.scanRange(query), (day) => WebAggregator.rollupDay(query, day));
+      await rollups.web(plan.days, (day) => web.addDay(day));
+      for (const segment of plan.raw) {
+        await scan.sessions(segment, (row) => web.addSession(row));
+        await scan.events(EVENTS.pageview, segment, (row) => web.addPageview(row));
+      }
       result = web.result();
       break;
     }

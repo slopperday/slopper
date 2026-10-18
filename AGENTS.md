@@ -116,6 +116,12 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   (`packages/analytics/src/component/lib/paging.ts`). Tests build the app
   with `convexApp()` (`tests/convexApp.ts`), which registers the component. Codegen needs a deployment, the component
   included: in a worktree without `.env.local`, run it against a scratch local backend.
+- **Analytics rollups:** a daily cron (`analytics.rollUp`, 04:00 UTC) rolls each finished day into rollup rows, and
+  web, unfiltered trends and projects read whole past days from them, raw events only for today and the partial day
+  at the start (packages/analytics README, "Daily rollups"). Keep dashboard ranges whole days long
+  (`from: now + 1 - days * DAY`, `to: now + 1`) so the period before reads rollups too. Anything new that writes or
+  deletes events or sessions calls `markChanged` (`component/lib/rollupDays.ts`). Backfill with
+  `convex run analytics:rollUp '{"lookbackDays": 365}'`.
 - **Analytics by slop:** events on a slop's page (`/@username/slug`) and the votes, pledges, updates and comments on it
   carry the group `slop:<id>` (`groupsForPaths` in `convex/http.ts`, `slopGroup` in `convex/analytics.ts`). Makers
   see theirs at `/@username/slug/analytics`, through the `slop_analytics` operation (MCP, REST

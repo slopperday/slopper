@@ -5,9 +5,9 @@ import { eventDoc } from "./shapes";
 const MAX_RECENT = 200;
 
 /**
- * The latest events, newest first: everyone's, one event's, one group's,
- * or one person's (by any of their distinct ids). A live feed when
- * subscribed to.
+ * The latest events, newest first: everyone's (newest to arrive), one
+ * event's, one group's, or one person's (by any of their distinct ids). A
+ * live feed when subscribed to.
  */
 export const recent = query({
   args: {
@@ -46,6 +46,7 @@ export const recent = query({
         .order("desc")
         .take(take);
     }
-    return await ctx.db.query("events").withIndex("by_timestamp").order("desc").take(take);
+    // Latest to arrive: within a batch that's also the latest to happen (ingest stores them in order).
+    return await ctx.db.query("events").order("desc").take(take);
   },
 });
