@@ -46,6 +46,8 @@ export default async function handleRequest(
   // `node scripts/release.ts publish` waits for slopper.day to report the new release here.
   responseHeaders.set("x-slopper-version", APP_VERSION);
   if (import.meta.env.PROD) {
+    // HTTPS only, from the first visit on: browsers stop asking over http at all.
+    responseHeaders.set("strict-transport-security", "max-age=31536000; includeSubDomains");
     // Inline scripts stay allowed: React Router streams hydration data with
     // them. Inline styles too: cards set CSS variables for their tilt.
     // Images and promo videos come from the B2 bucket (or Convex storage) and sign-in providers, all https.

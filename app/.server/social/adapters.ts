@@ -1,9 +1,11 @@
+import { lookup } from "node:dns/promises";
 import { api } from "@convex/_generated/api";
 import type { Doc } from "@convex/_generated/dataModel";
 import type { SocialProvider } from "~/lib/model";
 import { convex } from "../convex";
 import { seal, unseal } from "../crypto";
 import { clientCredentials, refreshTokens } from "../auth/oauth";
+import { assertFetchable, isPublicAddress } from "../preview";
 import { composeFor, type PostContent } from "~/lib/compose";
 
 export type ConnectedAccount = Doc<"accounts">;
@@ -291,7 +293,34 @@ interface BlueskySession {
   handle: string;
 }
 
+/**
+ * A Bluesky PDS this server may talk to. The address comes from whoever
+ * connects the account, so a private one would aim the server's requests at
+ * internal networks (SSRF) — now, and again on every auto-post, since the
+ * address is kept with the account. The rules are the link previews'
+ * (./preview.ts): a public web address on the standard ports, no credentials,
+ * and the name has to resolve publicly too.
+ */
+export async function assertPublicService(service: string): Promise<void> {
+  let url: URL;
+  try {
+    url = new URL(service);
+  } catch {
+    throw new SocialError("That PDS address isn't a URL.");
+  }
+  try {
+    assertFetchable(url);
+  } catch {
+    throw new SocialError("A PDS lives on the public web, on the standard ports.");
+  }
+  const addresses = await lookup(url.hostname, { all: true }).catch(() => []);
+  if (addresses.length === 0 || addresses.some((entry) => !isPublicAddress(entry.address))) {
+    throw new SocialError("A PDS has to be on the public internet.");
+  }
+}
+
 export async function createBlueskySession(credentials: BlueskyCredentials): Promise<BlueskySession> {
+  await assertPublicService(credentials.service);
   const response = await fetch(`${credentials.service}/xrpc/com.atproto.server.createSession`, {
     method: "POST",
     headers: { "content-type": "application/json" },
