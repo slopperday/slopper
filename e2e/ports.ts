@@ -50,6 +50,8 @@ export const E2E_ADMIN = "e2e-admin";
 export interface Stack {
   appUrl: string;
   convexUrl: string;
+  /** The backend's HTTP actions, where browsers send analytics. */
+  convexSiteUrl: string;
   checkUrl: string;
   /** The fake B2 bucket's server; `GET /__objects` lists what it holds. */
   s3Url: string;

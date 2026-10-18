@@ -1,0 +1,28 @@
+{
+  "name": "@slopperday/analytics",
+  "version": "0.0.0",
+  "private": true,
+  "description": "First-party product analytics on Convex: events, people, sessions, insights, feature flags, experiments, session replay, heatmaps, error tracking and surveys.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    "./convex.config": "./src/component/convex.config.ts",
+    "./_generated/component.js": "./src/component/_generated/component.ts",
+    "./convex": "./src/convex/index.ts",
+    "./browser": "./src/browser/index.ts",
+    "./react": "./src/react/index.tsx",
+    "./shared": "./src/shared/index.ts",
+    "./package.json": "./package.json"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "convex": "^1.46.0",
+    "convex-test": "^0.0.60",
+    "react": "^19.3.0",
+    "vite-plus": "1.0.0"
+  },
+  "peerDependencies": {
+    "convex": "^1.46.0",
+    "react": "^19.3.0"
+  }
+}

@@ -1,6 +1,7 @@
 import { ConvexError, type Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
+import { captureFor } from "./analytics";
 import { readerFor, requireServer } from "./lib/auth";
 import { notify } from "./lib/notify";
 import { can, requirePermission } from "./lib/permissions";
@@ -141,6 +142,10 @@ export async function insertLaunch(ctx: MutationCtx, draft: LaunchDraft) {
   });
   const blurred = await checkScreenshots(ctx, slopId, screenshots);
   await scheduleEmbedding(ctx, slopId);
+  await captureFor(ctx, userId, {
+    name: "slop launched",
+    properties: { category: input.category, relaunch: source !== null, goalDay },
+  });
   return { slopId, updateId, slug, blurred };
 }
 
@@ -349,6 +354,7 @@ export const vote = mutation({
     if (value === 1) {
       await notify(ctx, { userId: slop.userId, kind: "upvote", slopId: slop._id, actorId: userId, amount: null });
     }
+    await captureFor(ctx, userId, { name: "voted", properties: { value } });
     const returned = value === 0 && castToday ? 1 : 0;
     return { upvotes, vote: value, votesLeft: LIMITS.votesPerDay - used - (spends ? 1 : 0) + returned };
   },
@@ -391,6 +397,8 @@ export const pledge = mutation({
     if (amount > previous) {
       await notify(ctx, { userId: slop.userId, kind: "pledge", slopId: slop._id, actorId: userId, amount });
     }
+    // Who pledged what stays private, here too: only that someone did.
+    if (amount !== previous) await captureFor(ctx, userId, { name: "pledged" });
     return { backers, pledged, amount };
   },
 });

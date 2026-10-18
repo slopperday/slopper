@@ -1,18 +1,15 @@
 // @vitest-environment edge-runtime
-import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import schema from "@convex/schema";
 import { MAX_BROWSERS } from "@convex/push";
 import { isPushEndpoint, parseSubscription } from "~/.server/push";
 import { notificationText } from "~/lib/notifications";
 import { generateVapidKeys } from "../scripts/server-keys.ts";
-
-const modules = import.meta.glob("../convex/**/*.ts");
+import { convexApp } from "./convexApp";
 
 function setup() {
-  const t = convexTest(schema, modules);
+  const t = convexApp();
   return { t, server: t.withIdentity({ subject: "server" }) };
 }
 

@@ -9,7 +9,9 @@ import {
   useRouteLoaderData,
 } from "react-router";
 import { useEffect } from "react";
+import { AnalyticsProvider, useIdentify } from "@slopperday/analytics/react";
 import type { Route } from "./+types/root";
+import { analyticsOptedOut, analyticsSetup } from "./.server/analytics";
 import { autopostNetworks, config } from "./.server/config";
 import { redirectQueryMiddleware } from "./.server/http";
 import { csrfMiddleware, viewerContext, viewerMiddleware } from "./.server/session";
@@ -19,6 +21,7 @@ import { Footer } from "./components/Footer";
 import { FlashBanner } from "./components/FlashBanner";
 import { LiveProvider } from "./components/Live";
 import { Tiles } from "./components/Tiles";
+import { sanitizeAnalyticsPath } from "./lib/analytics";
 import { withoutRedirectMarker } from "./lib/redirect";
 import "./app.css";
 import bigShouldersLatin from "@fontsource-variable/big-shoulders/files/big-shoulders-latin-standard-normal.woff2?url";
@@ -27,17 +30,21 @@ import schibstedGroteskLatin from "@fontsource-variable/schibsted-grotesk/files/
 // redirectQueryMiddleware goes first so it sees every redirect, the others' included.
 export const middleware: Route.MiddlewareFunction[] = [redirectQueryMiddleware, csrfMiddleware, viewerMiddleware];
 
-export function loader({ context }: Route.LoaderArgs) {
+export function loader({ request, context }: Route.LoaderArgs) {
   const viewer = context.get(viewerContext);
   const user = viewer.user;
   return {
-    user: user ? { username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl } : null,
+    user: user
+      ? { id: user._id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
+      : null,
     permissions: permissionsOf(user),
     flash: viewer.flash,
     origin: config.appUrl.origin,
     convexUrl: config.convexUrl,
     commentsEnabled: config.commentsEnabled,
     autopostNetworks: autopostNetworks(),
+    analytics: analyticsSetup(request),
+    analyticsOptedOut: analyticsOptedOut(request),
   };
 }
 
@@ -79,20 +86,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body className="flex min-h-dvh flex-col">
-        <LiveProvider url={data?.convexUrl ?? null} signedIn={Boolean(data?.user)}>
-          <a
-            href="#main"
-            className="btn btn-ink sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50"
-          >
-            Skip to content
-          </a>
-          <Header user={data?.user ?? null} permissions={data?.permissions ?? []} path={location.pathname} />
-          {data?.flash && <FlashBanner key={location.key} flash={data.flash} />}
-          <main id="main" className="flex-1">
-            {children}
-          </main>
-          <Footer />
-        </LiveProvider>
+        <AnalyticsProvider
+          options={data?.analytics ? { ...data.analytics, sanitizePath: sanitizeAnalyticsPath } : null}
+        >
+          <IdentifyViewer user={data?.user ?? null} />
+          <LiveProvider url={data?.convexUrl ?? null} signedIn={Boolean(data?.user)}>
+            <a
+              href="#main"
+              className="btn btn-ink sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50"
+            >
+              Skip to content
+            </a>
+            <Header user={data?.user ?? null} permissions={data?.permissions ?? []} path={location.pathname} />
+            {data?.flash && <FlashBanner key={location.key} flash={data.flash} />}
+            <main id="main" className="flex-1">
+              {children}
+            </main>
+            <Footer />
+          </LiveProvider>
+        </AnalyticsProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -102,6 +114,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return <Outlet />;
+}
+
+/**
+ * Signed-in people are their user id in analytics, the id Convex captures
+ * their launches and votes with (convex/analytics.ts), so what they did
+ * before signing in joins their account's history.
+ */
+function IdentifyViewer({ user }: { user: { id: string; username: string } | null }) {
+  useIdentify(user ? { distinctId: user.id, set: { username: user.username } } : null);
+  return null;
 }
 
 const ERROR_COPY: Record<number, { title: string; body: string }> = {

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import process from "node:process";
 import { parseEnv } from "node:util";
+import { ROUTES } from "@slopperday/analytics/shared";
 
 // The Vite dev server reads secrets and the Convex URL from `.env.local`
 // (written by `convex dev` and scripts/convex-keys.ts). Variables already in
@@ -75,6 +76,12 @@ export interface Config {
   secretKey: string | null;
   /** Convex deployment URL. */
   convexUrl: string | null;
+  /**
+   * Where browsers send analytics (packages/analytics): the deployment's
+   * HTTP actions and the prefix convex/http.ts mounts them at. Null turns
+   * analytics off: no SDK is loaded.
+   */
+  analyticsEndpoint: string | null;
   /** Issuer and private key for the JWTs Convex trusts. */
   jwtIssuer: string;
   jwtPrivateKey: string | null;
@@ -170,12 +177,34 @@ function b2Storage(env: Env): B2Config | null {
   return { endpoint: endpoint.replace(/\/+$/, ""), region, bucket, keyId, applicationKey };
 }
 
+/**
+ * The deployment's HTTP actions live on its `.convex.site` URL: given as
+ * CONVEX_SITE_URL, or worked out from a cloud deployment's `.convex.cloud`
+ * URL. A self-hosted backend's site URL can't be worked out, so it needs
+ * the variable.
+ */
+function analyticsEndpoint(env: Env, convexUrl: string | null): string | null {
+  const explicit = env.CONVEX_SITE_URL?.trim() || env.VITE_CONVEX_SITE_URL?.trim();
+  let site: string | null = null;
+  if (explicit) {
+    if (!URL.canParse(explicit)) throw new Error(`CONVEX_SITE_URL isn't a URL: ${explicit}`);
+    site = explicit;
+  } else if (convexUrl && URL.canParse(convexUrl)) {
+    const url = new URL(convexUrl);
+    if (url.hostname.endsWith(".convex.cloud"))
+      site = `${url.protocol}//${url.hostname.replace(/\.convex\.cloud$/, ".convex.site")}`;
+  }
+  return site ? `${site.replace(/\/+$/, "")}${ROUTES.prefix}` : null;
+}
+
 export function loadConfig(env: Env = process.env): Config {
+  const convexUrl = env.CONVEX_URL?.trim() || env.VITE_CONVEX_URL?.trim() || null;
   return {
     appUrl: new URL(env.APP_URL ?? "http://localhost:5173"),
     devLogin: import.meta.env.DEV && env.DEV_LOGIN !== "false",
     secretKey: env.SLOPPER_SECRET_KEY?.trim() || null,
-    convexUrl: env.CONVEX_URL?.trim() || env.VITE_CONVEX_URL?.trim() || null,
+    convexUrl,
+    analyticsEndpoint: analyticsEndpoint(env, convexUrl),
     jwtIssuer: env.SLOPPER_JWT_ISSUER?.trim() || "https://slopper.day",
     jwtPrivateKey: env.SLOPPER_JWT_PRIVATE_KEY?.trim() || null,
     adminIdentities: adminIdentities(env),

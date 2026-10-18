@@ -33,6 +33,7 @@ import { E2E_ADMIN_IDENTITY, type FakeCheckRequest, type FakeEmail, PORTS, STACK
 const ROOT = resolve(import.meta.dirname, "..");
 const STATE = join(ROOT, ".e2e");
 const CONVEX_URL = `http://127.0.0.1:${PORTS.convex}`;
+const CONVEX_SITE_URL = `http://127.0.0.1:${PORTS.convexSite}`;
 const APP_URL = `http://127.0.0.1:${PORTS.app}`;
 const CHECK_URL = `http://127.0.0.1:${PORTS.check}`;
 const S3_URL = `http://127.0.0.1:${PORTS.s3}`;
@@ -253,6 +254,8 @@ async function main(): Promise<void> {
       PORT: String(PORTS.app),
       APP_URL,
       CONVEX_URL,
+      // Analytics posts to the backend's HTTP actions, which a self-hosted backend serves on its own port.
+      CONVEX_SITE_URL,
       SLOPPER_JWT_ISSUER: APP_URL,
       SLOPPER_JWT_PRIVATE_KEY: keys.privateKey,
       SLOPPER_SECRET_KEY: randomBytes(32).toString("base64"),
@@ -284,6 +287,7 @@ async function main(): Promise<void> {
   const stack: Stack = {
     appUrl: APP_URL,
     convexUrl: CONVEX_URL,
+    convexSiteUrl: CONVEX_SITE_URL,
     checkUrl: CHECK_URL,
     s3Url: S3_URL,
     mediaUrl: MEDIA_URL,

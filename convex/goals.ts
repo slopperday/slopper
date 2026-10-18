@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
+import { captureFor } from "./analytics";
 import { requireServer } from "./lib/auth";
 import { publicUser } from "./lib/shape";
 import { addDays, currentStreak, localDate } from "../app/lib/dates";
@@ -43,6 +44,7 @@ export const create = mutation({
     const id = await ctx.db.insert("goals", { userId, ...draft, endDate: goalEndDate(draft) });
     const goal = await ctx.db.get(id);
     if (!goal) throw new Error("Goal vanished after insert");
+    await captureFor(ctx, userId, { name: "goal set", properties: { days: goal.days, target: goal.target } });
     return { ok: true, goal };
   },
 });

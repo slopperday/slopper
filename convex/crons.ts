@@ -28,5 +28,6 @@ crons.daily("crown slop of the day", { hourUTC: 0, minuteUTC: 1 }, internal.race
 crons.daily("sweep expired rows", { hourUTC: 3, minuteUTC: 0 }, internal.crons.sweep, {});
 // Each person's digest goes out at 9am their time, so check every hour.
 crons.hourly("email digests", { minuteUTC: 0 }, internal.digest.run, {});
+crons.daily("sweep old analytics", { hourUTC: 3, minuteUTC: 30 }, internal.analytics.sweep, {});
 
 export default crons;

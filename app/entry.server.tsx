@@ -5,12 +5,18 @@ import { ServerRouter } from "react-router";
 import { config } from "./.server/config";
 import { APP_VERSION } from "./lib/version";
 
-/** Live queries open a websocket to Convex; the policy must allow it. */
+/**
+ * Live queries open a websocket to Convex, and analytics posts to its HTTP
+ * actions (`.convex.site`); the policy must allow both.
+ */
 function convexSources(): string {
-  if (!config.convexUrl) return "";
-  const url = new URL(config.convexUrl);
-  const socket = `${url.protocol === "https:" ? "wss:" : "ws:"}//${url.host}`;
-  return ` ${url.origin} ${socket}`;
+  const sources: string[] = [];
+  if (config.convexUrl) {
+    const url = new URL(config.convexUrl);
+    sources.push(url.origin, `${url.protocol === "https:" ? "wss:" : "ws:"}//${url.host}`);
+  }
+  if (config.analyticsEndpoint) sources.push(new URL(config.analyticsEndpoint).origin);
+  return sources.map((source) => ` ${source}`).join("");
 }
 
 /**

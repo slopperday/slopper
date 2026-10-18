@@ -1,10 +1,8 @@
 // @vitest-environment edge-runtime
-import { convexTest } from "convex-test";
 import type { FunctionReference } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import schema from "@convex/schema";
 import { loadConfig } from "~/.server/config";
 import type { ConvexCaller } from "~/.server/convex";
 import { encodeBase64 } from "~/.server/encoding";
@@ -18,11 +16,10 @@ import {
   type Verdict,
 } from "~/.server/moderation";
 import { FLAGS_TO_BLUR } from "~/lib/model";
-
-const modules = import.meta.glob("../convex/**/*.ts");
+import { convexApp } from "./convexApp";
 
 function setup() {
-  const t = convexTest(schema, modules);
+  const t = convexApp();
   return { t, server: t.withIdentity({ subject: "server" }) };
 }
 
