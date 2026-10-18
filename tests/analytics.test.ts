@@ -478,6 +478,55 @@ describe("flags and experiments", () => {
   });
 });
 
+describe("surveys", () => {
+  it("are served to the app server, changed by admins only, and logged", async () => {
+    const { t, server } = setup();
+    const boss = await makeUser(server, "boss");
+    await t.run(async (ctx) => await ctx.db.patch(boss, { role: "admin" }));
+    const moderator = await makeUser(server, "mod");
+    await t.run(async (ctx) => await ctx.db.patch(moderator, { role: "moderator" }));
+    const survey = {
+      key: "wall-rating",
+      name: "Wall rating",
+      question: "How easy was it?",
+      kind: "rating" as const,
+      choices: [],
+      followUp: null,
+      target: { pathPrefix: "/wall", signedIn: null, delaySeconds: 0 },
+    };
+    await expect(t.query(api.analytics.surveyDefinitions, {})).rejects.toThrow("Only the Slopper server");
+    await expect(server.mutation(api.analytics.saveSurvey, { adminId: moderator, survey })).rejects.toThrow();
+    await server.mutation(api.analytics.saveSurvey, { adminId: boss, survey });
+    await server.mutation(api.analytics.startSurvey, { adminId: boss, key: "wall-rating" });
+    expect((await server.query(api.analytics.surveyDefinitions, {})).map((definition) => definition.key)).toEqual([
+      "wall-rating",
+    ]);
+    await t.fetch("/a/e", {
+      method: "POST",
+      body: batch([
+        { name: "$surveyShown", path: "/wall", properties: { survey: "wall-rating" } },
+        { name: "$surveySent", path: "/wall", properties: { survey: "wall-rating", value: 4, text: "Nice" } },
+      ]),
+      headers: { origin: "https://slopper.day", "user-agent": CHROME },
+    });
+    const now = Date.now();
+    const answer = await server.action(api.analytics.insight, {
+      adminId: boss,
+      query: { kind: "survey", key: "wall-rating", question: "rating", range: { from: now - 60_000, to: now + 1 } },
+    });
+    expect(answer.result).toMatchObject({ kind: "survey", shown: 1, answered: 1, average: 4 });
+    await server.mutation(api.analytics.stopSurvey, { adminId: boss, key: "wall-rating" });
+    await server.mutation(api.analytics.removeSurvey, { adminId: boss, key: "wall-rating" });
+    const log = (await server.query(api.team.log, {})).map(({ action }) => action).reverse();
+    expect(log).toEqual([
+      { type: "survey", change: "created" },
+      { type: "survey", change: "started" },
+      { type: "survey", change: "stopped" },
+      { type: "survey", change: "deleted" },
+    ]);
+  });
+});
+
 describe("web vitals", () => {
   it("answer how fast pages load for admins", async () => {
     const { t, server } = setup();

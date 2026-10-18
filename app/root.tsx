@@ -20,12 +20,14 @@ import {
 } from "./.server/analytics";
 import { autopostNetworks, config } from "./.server/config";
 import { flagProperties, flagsFor } from "./.server/flags";
+import { runningSurveys } from "./.server/surveys";
 import { readCookie, redirectQueryMiddleware } from "./.server/http";
 import { MOTION_COOKIE, parseMotion } from "./lib/motion";
 import { csrfMiddleware, viewerContext, viewerMiddleware } from "./.server/session";
 import { permissionsOf } from "@convex/lib/permissions";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
+import { SurveyCard } from "./components/SurveyCard";
 import { FlashBanner } from "./components/FlashBanner";
 import { LiveProvider } from "./components/Live";
 import { Tiles } from "./components/Tiles";
@@ -46,11 +48,14 @@ export const middleware: Route.MiddlewareFunction[] = [
 export async function loader({ request, context }: Route.LoaderArgs) {
   const viewer = context.get(viewerContext);
   const user = viewer.user;
-  // Signed-in people are bucketed by account, so a flag follows them between devices.
-  const flags = await flagsFor(
-    user?._id ?? context.get(analyticsIdContext),
-    flagProperties(user, countryOf(request), Date.now()),
-  );
+  const analytics = analyticsSetup(request);
+  const optedOut = analyticsOptedOut(request);
+  const [flags, surveys] = await Promise.all([
+    // Signed-in people are bucketed by account, so a flag follows them between devices.
+    flagsFor(user?._id ?? context.get(analyticsIdContext), flagProperties(user, countryOf(request), Date.now())),
+    // Answers are analytics: nobody who turned it off is asked.
+    analytics && !optedOut ? runningSurveys() : Promise.resolve([]),
+  ]);
   return {
     user: user
       ? { id: user._id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
@@ -61,8 +66,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     convexUrl: config.convexUrl,
     commentsEnabled: config.commentsEnabled,
     autopostNetworks: autopostNetworks(),
-    analytics: analyticsSetup(request),
-    analyticsOptedOut: analyticsOptedOut(request),
+    analytics,
+    analyticsOptedOut: optedOut,
+    surveys,
     motion: parseMotion(readCookie(request, MOTION_COOKIE)),
     flags,
   };
@@ -132,6 +138,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {children}
             </main>
             <Footer />
+            <SurveyCard surveys={data?.surveys ?? []} signedIn={Boolean(data?.user)} />
           </LiveProvider>
         </AnalyticsProvider>
         <ScrollRestoration />

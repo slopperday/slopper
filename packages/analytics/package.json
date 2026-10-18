@@ -15,6 +15,7 @@
     "./shared": "./src/shared/index.ts",
     "./shared/insights": "./src/shared/insights/index.ts",
     "./shared/flags": "./src/shared/flags.ts",
+    "./shared/surveys": "./src/shared/surveys.ts",
     "./package.json": "./package.json"
   },
   "dependencies": {

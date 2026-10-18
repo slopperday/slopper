@@ -217,6 +217,14 @@ function describe({ action, target }: StaffLogEntry): string {
         off: `turned the flag ${target} off`,
         deleted: `deleted the flag ${target}`,
       }[action.change];
+    case "survey":
+      return {
+        created: `set up the survey ${target}`,
+        changed: `changed the survey ${target}`,
+        started: `started the survey ${target}`,
+        stopped: `stopped the survey ${target}`,
+        deleted: `deleted the survey ${target}`,
+      }[action.change];
     case "experiment":
       return {
         created: `set up the experiment ${target}`,

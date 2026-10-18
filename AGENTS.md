@@ -163,6 +163,12 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   is never saved, anything else goes up at once with no moderator queue (mature ones blurred like NSFW). Makers can't
   review or delete reviews of their own slops; authors and admins (`reviews.deleteAny`) can delete them. Reviews aren't
   comments: they don't depend on `COMMENTS_ENABLED`.
+- **Surveys:** admins set them up at `/analytics/surveys` (one question: a rating, 0–10, a choice or words, with an
+  optional follow-up; pages by path prefix; anyone, signed in or visitors; a delay), logged in the staff log. The root
+  loader hands running ones to pages (`app/.server/surveys.ts`, kept in memory like flags with `remembered`,
+  `app/.server/memory.ts`) unless analytics is off; `SurveyCard` asks the first one this browser hasn't answered or
+  closed (remembered in localStorage). Answers are `$surveySent` events, so results come from the `survey` insight.
+  Agents: `slopper admin analytics surveys`, then `survey --q <key>`.
 - **Charts** are ECharts (`app/components/analytics/EChart.tsx`): the library is its own chunk
   (`echarts.client.ts`, only what's used, SVG renderer), loaded once a chart mounts, so public pages never fetch it.
   Colours come from the tokens in either theme; every chart keeps a table behind it. They animate unless motion is
