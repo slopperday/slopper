@@ -592,7 +592,234 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
     };
+    rollups: {
+      days: FunctionReference<
+        "query",
+        "internal",
+        { from: number; to: number },
+        Array<number>,
+        Name
+      >;
+      events: FunctionReference<
+        "query",
+        "internal",
+        {
+          cursor: string | null;
+          from: number;
+          name: string;
+          numItems: number;
+          to: number;
+        },
+        {
+          continueCursor: string;
+          isDone: boolean;
+          page: Array<{
+            count: number;
+            day: number;
+            name: string;
+            people: Array<string>;
+          }>;
+        },
+        Name
+      >;
+      groups: FunctionReference<
+        "query",
+        "internal",
+        { cursor: string | null; from: number; numItems: number; to: number },
+        {
+          continueCursor: string;
+          isDone: boolean;
+          page: Array<{
+            count: number;
+            day: number;
+            group: string;
+            people: Array<string>;
+          }>;
+        },
+        Name
+      >;
+      pending: FunctionReference<
+        "query",
+        "internal",
+        { from: number; limit: number; to: number },
+        Array<number>,
+        Name
+      >;
+      web: FunctionReference<
+        "query",
+        "internal",
+        { cursor: string | null; from: number; numItems: number; to: number },
+        {
+          continueCursor: string;
+          isDone: boolean;
+          page: Array<{
+            bounces: number;
+            breakdowns: {
+              browsers: Array<{
+                count: number;
+                people: Array<number>;
+                value: string;
+              }>;
+              channels: Array<{
+                count: number;
+                people: Array<number>;
+                value: string;
+              }>;
+              countries: Array<{
+                count: number;
+                people: Array<number>;
+                value: string;
+              }>;
+              devices: Array<{
+                count: number;
+                people: Array<number>;
+                value: string;
+              }>;
+              entryPages: Array<{
+                count: number;
+                people: Array<number>;
+                value: string;
+              }>;
+              exitPages: Array<{
+                count: number;
+                people: Array<number>;
+                value: string;
+              }>;
+              operatingSystems: Array<{
+                count: number;
+                people: Array<number>;
+                value: string;
+              }>;
+              pages: Array<{
+                count: number;
+                people: Array<number>;
+                value: string;
+              }>;
+              referrers: Array<{
+                count: number;
+                people: Array<number>;
+                value: string;
+              }>;
+              utmCampaigns: Array<{
+                count: number;
+                people: Array<number>;
+                value: string;
+              }>;
+              utmSources: Array<{
+                count: number;
+                people: Array<number>;
+                value: string;
+              }>;
+            };
+            day: number;
+            durationMs: number;
+            pageviews: number;
+            people: Array<string>;
+            sessions: number;
+            visitors: Array<number>;
+          }>;
+        },
+        Name
+      >;
+      write: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          day: number;
+          rows: {
+            events: Array<{
+              count: number;
+              day: number;
+              name: string;
+              people: Array<string>;
+            }>;
+            groups: Array<{
+              count: number;
+              day: number;
+              group: string;
+              people: Array<string>;
+            }>;
+            web: {
+              bounces: number;
+              breakdowns: {
+                browsers: Array<{
+                  count: number;
+                  people: Array<number>;
+                  value: string;
+                }>;
+                channels: Array<{
+                  count: number;
+                  people: Array<number>;
+                  value: string;
+                }>;
+                countries: Array<{
+                  count: number;
+                  people: Array<number>;
+                  value: string;
+                }>;
+                devices: Array<{
+                  count: number;
+                  people: Array<number>;
+                  value: string;
+                }>;
+                entryPages: Array<{
+                  count: number;
+                  people: Array<number>;
+                  value: string;
+                }>;
+                exitPages: Array<{
+                  count: number;
+                  people: Array<number>;
+                  value: string;
+                }>;
+                operatingSystems: Array<{
+                  count: number;
+                  people: Array<number>;
+                  value: string;
+                }>;
+                pages: Array<{
+                  count: number;
+                  people: Array<number>;
+                  value: string;
+                }>;
+                referrers: Array<{
+                  count: number;
+                  people: Array<number>;
+                  value: string;
+                }>;
+                utmCampaigns: Array<{
+                  count: number;
+                  people: Array<number>;
+                  value: string;
+                }>;
+                utmSources: Array<{
+                  count: number;
+                  people: Array<number>;
+                  value: string;
+                }>;
+              };
+              day: number;
+              durationMs: number;
+              pageviews: number;
+              people: Array<string>;
+              sessions: number;
+              visitors: Array<number>;
+            };
+          } | null;
+          startedAt: number;
+        },
+        "rolled" | "oversized" | "changed",
+        Name
+      >;
+    };
     scan: {
+      eventNames: FunctionReference<
+        "query",
+        "internal",
+        { from: number; to: number },
+        Array<string>,
+        Name
+      >;
       events: FunctionReference<
         "query",
         "internal",

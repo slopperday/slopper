@@ -154,8 +154,9 @@ export function heatmapQuery(params: Params, now: number): HeatmapQuery {
 
 export function insightQuery(kind: InsightKind, params: Params, now: number): InsightQuery {
   const days = daysOf(params);
-  // Up to and including now: a range's end is exclusive.
-  const range = { from: now - days * 86_400_000, to: now + 1 };
+  // Up to and including now (a range's end is exclusive), and whole days long, so the period
+  // before lines up day for day and whole past days come from rollups.
+  const range = { from: now + 1 - days * 86_400_000, to: now + 1 };
   const interval = intervalOf(params, days);
   switch (kind) {
     case "trends": {

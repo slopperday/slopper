@@ -20,6 +20,7 @@ export * from "./lifecycle";
 export * from "./paths";
 export * from "./queries";
 export * from "./retention";
+export * from "./rollups";
 export * from "./rows";
 export * from "./stickiness";
 export * from "./time";

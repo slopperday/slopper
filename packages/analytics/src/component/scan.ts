@@ -1,12 +1,13 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { query } from "./_generated/server";
+import { DEFINITION_RESOLUTION_MS } from "./lib/ingest";
 import { type Page, pageArgs, pageByKey } from "./lib/paging";
 import { deviceValidator, properties, sourceValidator } from "./validators";
 
 /**
  * Pages of events and sessions in a time range, for the insights engine
- * (src/convex/insights.ts), which reads them page by page from an action
+ * (src/convex/scanner.ts), which reads them page by page from an action
  * and aggregates as it goes. Each page is its own transaction, so a long
  * range never hits a query's read limits.
  */
@@ -44,9 +45,9 @@ const page = <Item extends typeof scanEvent | typeof scanSession | typeof scanPe
   v.object({ page: v.array(item), isDone: v.boolean(), continueCursor: v.string() });
 
 /**
- * One event's occurrences in the range, oldest first; every event when
- * `name` is null. With `group`, only that group's events (of that name, if
- * one is given).
+ * One event's occurrences in the range, oldest first. With `group`, only
+ * that group's events: of that name, or every one when `name` is null.
+ * Without a group, every event is read name by name (`eventNames`).
  */
 export const events = query({
   args: { name: v.union(v.string(), v.null()), group: v.optional(v.string()), ...rangeArgs },
@@ -75,17 +76,7 @@ export const events = query({
             .filter((q) => (name === null ? true : q.eq(q.field("name"), name))),
       });
     } else if (name === null) {
-      result = await pageByKey<Doc<"events">>({
-        cursor,
-        numItems,
-        key: (event) => event.timestamp,
-        sameKey: (at) =>
-          events().withIndex("by_timestamp", (q) => q.eq("timestamp", at.key).gt("_creationTime", at.created)),
-        rest: (at) =>
-          events().withIndex("by_timestamp", (q) =>
-            at ? q.gt("timestamp", at.key).lt("timestamp", to) : q.gte("timestamp", from).lt("timestamp", to),
-          ),
-      });
+      throw new Error("Every event in a range is read name by name: scan.eventNames lists them.");
     } else {
       result = await pageByKey<Doc<"events">>({
         cursor,
@@ -117,6 +108,24 @@ export const events = query({
       isDone: result.isDone,
       continueCursor: result.continueCursor,
     };
+  },
+});
+
+/**
+ * The names of every event that happened in the range: those to read one
+ * by one for every event. A name's last-seen time is written at most
+ * `DEFINITION_RESOLUTION_MS` behind its latest event, and its first-seen
+ * time exactly, so none is missed.
+ */
+export const eventNames = query({
+  args: { from: v.number(), to: v.number() },
+  returns: v.array(v.string()),
+  handler: async (ctx, { from, to }) => {
+    const definitions = await ctx.db
+      .query("eventDefinitions")
+      .withIndex("by_last_seen", (q) => q.gt("lastSeenAt", from - DEFINITION_RESOLUTION_MS))
+      .collect();
+    return definitions.flatMap((definition) => (definition.firstSeenAt < to ? [definition.name] : []));
   },
 });
 

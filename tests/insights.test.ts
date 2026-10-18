@@ -26,7 +26,7 @@ describe("insight parameters", () => {
   it("reads trends from a URL, with defaults for what's missing", () => {
     expect(insightQuery("trends", params(""), NOW)).toEqual({
       kind: "trends",
-      range: { from: NOW - 30 * DAY, to: NOW + 1 },
+      range: { from: NOW + 1 - 30 * DAY, to: NOW + 1 },
       interval: "day",
       series: [{ event: "$pageview", math: "total" }],
     });
@@ -34,7 +34,7 @@ describe("insight parameters", () => {
       insightQuery("trends", params("days=90&event=voted&event=pledged&math=persons&breakdown=value"), NOW),
     ).toEqual({
       kind: "trends",
-      range: { from: NOW - 90 * DAY, to: NOW + 1 },
+      range: { from: NOW + 1 - 90 * DAY, to: NOW + 1 },
       interval: "week",
       series: [
         { event: "voted", math: "persons" },
@@ -50,11 +50,11 @@ describe("insight parameters", () => {
       params("days=9999&math=everything&event=&event=a&event=b&event=c&event=d&event=e"),
       NOW,
     );
-    expect(query.range.from).toBe(NOW - 365 * DAY);
+    expect(query.range.from).toBe(NOW + 1 - 365 * DAY);
     if (query.kind !== "trends") throw new Error("trends");
     expect(query.series.map((series) => series.event)).toEqual(["a", "b", "c", "d"]);
     expect(query.series[0]?.math).toBe("total");
-    expect(insightQuery("trends", params("days=-4"), NOW).range.from).toBe(NOW - DAY);
+    expect(insightQuery("trends", params("days=-4"), NOW).range.from).toBe(NOW + 1 - DAY);
   });
 
   it("pairs funnel steps with the pages they happened on", () => {
@@ -111,7 +111,7 @@ describe("insight parameters", () => {
   it("takes the same parameters from an agent's JSON", () => {
     const fromAgent = paramsFromObject({ days: 7, event: ["voted", 3, null], math: "sessions", nothing: { a: 1 } });
     expect(insightQuery("trends", fromAgent, NOW)).toMatchObject({
-      range: { from: NOW - 7 * DAY },
+      range: { from: NOW + 1 - 7 * DAY },
       series: [
         { event: "voted", math: "sessions" },
         { event: "3", math: "sessions" },

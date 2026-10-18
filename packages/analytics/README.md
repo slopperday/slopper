@@ -28,7 +28,7 @@ app.use(analytics);
 export default app;
 ```
 
-Give it an HTTP endpoint and a daily sweep (`convex/http.ts`, `convex/crons.ts`):
+Give it an HTTP endpoint, a daily sweep and a daily roll-up (`convex/http.ts`, `convex/crons.ts`):
 
 ```ts
 import { Analytics } from "@slopperday/analytics/convex";
@@ -38,6 +38,8 @@ export const analytics = new Analytics(components.analytics);
 analytics.registerRoutes(http, { allowedOrigins: ["https://example.com"] });
 // In an internal mutation run daily:
 await analytics.sweep(ctx, { eventDays: 365, personDays: 365 });
+// In an internal action run daily, after midnight UTC; call it again while it says there's `more`:
+const { more } = await analytics.rollUp(ctx);
 ```
 
 The browser sends to `<deployment>.convex.site/a/e` (`ROUTES`), so no app server runs per event. Allow that origin in
@@ -99,6 +101,23 @@ Browsers never set it; the app's server does, from the page's path (`RouteOption
 `analytics.groupReport` is everything about one group: views, people, sources, clicks and the app's own events.
 `analytics.overview` counts people. Queries are validated by `insightQueryValidator`; the aggregators are pure
 (`src/shared/insights`) and read at most `SCAN_LIMIT` rows, saying `truncated` past it.
+
+### Daily rollups
+
+Raw events are expensive to read again and again: Convex bills every byte a query reads. `analytics.rollUp` boils
+each finished UTC day down to a few rows (`src/shared/insights/rollups.ts`): web analytics, each event name's count
+and people, and each group's page views. Unique people don't add up across days, so the rows keep who was counted.
+Web analytics, trends without filters or breakdown (`total` or `persons`), and groups' page views then read whole
+past days from rollups and only the rest raw: today, the partial day at the start of the range, and any day not
+rolled up. The answers are the same either way (`tests/rollups.test.ts`). Ranges a whole number of days long
+(`now + 1 - days`, up to `now + 1`) also read the period before from rollups.
+
+A rollup stays in use until its day changes: a late batch, a session running past midnight, a merge, or a
+`forget` marks the day, and the next `rollUp` does it again. A day too busy to fit Convex's document limits is read
+raw. Run `rollUp` daily; with a long `lookbackDays` it backfills. Rollups are swept with the events they came from.
+
+There's no index on events' timestamp alone (each index is another copy of the table): reading every event goes
+name by name (`scan.eventNames`), and the sweep does too.
 
 ## Feature flags
 

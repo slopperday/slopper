@@ -1,6 +1,7 @@
 import type { TrendsMath, TrendsQuery } from "./queries";
+import type { EventDay } from "./rollups";
 import { breakdownValue, type EventRow, matchesAll } from "./rows";
-import { bucketsIn, bucketStart, previousRange, type TimeRange } from "./time";
+import { alignedByDays, bucketsIn, bucketStart, previousRange, type TimeRange, wholeDayIn } from "./time";
 
 export interface TrendsSeriesResult {
   label: string;
@@ -46,6 +47,16 @@ class Line {
     this.all.add(id);
   }
 
+  /** A day's rollup: its events, and everyone who did it. */
+  addDay(bucket: number, count: number, ids: readonly string[]): void {
+    this.counts[bucket] = (this.counts[bucket] ?? 0) + count;
+    this.events += count;
+    for (const id of ids) {
+      this.ids[bucket]?.add(id);
+      this.all.add(id);
+    }
+  }
+
   merge(other: Line): void {
     for (let index = 0; index < this.counts.length; index += 1) {
       this.counts[index] = (this.counts[index] ?? 0) + (other.counts[index] ?? 0);
@@ -67,7 +78,9 @@ class Line {
 /**
  * Trends, fed one series' events at a time (`add(seriesIndex, event)`), in
  * any order. Events outside the range or not matching the series' filters
- * are ignored.
+ * are ignored. A series without filters counting events or people, in a
+ * query without a breakdown (`rollupSeries`), can take whole days from
+ * rollups instead (`addDay`, for the days `rollupDay` accepts).
  */
 export class TrendsAggregator {
   private readonly buckets: number[];
@@ -87,6 +100,49 @@ export class TrendsAggregator {
   /** What to feed it from: the range, and the period before it too when comparing. */
   static scanRange(query: TrendsQuery): TimeRange {
     return query.compare ? { from: previousRange(query.range).from, to: query.range.to } : query.range;
+  }
+
+  /** Whether a series can read whole days from rollups, which keep counts and people per event name. */
+  static rollupSeries(query: TrendsQuery, seriesIndex: number): boolean {
+    const series = query.series[seriesIndex];
+    return (
+      series !== undefined &&
+      query.breakdown === undefined &&
+      (series.filters ?? []).length === 0 &&
+      series.math !== "sessions"
+    );
+  }
+
+  /**
+   * Whether a day can come from its rollup: it lies wholly in the range,
+   * or, when comparing, wholly in the period before and that period is a
+   * whole number of days long (so the day lines up with one bucket).
+   */
+  static rollupDay(query: TrendsQuery, day: number): boolean {
+    if (wholeDayIn(day, query.range)) return true;
+    return query.compare === true && alignedByDays(query.range) && wholeDayIn(day, previousRange(query.range));
+  }
+
+  /** One whole day of a series' event, from its rollup, in place of that day's events. */
+  addDay(seriesIndex: number, day: EventDay): void {
+    if (!TrendsAggregator.rollupSeries(this.query, seriesIndex)) {
+      throw new Error("Only series without filters, breakdown or sessions read rollups.");
+    }
+    const before = !wholeDayIn(day.day, this.query.range);
+    if (!TrendsAggregator.rollupDay(this.query, day.day)) {
+      throw new Error("That day isn't wholly in the range or the period before.");
+    }
+    const lines = (before ? this.previousLines : this.lines)[seriesIndex];
+    if (!lines) return;
+    const at = before ? day.day + (this.query.range.to - this.query.range.from) : day.day;
+    const bucket = this.index.get(bucketStart(at, this.query.interval));
+    if (bucket === undefined) return;
+    let line = lines.get(null);
+    if (!line) {
+      line = new Line(this.buckets.length);
+      lines.set(null, line);
+    }
+    line.addDay(bucket, day.count, day.people);
   }
 
   add(seriesIndex: number, event: EventRow): void {

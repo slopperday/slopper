@@ -3,7 +3,7 @@ import type { ComponentApi } from "../component/_generated/component";
 import { EVENTS } from "../shared/events";
 import { bucketOf } from "../shared/hash";
 import { ExperimentAggregator, type ExperimentResult } from "../shared/insights";
-import { Scanner } from "./insights";
+import { Scanner } from "./scanner";
 
 type ScanCtx = Pick<GenericActionCtx<GenericDataModel>, "runQuery">;
 
