@@ -56,6 +56,12 @@ function installed(command: string): boolean {
   return spawnSync(command, ["--version"], { stdio: "ignore" }).status === 0;
 }
 
+/** `yarn dlx` came with Yarn 2; Yarn 1 has no such command. */
+function modernYarn(): boolean {
+  const result = spawnSync("yarn", ["--version"], { encoding: "utf8" });
+  return result.status === 0 && Number(result.stdout.split(".")[0]) >= 2;
+}
+
 async function listen(server: Server): Promise<string> {
   await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
   return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -345,6 +351,8 @@ const RUNNERS: {
   command: string;
   args: string[];
   env: (registry: string, dir: string) => Record<string, string>;
+  /** Whether this machine can run it; by default, whether `command` is installed. */
+  available?: () => boolean;
 }[] = [
   {
     name: "npx -y",
@@ -370,6 +378,7 @@ const RUNNERS: {
     name: "yarn dlx -q",
     command: "yarn",
     args: ["dlx", "-q", "@slopperday/cli"],
+    available: modernYarn,
     env: (registry, dir) => ({
       YARN_NPM_REGISTRY_SERVER: registry,
       YARN_UNSAFE_HTTP_WHITELIST: "127.0.0.1",
@@ -402,7 +411,7 @@ describe("from a registry, with every package runner", () => {
   });
 
   for (const runner of RUNNERS) {
-    it.skipIf(!installed(runner.command))(
+    it.skipIf(!(runner.available?.() ?? installed(runner.command)))(
       `${runner.name} runs it with SLOPPER_TOKEN and writes no config`,
       async () => {
         const dir = await home(root, runner.name.replace(/\W+/g, "-"));

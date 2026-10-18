@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -977,15 +977,18 @@ describe("login and logout", () => {
   });
 
   it("reports a config directory it can't create instead of crashing", async () => {
-    const locked = await mkdtemp(join(tmpdir(), "slopper-locked-"));
-    await chmod(locked, 0o500);
-    const cli = await harness(ME, { SLOPPER_CONFIG_DIR: join(locked, "slopper") });
+    // A dangling symlink where a folder should be: unlike a read-only folder, that stops root too, and reading the
+    // config through it is still a plain "not found".
+    const dir = await mkdtemp(join(tmpdir(), "slopper-blocked-"));
+    const blocked = join(dir, "blocked");
+    await symlink(join(dir, "nowhere"), blocked);
+    const cli = await harness(ME, { SLOPPER_CONFIG_DIR: join(blocked, "slopper") });
     expect(await cli.run("login", "--token", "slp_x")).toEqual({
       code: 1,
       stdout: "",
-      stderr: `slopper: EACCES: permission denied, mkdir '${join(locked, "slopper")}'\n`,
+      // Which error depends on the platform (ENOTDIR on Linux); the path is the folder it stopped at.
+      stderr: expect.stringMatching(/^slopper: E[A-Z]+: .+, mkdir '.+'\n$/),
     });
-    await chmod(locked, 0o700);
   });
 
   it("logs out by removing the config, even a broken one", async () => {
