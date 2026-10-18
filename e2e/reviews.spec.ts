@@ -46,7 +46,7 @@ test.describe("reviews", () => {
     await choose(page, "Mixed");
     await page.getByRole("textbox", { name: "Review", exact: true }).fill("Not fit to print [e2e:blocked]");
     await page.getByRole("button", { name: "Post review" }).click();
-    await expect(page.getByRole("status")).toHaveText(
+    await expect(page.getByRole("alert")).toHaveText(
       "This review can't go on Slopper. Keep it about the app, and keep it civil.",
     );
     await expect(page.locator("#reviews li").filter({ hasText: "Not fit to print" })).toHaveCount(0);
