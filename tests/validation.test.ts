@@ -146,7 +146,7 @@ describe("slop validation", () => {
       category: "games",
       links: [{ kind: "website", url: "https://tiltmaze.app" }],
       screenshots: ["md74hc9mbbvqr2v5z7hq53s03x8fsgxx", "../../etc/passwd"],
-      madeWith: ["Claude Code", "Flutter", "", "Claude Code"],
+      madeWith: ["claude code", "Flutter", "", "Claude Code"],
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;

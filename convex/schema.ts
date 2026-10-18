@@ -669,4 +669,17 @@ export default defineSchema({
     name: v.string(),
     value: v.number(),
   }).index("by_name", ["name"]),
+
+  /**
+   * How many slops use each "Made with" tag (app/lib/tags.ts), so the picker
+   * can offer the most used first. `key` is the name in lower case; `name` is
+   * how it's spelled on slops. Kept by `retag` (convex/lib/tags.ts).
+   */
+  madeWithTags: defineTable({
+    key: v.string(),
+    name: v.string(),
+    uses: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_uses", ["uses"]),
 });

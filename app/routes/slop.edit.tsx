@@ -40,14 +40,16 @@ async function loadOwned(
 
 export async function loader({ params, request, context }: Route.LoaderArgs) {
   const { user, slop } = await loadOwned(params, request, context);
-  const [accounts, sources] = await Promise.all([
+  const [accounts, sources, tags] = await Promise.all([
     convex.query(api.accounts.list, { userId: user._id }),
     convex.query(api.integrations.listForOwner, { userId: user._id, slopId: slop._id }),
+    convex.query(api.tags.popular, {}),
   ]);
   return {
     username: user.username,
     editing: editWindow({ launchedAt: slop._creationTime, launchDate: slop.launchDate }, user.timeZone, Date.now()),
     sources,
+    tags,
     available: availableProviders(),
     serviceAccount: config.googleAnalytics?.clientEmail ?? null,
     canDraft: config.contentCheck !== null,
@@ -215,7 +217,7 @@ export const meta: Route.MetaFunction = ({ matches, loaderData }) =>
   seo(matches, { title: `Edit ${loaderData?.slop.name ?? "slop"}`, noindex: true });
 
 export default function EditSlop({ loaderData, actionData }: Route.ComponentProps) {
-  const { slop, username, accounts, editing, canDraft, sources, available, serviceAccount } = loaderData;
+  const { slop, username, accounts, editing, canDraft, sources, tags, available, serviceAccount } = loaderData;
   const path = slopPath(username, slop.slug);
   const navigation = useNavigation();
   const drafting = navigation.state === "submitting" && navigation.formData?.getAll("intent").includes("draft");
@@ -240,7 +242,7 @@ export default function EditSlop({ loaderData, actionData }: Route.ComponentProp
           {/* A new draft remounts the fields, so they show it instead of what was typed before. */}
           <Form key={drafted ?? "form"} method="post" className="mt-12 grid gap-8">
             <input type="hidden" name="intent" value="details" />
-            <SlopFields values={formData?.values ?? slop.values} errors={formData?.errors ?? {}} />
+            <SlopFields values={formData?.values ?? slop.values} errors={formData?.errors ?? {}} tags={tags} />
             {notice && (
               <p role="status" className="rounded-xl bg-sunk px-4 py-3 font-bold">
                 {notice}

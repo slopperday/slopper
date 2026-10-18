@@ -249,7 +249,8 @@ export const LIMITS = {
   maxPledge: 1_000_000,
   links: 6,
   screenshots: 6,
-  madeWith: 6,
+  madeWith: 8,
+  madeWithLength: 32,
   /** What it does, shown on its page: a short title and one line each. */
   features: 6,
   featureTitleLength: 40,

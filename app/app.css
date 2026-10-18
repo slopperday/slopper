@@ -430,6 +430,52 @@
     background: var(--hot);
     color: var(--hot-ink);
   }
+
+  /*
+   * "Made with" tags, one colour per kind (app/lib/tags.ts TAG_KINDS): the
+   * series colours, tinted, with a dot in the full colour.
+   */
+  .tag-kind {
+    --kind: var(--faint);
+    background: color-mix(in oklab, var(--kind) 18%, var(--sunk));
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .tag-kind::before {
+    content: "";
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: var(--kind);
+    flex-shrink: 0;
+  }
+  .tag-kind-model {
+    --kind: var(--series-2);
+  }
+  .tag-kind-harness {
+    --kind: var(--series-4);
+  }
+  .tag-kind-framework {
+    --kind: var(--series-3);
+  }
+  .tag-kind-platform {
+    --kind: var(--series-1);
+  }
+  .tag-suggestion {
+    min-height: 2rem;
+    cursor: pointer;
+    background: var(--sunk);
+    font-weight: 600;
+    transition: background-color 140ms ease;
+  }
+  .tag-suggestion:hover,
+  .tag-suggestion.is-active {
+    background: color-mix(in oklab, var(--kind) 22%, var(--sunk));
+  }
+  .tag-suggestion:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
   /*
    * A filter chip: a real checkbox covering a sunk face that turns ink when
    * it's checked. Clicks, keys and focus land on the checkbox, and the face

@@ -34,12 +34,13 @@ async function relaunchSource(user: Doc<"users">, ref: string | null): Promise<D
 export async function loader({ request, context }: Route.LoaderArgs) {
   const user = requireUser(context.get(viewerContext), request);
   const today = localDate(new Date(), user.timeZone);
-  const [goal, accounts, source, nextFree, queue] = await Promise.all([
+  const [goal, accounts, source, nextFree, queue, tags] = await Promise.all([
     convex.query(api.goals.open, { userId: user._id, today }),
     convex.query(api.accounts.list, { userId: user._id }),
     relaunchSource(user, new URL(request.url).searchParams.get("from")),
     convex.query(api.schedule.nextFree, { userId: user._id }),
     convex.query(api.schedule.mine, { asUser: user._id }),
+    convex.query(api.tags.popular, {}),
   ]);
   const day = goal ? goalDayFor(goal, today) : null;
   return {
@@ -60,6 +61,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         mode: account.defaultMode,
       })),
     schedule: { timeZone: user.timeZone, nextFree, queue },
+    tags,
   };
 }
 
@@ -248,7 +250,7 @@ export default function NewSlop({ loaderData, actionData }: Route.ComponentProps
             </datalist>
           </div>
         )}
-        <SlopFields values={values} errors={errors} />
+        <SlopFields values={values} errors={errors} tags={loaderData.tags} />
 
         <div className="grid gap-6 border-t border-line pt-8">
           <Field

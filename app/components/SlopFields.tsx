@@ -2,6 +2,7 @@ import { CATEGORIES, LIMITS, type SlopFeature, type SlopLink } from "~/lib/model
 import { FeatureFields } from "./FeatureFields";
 import { LinkFields } from "./LinkFields";
 import { type Screenshot, ScreenshotPicker } from "./ScreenshotPicker";
+import { TagPicker } from "./TagPicker";
 
 export type FieldErrors = Record<string, string>;
 
@@ -50,7 +51,16 @@ export function Field({
 }
 
 /** The fields shared by shipping a new slop and editing one. */
-export function SlopFields({ values, errors }: { values: Partial<SlopFormValues>; errors: FieldErrors }) {
+export function SlopFields({
+  values,
+  errors,
+  tags = [],
+}: {
+  values: Partial<SlopFormValues>;
+  errors: FieldErrors;
+  /** "Made with" tags people use and how often, for suggestions (convex/tags.ts `popular`). */
+  tags?: readonly { name: string; uses: number }[];
+}) {
   return (
     <div className="grid gap-6">
       <div className="grid gap-6 sm:grid-cols-[1fr_1.4fr]">
@@ -101,16 +111,16 @@ export function SlopFields({ values, errors }: { values: Partial<SlopFormValues>
             ))}
           </select>
         </Field>
-        <Field id="madeWith" label="Made with" hint="Comma separated: Claude Code, Flutter, Solana…">
-          <input
-            id="madeWith"
-            name="madeWith"
-            className="input"
-            defaultValue={(values.madeWith ?? []).join(", ")}
-            placeholder="Claude Code, Vite"
-          />
-        </Field>
       </div>
+
+      <Field
+        id="madeWith"
+        label="Made with"
+        error={errors.madeWith}
+        hint="The model, the harness and what it's built on. Pick one or type your own."
+      >
+        <TagPicker id="madeWith" initial={values.madeWith ?? []} counted={tags} />
+      </Field>
 
       <Field
         id="description"

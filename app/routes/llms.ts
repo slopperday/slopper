@@ -45,6 +45,7 @@ ${tools}
 ## REST
 - GET    ${origin}/api/v1/me
 - GET    ${origin}/api/v1/categories
+- GET    ${origin}/api/v1/tags
 - GET    ${origin}/api/v1/today
 - GET    ${origin}/api/v1/search?q=…        &category=… (repeat for several) &limit=… (up to 48): best match first, by words and meaning
 - POST   ${origin}/api/v1/goal               { target, days, startDate?, title? }

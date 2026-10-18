@@ -13,6 +13,7 @@ import { findOperation, runOperation } from "~/.server/agent/operations";
  *
  *   GET    /api/v1/me
  *   GET    /api/v1/categories
+ *   GET    /api/v1/tags
  *   GET    /api/v1/today
  *   GET    /api/v1/search?q=…&category=…   (category repeats; optional limit)
  *   POST   /api/v1/goal
@@ -44,6 +45,7 @@ function route(method: string, path: string): Match | null {
   const [resource, ref, action] = parts;
   if (method === "GET" && parts.length === 1 && resource === "me") return { operation: "whoami" };
   if (method === "GET" && parts.length === 1 && resource === "categories") return { operation: "list_categories" };
+  if (method === "GET" && parts.length === 1 && resource === "tags") return { operation: "list_tags" };
   if (method === "GET" && parts.length === 1 && resource === "today") return { operation: "todays_race" };
   if (method === "GET" && parts.length === 1 && resource === "search") return { operation: "search_slops" };
   if (method === "POST" && parts.length === 1 && resource === "goal") return { operation: "set_goal" };

@@ -53,6 +53,7 @@ import { UpdateDetailsLine, UpdateImages, UpdateLinks, VersionTag } from "~/comp
 import { LinkFields } from "~/components/LinkFields";
 import { ScreenshotPicker } from "~/components/ScreenshotPicker";
 import { Icon } from "~/components/Icon";
+import { MadeWithTag } from "~/components/TagPicker";
 import { VoteButtons } from "~/components/VoteButtons";
 import { TakeMyMoney } from "~/components/TakeMyMoney";
 import { MoneyLedger, MoneySummary } from "~/components/Money";
@@ -497,7 +498,15 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
                 <Platforms links={slop.links} />
               </Fact>
             )}
-            {slop.madeWith.length > 0 && <Fact label="Made with">{slop.madeWith.join(", ")}</Fact>}
+            {slop.madeWith.length > 0 && (
+              <Fact label="Made with">
+                <span className="flex flex-wrap gap-1.5">
+                  {slop.madeWith.map((name) => (
+                    <MadeWithTag key={name} name={name} />
+                  ))}
+                </span>
+              </Fact>
+            )}
           </dl>
         </header>
 
