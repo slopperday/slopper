@@ -15,6 +15,8 @@ export interface AnalyticsSetup {
   endpoint: string;
   /** Sent with every event. */
   properties: { country?: string };
+  /** Session replay; null when no sessions are recorded. */
+  replay: { sampleRate: number } | null;
 }
 
 /**
@@ -41,7 +43,11 @@ export function countryOf(request: Request): string | null {
 export function analyticsSetup(request: Request): AnalyticsSetup | null {
   if (!config.analyticsEndpoint) return null;
   const country = countryOf(request);
-  return { endpoint: config.analyticsEndpoint, properties: country ? { country } : {} };
+  return {
+    endpoint: config.analyticsEndpoint,
+    properties: country ? { country } : {},
+    replay: config.analyticsReplayRate > 0 ? { sampleRate: config.analyticsReplayRate } : null,
+  };
 }
 
 /** Whether this browser turned analytics off (the SDK's opt-out cookie). */

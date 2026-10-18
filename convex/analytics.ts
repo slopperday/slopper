@@ -232,19 +232,40 @@ export const person = query({
       ctx.runQuery(components.analytics.sessions.forPerson, { distinctId, limit: 30 }),
       ctx.runQuery(components.analytics.events.recent, { distinctId, limit: 100 }),
     ]);
-    return { person, username: await usernameOf(ctx, person.distinctIds), sessions, events };
+    const recorded = await ctx.runQuery(components.analytics.recordings.recorded, {
+      sessionIds: sessions.map((session) => session.sessionId),
+    });
+    return { person, username: await usernameOf(ctx, person.distinctIds), sessions, events, recorded };
   },
 });
 
-/** One session and everything that happened in it. */
+/** One session, everything that happened in it, and its recording (with where to fetch it) when there is one. */
 export const session = query({
   args: { adminId: v.id("users"), sessionId: v.string() },
   handler: async (ctx, { adminId, sessionId }) => {
     await requireAnalytics(ctx, adminId);
     const found = await ctx.runQuery(components.analytics.sessions.get, { sessionId });
     if (!found) return null;
-    const person = await ctx.runQuery(components.analytics.persons.get, { distinctId: found.session.distinctId });
-    return { ...found, username: person ? await usernameOf(ctx, person.distinctIds) : null };
+    const [person, recording] = await Promise.all([
+      ctx.runQuery(components.analytics.persons.get, { distinctId: found.session.distinctId }),
+      ctx.runQuery(components.analytics.recordings.get, { sessionId }),
+    ]);
+    return { ...found, recording, username: person ? await usernameOf(ctx, person.distinctIds) : null };
+  },
+});
+
+/** Session recordings, newest first, with who they were. */
+export const recordings = query({
+  args: { adminId: v.id("users"), cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { adminId, cursor }) => {
+    await requireAnalytics(ctx, adminId);
+    const result = await ctx.runQuery(components.analytics.recordings.list, { cursor, numItems: 50 });
+    const page = [];
+    for (const { recording, session } of result.page) {
+      const person = await ctx.runQuery(components.analytics.persons.get, { distinctId: recording.distinctId });
+      page.push({ recording, session, username: person ? await usernameOf(ctx, person.distinctIds) : null });
+    }
+    return { page, isDone: result.isDone, continueCursor: result.continueCursor };
   },
 });
 

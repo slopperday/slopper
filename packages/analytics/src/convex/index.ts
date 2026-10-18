@@ -13,6 +13,7 @@ import type { Properties } from "../shared/properties";
 import { ROUTES } from "../shared/routes";
 import { hostOf } from "../shared/source";
 import { isBot, parseUserAgent } from "../shared/userAgent";
+import { parseReplayChunkParams, REPLAY_LIMITS } from "../shared/replay";
 import { type ExperimentAnswer, experimentResults } from "./experiments";
 import { groupReport, type Overview, overview, runInsight } from "./insights";
 
@@ -50,6 +51,8 @@ export interface ServerEvent {
 export interface Retention {
   eventDays: number;
   personDays: number;
+  /** Session recordings: 30 days unless set. */
+  recordingDays?: number;
 }
 
 export interface RouteOptions {
@@ -115,23 +118,25 @@ export class Analytics {
     const corsHeaders = (origin: string | null): Record<string, string> =>
       origin && allowed(origin) ? { "access-control-allow-origin": origin, vary: "Origin" } : {};
 
-    http.route({
-      path: `${prefix}${ROUTES.events}`,
-      method: "OPTIONS",
-      handler: httpActionGeneric(async (_ctx, request) => {
-        const origin = request.headers.get("origin");
-        if (!allowed(origin)) return new Response(null, { status: 403 });
-        return new Response(null, {
-          status: 204,
-          headers: {
-            ...corsHeaders(origin),
-            "access-control-allow-methods": "POST",
-            "access-control-allow-headers": "content-type",
-            "access-control-max-age": "86400",
-          },
-        });
-      }),
-    });
+    for (const route of [ROUTES.events, ROUTES.recordings]) {
+      http.route({
+        path: `${prefix}${route}`,
+        method: "OPTIONS",
+        handler: httpActionGeneric(async (_ctx, request) => {
+          const origin = request.headers.get("origin");
+          if (!allowed(origin)) return new Response(null, { status: 403 });
+          return new Response(null, {
+            status: 204,
+            headers: {
+              ...corsHeaders(origin),
+              "access-control-allow-methods": "POST",
+              "access-control-allow-headers": "content-type",
+              "access-control-max-age": "86400",
+            },
+          });
+        }),
+      });
+    }
 
     http.route({
       path: `${prefix}${ROUTES.events}`,
@@ -163,6 +168,39 @@ export class Analytics {
           context: { device: parseUserAgent(userAgent), ownHost: origin ? hostOf(origin) : null },
         });
         return Response.json({ ...result, dropped: batch.dropped }, { headers });
+      }),
+    });
+
+    http.route({
+      path: `${prefix}${ROUTES.recordings}`,
+      method: "POST",
+      handler: httpActionGeneric(async (ctx, request) => {
+        const origin = request.headers.get("origin");
+        if (!allowed(origin)) return new Response(null, { status: 403 });
+        const headers = corsHeaders(origin);
+        if (isBot(request.headers.get("user-agent") ?? "")) return new Response(null, { status: 204, headers });
+        const meta = parseReplayChunkParams(new URL(request.url).searchParams);
+        if (!meta) return new Response(null, { status: 400, headers });
+        if (Number(request.headers.get("content-length") ?? 0) > REPLAY_LIMITS.chunkBytes) {
+          return new Response(null, { status: 413, headers });
+        }
+        const data = await request.arrayBuffer();
+        if (data.byteLength > REPLAY_LIMITS.chunkBytes) return new Response(null, { status: 413, headers });
+        // A skewed clock moves a chunk's times the way it moves events' (parseBatch).
+        const now = Date.now();
+        const skew = now - meta.sentAt;
+        const startedAt = Math.min(meta.startedAt + skew, now);
+        if (startedAt < now - REPLAY_LIMITS.maxAgeMs) return Response.json({ stored: false }, { headers });
+        const stored = await ctx.runAction(this.component.recordings.store, {
+          sessionId: meta.sessionId,
+          distinctId: meta.distinctId,
+          startedAt,
+          endedAt: Math.max(startedAt, Math.min(meta.endedAt + skew, now)),
+          events: meta.events,
+          encoding: meta.encoding,
+          data,
+        });
+        return Response.json({ stored }, { headers });
       }),
     });
   }

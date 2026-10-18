@@ -4,6 +4,33 @@ import { Analytics, type AnalyticsOptions } from "../src/browser/client";
 import { selectorOf } from "../src/browser/autocapture";
 import { uuidv7 } from "../src/shared/uuid";
 import type { WireBatch, WireEvent } from "../src/shared/events";
+import type { RecorderHost } from "../src/browser/replay";
+import { bucketOf } from "../src/shared/hash";
+
+/** Recorders the client made: the real one needs rrweb, which these tests leave out. */
+const recorders: { host: RecorderHost; started: boolean; pages: number; hidden: number; stopped: string | null }[] = [];
+
+vi.mock("../src/browser/replay", () => ({
+  Recorder: class {
+    readonly record: (typeof recorders)[number];
+    constructor(host: RecorderHost) {
+      this.record = { host, started: false, pages: 0, hidden: 0, stopped: null };
+      recorders.push(this.record);
+    }
+    start() {
+      this.record.started = true;
+    }
+    pageChanged() {
+      this.record.pages += 1;
+    }
+    pageHidden() {
+      this.record.hidden += 1;
+    }
+    stop(discard = false) {
+      this.record.stopped = discard ? "discarded" : "sent";
+    }
+  },
+}));
 
 const ENDPOINT = "https://happy-otter-123.convex.site/a";
 
@@ -53,6 +80,7 @@ async function tick(ms = 0) {
 
 beforeEach(() => {
   sent = [];
+  recorders.length = 0;
   status = 200;
   // Beacons would reach the network; tests that look at them replace this.
   vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
@@ -501,5 +529,65 @@ describe("load cost", () => {
     // Still one session throughout.
     await client.flush();
     expect(new Set(events().map((event) => event.sessionId)).size).toBe(1);
+  });
+});
+
+describe("session replay", () => {
+  /** Lets the recorder's dynamic import settle: done when no client is still loading one. */
+  async function loaded() {
+    await vi.waitFor(() => {
+      if (clients.some((client) => client.replayLoading)) throw new Error("A recorder is still loading.");
+    });
+  }
+
+  it("records no session unless replay is on, and every one at a rate of 1", async () => {
+    make({ pageviews: true });
+    make({ pageviews: true, replay: { sampleRate: 0 } });
+    await loaded();
+    expect(recorders).toEqual([]);
+    const client = make({ pageviews: true, replay: { sampleRate: 1 } });
+    await loaded();
+    expect(recorders).toHaveLength(1);
+    expect(recorders[0]?.started).toBe(true);
+    expect(recorders[0]?.host.url).toBe(`${ENDPOINT}/r`);
+    expect(recorders[0]?.host.identity()).toEqual({ distinctId: client.distinctId, sessionId: client.sessionId });
+  });
+
+  it("decides by the session, so every page of one agrees", async () => {
+    const client = make({ pageviews: true, replay: { sampleRate: 0.5 } });
+    const picked = bucketOf(`replay.${client.sessionId}`) < 0.5;
+    // Vitest's module mocks can't serve two imports at once (browsers share the module): one page at a time.
+    await loaded();
+    // The next page in the same session.
+    make({ pageviews: true, replay: { sampleRate: 0.5 } });
+    await loaded();
+    expect(recorders).toHaveLength(picked ? 2 : 0);
+  });
+
+  it("never records a page whose path holds a secret, nor one the app rules out", async () => {
+    make({
+      pageviews: true,
+      sanitizePath: (path) => path.replace(/^\/unsubscribe\/[^/]+/, "/unsubscribe/:token"),
+      replay: { sampleRate: 1, mayRecord: (path) => !path.startsWith("/settings") },
+    });
+    await loaded();
+    const host = recorders[0]?.host;
+    expect(host?.mayRecord("/wall")).toBe(true);
+    expect(host?.mayRecord("/unsubscribe/abc")).toBe(false);
+    expect(host?.mayRecord("/settings/api")).toBe(false);
+  });
+
+  it("follows navigation and the page going away, and stops for good on opting out", async () => {
+    const client = make({ pageviews: true, replay: { sampleRate: 1 } });
+    await loaded();
+    const recorder = recorders[0];
+    history.pushState(null, "", "/wall");
+    await tick();
+    expect(recorder?.pages).toBe(1);
+    window.dispatchEvent(new Event("pagehide"));
+    expect(recorder?.hidden).toBe(1);
+    client.optOut();
+    expect(recorder?.stopped).toBe("discarded");
+    expect(recorder?.host.identity()).toBeNull();
   });
 });

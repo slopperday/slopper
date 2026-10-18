@@ -11,6 +11,7 @@ Slopper-specific so it can move to its own repository.
 | `src/component/` | The Convex component: schema, ingestion, people, sessions, retention.                          |
 | `src/convex/`    | For the app's own Convex functions: `Analytics` (HTTP routes, server-side capture, retention). |
 | `src/browser/`   | The browser SDK: page views and leaves, autocapture, rage clicks, identify, opt-out, batching. |
+| `src/player/`    | Plays recordings back (rrweb's player): import it lazily, on admin pages only.                 |
 | `src/react/`     | `AnalyticsProvider`, `useAnalytics`, `useIdentify`, `useFeatureFlag` and its siblings.         |
 | `src/shared/`    | Pure logic both sides share: the wire format, property rules, user agents, traffic sources.    |
 
@@ -122,6 +123,18 @@ while it ran (their first `$featureFlagCalled`) and who did the goal after, then
 way: each conversion rate as a Beta distribution, sampled to give every variant's 95% interval and its chance of being
 best. It calls a winner once every variant has `MINIMUM_EXPOSURE` people and one is 95% likely to be best. Sampling
 is seeded by the experiment's key, so the same counts always read the same.
+
+## Session replay
+
+With `replay: { sampleRate }`, the SDK records that share of sessions with rrweb (picked by session id, so every page
+of one agrees). The recorder is its own chunk, loaded only for recorded sessions, after the SDK. Every few seconds it
+sends what it has to `ROUTES.recordings` as one gzipped chunk, and the component stores chunks as they came, in its
+file storage (`recordings.get` hands out their URLs). Fields are masked; hidden inputs, `[data-no-capture]` and
+`[data-no-replay]` are blocked out; `[data-sensitive]` text is masked; scripts are left out; query strings are cut
+from every link, form and page address; and pages whose path `sanitizePath` rewrites, or that `replay.mayRecord`
+rules out, pause the recording. Recordings go after 30 days (`retention.recordingDays`) and with `forget`.
+
+`@slopperday/analytics/player` reads a recording back (`loadRecording`) and plays it (`createReplayer`).
 
 ## Privacy controls
 

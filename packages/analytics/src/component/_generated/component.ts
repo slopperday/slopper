@@ -389,7 +389,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       sweep: FunctionReference<
         "mutation",
         "internal",
-        { retention: { eventDays: number; personDays: number } },
+        {
+          retention: {
+            eventDays: number;
+            personDays: number;
+            recordingDays?: number;
+          };
+        },
         { deleted: number; more: boolean },
         Name
       >;
@@ -472,6 +478,116 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             >;
           }>;
         },
+        Name
+      >;
+    };
+    recordings: {
+      get: FunctionReference<
+        "query",
+        "internal",
+        { sessionId: string },
+        {
+          chunks: Array<{
+            bytes: number;
+            encoding: "gzip" | "identity";
+            endedAt: number;
+            startedAt: number;
+            url: string;
+          }>;
+          recording: {
+            _creationTime: number;
+            _id: string;
+            bytes: number;
+            chunks: number;
+            distinctId: string;
+            endedAt: number;
+            events: number;
+            sessionId: string;
+            startedAt: number;
+          };
+        } | null,
+        Name
+      >;
+      list: FunctionReference<
+        "query",
+        "internal",
+        { cursor: string | null; numItems: number },
+        {
+          continueCursor: string;
+          isDone: boolean;
+          page: Array<{
+            recording: {
+              _creationTime: number;
+              _id: string;
+              bytes: number;
+              chunks: number;
+              distinctId: string;
+              endedAt: number;
+              events: number;
+              sessionId: string;
+              startedAt: number;
+            };
+            session: {
+              _creationTime: number;
+              _id: string;
+              country: string | null;
+              device: {
+                browser: string | null;
+                browserVersion: string | null;
+                deviceType: "desktop" | "mobile" | "tablet" | null;
+                os: string | null;
+                osVersion: string | null;
+              };
+              distinctId: string;
+              endedAt: number;
+              entryPath: string | null;
+              events: number;
+              exitPath: string | null;
+              interactions: number;
+              pageviews: number;
+              personId: string;
+              sessionId: string;
+              source: {
+                channel:
+                  | "direct"
+                  | "search"
+                  | "social"
+                  | "email"
+                  | "paid"
+                  | "referral"
+                  | "internal";
+                referrerDomain: string | null;
+                utmCampaign: string | null;
+                utmMedium: string | null;
+                utmSource: string | null;
+              };
+              startedAt: number;
+              viewportWidth: number | null;
+            } | null;
+          }>;
+        },
+        Name
+      >;
+      recorded: FunctionReference<
+        "query",
+        "internal",
+        { sessionIds: Array<string> },
+        Array<string>,
+        Name
+      >;
+      store: FunctionReference<
+        "action",
+        "internal",
+        {
+          data: ArrayBuffer;
+          distinctId: string;
+          encoding: "gzip" | "identity";
+          endedAt: number;
+          events: number;
+          sessionId: string;
+          startedAt: number;
+        },
+        boolean,
         Name
       >;
     };

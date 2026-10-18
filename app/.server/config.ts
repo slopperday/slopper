@@ -92,6 +92,8 @@ export interface Config {
    * analytics off: no SDK is loaded.
    */
   analyticsEndpoint: string | null;
+  /** The share of sessions recorded for replay, from 0 to 1 (ANALYTICS_REPLAY_RATE, 1 unless set). */
+  analyticsReplayRate: number;
   /** Issuer and private key for the JWTs Convex trusts. */
   jwtIssuer: string;
   jwtPrivateKey: string | null;
@@ -211,6 +213,14 @@ function analyticsEndpoint(env: Env, convexUrl: string | null): string | null {
   return site ? `${site.replace(/\/+$/, "")}${ROUTES.prefix}` : null;
 }
 
+function replayRate(env: Env): number {
+  const value = env.ANALYTICS_REPLAY_RATE?.trim();
+  if (!value) return 1;
+  const rate = Number(value);
+  if (!(rate >= 0 && rate <= 1)) throw new Error(`ANALYTICS_REPLAY_RATE is a share from 0 to 1, not ${value}.`);
+  return rate;
+}
+
 /**
  * The service account's JSON key, as downloaded from Google Cloud, raw or
  * base64. A key that's set but unreadable stops the server.
@@ -235,6 +245,7 @@ export function loadConfig(env: Env = process.env): Config {
     secretKey: env.SLOPPER_SECRET_KEY?.trim() || null,
     convexUrl,
     analyticsEndpoint: analyticsEndpoint(env, convexUrl),
+    analyticsReplayRate: replayRate(env),
     jwtIssuer: env.SLOPPER_JWT_ISSUER?.trim() || "https://slopper.day",
     jwtPrivateKey: env.SLOPPER_JWT_PRIVATE_KEY?.trim() || null,
     adminIdentities: adminIdentities(env),

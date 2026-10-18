@@ -134,6 +134,12 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   them. Signed-in people are bucketed by user id, everyone else by the `sa_id` cookie, which the root middleware
   (`analyticsMiddleware`) sets on a visitor's first page unless they opted out. New targetable properties go in
   `flagProperties` and `FLAG_PROPERTIES` (`app/lib/flagForm.ts`) together.
+- **Session replay:** the SDK records a share of sessions (`ANALYTICS_REPLAY_RATE`, every one unless set) with rrweb,
+  loaded only for those sessions, and posts chunks to `<deployment>.convex.site/a/r`; the component keeps them in its
+  file storage for 30 days. Admins watch them at `/analytics/recordings` and on each session's page. Fields are
+  masked, hidden inputs and `[data-no-capture]`/`[data-no-replay]` elements are blocked out, query strings are cut
+  from every address, and private pages aren't recorded (`mayRecordPath` in `app/lib/analytics.ts`). A new page
+  that shows something only its owner should see goes in `mayRecordPath`, or marks that part `data-no-replay`.
 - **Traction:** sources are one client each in `app/.server/integrations/` (registered in `index.ts`), read only.
   Syncs run on the app server (it holds the sealing key); Convex stores days in `metrics` and hands due sources out
   with `integrations.claim`. Numbers on the page always say where they came from; typed-in money stays in the ledger.

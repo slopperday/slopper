@@ -113,6 +113,37 @@ export default defineSchema({
     .index("by_key", ["key"])
     .index("by_active", ["active"]),
 
+  /**
+   * A session's recording: what it adds up to. Its chunks hold the rrweb
+   * events, in file storage, as the browser sent them (shared/replay.ts).
+   */
+  recordings: defineTable({
+    sessionId: v.string(),
+    /** Who the first chunk came from; `forget` deletes recordings by any of a person's ids. */
+    distinctId: v.string(),
+    startedAt: v.number(),
+    endedAt: v.number(),
+    chunks: v.number(),
+    bytes: v.number(),
+    events: v.number(),
+  })
+    .index("by_session_id", ["sessionId"])
+    .index("by_started", ["startedAt"])
+    .index("by_distinct_id", ["distinctId"]),
+
+  recordingChunks: defineTable({
+    sessionId: v.string(),
+    distinctId: v.string(),
+    storageId: v.id("_storage"),
+    startedAt: v.number(),
+    endedAt: v.number(),
+    bytes: v.number(),
+    encoding: v.union(v.literal("gzip"), v.literal("identity")),
+  })
+    .index("by_session_started", ["sessionId", "startedAt"])
+    .index("by_started", ["startedAt"])
+    .index("by_distinct_id", ["distinctId"]),
+
   /** Experiments on flags with variants: results come from events, worked out when asked for. */
   experiments: defineTable({
     key: v.string(),

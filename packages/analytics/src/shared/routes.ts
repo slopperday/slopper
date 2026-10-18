@@ -11,6 +11,8 @@ export const ROUTES = {
   /** What `Analytics.registerRoutes` mounts the endpoints under, unless told otherwise. */
   prefix: "/a",
   events: "/e",
+  /** Session recordings (shared/replay.ts). */
+  recordings: "/r",
 } as const;
 
 /** Names the SDK's cookies and storage keys unless the app picks another. */
