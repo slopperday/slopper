@@ -117,14 +117,17 @@ export interface GroupReport {
     /** Unique people who viewed it. */
     people: number;
     sessions: number;
-    /** Clicks, submissions and changes on its pages. */
+    /** Clicks on what `clicks` counts. */
     interactions: number;
   };
   previous: { views: number; people: number };
   series: { buckets: number[]; views: number[]; people: number[] };
   /** Where the visits that viewed it came from: the referring site, or the channel when there's none. */
   sources: WebRow[];
-  /** What was clicked on its pages, by name (`data-capture`), link or text. */
+  /**
+   * What was clicked on its pages: named elements (`data-capture`) and links
+   * off the site. A site's own navigation on the page isn't about the group.
+   */
   clicks: WebRow[];
   /** The app's own events about it (votes, pledges…), by name. */
   actions: { name: string; count: number; people: number }[];
@@ -210,14 +213,12 @@ export class GroupReportAggregator {
       return;
     }
     if (event.name === EVENTS.autocapture || event.name === EVENTS.rageclick) {
+      const click = event.name === EVENTS.rageclick || stringProperty(event.properties, "eventType") === "click";
+      const href = stringProperty(event.properties, "href");
+      const what = stringProperty(event.properties, "captureName") ?? (href && /^https?:/.test(href) ? href : null);
+      if (!click || what === null) return;
       this.interactions += 1;
-      if (stringProperty(event.properties, "eventType") === "click" || event.name === EVENTS.rageclick) {
-        const what =
-          stringProperty(event.properties, "captureName") ??
-          stringProperty(event.properties, "href") ??
-          stringProperty(event.properties, "text");
-        this.clicks.add(what, event.personId);
-      }
+      this.clicks.add(what, event.personId);
       return;
     }
     if (event.name.startsWith("$")) return;

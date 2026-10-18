@@ -1,6 +1,6 @@
 import type { PropertyValue } from "@slopperday/analytics/shared";
 import { timeAgo } from "~/lib/dates";
-import { formatDuration } from "~/lib/insights";
+import { eventLabel, formatDuration } from "~/lib/insights";
 
 export interface ListedEvent {
   _id: string;
@@ -35,7 +35,7 @@ export function EventList({ events, since }: { events: ListedEvent[]; since?: nu
           <li key={event._id} className="rounded-lg bg-raised px-3 py-2 text-sm">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span>
-                <span className="font-bold">{event.name}</span>
+                <span className="font-bold">{eventLabel(event.name)}</span>
                 {event.path && <span className="ml-2 font-mono text-xs text-muted">{event.path}</span>}
               </span>
               <span className="text-muted tabular-nums">

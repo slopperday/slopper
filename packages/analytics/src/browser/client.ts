@@ -28,6 +28,12 @@ export interface AnalyticsOptions {
   sanitizePath?: (path: string) => string;
   batchSize?: number;
   flushIntervalMs?: number;
+  /**
+   * When the visit landed on the current page, if the SDK starts after it
+   * (the React provider loads it once the page is idle): the landing page
+   * view is stamped with it.
+   */
+  landedAt?: number;
   /** For tests. */
   fetch?: typeof fetch;
 }
@@ -39,10 +45,18 @@ export interface CaptureOptions {
   setOnce?: Properties;
   /** The page it happened on, when that isn't the current one. */
   path?: string;
+  /** When it happened, when that isn't now. */
+  timestamp?: number;
 }
 
 /** However active, a session ends after a day, so one left-open tab isn't one endless visit. */
 const MAX_SESSION_MS = 86_400_000;
+/**
+ * Activity this close to the last write isn't written again: a burst of
+ * clicks costs one localStorage write, not one each. Quiet is measured to
+ * within this much.
+ */
+const ACTIVITY_WRITE_MS = 5_000;
 
 /**
  * The browser SDK. Make one per page with `new Analytics(options)` (the
@@ -75,7 +89,7 @@ export class Analytics {
     });
     this.pages = new PageTracker(
       // A leave belongs to the session it ended, even one that has since gone quiet.
-      (name, properties, path) => this.record(name, properties, { path }, name === EVENTS.pageleave),
+      (name, properties, path, at) => this.record(name, properties, { path, timestamp: at }, name === EVENTS.pageleave),
       () => this.currentPath(),
     );
     this.id = this.optedOut ? "" : this.loadDistinctId();
@@ -117,18 +131,17 @@ export class Analytics {
 
   /** The session for an event at `now`, starting a new one after a quiet spell or a long day. */
   private session(now: number): string {
-    const { session } = this.update((state) => {
-      const current = state.session;
-      const expired =
-        !current || now - current.lastActivityAt > this.idleMs || now - current.startedAt > MAX_SESSION_MS;
-      return {
-        ...state,
-        session: expired
-          ? { id: uuidv7(now), startedAt: now, lastActivityAt: now }
-          : { ...current, lastActivityAt: now },
-      };
-    });
-    return session?.id ?? "";
+    const state = this.store.read();
+    const current = state.session;
+    if (current && now - current.lastActivityAt <= this.idleMs && now - current.startedAt <= MAX_SESSION_MS) {
+      if (now - current.lastActivityAt >= ACTIVITY_WRITE_MS) {
+        this.store.write({ ...state, session: { ...current, lastActivityAt: now } });
+      }
+      return current.id;
+    }
+    const session = { id: uuidv7(now), startedAt: now, lastActivityAt: now };
+    this.store.write({ ...state, session });
+    return session.id;
   }
 
   /** The current session's id, without counting as activity. */
@@ -143,7 +156,7 @@ export class Analytics {
   /** A passive event doesn't count as activity: it neither extends the session nor starts a new one. */
   private record(name: string, properties: Properties, options: CaptureOptions, passive: boolean): void {
     if (this.stopped || this.optedOut) return;
-    const now = Date.now();
+    const now = options.timestamp ?? Date.now();
     const state = this.store.read();
     const sessionId = (passive ? state.session?.id : null) ?? this.session(now);
     const set = options.set ? normalizeProperties(options.set) : null;
@@ -246,7 +259,7 @@ export class Analytics {
       this.stops.push(startAutocapture((name, properties) => this.capture(name, properties), this.sanitizePath));
     }
     if (this.options.pageviews ?? true) {
-      this.pages.view();
+      this.pages.view(this.options.landedAt);
       this.stops.push(watchHistory(() => this.pages.view()));
     }
     let frame: number | null = null;

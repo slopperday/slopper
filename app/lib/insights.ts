@@ -202,3 +202,47 @@ export function formatBucket(start: number, interval: Interval): string {
 export function personName(username: string | null, distinctIds: readonly string[]): string {
   return username ? `@${username}` : `Visitor ${(distinctIds[0] ?? "").slice(-8)}`;
 }
+
+/** What the SDK's own events are called on the analytics pages. */
+const EVENT_LABELS: Record<string, string> = {
+  $pageview: "Page view",
+  $pageleave: "Left a page",
+  $autocapture: "Click, change or submit",
+  $rageclick: "Rage click",
+  $identify: "Signed in",
+  $exception: "Error",
+  $webVitals: "Page speed",
+  $featureFlagCalled: "Saw a flag",
+  $surveyShown: "Saw a survey",
+  $surveySent: "Answered a survey",
+  $surveyDismissed: "Dismissed a survey",
+};
+
+/** An event's name as people read it: the SDK's in words, an app's own as they are. */
+export function eventLabel(name: string): string {
+  return EVENT_LABELS[name] ?? name;
+}
+
+const SHARE_NAMES: Record<string, string> = { x: "X", linkedin: "LinkedIn", bluesky: "Bluesky", threads: "Threads" };
+
+/**
+ * What was clicked on a slop's page, in words: the names the slop page gives
+ * its links and buttons (`data-capture`), or the address of a link off the site.
+ */
+export function clickLabel(value: string, linkLabel: (kind: string) => string | null): string {
+  const [kind, detail = ""] = value.split(":", 2);
+  switch (kind) {
+    case "try":
+      return `Try it (${linkLabel(detail) ?? detail})`;
+    case "link":
+      return `${linkLabel(detail) ?? detail} link`;
+    case "share":
+      return `Shared on ${SHARE_NAMES[detail] ?? detail}`;
+    case "upvote":
+      return "Upvote";
+    case "screenshot":
+      return "A screenshot";
+    default:
+      return value;
+  }
+}

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
+import { axisTicks } from "~/components/analytics/Charts";
 import {
+  clickLabel,
+  eventLabel,
   formatBucket,
   formatChange,
   formatCount,
@@ -158,5 +161,35 @@ describe("formatting", () => {
   it("names people by username, or the end of their id", () => {
     expect(personName("ifiok", ["abc"])).toBe("@ifiok");
     expect(personName(null, ["0192f000-0000-7000-8000-0000deadbeef"])).toBe("Visitor deadbeef");
+  });
+});
+
+describe("labels", () => {
+  it("names the SDK's events in words, and leaves an app's own alone", () => {
+    expect(eventLabel("$pageview")).toBe("Page view");
+    expect(eventLabel("$identify")).toBe("Signed in");
+    expect(eventLabel("slop launched")).toBe("slop launched");
+  });
+
+  it("names what was clicked on a slop's page", () => {
+    const links = (kind: string) => ({ website: "Website", app_store: "App Store" })[kind] ?? null;
+    expect(clickLabel("try:website", links)).toBe("Try it (Website)");
+    expect(clickLabel("link:app_store", links)).toBe("App Store link");
+    expect(clickLabel("share:x", links)).toBe("Shared on X");
+    expect(clickLabel("upvote", links)).toBe("Upvote");
+    expect(clickLabel("screenshot", links)).toBe("A screenshot");
+    expect(clickLabel("https://tiltmaze.app/", links)).toBe("https://tiltmaze.app/");
+  });
+});
+
+describe("axis ticks", () => {
+  it("counts in whole, round steps up to the first tick past the top", () => {
+    expect(axisTicks(0)).toEqual([0, 1]);
+    expect(axisTicks(1)).toEqual([0, 1]);
+    expect(axisTicks(5)).toEqual([0, 2, 4, 6]);
+    expect(axisTicks(13)).toEqual([0, 5, 10, 15]);
+    expect(axisTicks(20)).toEqual([0, 5, 10, 15, 20]);
+    expect(axisTicks(1_000)).toEqual([0, 500, 1_000]);
+    expect(axisTicks(0.4)).toEqual([0, 1]);
   });
 });

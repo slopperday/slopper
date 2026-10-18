@@ -22,6 +22,10 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     timezoneId: "UTC",
+    // Each page's user agent is the device's, but requests a page leaves to
+    // finish after it's gone (analytics' leave beacons) carry the browser's
+    // own, which says HeadlessChrome: analytics drops those as a bot's.
+    launchOptions: { args: [`--user-agent=${devices["Desktop Chrome"].userAgent}`] },
   },
   webServer: {
     command: "node e2e/stack.ts",

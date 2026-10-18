@@ -1,4 +1,5 @@
 import type {
+  FunnelQuery,
   FunnelResult,
   Interval,
   LifecycleResult,
@@ -7,7 +8,7 @@ import type {
   StickinessResult,
   TrendsResult,
 } from "@slopperday/analytics/shared/insights";
-import { formatBucket, formatCount, formatDuration, formatPercent } from "~/lib/insights";
+import { eventLabel, formatBucket, formatCount, formatDuration, formatPercent } from "~/lib/insights";
 import { BarList, ColumnChart, DataTable, LineChart, seriesColor } from "./Charts";
 
 /** Lines drawn at once; a breakdown's other values stay in the table and the ranked list. */
@@ -36,7 +37,14 @@ export function TrendsChart({ result, interval, title }: { result: TrendsResult;
   );
 }
 
-export function FunnelChart({ result }: { result: FunnelResult }) {
+/** A funnel step in words: "Page view of /new", "Signed in". */
+function stepLabel(step: FunnelQuery["steps"][number] | undefined, fallback: string): string {
+  const path = step?.filters?.find((filter) => filter.key === "path" && filter.operator === "equals")?.value;
+  const label = eventLabel(step?.event ?? fallback);
+  return path === undefined ? label : `${label} of ${String(path)}`;
+}
+
+export function FunnelChart({ result, query }: { result: FunnelResult; query: FunnelQuery }) {
   const entered = result.steps[0]?.count ?? 0;
   if (entered === 0) return <p className="text-muted">Nobody started this funnel in the range.</p>;
   return (
@@ -45,7 +53,7 @@ export function FunnelChart({ result }: { result: FunnelResult }) {
         <li key={`${index}-${step.event}`} className="grid gap-1">
           <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
             <span>
-              <span className="font-bold">{index + 1}.</span> {step.event}
+              <span className="font-bold">{index + 1}.</span> {stepLabel(query.steps[index], step.event)}
             </span>
             <span className="tabular-nums">
               {formatCount(step.count)} · {formatPercent(step.conversion)}
@@ -166,7 +174,7 @@ export function PathsDiagram({ result }: { result: PathsResult }) {
     <div className="overflow-x-auto">
       <svg
         viewBox={`0 0 ${width} ${PATH_HEIGHT + 4}`}
-        style={{ minWidth: Math.min(width, 900) }}
+        style={{ minWidth: Math.min(width, 640) }}
         className="block w-full"
         role="img"
         aria-label="Journeys between pages"

@@ -14,12 +14,18 @@ export function seriesColor(index: number): string {
   return SERIES_COLORS[index % SERIES_COLORS.length] ?? "var(--series-1)";
 }
 
-/** A round number at or above `value`, for an axis top: 1, 2, 2.5, 5 or 10 times a power of ten. */
-export function niceCeiling(value: number): number {
-  if (value <= 0) return 1;
-  const power = 10 ** Math.floor(Math.log10(value));
-  const step = [1, 2, 2.5, 5, 10].find((multiple) => multiple * power >= value) ?? 10;
-  return step * power;
+/**
+ * Ticks for an axis of counts up to `max`: about four steps of 1, 2 or 5
+ * times a power of ten, never a fraction, from 0 to the first tick at or
+ * above `max`.
+ */
+export function axisTicks(max: number, steps = 4): number[] {
+  if (max <= 0) return [0, 1];
+  const rough = max / steps;
+  const power = 10 ** Math.floor(Math.log10(rough));
+  const step = Math.max(1, ([1, 2, 5, 10].find((multiple) => multiple * power >= rough) ?? 10) * power);
+  const top = Math.ceil(max / step) * step;
+  return Array.from({ length: Math.round(top / step) + 1 }, (_, index) => index * step);
 }
 
 /** Which bucket labels to show: about `count` of them, evenly spaced, always the first and last. */
@@ -113,11 +119,11 @@ export function LineChart({
   const [hover, setHover] = useState<number | null>(null);
   const plotWidth = WIDTH - PADDING.left - PADDING.right;
   const plotHeight = height - PADDING.top - PADDING.bottom;
-  const max = niceCeiling(Math.max(0, ...series.flatMap((line) => line.values)));
+  const ticks = axisTicks(Math.max(0, ...series.flatMap((line) => line.values)));
+  const max = ticks.at(-1) ?? 1;
   const x = (index: number) =>
     PADDING.left + (buckets.length <= 1 ? plotWidth / 2 : (index / (buckets.length - 1)) * plotWidth);
   const y = (value: number) => PADDING.top + plotHeight - (value / max) * plotHeight;
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((share) => share * max);
 
   function onMove(event: PointerEvent<SVGRectElement>) {
     const box = event.currentTarget.getBoundingClientRect();
@@ -262,13 +268,15 @@ export function ColumnChart({
   const plotHeight = height - PADDING.top - PADDING.bottom;
   const up = labels.map((_, index) => stacks.reduce((sum, stack) => sum + Math.max(0, stack.values[index] ?? 0), 0));
   const down = labels.map((_, index) => stacks.reduce((sum, stack) => sum + Math.min(0, stack.values[index] ?? 0), 0));
-  const top = niceCeiling(Math.max(0, ...up));
-  const bottom = Math.min(0, ...down) < 0 ? -niceCeiling(-Math.min(...down)) : 0;
+  const above = axisTicks(Math.max(0, ...up));
+  const below = Math.min(0, ...down) < 0 ? axisTicks(-Math.min(...down)).map((tick) => -tick) : [0];
+  const ticks = [...new Set([...below.reverse(), ...above])];
+  const top = above.at(-1) ?? 1;
+  const bottom = below[0] ?? 0;
   const span = top - bottom;
   const y = (value: number) => PADDING.top + ((top - value) / span) * plotHeight;
   const slot = plotWidth / Math.max(1, labels.length);
   const barWidth = Math.max(4, Math.min(48, slot - 4));
-  const ticks = bottom < 0 ? [bottom, bottom / 2, 0, top / 2, top] : [0, top / 4, top / 2, (3 * top) / 4, top];
 
   return (
     <figure className="grid gap-3">
