@@ -243,7 +243,7 @@ const SLOP_FLAGS = {
 
 const AUTOPOST_FLAG = {
   "--autopost":
-    "Also post it to the connected X, LinkedIn and Bluesky accounts. When it can't be posted yet, the result says why.",
+    "Also post it to the accounts connected for auto-posting on slopper.day. When it can't be posted yet, the result says why.",
 };
 
 /** What /api/cli/login answers: the secret the CLI polls with, and the page the person approves on. */

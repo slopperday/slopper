@@ -75,7 +75,7 @@ website. Store links must use their store's domain.
 The result has the slop's `id`, `slug` and `url`. Give the user the URL. `hidden: true` means only they can see it
 while it waits for a moderator, and `nsfw: true` that it's blurred.
 
-`--autopost` posts the launch to the user's connected X, LinkedIn and Bluesky accounts. When it can't be posted yet,
+`--autopost` posts the launch to the accounts the user connected for auto-posting on slopper.day. When it can't be posted yet,
 the result says why. Write the `--note` in the user's voice,
 two sentences at most.
 
