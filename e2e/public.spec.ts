@@ -271,7 +271,8 @@ test.describe("production hardening", () => {
   test("pages carry security headers", async ({ request, stack }) => {
     const response = await request.get("/");
     const headers = response.headers();
-    expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
+    // Only Slopper may frame its pages (admins' heatmaps draw them).
+    expect(headers["content-security-policy"]).toContain("frame-ancestors 'self'");
     expect(headers["content-security-policy"]).toContain(stack.convexUrl.replace(/^http/, "ws"));
     expect(headers["x-content-type-options"]).toBe("nosniff");
   });
