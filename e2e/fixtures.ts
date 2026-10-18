@@ -112,9 +112,9 @@ export function runInternal(stack: Stack, name: string, args: Record<string, unk
   convexCli(stack, ["run", name, JSON.stringify(args)]);
 }
 
-/** The Convex CLI, pointed at the stack's backend with its admin key. */
-function convexCli(stack: Stack, args: string[]): void {
-  execFileSync("node_modules/.bin/convex", args, {
+/** The Convex CLI, pointed at the stack's backend with its admin key. Returns what it printed. */
+function convexCli(stack: Stack, args: string[]): string {
+  return execFileSync("node_modules/.bin/convex", args, {
     stdio: "pipe",
     env: {
       ...process.env,
@@ -122,7 +122,22 @@ function convexCli(stack: Stack, args: string[]): void {
       CONVEX_SELF_HOSTED_URL: stack.convexUrl,
       CONVEX_SELF_HOSTED_ADMIN_KEY: stack.adminKey,
     },
-  });
+  }).toString("utf8");
+}
+
+/** One event as the analytics component stores it (packages/analytics). */
+export interface AnalyticsEvent {
+  name: string;
+  distinctId: string;
+  sessionId: string | null;
+  path: string | null;
+  properties: Record<string, unknown>;
+}
+
+/** The analytics component's latest events for a person, by any of their ids, newest first. */
+export function analyticsEvents(stack: Stack, distinctId: string): AnalyticsEvent[] {
+  const args = JSON.stringify({ distinctId, limit: 200 });
+  return JSON.parse(convexCli(stack, ["run", "--component", "analytics", "events:recent", args])) as AnalyticsEvent[];
 }
 
 /** What the fake content check has been asked so far. */

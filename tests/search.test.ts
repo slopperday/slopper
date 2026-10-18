@@ -1,19 +1,16 @@
 // @vitest-environment edge-runtime
-import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import schema from "@convex/schema";
 import { EMBEDDING_MODEL } from "@convex/lib/embeddings";
 import { CATEGORIES, categoryFilter, categoryIds } from "~/lib/model";
 import { embeddingText, fuseRankings, normalizeQuery } from "~/lib/search";
 import { parseCursor, parseWallView, wallHref } from "~/lib/wall";
 import { fakeEmbedding } from "../e2e/fake-embeddings.ts";
-
-const modules = import.meta.glob("../convex/**/*.ts");
+import { convexApp } from "./convexApp";
 
 function setup() {
-  const t = convexTest(schema, modules);
+  const t = convexApp();
   return { t, server: t.withIdentity({ subject: "server" }) };
 }
 

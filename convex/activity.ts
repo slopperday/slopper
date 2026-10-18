@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
+import { captureFor } from "./analytics";
 import { requireServer } from "./lib/auth";
 import { releaseMedia, updateMedia } from "./lib/media";
 import { can } from "./lib/permissions";
@@ -63,6 +64,7 @@ export const addUpdate = mutation({
       details,
     });
     await checkScreenshots(ctx, slopId, [...kept, ...ownedCards], slop.screenshots);
+    await captureFor(ctx, userId, { name: "update posted", properties: { kind } });
     return updateId;
   },
 });

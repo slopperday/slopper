@@ -1,20 +1,18 @@
 // @vitest-environment edge-runtime
-import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import schema from "@convex/schema";
 import { nextLocalHour } from "~/lib/dates";
 import { createElement } from "react";
 import { render } from "react-email";
 import { DigestEmail, type DigestEmailProps } from "~/emails/digest";
 import { type DigestItem, digestHeadline, digestLine, summariseDigest } from "~/lib/digest";
+import { convexApp } from "./convexApp";
 
-const modules = import.meta.glob("../convex/**/*.ts");
 const HOUR = 3_600_000;
 
 function setup() {
-  const t = convexTest(schema, modules);
+  const t = convexApp();
   return { t, server: t.withIdentity({ subject: "server" }) };
 }
 

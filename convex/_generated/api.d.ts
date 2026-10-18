@@ -10,19 +10,23 @@
 
 import type * as accounts from "../accounts.js";
 import type * as activity from "../activity.js";
+import type * as analytics from "../analytics.js";
 import type * as cliLogins from "../cliLogins.js";
 import type * as crons from "../crons.js";
 import type * as digest from "../digest.js";
 import type * as digestSend from "../digestSend.js";
 import type * as goals from "../goals.js";
 import type * as home from "../home.js";
+import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_digest from "../lib/digest.js";
 import type * as lib_embeddings from "../lib/embeddings.js";
 import type * as lib_media from "../lib/media.js";
 import type * as lib_notify from "../lib/notify.js";
+import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_rate from "../lib/rate.js";
 import type * as lib_shape from "../lib/shape.js";
+import type * as lib_staffLog from "../lib/staffLog.js";
 import type * as limits from "../limits.js";
 import type * as media from "../media.js";
 import type * as moderation from "../moderation.js";
@@ -49,19 +53,23 @@ import type {
 declare const fullApi: ApiFromModules<{
   accounts: typeof accounts;
   activity: typeof activity;
+  analytics: typeof analytics;
   cliLogins: typeof cliLogins;
   crons: typeof crons;
   digest: typeof digest;
   digestSend: typeof digestSend;
   goals: typeof goals;
   home: typeof home;
+  http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/digest": typeof lib_digest;
   "lib/embeddings": typeof lib_embeddings;
   "lib/media": typeof lib_media;
   "lib/notify": typeof lib_notify;
+  "lib/permissions": typeof lib_permissions;
   "lib/rate": typeof lib_rate;
   "lib/shape": typeof lib_shape;
+  "lib/staffLog": typeof lib_staffLog;
   limits: typeof limits;
   media: typeof media;
   moderation: typeof moderation;
@@ -106,4 +114,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  analytics: import("@slopperday/analytics/_generated/component.js").ComponentApi<"analytics">;
+};

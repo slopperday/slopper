@@ -107,6 +107,13 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   `slopEmbeddings`, made by a Convex action through OpenRouter when a slop launches or its text changes. Results go
   through `toCards`, so hidden and NSFW slops follow the wall's rules. The wall keeps search and picked categories in the
   URL (`app/lib/wall.ts`).
+- **Analytics** are first-party (`packages/analytics`, private): a Convex component mounted in
+  `convex/convex.config.ts`, so events, people and sessions stay in this deployment. Browsers post straight to its HTTP
+  actions (`<deployment>.convex.site/a/e`, mounted in `convex/http.ts`); key product events are captured in their
+  mutations with `captureFor` (`convex/analytics.ts`). Signed-in people's distinct id is their user id. A component
+  function without a `returns` validator types as `any` for the app: give every one a validator. Tests build the app
+  with `convexApp()` (`tests/convexApp.ts`), which registers the component. Codegen needs a deployment, the component
+  included: in a worktree without `.env.local`, run it against a scratch local backend.
 - **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
   gate anything that shows or writes comments on the switch.
 - **Releases:** every change worth releasing gets a changeset, made with `vp exec monochange create` and named with

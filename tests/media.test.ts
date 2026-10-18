@@ -1,17 +1,14 @@
 // @vitest-environment edge-runtime
-import { convexTest } from "convex-test";
 import type { FunctionReference } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import schema from "@convex/schema";
 import type { ConvexCaller } from "~/.server/convex";
 import { encodeBase64 } from "~/.server/encoding";
 import { BLOCKED_IMAGE, deleteOrphanedMedia, type UploadServices, uploadImage } from "~/.server/media";
 import { ConvexStorage, type MediaKind, type MediaLocation, type MediaStore, S3Bucket } from "~/.server/storage";
 import { LIMITS } from "~/lib/model";
-
-const modules = import.meta.glob("../convex/**/*.ts");
+import { convexApp } from "./convexApp";
 
 const MEDIA_URL = "https://media.test/file/slopper-media";
 const CHECK = {
@@ -32,7 +29,7 @@ const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2
 
 function setup() {
   vi.stubEnv("MEDIA_PUBLIC_URL", `${MEDIA_URL}/`);
-  const t = convexTest(schema, modules);
+  const t = convexApp();
   return { t, server: t.withIdentity({ subject: "server" }) };
 }
 

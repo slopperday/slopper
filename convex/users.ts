@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
+import { captureFor } from "./analytics";
 import { readerFor, requireServer } from "./lib/auth";
 import { firstEmail, nextDigestAt } from "./lib/digest";
 import { publicUser, toCards } from "./lib/shape";
@@ -67,6 +68,7 @@ export const upsertFromIdentity = mutation({
     });
     if (identity) await ctx.db.patch(identity._id, { userId });
     else await ctx.db.insert("identities", { provider: args.provider, providerId: args.providerId, userId });
+    await captureFor(ctx, userId, { name: "signed up", properties: { provider: args.provider } });
     return { userId, created: true };
   },
 });

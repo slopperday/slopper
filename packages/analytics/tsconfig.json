@@ -1,0 +1,20 @@
+{
+  // The SDK runs in browsers, the component on Convex, and the tests on Node:
+  // DOM and Node types together, bundler-style resolution like the app.
+  "include": ["src", "tests"],
+  "exclude": ["src/component/_generated"],
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ES2024"],
+    "types": ["node", "vite/client"],
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noFallthroughCasesInSwitch": true
+  }
+}

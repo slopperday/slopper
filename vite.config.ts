@@ -11,6 +11,7 @@ const IGNORED = [
   ".react-router/**",
   ".netlify/**",
   "convex/_generated/**",
+  "packages/*/src/component/_generated/**",
   ".e2e/**",
   "playwright-report/**",
   "test-results/**",

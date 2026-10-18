@@ -1,15 +1,13 @@
 // @vitest-environment edge-runtime
-import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import schema from "@convex/schema";
+import { convexApp } from "./convexApp";
 
-const modules = import.meta.glob("../convex/**/*.ts");
 const APP = "https://app.test";
 
 function setup() {
-  const t = convexTest(schema, modules);
+  const t = convexApp();
   return { t, server: t.withIdentity({ subject: "server" }) };
 }
 
