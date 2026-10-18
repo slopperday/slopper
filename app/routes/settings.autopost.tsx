@@ -84,7 +84,7 @@ export async function action({ request, context }: Route.ActionArgs) {
         return redirectWithFlash(HERE, { tone: "success", message: `Connected @${account.handle} on Bluesky.` });
       } catch (error) {
         if (error instanceof SocialError) {
-          return redirectWithFlash(HERE, { tone: "error", message: "Bluesky rejected that handle or app password." });
+          return redirectWithFlash(HERE, { tone: "error", message: error.message });
         }
         if (error instanceof MissingSecretKeyError) {
           return redirectWithFlash(HERE, { tone: "error", message: error.message });

@@ -74,6 +74,9 @@ export async function retryFailed(
 ): Promise<AutopostOutcome> {
   const update = await convex.query(api.activity.getUpdate, { updateId });
   if (!update) return { status: "posted", results: [] };
+  // The page checks the slop's owner; this ties the update itself to them too,
+  // so a crafted form can't push someone else's update through these accounts.
+  if (update.userId !== owner._id) return { status: "posted", results: update.crossposts };
   const failed = new Set(update.crossposts.filter((result) => result.status === "error").map((r) => r.accountId));
   if (failed.size === 0) return { status: "posted", results: update.crossposts };
   const [slop, accounts] = await Promise.all([
