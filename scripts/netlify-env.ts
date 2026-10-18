@@ -31,8 +31,17 @@ function isPrivateJwk(value: string): boolean {
   }
 }
 
-function run(command: string, args: string[]): string {
-  return execFileSync(command, args, { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
+function run(command: string, args: string[], cwd = "."): string {
+  return execFileSync(command, args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
+}
+
+/**
+ * Runs netlify-cli. From the repo root it sees the workspace packages (packages/*) and stops to ask which one to
+ * use, which fails without a terminal. It skips that question when --cwd names a directory it wasn't started in,
+ * so it starts in scripts/ and --cwd points it back at the app, as scripts/release.ts does for deploys.
+ */
+function netlify(args: string[]): string {
+  return run("netlify", [...args, "--site", NETLIFY_SITE, "--cwd", process.cwd()], "scripts");
 }
 
 const dryRun = process.argv.includes("--dry-run");
@@ -65,14 +74,12 @@ for (const [name, { hasDefault }] of declared) {
     continue;
   }
   const secret = hasDefault ? [] : ["--secret"];
-  run("netlify", ["env:set", name, value, "--context", "production", ...secret, "--site", NETLIFY_SITE, "--force"]);
+  netlify(["env:set", name, value, "--context", "production", ...secret, "--force"]);
   console.log(`set ${name}${secret.length ? " (secret)" : ""}`);
   wanted.push(name);
 }
 
-const onNetlify = new Set(
-  Object.keys(JSON.parse(run("netlify", ["env:list", "--json", "--context", "production", "--site", NETLIFY_SITE]))),
-);
+const onNetlify = new Set(Object.keys(JSON.parse(netlify(["env:list", "--json", "--context", "production"]))));
 const missing = wanted.filter((name) => !onNetlify.has(name));
 if (missing.length > 0) {
   console.error(`Netlify doesn't have ${missing.join(", ")} after setting them.`);
