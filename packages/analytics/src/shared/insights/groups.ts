@@ -122,6 +122,8 @@ export interface GroupReport {
   };
   previous: { views: number; people: number };
   series: { buckets: number[]; views: number[]; people: number[] };
+  /** The period before's views, lined up with `series`' buckets. */
+  previousSeries: { views: number[] };
   /** Where the visits that viewed it came from: the referring site, or the channel when there's none. */
   sources: WebRow[];
   /**
@@ -162,6 +164,7 @@ export class GroupReportAggregator {
   private readonly buckets: number[];
   private readonly index = new Map<number, number>();
   private readonly seriesViews: number[];
+  private readonly beforeViews: number[];
   private readonly seriesPeople: Set<string>[];
   private readonly people = new Set<string>();
   private readonly previousPeople = new Set<string>();
@@ -179,6 +182,7 @@ export class GroupReportAggregator {
     this.buckets = bucketsIn(query.range, query.interval);
     this.buckets.forEach((start, position) => this.index.set(start, position));
     this.seriesViews = this.buckets.map(() => 0);
+    this.beforeViews = this.buckets.map(() => 0);
     this.seriesPeople = this.buckets.map(() => new Set());
   }
 
@@ -197,6 +201,9 @@ export class GroupReportAggregator {
       if (event.name === EVENTS.pageview) {
         this.previousViews += 1;
         this.previousPeople.add(event.personId);
+        const shifted = event.timestamp + (this.query.range.to - this.query.range.from);
+        const bucket = this.index.get(bucketStart(shifted, this.query.interval));
+        if (bucket !== undefined) this.beforeViews[bucket] = (this.beforeViews[bucket] ?? 0) + 1;
       }
       return;
     }
@@ -248,6 +255,7 @@ export class GroupReportAggregator {
         views: this.seriesViews,
         people: this.seriesPeople.map((people) => people.size),
       },
+      previousSeries: { views: this.beforeViews },
       sources: this.sources.top(),
       clicks: this.clicks.top(),
       actions: [...this.actions.entries()]

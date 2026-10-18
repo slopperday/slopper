@@ -183,8 +183,9 @@ export async function runInsight(
   switch (query.kind) {
     case "trends": {
       const trends = new TrendsAggregator(query);
+      const range = TrendsAggregator.scanRange(query);
       for (const [event, indexes] of byEvent(query.series.map((series) => series.event))) {
-        await scan.events(event, query.range, (row) => {
+        await scan.events(event, range, (row) => {
           for (const index of indexes) trends.add(index, row);
         });
       }

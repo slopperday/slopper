@@ -40,6 +40,8 @@ export interface WebResult {
   /** The same numbers for the period of equal length before, to compare against. */
   previous: WebTotals;
   series: { buckets: number[]; visitors: number[]; sessions: number[]; pageviews: number[] };
+  /** The period before, lined up with `series`' buckets. */
+  previousSeries: { visitors: number[]; sessions: number[]; pageviews: number[] };
   breakdowns: WebBreakdowns;
 }
 
@@ -109,6 +111,9 @@ export class WebAggregator {
   private readonly seriesVisitors: Set<string>[];
   private readonly seriesSessions: number[];
   private readonly seriesPageviews: number[];
+  private readonly beforeVisitors: Set<string>[];
+  private readonly beforeSessions: number[];
+  private readonly beforePageviews: number[];
   private readonly tallies = {
     pages: new Tally(),
     entryPages: new Tally(),
@@ -131,6 +136,14 @@ export class WebAggregator {
     this.seriesVisitors = this.buckets.map(() => new Set());
     this.seriesSessions = this.buckets.map(() => 0);
     this.seriesPageviews = this.buckets.map(() => 0);
+    this.beforeVisitors = this.buckets.map(() => new Set());
+    this.beforeSessions = this.buckets.map(() => 0);
+    this.beforePageviews = this.buckets.map(() => 0);
+  }
+
+  /** The bucket of a moment in the period before: where it falls one period later. */
+  private bucketBefore(timestamp: number): number | undefined {
+    return this.bucket(timestamp + (this.query.range.to - this.query.range.from), this.query.interval);
   }
 
   static scanRange(query: WebQuery): TimeRange {
@@ -145,6 +158,11 @@ export class WebAggregator {
     const at = session.startedAt;
     if (at >= this.previousRange.from && at < this.previousRange.to) {
       this.before.addSession(session);
+      const bucket = this.bucketBefore(at);
+      if (bucket !== undefined) {
+        this.beforeVisitors[bucket]?.add(session.personId);
+        this.beforeSessions[bucket] = (this.beforeSessions[bucket] ?? 0) + 1;
+      }
       return;
     }
     if (at < this.query.range.from || at >= this.query.range.to) return;
@@ -171,6 +189,8 @@ export class WebAggregator {
     if (event.name !== EVENTS.pageview) return;
     if (event.timestamp >= this.previousRange.from && event.timestamp < this.previousRange.to) {
       this.before.pageviews += 1;
+      const bucket = this.bucketBefore(event.timestamp);
+      if (bucket !== undefined) this.beforePageviews[bucket] = (this.beforePageviews[bucket] ?? 0) + 1;
       return;
     }
     if (event.timestamp < this.query.range.from || event.timestamp >= this.query.range.to) return;
@@ -204,6 +224,11 @@ export class WebAggregator {
         visitors: this.seriesVisitors.map((visitors) => visitors.size),
         sessions: this.seriesSessions,
         pageviews: this.seriesPageviews,
+      },
+      previousSeries: {
+        visitors: this.beforeVisitors.map((visitors) => visitors.size),
+        sessions: this.beforeSessions,
+        pageviews: this.beforePageviews,
       },
       breakdowns,
     };

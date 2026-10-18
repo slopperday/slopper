@@ -42,6 +42,8 @@ export const trendsQueryValidator = v.object({
   series: v.array(v.object({ event: v.string(), math: trendsMathValidator, filters })),
   /** An event property (or `path`) to split each series by. */
   breakdown: v.optional(v.string()),
+  /** Also count the period of the same length just before, bucket by bucket, to compare against. */
+  compare: v.optional(v.boolean()),
 });
 
 /** How many people go through steps in order, within a window of the first. */

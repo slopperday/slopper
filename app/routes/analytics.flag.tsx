@@ -46,9 +46,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   ]);
   if (!found) throw new Response("Not found", { status: 404 });
   if (usage.result.kind !== "trends") throw new Error("A trends insight answered with another kind.");
-  // One line per value: name them by it, not by the event.
-  const series = usage.result.series.map((line) => ({ ...line, label: line.breakdown ?? "(none)" }));
-  return { ...found, usage: { ...usage.result, series }, canManage: can(admin, "analytics.manage") };
+  return { ...found, usage: usage.result, canManage: can(admin, "analytics.manage") };
 }
 
 export async function action({ request, context, params }: Route.ActionArgs) {

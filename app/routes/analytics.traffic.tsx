@@ -131,7 +131,8 @@ export default function Traffic({ loaderData }: Route.ComponentProps) {
               title={`${METRICS[metric]}, last ${days} days`}
               buckets={web.series.buckets}
               interval={interval}
-              series={[{ label: METRICS[metric], values: web.series[metric] }]}
+              compareLabel={`the ${days} days before`}
+              series={[{ label: METRICS[metric], values: web.series[metric], previous: web.previousSeries[metric] }]}
             />
           </ChartPanel>
         </div>

@@ -9,20 +9,43 @@ import type {
   TrendsResult,
 } from "@slopperday/analytics/shared/insights";
 import { eventLabel, formatBucket, formatCount, formatDuration, formatPercent } from "~/lib/insights";
-import { BarList, ColumnChart, DataTable, LineChart, seriesColor } from "./Charts";
+import { useMemo } from "react";
+import { BarList, ColumnChart, DataTable, escapeHtml, LineChart, withAlpha } from "./Charts";
+import { type ChartOption, EChart, useChartTheme } from "./EChart";
 
 /** Lines drawn at once; a breakdown's other values stay in the table and the ranked list. */
 const LINES_SHOWN = 4;
 
-export function TrendsChart({ result, interval, title }: { result: TrendsResult; interval: Interval; title: string }) {
+export function TrendsChart({
+  result,
+  interval,
+  title,
+  compareLabel,
+}: {
+  result: TrendsResult;
+  interval: Interval;
+  title: string;
+  /** What the period before is, in words, when the result compares with one. */
+  compareLabel?: string;
+}) {
   const broken = result.series.some((series) => series.breakdown !== null);
+  const oneEvent = new Set(result.series.map((series) => series.event)).size === 1;
   return (
     <div className="grid gap-6">
       <LineChart
         title={title}
         buckets={result.buckets}
         interval={interval}
-        series={result.series.slice(0, LINES_SHOWN).map((series) => ({ label: series.label, values: series.data }))}
+        compareLabel={compareLabel}
+        series={result.series.slice(0, LINES_SHOWN).map((series) => ({
+          // One event split by a property: its values say it all.
+          label:
+            series.breakdown !== null && oneEvent
+              ? series.breakdown
+              : eventLabel(series.event) + (series.breakdown === null ? "" : ` · ${series.breakdown}`),
+          values: series.data,
+          ...(series.previous ? { previous: series.previous.data } : {}),
+        }))}
       />
       {broken && (
         <BarList
@@ -44,43 +67,116 @@ function stepLabel(step: FunnelQuery["steps"][number] | undefined, fallback: str
   return path === undefined ? label : `${label} of ${String(path)}`;
 }
 
+/**
+ * A funnel as columns: everyone who got to each step, with those who dropped
+ * off before it stacked faintly on top, so the losses read at a glance.
+ */
 export function FunnelChart({ result, query }: { result: FunnelResult; query: FunnelQuery }) {
+  const theme = useChartTheme();
   const entered = result.steps[0]?.count ?? 0;
+  const labels = result.steps.map((step, index) => `${index + 1}. ${stepLabel(query.steps[index], step.event)}`);
+  const option = useMemo((): ChartOption | null => {
+    if (!theme) return null;
+    const color = theme.series[0];
+    return {
+      grid: { left: 4, right: 12, top: 28, bottom: 4, outerBoundsMode: "same", outerBoundsContain: "axisLabel" },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "shadow", shadowStyle: { color: withAlpha(theme.ink, 0.05) } },
+        formatter: (params: unknown) => {
+          const first = Array.isArray(params) ? params[0] : params;
+          const index =
+            typeof first === "object" && first !== null && "dataIndex" in first && typeof first.dataIndex === "number"
+              ? first.dataIndex
+              : 0;
+          const step = result.steps[index];
+          if (!step) return "";
+          const lines = [
+            `<div style="font-weight:700;margin-bottom:6px">${escapeHtml(labels[index] ?? "")}</div>`,
+            `<div><strong>${formatCount(step.count)}</strong> people, ${formatPercent(step.conversion)} of those who started</div>`,
+          ];
+          if (index > 0) {
+            const before = result.steps[index - 1]?.count ?? 0;
+            lines.push(
+              `<div>${formatPercent(step.stepConversion)} of step ${index}; ${formatCount(before - step.count)} dropped off</div>`,
+            );
+            if (step.medianMsFromPrevious !== null) {
+              lines.push(
+                `<div style="color:${theme.muted}">Median ${formatDuration(step.medianMsFromPrevious)} after</div>`,
+              );
+            }
+          }
+          return lines.join("");
+        },
+      },
+      xAxis: {
+        type: "category",
+        data: labels,
+        axisLine: { lineStyle: { color: theme.lineStrong } },
+        axisTick: { show: false },
+        axisLabel: { color: theme.ink, fontSize: 12, interval: 0, width: 140, overflow: "truncate" },
+      },
+      yAxis: {
+        type: "value",
+        max: entered,
+        minInterval: 1,
+        splitLine: { lineStyle: { color: theme.line } },
+        axisLabel: { color: theme.muted, fontSize: 11, formatter: (value: number) => formatCount(value) },
+      },
+      series: [
+        {
+          type: "bar",
+          name: "Got here",
+          stack: "funnel",
+          data: result.steps.map((step) => step.count),
+          barMaxWidth: 72,
+          itemStyle: { color, borderRadius: [0, 0, 4, 4] },
+          label: {
+            show: true,
+            position: "top",
+            color: theme.ink,
+            fontWeight: "bold",
+            formatter: (params: unknown) => {
+              const index =
+                typeof params === "object" &&
+                params !== null &&
+                "dataIndex" in params &&
+                typeof params.dataIndex === "number"
+                  ? params.dataIndex
+                  : 0;
+              return formatPercent(result.steps[index]?.conversion ?? 0);
+            },
+          },
+        },
+        {
+          type: "bar",
+          name: "Dropped off",
+          stack: "funnel",
+          data: result.steps.map((step) => entered - step.count),
+          barMaxWidth: 72,
+          itemStyle: { color: withAlpha(color, 0.16), borderRadius: [4, 4, 0, 0] },
+          emphasis: { disabled: true },
+        },
+      ],
+    };
+  }, [theme, result, labels, entered]);
+
   if (entered === 0) return <p className="text-muted">Nobody started this funnel in the range.</p>;
   return (
-    <ol className="grid gap-3">
-      {result.steps.map((step, index) => (
-        <li key={`${index}-${step.event}`} className="grid gap-1">
-          <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-            <span>
-              <span className="font-bold">{index + 1}.</span> {stepLabel(query.steps[index], step.event)}
-            </span>
-            <span className="tabular-nums">
-              {formatCount(step.count)} · {formatPercent(step.conversion)}
-              {index > 0 && step.medianMsFromPrevious !== null && (
-                <span className="ml-2 text-muted">median {formatDuration(step.medianMsFromPrevious)} after</span>
-              )}
-            </span>
-          </div>
-          <div className="h-6 rounded-sm bg-sunk">
-            <div
-              className="h-full rounded-sm"
-              style={{
-                width: `${Math.max(step.conversion * 100, step.count > 0 ? 1 : 0)}%`,
-                background: seriesColor(0),
-              }}
-              title={`${formatCount(step.count)} people, ${formatPercent(step.stepConversion)} of the step before`}
-            />
-          </div>
-          {index > 0 && (
-            <p className="text-xs text-muted">
-              {formatPercent(step.stepConversion)} of step {index};{" "}
-              {formatCount((result.steps[index - 1]?.count ?? 0) - step.count)} dropped off
-            </p>
-          )}
-        </li>
-      ))}
-    </ol>
+    <figure className="grid gap-3">
+      <EChart option={option} height={300} label="How many people got through each step" />
+      <DataTable
+        caption="People at each step"
+        columns={["Step", "People", "Of everyone", "Of the step before", "Median time from the step before"]}
+        rows={result.steps.map((step, index) => [
+          labels[index] ?? step.event,
+          step.count,
+          formatPercent(step.conversion),
+          index === 0 ? "—" : formatPercent(step.stepConversion),
+          step.medianMsFromPrevious === null ? "—" : formatDuration(step.medianMsFromPrevious),
+        ])}
+      />
+    </figure>
   );
 }
 
@@ -147,90 +243,80 @@ function RetentionCell({ share, label }: { share: number; label: string }) {
   );
 }
 
-const COLUMN_WIDTH = 190;
-const NODE_WIDTH = 10;
-const PATH_HEIGHT = 360;
+/** Width each step of a journey takes, so long journeys scroll rather than squeeze. */
+const STEP_WIDTH = 200;
+const PATH_HEIGHT = 420;
 
-/** User journeys as columns of pages, step by step, with links as wide as their traffic. */
+/**
+ * User journeys as a Sankey diagram: pages step by step, with links as wide
+ * as their traffic. Hovering a page or a link lights up everything joined to
+ * it, to follow one route through.
+ */
 export function PathsDiagram({ result }: { result: PathsResult }) {
+  const theme = useChartTheme();
+  const steps = result.nodes.length === 0 ? 0 : Math.max(...result.nodes.map((node) => node.step)) + 1;
+  const option = useMemo((): ChartOption | null => {
+    if (!theme || result.nodes.length === 0) return null;
+    const byId = new Map(result.nodes.map((node) => [node.id, node]));
+    const short = (path: string) => (path.length > 24 ? `${path.slice(0, 23)}…` : path);
+    return {
+      tooltip: {
+        trigger: "item",
+        formatter: (params: unknown) => {
+          if (typeof params !== "object" || params === null || !("data" in params)) return "";
+          const data = params.data;
+          if (typeof data !== "object" || data === null) return "";
+          if ("source" in data && "target" in data && "value" in data) {
+            const from = byId.get(String(data.source));
+            const to = byId.get(String(data.target));
+            return `${escapeHtml(from?.path ?? "")} → ${escapeHtml(to?.path ?? "")}<br><strong>${formatCount(Number(data.value))}</strong> sessions`;
+          }
+          if ("name" in data) {
+            const node = byId.get(String(data.name));
+            if (!node) return "";
+            return `<strong>${escapeHtml(node.path)}</strong><br>${formatCount(node.sessions)} sessions at step ${node.step + 1}, ${formatCount(node.dropoffs)} ended here`;
+          }
+          return "";
+        },
+      },
+      series: [
+        {
+          type: "sankey",
+          left: 8,
+          right: 140,
+          top: 8,
+          bottom: 8,
+          nodeAlign: "left",
+          nodeWidth: 10,
+          nodeGap: 10,
+          layoutIterations: 32,
+          draggable: false,
+          emphasis: { focus: "adjacency" },
+          data: result.nodes.map((node) => ({ name: node.id, value: node.sessions })),
+          links: result.links.map((link) => ({ source: link.source, target: link.target, value: link.sessions })),
+          itemStyle: { color: theme.series[0], borderWidth: 0, borderRadius: 2 },
+          lineStyle: { color: "source", opacity: 0.28, curveness: 0.5 },
+          label: {
+            color: theme.ink,
+            fontSize: 12,
+            formatter: (params: unknown) =>
+              typeof params === "object" && params !== null && "name" in params
+                ? short(byId.get(String(params.name))?.path ?? "")
+                : "",
+          },
+        },
+      ],
+    };
+  }, [theme, result]);
+
   if (result.nodes.length === 0) return <p className="text-muted">No journeys in the range.</p>;
-  const steps = Math.max(...result.nodes.map((node) => node.step)) + 1;
-  const width = steps * COLUMN_WIDTH;
-  const columns = Array.from({ length: steps }, (_, step) => result.nodes.filter((node) => node.step === step));
-  const scale = Math.max(...columns.map((nodes) => nodes.reduce((sum, node) => sum + node.sessions, 0)));
-  const gap = 8;
-  const positions = new Map<string, { x: number; y: number; height: number; next: number; previous: number }>();
-  columns.forEach((nodes, step) => {
-    const room = PATH_HEIGHT - gap * Math.max(0, nodes.length - 1);
-    let y = 0;
-    for (const node of nodes) {
-      const height = Math.max(3, (node.sessions / scale) * room);
-      positions.set(node.id, { x: step * COLUMN_WIDTH, y, height, next: y, previous: y });
-      y += height + gap;
-    }
-  });
-  const unit = (PATH_HEIGHT - gap * 4) / scale;
   return (
-    <div className="overflow-x-auto">
-      <svg
-        viewBox={`0 0 ${width} ${PATH_HEIGHT + 4}`}
-        style={{ minWidth: Math.min(width, 640) }}
-        className="block w-full"
-        role="img"
-        aria-label="Journeys between pages"
-      >
-        {result.links.map((link) => {
-          const source = positions.get(link.source);
-          const target = positions.get(link.target);
-          if (!source || !target) return null;
-          const thickness = Math.max(1.5, link.sessions * unit);
-          const y1 = source.next + thickness / 2;
-          const y2 = target.previous + thickness / 2;
-          source.next += thickness;
-          target.previous += thickness;
-          const x1 = source.x + NODE_WIDTH;
-          const x2 = target.x;
-          const middle = (x1 + x2) / 2;
-          return (
-            <path
-              key={`${link.source}-${link.target}`}
-              d={`M${x1},${y1} C${middle},${y1} ${middle},${y2} ${x2},${y2}`}
-              fill="none"
-              stroke={seriesColor(0)}
-              strokeOpacity={0.35}
-              strokeWidth={thickness}
-            >
-              <title>{`${link.source.split(":").slice(1).join(":")} → ${link.target.split(":").slice(1).join(":")}: ${formatCount(link.sessions)} sessions`}</title>
-            </path>
-          );
-        })}
-        {result.nodes.map((node) => {
-          const position = positions.get(node.id);
-          if (!position) return null;
-          return (
-            <g key={node.id}>
-              <rect
-                x={position.x}
-                y={position.y}
-                width={NODE_WIDTH}
-                height={position.height}
-                rx={2}
-                fill={seriesColor(0)}
-              >
-                <title>{`${node.path}: ${formatCount(node.sessions)} sessions, ${formatCount(node.dropoffs)} ended here`}</title>
-              </rect>
-              <text
-                x={position.x + NODE_WIDTH + 6}
-                y={position.y + Math.min(position.height / 2, 10)}
-                dy="0.32em"
-                className="fill-ink text-[12px]"
-              >
-                {node.path.length > 22 ? `${node.path.slice(0, 21)}…` : node.path}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+    <div className="grid gap-3">
+      <div className="overflow-x-auto">
+        <div style={{ minWidth: Math.max(640, steps * STEP_WIDTH) }}>
+          <EChart option={option} height={PATH_HEIGHT} label="Journeys between pages" />
+        </div>
+      </div>
       <DataTable
         caption="Most common journeys"
         columns={["Journey", "Sessions"]}
@@ -245,7 +331,7 @@ export function StickinessChart({ result }: { result: StickinessResult }) {
     <ColumnChart
       title="People by how many days they came back"
       labels={result.persons.map((_, index) => `${index + 1}d`)}
-      stacks={[{ label: "People", values: result.persons, color: seriesColor(0) }]}
+      stacks={[{ label: "People", values: result.persons, series: 0 }]}
     />
   );
 }
@@ -256,10 +342,10 @@ export function LifecycleChart({ result, interval }: { result: LifecycleResult; 
       title="New, returning, resurrecting and dormant people"
       labels={result.buckets.map((bucket) => formatBucket(bucket, interval))}
       stacks={[
-        { label: "New", values: result.new, color: seriesColor(0) },
-        { label: "Returning", values: result.returning, color: seriesColor(1) },
-        { label: "Resurrecting", values: result.resurrecting, color: seriesColor(2) },
-        { label: "Dormant", values: result.dormant, color: seriesColor(3) },
+        { label: "New", values: result.new, series: 0 },
+        { label: "Returning", values: result.returning, series: 1 },
+        { label: "Resurrecting", values: result.resurrecting, series: 2 },
+        { label: "Dormant", values: result.dormant, series: 3 },
       ]}
     />
   );

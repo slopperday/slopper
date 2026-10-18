@@ -104,8 +104,9 @@ export default function SlopAnalytics({ loaderData }: Route.ComponentProps) {
             title={`Views of ${slop.name}`}
             buckets={report.series.buckets}
             interval={days > 31 ? "week" : "day"}
+            compareLabel={`the ${days} days before`}
             series={[
-              { label: "Views", values: report.series.views },
+              { label: "Views", values: report.series.views, previous: report.previousSeries.views },
               { label: "People", values: report.series.people },
             ]}
           />
