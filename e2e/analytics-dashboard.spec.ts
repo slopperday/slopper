@@ -48,7 +48,7 @@ test.describe("analytics, given back", () => {
       .filter({ hasText: /^Views/ })
       .first();
     await expect(views).toContainText("1");
-    await expect(page.getByRole("region", { name: "What they clicked" })).toContainText("try:website");
+    await expect(page.getByRole("region", { name: "What they clicked" })).toContainText("Try it (Website)");
     await expect(page.getByRole("region", { name: "Where they came from" })).toContainText("referral");
 
     // Someone else's slop's analytics are theirs alone.
@@ -122,8 +122,8 @@ test.describe("analytics, given back", () => {
     funnel.append("stepPath", "/nowhere-anyone-goes");
     await admin.goto(`/analytics/insights?${funnel.toString()}`);
     await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Insights");
-    await expect(admin.getByText("1. $pageview")).toBeVisible();
-    await expect(admin.getByText("2. $pageview")).toBeVisible();
+    await expect(admin.getByText(`1. Page view of ${slop.path}`)).toBeVisible();
+    await expect(admin.getByText("2. Page view of /nowhere-anyone-goes")).toBeVisible();
 
     await admin.goto("/analytics/people");
     await admin.getByLabel("Username or id").fill(visitorId);

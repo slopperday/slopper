@@ -6,7 +6,8 @@ import { convex, convexMessage } from "~/.server/convex";
 import { forbidden, notFound } from "~/.server/http";
 import { requireUser, viewerContext } from "~/.server/session";
 import { slopPath } from "~/lib/display";
-import { formatChange, formatCount } from "~/lib/insights";
+import { clickLabel, formatChange, formatCount } from "~/lib/insights";
+import { isLinkKind, LINK_KINDS } from "~/lib/model";
 import { formatMoney } from "~/lib/money";
 import { seo } from "~/lib/seo";
 import { DaysPicker } from "~/components/analytics/AnalyticsNav";
@@ -74,7 +75,7 @@ export default function SlopAnalytics({ loaderData }: Route.ComponentProps) {
         </p>
       )}
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat
           label="Views"
           value={formatCount(report.totals.views)}
@@ -127,11 +128,11 @@ export default function SlopAnalytics({ loaderData }: Route.ComponentProps) {
           <BarList
             rows={report.clicks.map((click) => ({
               key: click.value,
-              label: click.value,
+              label: clickLabel(click.value, (kind) => (isLinkKind(kind) ? LINK_KINDS[kind].label : null)),
               value: click.count,
               detail: `${formatCount(click.visitors)} ${click.visitors === 1 ? "person" : "people"}`,
             }))}
-            empty="No clicks yet."
+            empty="Nothing clicked yet."
           />
         </ChartPanel>
         <ChartPanel title="What they did">

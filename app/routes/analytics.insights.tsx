@@ -4,7 +4,15 @@ import { api } from "@convex/_generated/api";
 import { ANY_EVENT, type InsightQuery } from "@slopperday/analytics/shared/insights";
 import { convex } from "~/.server/convex";
 import { requireStaff, viewerContext } from "~/.server/session";
-import { DAY_CHOICES, daysOf, INSIGHT_LABELS, type InsightKind, insightQuery, isInsightKind } from "~/lib/insights";
+import {
+  DAY_CHOICES,
+  daysOf,
+  eventLabel,
+  INSIGHT_LABELS,
+  type InsightKind,
+  insightQuery,
+  isInsightKind,
+} from "~/lib/insights";
 import { seo } from "~/lib/seo";
 import { AnalyticsNav } from "~/components/analytics/AnalyticsNav";
 import { ChartPanel } from "~/components/analytics/Charts";
@@ -78,7 +86,7 @@ function EventSelect({
         <option value={ANY_EVENT}>Any event</option>
         {options.map((event) => (
           <option key={event} value={event}>
-            {event}
+            {eventLabel(event) === event ? event : `${eventLabel(event)} (${event})`}
           </option>
         ))}
       </select>
@@ -183,7 +191,7 @@ function QueryFields({ query, events }: { query: InsightQuery; events: string[] 
             const step = query.steps[index];
             const path = step?.filters?.find((filter) => filter.key === "path")?.value;
             return (
-              <fieldset key={index} className="grid gap-2 sm:grid-cols-2">
+              <fieldset key={index} className="grid gap-2">
                 <EventSelect
                   name="event"
                   label={`Step ${index + 1}`}
@@ -287,7 +295,7 @@ export default function Insights({ loaderData }: Route.ComponentProps) {
           {result.kind === "trends" && query.kind === "trends" && (
             <TrendsChart result={result} interval={query.interval} title={INSIGHT_LABELS.trends} />
           )}
-          {result.kind === "funnel" && <FunnelChart result={result} />}
+          {result.kind === "funnel" && query.kind === "funnel" && <FunnelChart result={result} query={query} />}
           {result.kind === "retention" && <RetentionGrid result={result} />}
           {result.kind === "paths" && <PathsDiagram result={result} />}
           {result.kind === "stickiness" && <StickinessChart result={result} />}

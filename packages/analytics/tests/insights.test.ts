@@ -489,6 +489,8 @@ describe("groups", () => {
     });
     about({ name: "$autocapture", personId: "p2", properties: { eventType: "click", href: "https://tiltmaze.app/" } });
     about({ name: "$autocapture", personId: "p2", properties: { eventType: "change", name: "amount" } });
+    // The site's own navigation, clicked on the page, isn't about the slop.
+    about({ name: "$autocapture", personId: "p2", properties: { eventType: "click", href: "/today", text: "Today" } });
     about({ name: "voted", personId: "p1", sessionId: null, path: null });
     about({ name: "voted", personId: "p2", sessionId: null, path: null });
     about({ name: "pledged", personId: "p2", sessionId: null, path: null });
@@ -500,7 +502,7 @@ describe("groups", () => {
     report.addSource("elsewhere", { referrerDomain: "t.co", channel: "social" });
     expect(report.result()).toEqual({
       group: "slop:a",
-      totals: { views: 3, people: 2, sessions: 2, interactions: 3 },
+      totals: { views: 3, people: 2, sessions: 2, interactions: 2 },
       previous: { views: 1, people: 1 },
       series: { buckets: bucketsIn(WEEK, "day"), views: [2, 1, 0, 0, 0, 0, 0], people: [1, 1, 0, 0, 0, 0, 0] },
       sources: [

@@ -5,7 +5,7 @@ import { convex } from "~/.server/convex";
 import { requireStaff, viewerContext } from "~/.server/session";
 import { timeAgo } from "~/lib/dates";
 import { slopPath } from "~/lib/display";
-import { DAY_CHOICES, formatBucket, formatChange, formatCount, formatPercent } from "~/lib/insights";
+import { DAY_CHOICES, eventLabel, formatBucket, formatChange, formatCount, formatPercent } from "~/lib/insights";
 import { seo } from "~/lib/seo";
 import { AnalyticsNav, DaysPicker } from "~/components/analytics/AnalyticsNav";
 import { ChartPanel, ColumnChart, LineChart, seriesColor, Stat } from "~/components/analytics/Charts";
@@ -49,7 +49,7 @@ export default function AnalyticsOverview({ loaderData }: Route.ComponentProps) 
         <h2 id="people-title" className="title-2">
           People
         </h2>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <Stat
             label="Slopper accounts"
             value={formatCount(growth.totals.accounts)}
@@ -77,7 +77,7 @@ export default function AnalyticsOverview({ loaderData }: Route.ComponentProps) 
         <h2 id="growth-title" className="title-2">
           Growth, last {days} days
         </h2>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <Stat
             label="Slops"
             value={formatCount(growth.totals.slops)}
@@ -132,7 +132,7 @@ export default function AnalyticsOverview({ loaderData }: Route.ComponentProps) 
         <p className="mt-2 text-muted">
           Page views over the last {projectDays} days against the {projectDays} before.
         </p>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <Stat label="Climbing" value={formatCount(projects.rising)} hint="more views than before" />
           <Stat label="New" value={formatCount(projects.new)} hint="no views before" />
           <Stat label="Fading" value={formatCount(projects.falling)} hint="fewer views than before" />
@@ -194,7 +194,7 @@ export default function AnalyticsOverview({ loaderData }: Route.ComponentProps) 
             {live.events.slice(0, 15).map((event) => (
               <li key={event.id} className="flex justify-between gap-3 border-b border-line py-1">
                 <span className="min-w-0 truncate">
-                  <span className="font-bold">{event.name}</span>
+                  <span className="font-bold">{eventLabel(event.name)}</span>
                   {event.path && <span className="ml-2 font-mono text-xs text-muted">{event.path}</span>}
                 </span>
                 <Link to={`/analytics/people/${encodeURIComponent(event.distinctId)}`} className="link shrink-0">
