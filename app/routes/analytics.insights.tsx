@@ -182,6 +182,16 @@ function QueryFields({ query, events }: { query: InsightQuery; events: string[] 
               ))}
             </datalist>
           </label>
+          <label className="flex items-center gap-2 self-end pb-2 text-sm">
+            <input
+              type="checkbox"
+              name="compare"
+              value="1"
+              defaultChecked={query.compare === true}
+              className="size-4"
+            />
+            Compare with the period before
+          </label>
         </>
       );
     case "funnel":
@@ -293,7 +303,12 @@ export default function Insights({ loaderData }: Route.ComponentProps) {
             </p>
           )}
           {result.kind === "trends" && query.kind === "trends" && (
-            <TrendsChart result={result} interval={query.interval} title={INSIGHT_LABELS.trends} />
+            <TrendsChart
+              result={result}
+              interval={query.interval}
+              title={INSIGHT_LABELS.trends}
+              compareLabel={`the ${days} days before`}
+            />
           )}
           {result.kind === "funnel" && query.kind === "funnel" && <FunnelChart result={result} query={query} />}
           {result.kind === "retention" && <RetentionGrid result={result} />}

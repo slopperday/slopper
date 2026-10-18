@@ -504,6 +504,8 @@ describe("groups", () => {
       group: "slop:a",
       totals: { views: 3, people: 2, sessions: 2, interactions: 2 },
       previous: { views: 1, people: 1 },
+      // The view in the week before, on the day a week later it lines up with.
+      previousSeries: { views: [0, 0, 0, 0, 0, 1, 0] },
       series: { buckets: bucketsIn(WEEK, "day"), views: [2, 1, 0, 0, 0, 0, 0], people: [1, 1, 0, 0, 0, 0, 0] },
       sources: [
         { value: "direct", visitors: 1, count: 1 },

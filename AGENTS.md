@@ -158,6 +158,12 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   with `integrations.claim`. Numbers on the page always say where they came from; typed-in money stays in the ledger.
 - **Product pages:** a linked demo video (`demo`, not the uploaded promo `video`) is stored as `{ provider, id }` and embed URLs are built in `app/lib/video.ts`, never taken
   from input. AI drafts (`app/.server/draft.ts`) only fill the form; saving runs the content check as usual.
+- **Charts** are ECharts (`app/components/analytics/EChart.tsx`): the library is its own chunk
+  (`echarts.client.ts`, only what's used, SVG renderer), loaded once a chart mounts, so public pages never fetch it.
+  Colours come from the tokens in either theme; every chart keeps a table behind it. They animate unless motion is
+  turned down: `useReducedMotion` (`app/lib/motion.ts`) follows Settings → Motion (the `slopper_motion` cookie, rendered
+  as `<html data-motion>`) or the device's `prefers-reduced-motion`; app.css stills everything else the same way.
+  Lines compare with the period before (trends `compare`, web and slop reports' `previousSeries`).
 - **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
   gate anything that shows or writes comments on the switch.
 - **Releases:** every change worth releasing gets a changeset, made with `vp exec monochange create` and named with

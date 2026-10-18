@@ -20,7 +20,8 @@ import {
 } from "./.server/analytics";
 import { autopostNetworks, config } from "./.server/config";
 import { flagProperties, flagsFor } from "./.server/flags";
-import { redirectQueryMiddleware } from "./.server/http";
+import { readCookie, redirectQueryMiddleware } from "./.server/http";
+import { MOTION_COOKIE, parseMotion } from "./lib/motion";
 import { csrfMiddleware, viewerContext, viewerMiddleware } from "./.server/session";
 import { permissionsOf } from "@convex/lib/permissions";
 import { Header } from "./components/Header";
@@ -62,6 +63,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     autopostNetworks: autopostNetworks(),
     analytics: analyticsSetup(request),
     analyticsOptedOut: analyticsOptedOut(request),
+    motion: parseMotion(readCookie(request, MOTION_COOKIE)),
     flags,
   };
 }
@@ -93,7 +95,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     if (clean !== null) window.history.replaceState(window.history.state, "", clean);
   }, [location.key]);
   return (
-    <html lang="en">
+    <html lang="en" data-motion={data?.motion ?? undefined}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />

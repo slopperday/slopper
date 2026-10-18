@@ -1,11 +1,15 @@
-import { type PointerEvent, type ReactNode, useId, useState } from "react";
+import { type ReactNode, useId, useMemo } from "react";
+import type { BarSeriesOption, LineSeriesOption } from "echarts/charts";
 import type { Interval } from "@slopperday/analytics/shared/insights";
 import { formatBucket, formatCount } from "~/lib/insights";
+import { type ChartOption, EChart, useChartTheme } from "./EChart";
 
 /**
- * The charts on /analytics, drawn as SVG and HTML with Slopper's tokens.
- * Series take `--series-1` to `--series-4` in that order (app/app.css); text
- * stays in ink. Every chart has a hover read-out and a table behind it.
+ * The charts on /analytics and makers' slop analytics. Lines and columns are
+ * ECharts (EChart.tsx: loaded once a chart is on screen, animated unless
+ * motion is turned down); ranked lists are HTML. Series take `--series-1`
+ * to `--series-4` in that order (app/app.css); text stays in ink. Every
+ * chart has a read-out on hover and a table behind it.
  */
 
 export const SERIES_COLORS = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)"] as const;
@@ -91,150 +95,208 @@ export function DataTable({
   );
 }
 
-const WIDTH = 640;
-const PADDING = { top: 12, right: 12, bottom: 28, left: 44 };
-
 export interface LineSeries {
   label: string;
   values: number[];
+  /** The period before, bucket by bucket, drawn dashed in the same colour to compare against. */
+  previous?: number[];
 }
 
+/** Text from data (a path, a page title) as it may go into a tooltip's HTML. */
+export function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
+}
+
+/** A normalised colour ("#rrggbb" or "rgba(…)") at another opacity. */
+export function withAlpha(color: string, alpha: number): string {
+  const hex = /^#([0-9a-f]{6})$/i.exec(color)?.[1];
+  if (hex) {
+    const [r, g, b] = [0, 2, 4].map((at) => Number.parseInt(hex.slice(at, at + 2), 16));
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return color.replace(/rgba?\(([^,]+),([^,]+),([^,)]+)(,[^)]*)?\)/, `rgba($1,$2,$3, ${alpha})`);
+}
+
+/** "▲ 12%" against the period before, or nothing when there's nothing to compare. */
+export function changeLabel(current: number, previous: number | undefined): string {
+  if (previous === undefined) return "";
+  if (previous === 0) return current === 0 ? "" : "new";
+  const change = (current - previous) / previous;
+  if (Math.abs(change) < 0.005) return "same";
+  return `${change > 0 ? "▲" : "▼"} ${Math.round(Math.abs(change) * 100)}%`;
+}
+
+function swatch(color: string, dashed = false): string {
+  const border = dashed ? `border-top: 2px dashed ${color}; height: 0;` : `background: ${color}; height: 4px;`;
+  return `<span style="display:inline-block;width:14px;${border}border-radius:2px;margin-right:8px;vertical-align:middle"></span>`;
+}
+
+/** Long ranges zoom with ctrl + wheel or a pinch, and drag sideways; the page still scrolls normally. */
+const ZOOM_FROM = 60;
+
 /**
- * Lines over time on one axis (one unit: counts). A crosshair follows the
- * pointer and reads out every line at that bucket.
+ * Lines over time on one axis (one unit: counts). The crosshair reads out
+ * every line at that moment, against the period before when there is one;
+ * the legend turns lines on and off.
  */
 export function LineChart({
   buckets,
   interval,
   series,
-  height = 220,
+  height = 260,
   title,
+  compareLabel = "the period before",
 }: {
   buckets: number[];
   interval: Interval;
   series: LineSeries[];
   height?: number;
   title: string;
+  /** What the dashed lines are, in words: "the 30 days before". */
+  compareLabel?: string;
 }) {
-  const [hover, setHover] = useState<number | null>(null);
-  const plotWidth = WIDTH - PADDING.left - PADDING.right;
-  const plotHeight = height - PADDING.top - PADDING.bottom;
-  const ticks = axisTicks(Math.max(0, ...series.flatMap((line) => line.values)));
-  const max = ticks.at(-1) ?? 1;
-  const x = (index: number) =>
-    PADDING.left + (buckets.length <= 1 ? plotWidth / 2 : (index / (buckets.length - 1)) * plotWidth);
-  const y = (value: number) => PADDING.top + plotHeight - (value / max) * plotHeight;
+  const theme = useChartTheme();
+  const option = useMemo((): ChartOption | null => {
+    if (!theme) return null;
+    const labels = buckets.map((bucket) => formatBucket(bucket, interval));
+    const comparing = series.some((line) => line.previous);
+    const lines: LineSeriesOption[] = series.flatMap((line, index) => {
+      const color = theme.series[index % theme.series.length] ?? theme.ink;
+      const main: LineSeriesOption = {
+        type: "line",
+        name: line.label,
+        data: line.values,
+        smooth: 0.2,
+        symbol: "circle",
+        symbolSize: 8,
+        showSymbol: buckets.length <= 31,
+        lineStyle: { width: 2, color },
+        itemStyle: { color, borderColor: theme.raised, borderWidth: 2 },
+        emphasis: { focus: "series" },
+        z: 3,
+        ...(series.length === 1
+          ? {
+              areaStyle: {
+                color: {
+                  type: "linear",
+                  x: 0,
+                  y: 0,
+                  x2: 0,
+                  y2: 1,
+                  colorStops: [
+                    { offset: 0, color: withAlpha(color, 0.22) },
+                    { offset: 1, color: withAlpha(color, 0) },
+                  ],
+                },
+              },
+            }
+          : {}),
+      };
+      if (!line.previous) return [main];
+      const before: LineSeriesOption = {
+        type: "line",
+        name: `${line.label}, ${compareLabel}`,
+        data: line.previous,
+        smooth: 0.2,
+        symbol: "none",
+        lineStyle: { width: 1.5, type: "dashed", color: withAlpha(color, 0.6) },
+        itemStyle: { color: withAlpha(color, 0.6) },
+        emphasis: { focus: "series" },
+        z: 2,
+      };
+      return [main, before];
+    });
+    return {
+      grid: {
+        left: 4,
+        right: 12,
+        top: comparing || series.length > 1 ? 40 : 12,
+        bottom: 4,
+        outerBoundsMode: "same",
+        outerBoundsContain: "axisLabel",
+      },
+      legend:
+        comparing || series.length > 1
+          ? {
+              type: "scroll",
+              top: 0,
+              left: 0,
+              right: 0,
+              icon: "roundRect",
+              pageIconColor: theme.ink,
+              pageIconInactiveColor: theme.line,
+              pageTextStyle: { color: theme.muted },
+              itemWidth: 14,
+              itemHeight: 4,
+              itemGap: 18,
+              textStyle: { color: theme.ink, fontFamily: theme.font, fontSize: 13 },
+              inactiveColor: theme.muted,
+            }
+          : { show: false },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "line", lineStyle: { color: theme.lineStrong, width: 1 } },
+        formatter: (params: unknown) => {
+          const first = Array.isArray(params) ? params[0] : params;
+          const position =
+            typeof first === "object" && first !== null && "dataIndex" in first && typeof first.dataIndex === "number"
+              ? first.dataIndex
+              : 0;
+          const rows = series.map((line, index) => {
+            const color = theme.series[index % theme.series.length] ?? theme.ink;
+            const value = line.values[position] ?? 0;
+            const before = line.previous?.[position];
+            const change = changeLabel(value, before);
+            return `<div style="display:flex;align-items:center;gap:12px;justify-content:space-between">
+              <span>${swatch(color)}${escapeHtml(line.label)}</span>
+              <strong style="font-variant-numeric:tabular-nums">${formatCount(value)}</strong>
+            </div>${
+              before === undefined
+                ? ""
+                : `<div style="display:flex;gap:12px;justify-content:space-between;color:${theme.muted};font-size:12px">
+              <span>${swatch(withAlpha(color, 0.6), true)}${escapeHtml(compareLabel)}: ${formatCount(before)}</span>
+              <span>${change}</span>
+            </div>`
+            }`;
+          });
+          return `<div style="font-weight:700;margin-bottom:6px">${escapeHtml(labels[position] ?? "")}</div>${rows.join("")}`;
+        },
+      },
+      xAxis: {
+        type: "category",
+        data: labels,
+        boundaryGap: false,
+        axisLine: { lineStyle: { color: theme.lineStrong } },
+        axisTick: { show: false },
+        axisLabel: { color: theme.muted, hideOverlap: true, fontSize: 11 },
+      },
+      yAxis: {
+        type: "value",
+        minInterval: 1,
+        splitLine: { lineStyle: { color: theme.line } },
+        axisLabel: { color: theme.muted, fontSize: 11, formatter: (value: number) => formatCount(value) },
+      },
+      ...(buckets.length > ZOOM_FROM
+        ? { dataZoom: [{ type: "inside", zoomOnMouseWheel: "ctrl", moveOnMouseWheel: false, moveOnMouseMove: true }] }
+        : {}),
+      series: lines,
+    };
+  }, [theme, buckets, interval, series, compareLabel]);
 
-  function onMove(event: PointerEvent<SVGRectElement>) {
-    const box = event.currentTarget.getBoundingClientRect();
-    const share = (event.clientX - box.left) / box.width;
-    setHover(Math.max(0, Math.min(buckets.length - 1, Math.round(share * (buckets.length - 1)))));
-  }
-
-  const active = hover === null ? undefined : buckets[hover];
   return (
     <figure className="grid gap-3">
-      <Legend items={series.map((line, index) => ({ label: line.label, color: seriesColor(index) }))} />
-      <div className="relative">
-        <svg
-          viewBox={`0 0 ${WIDTH} ${height}`}
-          className="block w-full overflow-visible"
-          role="img"
-          aria-label={`${title}: ${series.map((line) => `${line.label}, ${formatCount(line.values.reduce((sum, value) => sum + value, 0))} in all`).join("; ")}`}
-        >
-          {ticks.map((tick) => (
-            <g key={tick}>
-              <line x1={PADDING.left} x2={WIDTH - PADDING.right} y1={y(tick)} y2={y(tick)} stroke="var(--line)" />
-              <text x={PADDING.left - 8} y={y(tick)} dy="0.32em" textAnchor="end" className="fill-muted text-[11px]">
-                {formatCount(tick)}
-              </text>
-            </g>
-          ))}
-          {labelIndexes(buckets.length).map((index) => (
-            <text
-              key={index}
-              x={x(index)}
-              y={height - 8}
-              textAnchor={index === 0 ? "start" : index === buckets.length - 1 ? "end" : "middle"}
-              className="fill-muted text-[11px]"
-            >
-              {formatBucket(buckets[index] ?? 0, interval)}
-            </text>
-          ))}
-          {series.map((line, index) => (
-            <polyline
-              key={line.label}
-              fill="none"
-              stroke={seriesColor(index)}
-              strokeWidth={2}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              points={line.values.map((value, bucket) => `${x(bucket)},${y(value)}`).join(" ")}
-            />
-          ))}
-          {hover !== null && (
-            <g>
-              <line
-                x1={x(hover)}
-                x2={x(hover)}
-                y1={PADDING.top}
-                y2={PADDING.top + plotHeight}
-                stroke="var(--line-strong)"
-              />
-              {series.map((line, index) => (
-                <circle
-                  key={line.label}
-                  cx={x(hover)}
-                  cy={y(line.values[hover] ?? 0)}
-                  r={4}
-                  fill={seriesColor(index)}
-                  stroke="var(--raised)"
-                  strokeWidth={2}
-                />
-              ))}
-            </g>
-          )}
-          <rect
-            x={PADDING.left}
-            y={PADDING.top}
-            width={plotWidth}
-            height={plotHeight}
-            fill="transparent"
-            onPointerMove={onMove}
-            onPointerLeave={() => setHover(null)}
-          />
-        </svg>
-        {hover !== null && active !== undefined && (
-          <div
-            className="pointer-events-none absolute top-0 z-10 min-w-36 rounded-lg border border-line bg-raised px-3 py-2 text-sm shadow-lg"
-            style={{
-              left: `${(x(hover) / WIDTH) * 100}%`,
-              transform: hover > buckets.length / 2 ? "translateX(calc(-100% - 12px))" : "translateX(12px)",
-            }}
-          >
-            <p className="font-bold">{formatBucket(active, interval)}</p>
-            {series.map((line, index) => (
-              <p key={line.label} className="flex items-center justify-between gap-4">
-                <span className="flex items-center gap-2">
-                  <span
-                    aria-hidden
-                    className="inline-block size-2 rounded-full"
-                    style={{ background: seriesColor(index) }}
-                  />
-                  {line.label}
-                </span>
-                <span className="tabular-nums">{formatCount(line.values[hover] ?? 0)}</span>
-              </p>
-            ))}
-          </div>
-        )}
-      </div>
+      <EChart option={option} height={height} label={title} />
       <DataTable
         caption={title}
-        columns={["Period", ...series.map((line) => line.label)]}
+        columns={[
+          "When",
+          ...series.flatMap((line) => (line.previous ? [line.label, `${line.label}, ${compareLabel}`] : [line.label])),
+        ]}
         rows={buckets.map((bucket, index) => [
           formatBucket(bucket, interval),
-          ...series.map((line) => line.values[index] ?? 0),
+          ...series.flatMap((line) =>
+            line.previous ? [line.values[index] ?? 0, line.previous[index] ?? 0] : [line.values[index] ?? 0],
+          ),
         ])}
       />
     </figure>
@@ -244,18 +306,19 @@ export function LineChart({
 export interface ColumnStack {
   label: string;
   values: number[];
-  color: string;
+  /** Which of the four series colours (`--series-1` to `--series-4`) it wears, in order. */
+  series: 0 | 1 | 2 | 3;
 }
 
 /**
  * Columns, stacked when there's more than one series. Negative values
  * stack below the baseline (lifecycle's dormant people). Hovering a column
- * reads it out.
+ * reads every part of it out.
  */
 export function ColumnChart({
   labels,
   stacks,
-  height = 220,
+  height = 260,
   title,
 }: {
   labels: string[];
@@ -263,110 +326,86 @@ export function ColumnChart({
   height?: number;
   title: string;
 }) {
-  const [hover, setHover] = useState<number | null>(null);
-  const plotWidth = WIDTH - PADDING.left - PADDING.right;
-  const plotHeight = height - PADDING.top - PADDING.bottom;
-  const up = labels.map((_, index) => stacks.reduce((sum, stack) => sum + Math.max(0, stack.values[index] ?? 0), 0));
-  const down = labels.map((_, index) => stacks.reduce((sum, stack) => sum + Math.min(0, stack.values[index] ?? 0), 0));
-  const above = axisTicks(Math.max(0, ...up));
-  const below = Math.min(0, ...down) < 0 ? axisTicks(-Math.min(...down)).map((tick) => -tick) : [0];
-  const ticks = [...new Set([...below.reverse(), ...above])];
-  const top = above.at(-1) ?? 1;
-  const bottom = below[0] ?? 0;
-  const span = top - bottom;
-  const y = (value: number) => PADDING.top + ((top - value) / span) * plotHeight;
-  const slot = plotWidth / Math.max(1, labels.length);
-  const barWidth = Math.max(4, Math.min(48, slot - 4));
+  const theme = useChartTheme();
+  const option = useMemo((): ChartOption | null => {
+    if (!theme) return null;
+    const bars: BarSeriesOption[] = stacks.map((stack) => {
+      const color = theme.series[stack.series] ?? theme.ink;
+      return {
+        type: "bar",
+        name: stack.label,
+        data: stack.values,
+        stack: stacks.length > 1 ? "all" : undefined,
+        barMaxWidth: 40,
+        itemStyle: { color, borderColor: theme.raised, borderWidth: 1, borderRadius: 3 },
+        emphasis: { focus: "series" },
+      };
+    });
+    return {
+      grid: {
+        left: 4,
+        right: 12,
+        top: stacks.length > 1 ? 40 : 12,
+        bottom: 4,
+        outerBoundsMode: "same",
+        outerBoundsContain: "axisLabel",
+      },
+      legend:
+        stacks.length > 1
+          ? {
+              type: "scroll",
+              top: 0,
+              left: 0,
+              right: 0,
+              icon: "roundRect",
+              pageIconColor: theme.ink,
+              pageIconInactiveColor: theme.line,
+              pageTextStyle: { color: theme.muted },
+              itemWidth: 12,
+              itemHeight: 12,
+              itemGap: 18,
+              textStyle: { color: theme.ink, fontFamily: theme.font, fontSize: 13 },
+              inactiveColor: theme.muted,
+            }
+          : { show: false },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "shadow", shadowStyle: { color: withAlpha(theme.ink, 0.05) } },
+        formatter: (params: unknown) => {
+          const first = Array.isArray(params) ? params[0] : params;
+          const position =
+            typeof first === "object" && first !== null && "dataIndex" in first && typeof first.dataIndex === "number"
+              ? first.dataIndex
+              : 0;
+          const rows = stacks.map(
+            (stack) => `<div style="display:flex;align-items:center;gap:12px;justify-content:space-between">
+              <span>${swatch(theme.series[stack.series] ?? theme.ink)}${escapeHtml(stack.label)}</span>
+              <strong style="font-variant-numeric:tabular-nums">${formatCount(stack.values[position] ?? 0)}</strong>
+            </div>`,
+          );
+          return `<div style="font-weight:700;margin-bottom:6px">${escapeHtml(labels[position] ?? "")}</div>${rows.join("")}`;
+        },
+      },
+      xAxis: {
+        type: "category",
+        data: labels,
+        axisLine: { lineStyle: { color: theme.lineStrong } },
+        axisTick: { show: false },
+        axisLabel: { color: theme.muted, hideOverlap: true, fontSize: 11 },
+      },
+      yAxis: {
+        type: "value",
+        minInterval: 1,
+        splitLine: { lineStyle: { color: theme.line } },
+        axisLabel: { color: theme.muted, fontSize: 11, formatter: (value: number) => formatCount(value) },
+      },
+      series: bars,
+    };
+  }, [theme, labels, stacks]);
 
   return (
     <figure className="grid gap-3">
-      <Legend items={stacks.map((stack) => ({ label: stack.label, color: stack.color }))} />
-      <div className="relative">
-        <svg viewBox={`0 0 ${WIDTH} ${height}`} className="block w-full overflow-visible" role="img" aria-label={title}>
-          {ticks.map((tick) => (
-            <g key={tick}>
-              <line
-                x1={PADDING.left}
-                x2={WIDTH - PADDING.right}
-                y1={y(tick)}
-                y2={y(tick)}
-                stroke={tick === 0 ? "var(--line-strong)" : "var(--line)"}
-              />
-              <text x={PADDING.left - 8} y={y(tick)} dy="0.32em" textAnchor="end" className="fill-muted text-[11px]">
-                {formatCount(tick)}
-              </text>
-            </g>
-          ))}
-          {labels.map((label, index) => {
-            const center = PADDING.left + slot * index + slot / 2;
-            let above = 0;
-            let below = 0;
-            return (
-              <g
-                key={label}
-                onPointerEnter={() => setHover(index)}
-                onPointerLeave={() => setHover(null)}
-                opacity={hover === null || hover === index ? 1 : 0.55}
-              >
-                <rect x={center - slot / 2} y={PADDING.top} width={slot} height={plotHeight} fill="transparent" />
-                {stacks.map((stack) => {
-                  const value = stack.values[index] ?? 0;
-                  if (value === 0) return null;
-                  const from = value > 0 ? above : below;
-                  const to = from + value;
-                  if (value > 0) above = to;
-                  else below = to;
-                  const yTop = y(Math.max(from, to));
-                  // A 2px gap between stacked pieces, in the surface color.
-                  const h = Math.max(1, Math.abs(y(from) - y(to)) - 2);
-                  return (
-                    <rect
-                      key={stack.label}
-                      x={center - barWidth / 2}
-                      y={value > 0 ? yTop + 2 : yTop}
-                      width={barWidth}
-                      height={h}
-                      rx={Math.min(4, barWidth / 4)}
-                      fill={stack.color}
-                    />
-                  );
-                })}
-              </g>
-            );
-          })}
-          {labelIndexes(labels.length, 8).map((index) => (
-            <text
-              key={index}
-              x={PADDING.left + slot * index + slot / 2}
-              y={height - 8}
-              textAnchor="middle"
-              className="fill-muted text-[11px]"
-            >
-              {labels[index]}
-            </text>
-          ))}
-        </svg>
-        {hover !== null && (
-          <div
-            className="pointer-events-none absolute top-0 z-10 min-w-36 rounded-lg border border-line bg-raised px-3 py-2 text-sm shadow-lg"
-            style={{
-              left: `${((PADDING.left + slot * hover + slot / 2) / WIDTH) * 100}%`,
-              transform: hover > labels.length / 2 ? "translateX(calc(-100% - 12px))" : "translateX(12px)",
-            }}
-          >
-            <p className="font-bold">{labels[hover]}</p>
-            {stacks.map((stack) => (
-              <p key={stack.label} className="flex items-center justify-between gap-4">
-                <span className="flex items-center gap-2">
-                  <span aria-hidden className="inline-block size-2 rounded-full" style={{ background: stack.color }} />
-                  {stack.label}
-                </span>
-                <span className="tabular-nums">{formatCount(stack.values[hover] ?? 0)}</span>
-              </p>
-            ))}
-          </div>
-        )}
-      </div>
+      <EChart option={option} height={height} label={title} />
       <DataTable
         caption={title}
         columns={["", ...stacks.map((stack) => stack.label)]}

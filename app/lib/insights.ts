@@ -168,6 +168,7 @@ export function insightQuery(kind: InsightKind, params: Params, now: number): In
         interval,
         series: events(params, "$pageview", MAX_SERIES).map((event) => ({ event, math })),
         ...(breakdown ? { breakdown } : {}),
+        ...(params.get("compare") === "1" ? { compare: true } : {}),
       };
     }
     case "funnel": {

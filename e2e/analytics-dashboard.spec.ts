@@ -116,8 +116,12 @@ test.describe("analytics, given back", () => {
     funnel.append("stepPath", "/nowhere-anyone-goes");
     await admin.goto(`/analytics/insights?${funnel.toString()}`);
     await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Insights");
-    await expect(admin.getByText(`1. Page view of ${slop.path}`)).toBeVisible();
-    await expect(admin.getByText("2. Page view of /nowhere-anyone-goes")).toBeVisible();
+    const chart = admin.getByRole("img", { name: "How many people got through each step" });
+    await expect(chart.locator("svg")).toHaveCount(1);
+    await admin.getByText("Show as a table").click();
+    const steps = admin.getByRole("table", { name: "People at each step" });
+    await expect(steps.getByRole("row", { name: new RegExp(`^1\\. Page view of ${slop.path}`) })).toBeVisible();
+    await expect(steps.getByRole("row", { name: /^2\. Page view of \/nowhere-anyone-goes/ })).toContainText("0");
 
     await admin.goto("/analytics/people");
     await admin.getByLabel("Username or id").fill(visitorId);
