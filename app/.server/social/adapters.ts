@@ -65,21 +65,31 @@ async function openCredentials<T>(account: ConnectedAccount): Promise<T> {
   return JSON.parse(await unseal(account.sealedCredentials)) as T;
 }
 
-async function readError(response: Response): Promise<string> {
-  const text = await response.text();
+/** The network's own explanation, when its error body has one. */
+function errorDetail(body: string): string | null {
   try {
-    const json = JSON.parse(text) as Record<string, unknown>;
+    const json = JSON.parse(body) as Record<string, unknown>;
     const detail = json.detail ?? json.message ?? json.error_description ?? json.title ?? json.error;
-    if (typeof detail === "string") return detail;
+    return typeof detail === "string" && detail.trim() ? detail.trim() : null;
   } catch {
-    // Not JSON; fall through to the raw body.
+    return null;
   }
-  return text.slice(0, 200) || response.statusText;
 }
 
+/**
+ * Turns a refusal into what the maker sees on the update: the network's own
+ * words when it gave some, never a status code or a raw body. Those go to
+ * the logs.
+ */
 async function expectOk(response: Response, network: string) {
   if (response.ok) return;
-  throw new SocialError(`${network} said ${response.status}: ${await readError(response)}`, response.status);
+  const body = await response.text();
+  console.warn(`${network} refused a post (${response.status}): ${body.slice(0, 500)}`);
+  const detail = errorDetail(body);
+  throw new SocialError(
+    detail ? `${network} turned it down: ${detail}` : `${network} turned it down. Try again later.`,
+    response.status,
+  );
 }
 
 /** Fetches a screenshot for a link card, if it is small enough. */

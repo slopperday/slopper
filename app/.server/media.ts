@@ -103,7 +103,7 @@ export async function uploadImage(
       console.error("Storing an upload failed", error);
       return null;
     });
-    if (!location) return { ok: false, error: "Storage rejected the upload. Try again." };
+    if (!location) return { ok: false, error: "That upload didn't save. Try again." };
     const { mediaId, url } = await services.convex.mutation(api.media.register, {
       ownerId,
       location,
@@ -144,7 +144,7 @@ export async function uploadVideo(
       console.error("Storing a video failed", error);
       return null;
     });
-    if (!location) return { ok: false, error: "Storage rejected the upload. Try again." };
+    if (!location) return { ok: false, error: "That upload didn't save. Try again." };
     const { mediaId, url } = await services.convex.mutation(api.media.register, {
       ownerId,
       location,

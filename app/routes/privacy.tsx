@@ -22,7 +22,7 @@ const SECTIONS: readonly LegalSection[] = [
     title: "Who else sees it",
     body: [
       "Convex stores Slopper's data; Backblaze B2 stores screenshots and copies of profile pictures. Netlify runs the site. Google Fonts serves the typefaces, so your browser asks Google for them.",
-      "An AI model checks every screenshot as it's uploaded (with its file name), every launch and auto-posted updates to keep Slopper safe for work. OpenRouter passes each check to the model (DeepSeek V4.1 Flash, run by DeepSeek, or by another host of the same model when DeepSeek is down). Once a moderator has approved one of your promo videos, your later ones are checked too, by Gemini 3.1 Flash Lite, run by Google. They get the text, images and videos of what you post, nothing about your account.",
+      "An AI model checks every screenshot as it's uploaded (with its file name), every launch, auto-posted update and promo video to keep Slopper safe for work. OpenRouter passes each check to DeepSeek (or another host of DeepSeek's model when DeepSeek is down), and videos to Google. They get the text, images and videos of what you post, nothing about your account.",
       "Resend sends the daily digest, so it gets your email address and the digest's contents.",
       "When you auto-post, the networks you connected get the post. We don't sell your data or share it with anyone else.",
     ],

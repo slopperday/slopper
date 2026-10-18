@@ -28,7 +28,7 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
   if (!client) {
     return redirectWithFlash(home, {
       tone: "error",
-      message: `${OAUTH_LABELS[provider]} isn't set up on this server yet.`,
+      message: `Signing in with ${OAUTH_LABELS[provider]} isn't available right now.`,
     });
   }
   const viewer = context.get(viewerContext);

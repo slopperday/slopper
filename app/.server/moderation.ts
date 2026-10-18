@@ -188,16 +188,14 @@ export async function checkVideo(
   services: VideoCheckServices = { convex, settings: config.videoCheck, fetcher: fetch },
 ): Promise<VideoStatus> {
   const { settings } = services;
-  let check: { verdict: Verdict | "unchecked"; reason: string };
-  if (!settings) {
-    check = { verdict: "unchecked", reason: "No video check is configured." };
-  } else {
+  // Moderators read the reason; why the check couldn't run goes to the logs.
+  const unchecked = { verdict: "unchecked", reason: "Couldn't check this video." } as const;
+  let check: { verdict: Verdict | "unchecked"; reason: string } = unchecked;
+  if (settings) {
     try {
       check = await checkContent(videoSubmission(video), settings, services.fetcher);
     } catch (error) {
       console.error("Video check failed", error);
-      const message = error instanceof Error ? error.message : String(error);
-      check = { verdict: "unchecked", reason: `The video check couldn't run: ${message}` };
     }
   }
   const { status } = await services.convex.mutation(api.videos.recordCheck, {

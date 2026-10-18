@@ -72,7 +72,7 @@ async function finish(
     console.error(`OAuth ${pending.intent} failed for ${provider}`, error);
     return redirectWithFlash(home, {
       tone: "error",
-      message: `Couldn't finish with ${label}: ${error instanceof Error ? error.message : "unknown error"}`,
+      message: `Couldn't finish with ${label}. Try again.`,
     });
   }
 }
