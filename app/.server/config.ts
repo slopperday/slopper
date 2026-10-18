@@ -7,7 +7,8 @@ import { ROUTES } from "@slopperday/analytics/shared";
 // (written by `convex dev` and scripts/convex-keys.ts). Variables already in
 // the environment win, as with Node's `--env-file`. A production build never
 // reads it: Netlify sets the environment, and so do `vp run start` and the e2e stack.
-if (import.meta.env.DEV && existsSync(".env.local")) {
+// Neither do unit tests (Vitest's "test" mode), so they pass the same on every machine.
+if (import.meta.env.DEV && import.meta.env.MODE !== "test" && existsSync(".env.local")) {
   for (const [key, value] of Object.entries(parseEnv(readFileSync(".env.local", "utf8")))) {
     process.env[key] ??= value;
   }

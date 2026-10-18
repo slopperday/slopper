@@ -52,6 +52,8 @@ export default defineConfig({
   plugins: lazyPlugins(() =>
     process.env.VITEST ? [ogAssets()] : [ogAssets(), tailwindcss(), reactRouter(), netlifyReactRouter()],
   ),
+  // Tests never see a checkout's .env files, so they pass the same on every machine.
+  envDir: process.env.VITEST ? false : undefined,
   resolve: {
     tsconfigPaths: true,
   },
