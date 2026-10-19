@@ -8,7 +8,8 @@ test.describe("speed", () => {
     await visitor.goto("/wall");
     const visitorId = await analyticsIdOf(visitor);
     await visitor.getByRole("searchbox", { name: "Search slops" }).click();
-    // Leaving sends the landing page's vitals.
+    // Once the page has painted, leaving sends its vitals, even if web-vitals hasn't loaded yet.
+    await visitor.waitForFunction(() => performance.getEntriesByName("first-contentful-paint").length > 0);
     await visitor.goto("about:blank");
     await expect
       .poll(() => analyticsEvents(stack, visitorId).find((event) => event.name === "$webVitals"), { timeout: 20_000 })

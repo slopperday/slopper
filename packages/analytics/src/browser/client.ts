@@ -105,7 +105,9 @@ export class Analytics {
   private stopped = false;
   private recorder: Recorder | null = null;
   private clicks: ClickMap | null = null;
-  private vitals: { measure: Vitals; path: string } | null = null;
+  private vitals: Vitals | null = null;
+  /** The landing page, while its vitals are still to send; null once sent, or when they're off. */
+  private vitalsPath: string | null = null;
   private errorsSent = 0;
   private readonly errorsSeen = new Map<string, number>();
   private recorderLoading = false;
@@ -137,21 +139,28 @@ export class Analytics {
   /** Measures the landing page's vitals, with web-vitals in its own small chunk. */
   private startVitals(): void {
     if (!(this.options.webVitals ?? true) || this.stopped || this.optedOut) return;
-    const path = this.currentPath();
+    this.vitalsPath = this.currentPath();
     import("./vitals")
       .then(({ Vitals }) => {
         if (this.stopped) return;
         const measure = new Vitals();
         measure.start();
-        this.vitals = { measure, path };
+        this.vitals = measure;
       })
       .catch((error: unknown) => console.warn("Web vitals didn't load.", error));
   }
 
-  /** Sends the landing page's vitals, once, as the page is hidden. */
+  /**
+   * Sends the landing page's vitals, once, as the page is hidden. A visit
+   * that leaves before web-vitals has loaded or reported still sends the
+   * paint timings the browser already has.
+   */
   private sendVitals(): void {
-    const values = this.vitals?.measure.take();
-    if (values && this.vitals) this.record(EVENTS.webVitals, values, { path: this.vitals.path }, true);
+    if (this.vitalsPath === null) return;
+    const values = this.vitals?.take() ?? paintTimings();
+    if (!values) return;
+    this.record(EVENTS.webVitals, values, { path: this.vitalsPath }, true);
+    this.vitalsPath = null;
   }
 
   /** Who events are captured as: anonymous until `identify`. Empty while opted out. */
@@ -468,4 +477,15 @@ export class Analytics {
     this.recorder = null;
     this.stopped = true;
   }
+}
+
+/** First paint and time to first byte, read straight from the browser's timeline; null before either exists. */
+function paintTimings(): Properties | null {
+  if (typeof performance === "undefined") return null;
+  const values: Properties = {};
+  const paint = performance.getEntriesByName("first-contentful-paint")[0];
+  if (paint) values.fcp = Math.round(paint.startTime);
+  const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+  if (navigation && navigation.responseStart > 0) values.ttfb = Math.round(navigation.responseStart);
+  return Object.keys(values).length > 0 ? values : null;
 }

@@ -106,8 +106,11 @@ test.describe("scheduled launches", () => {
       .poll(async () => (await checkRequests(stack)).some((check) => check.text.includes(name)), { timeout: 20_000 })
       .toBe(true);
     await expect.poll(() => convex.query(api.schedule.mine, { asUser: maker.id })).toEqual([]);
+    // The verdict is saved once the check answers, a moment after it was asked.
+    await expect
+      .poll(async () => (await convex.query(api.slops.listForServer, { userId: maker.id }))[0], { timeout: 20_000 })
+      .toMatchObject({ name, launchDate: today(), check: { verdict: "ok" } });
     const [slop] = await convex.query(api.slops.listForServer, { userId: maker.id });
-    expect(slop).toMatchObject({ name, launchDate: today(), check: { verdict: "ok" } });
 
     // Nothing left to claim, so the hook has nothing to do.
     expect((await request.post(`${stack.appUrl}/api/scheduled/${slop._id}`)).status()).toBe(404);
