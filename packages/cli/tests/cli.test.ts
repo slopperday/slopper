@@ -187,6 +187,7 @@ describe("help", () => {
 /** Every command's REST call, with the flags it maps onto JSON. */
 const ROUTE_CASES: { name: string; argv: string[]; method: string; path: string; body: unknown }[] = [
   { name: "whoami", argv: ["whoami"], method: "GET", path: "/api/v1/me", body: null },
+  { name: "profile", argv: ["profile", "@ifiokjr"], method: "GET", path: "/api/v1/users/ifiokjr", body: null },
   { name: "today", argv: ["today"], method: "GET", path: "/api/v1/today", body: null },
   { name: "categories", argv: ["categories"], method: "GET", path: "/api/v1/categories", body: null },
   { name: "tags", argv: ["tags"], method: "GET", path: "/api/v1/tags", body: null },
@@ -698,6 +699,28 @@ describe("which token and site", () => {
       stderr: expect.stringContaining("isn't an http(s) URL"),
     });
     expect([...env.calls, ...saved.calls]).toEqual([]);
+  });
+
+  it("reads what's public without a token, sending none", async () => {
+    const cli = await harness({
+      "GET /api/v1/users/maker": { body: { username: "maker" } },
+      "GET /api/v1/today": { body: { votesLeft: null } },
+      "GET /api/v1/search": { body: { results: [] } },
+      "GET /api/v1/categories": { body: { categories: [] } },
+      "GET /api/v1/tags": { body: { tags: [] } },
+      "GET /api/v1/slops/abc123/reviews": { body: { reviews: [] } },
+    });
+    for (const argv of [
+      ["profile", "maker"],
+      ["today"],
+      ["search", "maze"],
+      ["categories"],
+      ["tags"],
+      ["reviews", "abc123"],
+    ]) {
+      expect(await cli.run(...argv)).toMatchObject({ code: 0, stderr: "" });
+    }
+    expect(cli.calls.map((call) => call.authorization)).toEqual(Array(6).fill(null));
   });
 
   it("asks for a token on the site it would use, before calling it", async () => {

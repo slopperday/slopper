@@ -338,9 +338,19 @@ export const COMMANDS: Command[] = [
     run: ({ api }) => api.get("/me"),
   },
   {
+    name: "profile",
+    args: "<username>",
+    summary:
+      "Anyone's profile: their open goal day by day (shipped, missed, today, upcoming), streak and slops. No token needed.",
+    run(context) {
+      const username = positional(context, 0, "username").replace(/^@/, "");
+      return context.api.read(`/users/${encodeURIComponent(username)}`);
+    },
+  },
+  {
     name: "today",
-    summary: "Today's race (UTC day): slops ranked by votes, how you voted, and your votes left.",
-    run: ({ api }) => api.get("/today"),
+    summary: "Today's race (UTC day): slops ranked by votes, and with a token how you voted and your votes left.",
+    run: ({ api }) => api.read("/today"),
   },
   {
     name: "search",
@@ -356,18 +366,18 @@ export const COMMANDS: Command[] = [
       for (const category of list(context.values, "category") ?? []) params.append("category", category);
       const limit = wholeNumber(context.values, "limit");
       if (limit !== undefined) params.set("limit", String(limit));
-      return context.api.get(`/search?${params.toString()}`);
+      return context.api.read(`/search?${params.toString()}`);
     },
   },
   {
     name: "categories",
     summary: "Valid categories, link kinds, currencies and money categories.",
-    run: ({ api }) => api.get("/categories"),
+    run: ({ api }) => api.read("/categories"),
   },
   {
     name: "tags",
     summary: "Made-with tags, most used first: models, harnesses, frameworks and platforms.",
-    run: ({ api }) => api.get("/tags"),
+    run: ({ api }) => api.read("/tags"),
   },
   {
     name: "goal",
@@ -624,7 +634,7 @@ export const COMMANDS: Command[] = [
     summary:
       "What people who tried a slop said, newest first. On your own slops (by id or slug), that's your feedback.",
     run(context) {
-      return context.api.get(`${slopPath(positional(context, 0, "slop"))}/reviews`);
+      return context.api.read(`${slopPath(positional(context, 0, "slop"))}/reviews`);
     },
   },
   {

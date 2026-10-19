@@ -47,6 +47,10 @@ like a Markdown list, needs `=`: `--description="- one"`.
 `slopper whoami` returns the user's username, time zone, today's date in that zone, the open goal and its progress, the
 streak, and the votes left today. Goal days end at midnight in the user's time zone; the race runs on UTC days.
 
+`slopper profile @username` looks anyone up, the user included: their open goal day by day (`shipped`, `missed`,
+`today`, `upcoming`, with how many are `scheduled`), how many are still `toGo`, their streak and their slops. It needs
+no token, and neither do `today`, `search`, `categories`, `tags` or `reviews`.
+
 ## Launch a slop
 
 1. Read the project: README, package.json or pubspec.yaml, and any deployed URL, App Store, TestFlight or Play beta

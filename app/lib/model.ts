@@ -274,6 +274,10 @@ export const LIMITS = {
   votesPerDay: 5,
   /** How old an account must be before its votes count in the race (they always count on the slop). */
   raceVoterAge: 24 * 60 * 60 * 1000,
+  /** REST and MCP calls an hour for a signed-in person (an API token). */
+  apiCallsPerHour: 1200,
+  /** REST calls an hour from one address without a token, which only reach the public reads. */
+  anonymousApiCallsPerHour: 120,
 } as const;
 
 /** Where people reach a human: privacy requests, account deletion, appeals. */

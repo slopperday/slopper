@@ -184,10 +184,43 @@ test.describe("agents run Slopper", () => {
     );
   });
 
-  test("calls without a token are refused", async ({ request }) => {
+  test("without a token, only what's public can be read", async ({ seed, request, stack }) => {
     expect((await request.get("/api/v1/me")).status()).toBe(401);
+    expect((await request.get("/api/v1/slops")).status()).toBe(401);
     const response = await request.post("/mcp", { data: { jsonrpc: "2.0", id: 1, method: "tools/list" } });
     expect(response.status()).toBe(401);
+    // A token that doesn't work is refused even where none is needed.
+    const bad = await request.get("/api/v1/today", { headers: { authorization: "Bearer slp_not-a-real-token" } });
+    expect(bad.status()).toBe(401);
+
+    const maker = await seed.user("public");
+    const goal = await request.post("/api/v1/goal", {
+      headers: { authorization: `Bearer ${await seed.apiToken(maker)}` },
+      data: { target: 7, days: 7 },
+    });
+    expect(goal.status()).toBe(201);
+    const slop = await seed.slop(maker);
+
+    const profile = await request.get(`/api/v1/users/${maker.username}`);
+    expect(profile.status()).toBe(200);
+    const body = (await profile.json()) as { goal: { board: { state: string }[] }; slops: { name: string }[] };
+    expect(body).toMatchObject({
+      username: maker.username,
+      totalSlops: 1,
+      streak: 1,
+      goal: { target: 7, days: 7, shipped: 1, toGo: 6, currentDay: 1, status: "active" },
+      slops: [{ name: slop.name }],
+    });
+    expect(body.goal.board.map((day) => day.state)).toEqual(["shipped", ...Array(6).fill("upcoming")]);
+    expect((await request.get("/api/v1/users/nobody-is-called-this")).status()).toBe(404);
+    expect((await (await request.get("/api/v1/today")).json()) as unknown).toMatchObject({ votesLeft: null });
+
+    // The CLI reads it with no token at all.
+    const env = { SLOPPER_URL: stack.appUrl, XDG_CONFIG_HOME: await mkdtemp(join(tmpdir(), "slopper-e2e-")) };
+    expect(await slopper(env, "profile", `@${maker.username}`)).toMatchObject({
+      username: maker.username,
+      goal: { shipped: 1, toGo: 6 },
+    });
   });
 
   test("every form offers a prompt to paste into an agent", async ({ seed, context, stack }) => {
