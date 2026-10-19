@@ -1,26 +1,85 @@
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { internalMutation, query, type QueryCtx } from "./_generated/server";
+import { internalMutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
 import { readerFor } from "./lib/auth";
 import { notify } from "./lib/notify";
 import { toCards } from "./lib/shape";
 import { addDays, formatDay } from "../app/lib/dates";
 import { plural } from "../app/lib/display";
+import { LIMITS } from "../app/lib/model";
 
 /**
  * Slop of the day. Every UTC day is one race: the launches of that day,
- * ranked by net votes (private downvotes count against). Ties go to more
- * updates, then more feedback, then the earlier launch. A cron crowns the
- * winner just after midnight UTC, and the badge never changes after that.
- * The winner also goes slopcessful, one of the ways to earn it (see ROADMAP.md).
+ * ranked by the net votes cast on that day (private downvotes count
+ * against). Ties go to more updates, then more feedback, then the earlier
+ * launch. A cron crowns the winner just after midnight UTC, and the badge
+ * never changes after that. The winner also goes slopcessful, one of the
+ * ways to earn it (see ROADMAP.md).
+ *
+ * Every vote counts on the slop, whenever it's cast. The race only counts
+ * the ones `countsInRace` lets through, so it's harder to game.
  */
 
 export function utcToday(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** The votes a slop's race counts. Slops from before race tallies use their totals. */
+export function raceTally(slop: Doc<"slops">): { upvotes: number; downvotes: number } {
+  return { upvotes: slop.raceUpvotes ?? slop.upvotes, downvotes: slop.raceDownvotes ?? slop.downvotes };
+}
+
 function net(slop: Doc<"slops">): number {
-  return slop.upvotes - slop.downvotes;
+  const { upvotes, downvotes } = raceTally(slop);
+  return upvotes - downvotes;
+}
+
+/** Whether a vote is in its slop's race tally. Votes from before `inRace` are if cast that day. */
+export function countedInRace(vote: Doc<"votes">, slop: Doc<"slops">): boolean {
+  return vote.inRace ?? vote.castOn === slop.raceDate;
+}
+
+/**
+ * Whether a vote cast now counts in its slop's race, on top of the slop's
+ * total. The race only counts votes cast on its day, and not ones:
+ * - from accounts less than `LIMITS.raceVoterAge` old, so made-up accounts
+ *   can't swing it;
+ * - that are downvotes from a maker racing the same day, who can't push
+ *   rivals down;
+ * - that trade upvotes: when two makers racing the same day upvote each
+ *   other, neither upvote counts. The first one comes out of its tally here.
+ */
+export async function countsInRace(
+  ctx: MutationCtx,
+  voter: Doc<"users">,
+  slop: Doc<"slops">,
+  value: 1 | -1,
+  now: number,
+): Promise<boolean> {
+  const today = new Date(now).toISOString().slice(0, 10);
+  if (slop.raceDate !== today) return false;
+  if (now - voter._creationTime < LIMITS.raceVoterAge) return false;
+  const racing = await ctx.db
+    .query("slops")
+    .withIndex("by_race_date", (q) => q.eq("raceDate", today))
+    .filter((q) => q.eq(q.field("userId"), voter._id))
+    .collect();
+  if (racing.length === 0) return true;
+  if (value === -1) return false;
+  const theirs = await ctx.db
+    .query("votes")
+    .withIndex("by_user_cast_on", (q) => q.eq("userId", slop.userId).eq("castOn", today))
+    .collect();
+  let traded = false;
+  for (const vote of theirs) {
+    const mine = racing.find((own) => own._id === vote.slopId);
+    if (!mine || vote.value !== 1) continue;
+    traded = true;
+    if (!countedInRace(vote, mine)) continue;
+    await ctx.db.patch(vote._id, { inRace: false });
+    await ctx.db.patch(mine._id, { raceUpvotes: raceTally(mine).upvotes - 1 });
+  }
+  return !traded;
 }
 
 export async function rankDay(ctx: QueryCtx, date: string): Promise<Doc<"slops">[]> {
@@ -90,7 +149,8 @@ export const crown = internalMutation({
     if (!winner) return;
     // Winning the day makes a slop slopcessful; nobody can declare it.
     const now = Date.now();
-    const note = `Won slop of the day on ${formatDay(target)} with ${plural(winner.upvotes, "upvote", "upvotes")}.`;
+    const { upvotes } = raceTally(winner);
+    const note = `Won slop of the day on ${formatDay(target)} with ${plural(upvotes, "upvote", "upvotes")}.`;
     await ctx.db.patch(winner._id, {
       slopOfTheDay: target,
       slopcessfulAt: winner.slopcessfulAt ?? now,

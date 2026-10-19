@@ -332,6 +332,13 @@ export default defineSchema({
     upvotes: v.number(),
     /** Never returned by public queries. */
     downvotes: v.number(),
+    /**
+     * The votes its race counts (`convex/race.ts`): cast on `raceDate`, by
+     * people the race lets count. They stop moving when the day ends.
+     * Server-side. Absent on slops from before them: their totals stand in.
+     */
+    raceUpvotes: v.optional(v.number()),
+    raceDownvotes: v.optional(v.number()),
     commentCount: v.number(),
     updateCount: v.number(),
     fieldTests: v.number(),
@@ -511,6 +518,11 @@ export default defineSchema({
      * Absent on votes from before the allowance, which count on no day.
      */
     castOn: v.optional(v.string()),
+    /**
+     * Whether it counts in its slop's race (`countsInRace`). Absent on votes
+     * from before that rule: they count when cast on the race day.
+     */
+    inRace: v.optional(v.boolean()),
   })
     .index("by_slop_user", ["slopId", "userId"])
     .index("by_user_cast_on", ["userId", "castOn"]),

@@ -38,6 +38,9 @@ export interface SeededUser {
   token: string;
 }
 
+/** Enough of a person to vote as them. */
+export type SeededVoter = Pick<SeededUser, "id" | "username">;
+
 export interface SeededSlop {
   id: Id<"slops">;
   slug: string;
@@ -74,11 +77,17 @@ export interface Seed {
    * creation time, since no function can backdate a document.
    */
   pastSlop(owner: SeededUser, launchedAt: number): Promise<SeededSlop>;
+  /**
+   * `count` people who joined two days ago, so their votes count in the race
+   * (`LIMITS.raceVoterAge`). Imported with their creation time, since no
+   * function can backdate a document; they vote, but can't sign in.
+   */
+  voters(count: number): Promise<SeededVoter[]>;
   /** A browser page signed in as `user`, in its own context. */
   pageAs(user: SeededUser): Promise<Page>;
   /** A browser page for a visitor, in its own context. */
   visitorPage(): Promise<Page>;
-  vote(user: SeededUser, slop: SeededSlop, value: 1 | -1): Promise<void>;
+  vote(user: SeededVoter, slop: SeededSlop, value: 1 | -1): Promise<void>;
   /** A personal API token for `user`, as /settings/api makes them. */
   apiToken(user: SeededUser): Promise<string>;
 }
@@ -332,6 +341,36 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
         const slop = await convex.query(api.slops.findForServer, { userId: owner.id, ref: slug });
         if (!slop) throw new Error(`The imported slop ${slug} isn't there.`);
         return { id: slop._id, slug, name, path: `/@${owner.username}/${slug}` };
+      },
+
+      async voters(count) {
+        const joined = Date.now() - 2 * 86_400_000;
+        const usernames = Array.from({ length: count }, () => `voter-${unique()}`.slice(0, 30));
+        const rows = usernames.map((username) => ({
+          _creationTime: joined,
+          username,
+          displayName: "Voter",
+          avatarUrl: null,
+          bio: "",
+          website: null,
+          timeZone: "UTC",
+          showNsfw: false,
+        }));
+        const dir = mkdtempSync(join(tmpdir(), "slopper-e2e-"));
+        try {
+          const file = join(dir, "users.jsonl");
+          writeFileSync(file, rows.map((row) => JSON.stringify(row)).join("\n") + "\n");
+          convexCli(stack, ["import", "--table", "users", "--append", "--yes", file]);
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+        return await Promise.all(
+          usernames.map(async (username) => {
+            const profile = await convex.query(api.users.profile, { username });
+            if (!profile) throw new Error(`The imported voter ${username} isn't there.`);
+            return { id: profile.owner.id, username };
+          }),
+        );
       },
 
       async pageAs(user) {

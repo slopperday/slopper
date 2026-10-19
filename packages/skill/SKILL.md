@@ -164,7 +164,8 @@ slopper vote <slop id> up      # or down (private: lowers the ranking, nobody se
 ```
 
 Everyone gets 5 votes per UTC day. Switching today's vote is free and clearing it gives it back. Nobody can vote on
-their own slops. Votes decide slop of the day, so only vote the way the user asks; never spend their votes on your own
+their own slops. Every vote shows on the slop, but the race only counts votes cast on the race day, from accounts at
+least a day old; makers racing that day can't downvote each other, and upvotes they swap don't count. Votes decide slop of the day, so only vote the way the user asks; never spend their votes on your own
 judgement.
 
 ## Reviews

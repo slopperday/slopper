@@ -12,7 +12,7 @@ import { isVisibleTo, productIdOf, publicSlop, publicUpdate, publicUser, toCards
 import { demoVideoValidator, featureValidator, linkValidator } from "./schema";
 import { openGoal } from "./goals";
 import { tractionFor } from "./integrations";
-import { utcToday } from "./race";
+import { countedInRace, countsInRace, raceTally, utcToday } from "./race";
 import { isVideo, releaseMedia, updateMedia } from "./lib/media";
 import { checkScreenshots } from "./moderation";
 import { scheduleEmbedding } from "./search";
@@ -128,6 +128,8 @@ export async function insertLaunch(ctx: MutationCtx, draft: LaunchDraft) {
     number: await nextCounter(ctx, "slops"),
     upvotes: 0,
     downvotes: 0,
+    raceUpvotes: 0,
+    raceDownvotes: 0,
     commentCount: 0,
     updateCount: 1,
     fieldTests: 0,
@@ -353,7 +355,8 @@ async function votesCastOn(ctx: QueryCtx, userId: Id<"users">, date: string): Pr
  * Upvote, private downvote, or clear (0). Everyone gets `LIMITS.votesPerDay`
  * votes per UTC day: a new vote, or changing one cast on an earlier day,
  * spends one; switching today's vote is free, and clearing it gives it back.
- * Counters move in the same transaction, and upvotes notify the owner.
+ * Counters move in the same transaction, the race's too when it's the
+ * slop's race day (`countsInRace`), and upvotes notify the owner.
  */
 export const vote = mutation({
   args: { userId: v.id("users"), slopId: v.string(), value: v.union(v.literal(1), v.literal(-1), v.literal(0)) },
@@ -363,7 +366,10 @@ export const vote = mutation({
     const slop = slopId ? await ctx.db.get(slopId) : null;
     if (!slop || slop.hidden) throw new ConvexError("Slop not found.");
     if (slop.userId === userId) throw new ConvexError("You can't vote on your own slop.");
+    const voter = await ctx.db.get(userId);
+    if (!voter) throw new ConvexError("Sign in again to vote.");
     await consume(ctx, `vote:${userId}`, 120, 3_600_000);
+    const now = Date.now();
     const today = utcToday();
     const used = await votesCastOn(ctx, userId, today);
     const existing = await ctx.db
@@ -380,10 +386,22 @@ export const vote = mutation({
     }
     const upvotes = slop.upvotes + (value === 1 ? 1 : 0) - (previous === 1 ? 1 : 0);
     const downvotes = slop.downvotes + (value === -1 ? 1 : 0) - (previous === -1 ? 1 : 0);
-    await ctx.db.patch(slop._id, { upvotes, downvotes });
+    // The race only moves on its own day; after that its tally stands.
+    const raceDay = slop.raceDate === today;
+    const counted = raceDay && existing !== null && countedInRace(existing, slop);
+    const inRace = raceDay && value !== 0 && (await countsInRace(ctx, voter, slop, value, now));
+    const race = raceTally(slop);
+    await ctx.db.patch(slop._id, {
+      upvotes,
+      downvotes,
+      ...(raceDay && {
+        raceUpvotes: race.upvotes + (inRace && value === 1 ? 1 : 0) - (counted && previous === 1 ? 1 : 0),
+        raceDownvotes: race.downvotes + (inRace && value === -1 ? 1 : 0) - (counted && previous === -1 ? 1 : 0),
+      }),
+    });
     if (value === 0 && existing) await ctx.db.delete(existing._id);
-    else if (existing && value !== 0) await ctx.db.patch(existing._id, { value, castOn: today });
-    else if (value !== 0) await ctx.db.insert("votes", { slopId: slop._id, userId, value, castOn: today });
+    else if (existing && value !== 0) await ctx.db.patch(existing._id, { value, castOn: today, inRace });
+    else if (value !== 0) await ctx.db.insert("votes", { slopId: slop._id, userId, value, castOn: today, inRace });
     if (value === 1) {
       await notify(ctx, { userId: slop.userId, kind: "upvote", slopId: slop._id, actorId: userId, amount: null });
     }

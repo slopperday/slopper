@@ -38,7 +38,7 @@ test.describe("finding slop", () => {
     const [ada, bo] = [await seed.user("ada"), await seed.user("bo")];
     const leader = await seed.slop(ada);
     const chaser = await seed.slop(bo);
-    const fans = [await seed.user("fan"), await seed.user("fan"), await seed.user("fan")];
+    const fans = await seed.voters(3);
     await seed.vote(fans[0], leader, 1);
 
     const page = await seed.visitorPage();
