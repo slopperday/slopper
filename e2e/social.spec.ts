@@ -155,7 +155,7 @@ test.describe("slop of the day", () => {
     const maker = await seed.user("champ");
     const slop = await seed.slop(maker, { name: `Champion ${Date.now().toString(36)}` });
     // Far more votes than any other test gives its slops.
-    for (let index = 0; index < 12; index++) await seed.vote(await seed.user("voter"), slop, 1);
+    for (const voter of await seed.voters(12)) await seed.vote(voter, slop, 1);
 
     runInternal(stack, "race:crown", { date: new Date().toISOString().slice(0, 10) });
 
