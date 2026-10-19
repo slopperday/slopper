@@ -57,6 +57,12 @@ export interface OperationContext {
   now: Date;
 }
 
+/** What a public operation gets: anyone may call it, with or without a token. */
+export interface ViewerContext {
+  user: User | null;
+  now: Date;
+}
+
 /** JSON Schema for a tool's input object. */
 export interface InputSchema {
   type: "object";
@@ -64,13 +70,30 @@ export interface InputSchema {
   required?: string[];
 }
 
-export interface Operation {
+interface OperationInfo {
   name: string;
   title: string;
   description: string;
   inputSchema: InputSchema;
   readOnly: boolean;
+}
+
+/** Needs a signed-in user (an API token). */
+export interface UserOperation extends OperationInfo {
+  public?: false;
   run(context: OperationContext, input: JsonObject): Promise<unknown>;
+}
+
+/** Reads what anyone can see on the site, so it works without a token too. */
+export interface PublicOperation extends OperationInfo {
+  public: true;
+  run(context: ViewerContext, input: JsonObject): Promise<unknown>;
+}
+
+export type Operation = UserOperation | PublicOperation;
+
+function publicOperation(operation: Omit<PublicOperation, "public">): PublicOperation {
+  return { ...operation, public: true };
 }
 
 function summarizeSlop(slop: Doc<"slops">, owner: User) {
@@ -255,8 +278,10 @@ const AUTOPOST = {
 };
 
 /** A slop's reviews by its id, or by slug for the user's own. */
-async function reviewsOf(context: OperationContext, ref: string) {
-  const own = await convex.query(api.slops.findForServer, { userId: context.user._id, ref: ref.trim() });
+async function reviewsOf(context: ViewerContext, ref: string) {
+  const own = context.user
+    ? await convex.query(api.slops.findForServer, { userId: context.user._id, ref: ref.trim() })
+    : null;
   const listed = await convex.query(api.reviews.listForServer, { slopId: own?._id ?? ref.trim() });
   if (!listed) throw new ApiError(404, "Slop not found.");
   return listed;
@@ -300,7 +325,72 @@ export const OPERATIONS: Operation[] = [
       };
     },
   },
-  {
+  publicOperation({
+    name: "get_profile",
+    title: "Look up a profile",
+    description:
+      "Anyone's public profile by username: their streak, slops, votes and days won, the open goal day by day (shipped, missed, today, upcoming and how many are scheduled) and past goals. The same as their page on the site.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        username: { type: "string", description: "Their username, with or without the @." },
+      },
+      required: ["username"],
+    },
+    readOnly: true,
+    async run({ user }, input) {
+      const username = requiredString(input, "username").trim().replace(/^@/, "");
+      const profile = await convex.query(api.users.profile, { username, asUser: user?._id });
+      if (!profile) throw new ApiError(404, `Nobody is called @${username}.`);
+      const { owner, progress } = profile;
+      const slopUrl = (slug: string) => absoluteUrl(slopPath(owner.username, slug));
+      return {
+        username: owner.username,
+        displayName: owner.displayName,
+        bio: owner.bio,
+        profileUrl: absoluteUrl(`/@${owner.username}`),
+        today: profile.today,
+        streak: profile.streak,
+        totalSlops: profile.totalShipped,
+        upvotes: profile.upvotes,
+        daysWon: profile.daysWon,
+        goal: progress
+          ? {
+              title: progress.goal.title,
+              target: progress.goal.target,
+              days: progress.goal.days,
+              startDate: progress.goal.startDate,
+              endDate: progress.endDate,
+              shipped: progress.shipped,
+              /** Still to ship to hit the target. */
+              toGo: Math.max(0, progress.goal.target - progress.shipped),
+              currentDay: progress.currentDay,
+              status: progress.status,
+              board: progress.days.map((day) => ({
+                day: day.day,
+                date: day.date,
+                state: day.state,
+                slops: day.launches.map((launch) => ({ name: launch.name, url: slopUrl(launch.slug) })),
+                scheduled: day.queued,
+              })),
+            }
+          : null,
+        pastGoals: profile.pastGoals.map(({ title, shipped, target, status }) => ({ title, shipped, target, status })),
+        slops: profile.items.map((item) => ({
+          id: item.slop.id,
+          name: item.slop.name,
+          launchLabel: item.slop.launchLabel,
+          tagline: item.slop.tagline,
+          category: item.slop.category,
+          nsfw: item.slop.nsfw,
+          upvotes: item.slop.upvotes,
+          launchDate: item.slop.launchDate,
+          url: slopUrl(item.slop.slug),
+        })),
+      };
+    },
+  }),
+  publicOperation({
     name: "list_tags",
     title: "List made-with tags",
     description:
@@ -314,8 +404,8 @@ export const OPERATIONS: Operation[] = [
         tags: tagOptions(counted).map(({ name, kind, uses }) => ({ name, kind, uses })),
       };
     },
-  },
-  {
+  }),
+  publicOperation({
     name: "list_categories",
     title: "List categories and link kinds",
     description: "Valid values for a slop's category, link kinds, currencies and money categories.",
@@ -335,7 +425,7 @@ export const OPERATIONS: Operation[] = [
         revenueCategories: REVENUE_CATEGORIES,
       });
     },
-  },
+  }),
   {
     name: "set_goal",
     title: "Set a goal",
@@ -842,17 +932,17 @@ export const OPERATIONS: Operation[] = [
       };
     },
   },
-  {
+  publicOperation({
     name: "todays_race",
     title: "Today's slop of the day race",
     description:
-      "Today's slops ranked by votes (UTC day), with how the user voted and their votes left. The leader at midnight UTC becomes slop of the day and goes slopcessful.",
+      "Today's slops ranked by votes (UTC day), with how the user voted and their votes left (null without a token). The leader at midnight UTC becomes slop of the day and goes slopcessful.",
     inputSchema: { type: "object", properties: {} },
     readOnly: true,
     async run({ user, now }) {
       const [race, votesLeft] = await Promise.all([
-        convex.query(api.race.day, { date: now.toISOString().slice(0, 10), limit: 20, asUser: user._id }),
-        convex.query(api.slops.votesLeft, { asUser: user._id }),
+        convex.query(api.race.day, { date: now.toISOString().slice(0, 10), limit: 20, asUser: user?._id }),
+        convex.query(api.slops.votesLeft, { asUser: user?._id }),
       ]);
       return {
         date: race.date,
@@ -871,8 +961,8 @@ export const OPERATIONS: Operation[] = [
         })),
       };
     },
-  },
-  {
+  }),
+  publicOperation({
     name: "search_slops",
     title: "Search slops",
     description: `Find slops on the wall by name or by what they do. It matches meaning as well as words, so “budget” also finds an expense tracker. Best match first, at most ${SEARCH_LIMIT}; hidden slops never show, and NSFW ones only if the user turned them on.`,
@@ -901,7 +991,7 @@ export const OPERATIONS: Operation[] = [
       if (!Number.isInteger(limit) || limit < 1 || limit > SEARCH_LIMIT) {
         throw new ApiError(400, `limit must be a whole number from 1 to ${SEARCH_LIMIT}.`);
       }
-      const items = await convex.action(api.search.find, { query, categories, limit, asUser: user._id });
+      const items = await convex.action(api.search.find, { query, categories, limit, asUser: user?._id });
       return {
         query,
         results: items.map((item, index) => ({
@@ -921,7 +1011,7 @@ export const OPERATIONS: Operation[] = [
         })),
       };
     },
-  },
+  }),
   {
     name: "vote",
     title: "Vote on a slop",
@@ -987,7 +1077,7 @@ export const OPERATIONS: Operation[] = [
       };
     },
   },
-  {
+  publicOperation({
     name: "list_reviews",
     title: "Read a slop's reviews",
     description:
@@ -1011,17 +1101,30 @@ export const OPERATIONS: Operation[] = [
         })),
       };
     },
-  },
+  }),
 ];
+
+/** What a call that needs a token gets without one. */
+export function missingToken(): ApiError {
+  return new ApiError(401, `Missing or invalid API token. Create one at ${absoluteUrl("/settings/api")}`);
+}
 
 export function findOperation(name: string): Operation | undefined {
   return OPERATIONS.find((operation) => operation.name === name);
 }
 
-/** Runs an operation with raw, untrusted input. Business-rule errors become ApiErrors. */
-export async function runOperation(operation: Operation, context: OperationContext, input: unknown): Promise<unknown> {
+/**
+ * Runs an operation with raw, untrusted input. Business-rule errors become
+ * ApiErrors. Only public operations run without a signed-in user.
+ */
+export async function runOperation(operation: Operation, context: ViewerContext, input: unknown): Promise<unknown> {
+  const { user } = context;
+  if (!operation.public && !user) throw missingToken();
   try {
-    return await operation.run(context, asObject(input, "arguments"));
+    const args = asObject(input, "arguments");
+    if (operation.public) return await operation.run(context, args);
+    if (!user) throw missingToken();
+    return await operation.run({ ...context, user }, args);
   } catch (error) {
     const message = convexMessage(error);
     if (message) throw new ApiError(409, message);

@@ -2,7 +2,7 @@ import { data } from "react-router";
 import type { Route } from "./+types/api.cli-login";
 import { config } from "~/.server/config";
 import { POLL_INTERVAL_S, startCliLogin } from "~/.server/cliLogin";
-import { allowAction } from "~/.server/tokens";
+import { allowAction, callerAddress } from "~/.server/tokens";
 
 /**
  * POST /api/cli/login, `{ name }`: starts a browser sign-in for the slopper
@@ -13,9 +13,7 @@ export async function action({ request }: Route.ActionArgs) {
   if (request.method !== "POST") {
     return data({ error: "Method not allowed." }, { status: 405, headers: { allow: "POST" } });
   }
-  // Netlify names the caller; anywhere else (a local server) they share one bucket.
-  const caller = request.headers.get("x-nf-client-connection-ip") ?? "local";
-  if (!(await allowAction(`cli-login:${caller}`, 30, 3_600_000))) {
+  if (!(await allowAction(`cli-login:${callerAddress(request)}`, 30, 3_600_000))) {
     return data({ error: "Too many sign-ins started. Try again in an hour." }, { status: 429 });
   }
   const body: unknown = await request.json().catch(() => null);

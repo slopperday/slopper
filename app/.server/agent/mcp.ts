@@ -1,6 +1,6 @@
 import { LIMITS } from "~/lib/model";
 import { absoluteUrl } from "../config";
-import { allowAction, userForBearer } from "../tokens";
+import { apiQuota, userForBearer } from "../tokens";
 import { ApiError } from "./input";
 import { findOperation, OPERATIONS, runOperation } from "./operations";
 
@@ -14,7 +14,7 @@ const SUPPORTED_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"];
 const SERVER_INFO = { name: "slopper", title: "Slopper", version: "1.0.0" };
 
 const INSTRUCTIONS = `Slopper (slopper.day) is where people throw slop at the wall every day: they ship small apps and sites daily, track a goal like "30 slops in 30 days", and keep slopping until one is slopcessful.
-Start with whoami. To launch: upload_screenshot for each image, then create_slop with links (website, TestFlight, Play beta, source…). A new platform or a 2.0 is a new launch: create_slop with relaunchOf and launchLabel. Several ready at once? create_slop with releaseAt ("next" lines them up one a day) schedules them; list_scheduled, release_scheduled and cancel_scheduled manage the queue. Use post_update for fixes and features, kind "field" for real-world tests, log_money for costs and revenue. Nobody declares a slop slopcessful: the slop with the most votes when the UTC day ends wins slop of the day and goes slopcessful. todays_race shows the race, search_slops finds slops by name or by what they do, and vote spends one of the user's ${LIMITS.votesPerDay} votes a day. Pass autopost: true to post to the user's connected social accounts.`;
+Start with whoami; get_profile looks anyone up by username (their goal day by day, streak and slops). To launch: upload_screenshot for each image, then create_slop with links (website, TestFlight, Play beta, source…). A new platform or a 2.0 is a new launch: create_slop with relaunchOf and launchLabel. Several ready at once? create_slop with releaseAt ("next" lines them up one a day) schedules them; list_scheduled, release_scheduled and cancel_scheduled manage the queue. Use post_update for fixes and features, kind "field" for real-world tests, log_money for costs and revenue. Nobody declares a slop slopcessful: the slop with the most votes when the UTC day ends wins slop of the day and goes slopcessful. todays_race shows the race, search_slops finds slops by name or by what they do, and vote spends one of the user's ${LIMITS.votesPerDay} votes a day. Pass autopost: true to post to the user's connected social accounts.`;
 
 type JsonRpcId = string | number;
 
@@ -68,9 +68,8 @@ export async function handleMcp(request: Request): Promise<Response> {
 
   const user = await userForBearer(request);
   if (!user) return unauthorized();
-  if (!(await allowAction(`mcp:${user._id}`, 600, 3_600_000))) {
-    return fail(id, -32000, "Rate limit reached. Try again later.", 429);
-  }
+  const limited = await apiQuota("mcp", user, request);
+  if (limited) return fail(id, -32000, limited.error, 429);
 
   const params = (typeof message.params === "object" && message.params !== null ? message.params : {}) as Record<
     string,

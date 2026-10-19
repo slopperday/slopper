@@ -299,6 +299,8 @@ export const profile = query({
     return {
       owner: publicUser(owner),
       isSelf,
+      /** The owner's date, which their goal days follow. */
+      today,
       streak: currentStreak(
         launches.map((launch) => launch.launchDate),
         today,

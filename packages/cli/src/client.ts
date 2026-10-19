@@ -110,6 +110,8 @@ export function resolveUrl(value: string): string {
 export interface Api {
   readonly url: string;
   get(path: string): Promise<unknown>;
+  /** A GET of what anyone can see, like a profile: sends the token when there is one, and works without. */
+  read(path: string): Promise<unknown>;
   post(path: string, body: object): Promise<unknown>;
   patch(path: string, body: object): Promise<unknown>;
   put(path: string, body: object): Promise<unknown>;
@@ -201,6 +203,7 @@ export function createApi({ url, token, fetch, userAgent }: ApiOptions): Api {
   return {
     url,
     get: (path) => request("GET", path),
+    read: (path) => send({ url, fetch, userAgent }, "GET", "/api/v1", path, { token }),
     post: (path, body) => request("POST", path, JSON.stringify(body), "application/json"),
     patch: (path, body) => request("PATCH", path, JSON.stringify(body), "application/json"),
     put: (path, body) => request("PUT", path, JSON.stringify(body), "application/json"),

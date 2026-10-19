@@ -34,6 +34,7 @@ export function loader() {
 
 ## Auth
 Personal API token, created by the user at ${origin}/settings/api. Send it as: Authorization: Bearer slp_...
+Public reads (marked *) also work without one. Rate limits: ${LIMITS.apiCallsPerHour} calls an hour with a token, ${LIMITS.anonymousApiCallsPerHour} an hour from one address without; a 429 says when to try again (Retry-After).
 
 ## MCP
 Streamable HTTP endpoint: ${origin}/mcp (stateless, JSON responses)
@@ -44,10 +45,11 @@ ${tools}
 
 ## REST
 - GET    ${origin}/api/v1/me
-- GET    ${origin}/api/v1/categories
-- GET    ${origin}/api/v1/tags
-- GET    ${origin}/api/v1/today
-- GET    ${origin}/api/v1/search?q=…        &category=… (repeat for several) &limit=… (up to 48): best match first, by words and meaning
+- GET    ${origin}/api/v1/users/{username}  * anyone's profile: the open goal day by day, streak and slops
+- GET    ${origin}/api/v1/categories        *
+- GET    ${origin}/api/v1/tags              *
+- GET    ${origin}/api/v1/today             *
+- GET    ${origin}/api/v1/search?q=…        * &category=… (repeat for several) &limit=… (up to 48): best match first, by words and meaning
 - POST   ${origin}/api/v1/goal               { target, days, startDate?, title? }
 - POST   ${origin}/api/v1/media              raw image body (Content-Type: image/png…) or { base64 } → { id, url, nsfw }
 - POST   ${origin}/api/v1/videos             raw MP4 or WebM body (Content-Type: video/mp4…, up to 4 MB) or { base64 } → { id }
@@ -58,7 +60,7 @@ ${tools}
 - POST   ${origin}/api/v1/slops/{slop}/updates      { kind, body, version?, images?, links?: [{ kind?, url, preview? }], featureName?, outcome?, who?, autopost? }
 - POST   ${origin}/api/v1/slops/{slop}/money        { kind: "cost" | "revenue", amount, currency?, category?, note?, date? }
 - POST   ${origin}/api/v1/slops/{slop}/vote         { vote: "up" | "down" | "clear" }
-- GET    ${origin}/api/v1/slops/{slop}/reviews      what people who tried it said, newest first
+- GET    ${origin}/api/v1/slops/{slop}/reviews      * what people who tried it said, newest first
 - PUT    ${origin}/api/v1/slops/{slop}/reviews/mine { experience: "works" | "mixed" | "broken", body, images? }; replaces your earlier review of it
 - GET    ${origin}/api/v1/slops/{slop}/analytics?days=30   views, people, sources, clicks and votes for one of your slops (your own visits don't count)
 - GET    ${origin}/api/v1/slops/{slop}/traction     numbers from its connected sources

@@ -1,21 +1,22 @@
 import type { Route } from "./+types/api.v1";
-import { absoluteUrl } from "~/.server/config";
 import { uploadImage, uploadVideo } from "~/.server/media";
-import { allowAction, userForBearer } from "~/.server/tokens";
+import { apiQuota, userForBearer } from "~/.server/tokens";
 import { can } from "@convex/lib/permissions";
 import { adminReport } from "~/.server/agent/adminAnalytics";
 import { ApiError, asObject, type JsonObject } from "~/.server/agent/input";
-import { findOperation, runOperation } from "~/.server/agent/operations";
+import { findOperation, missingToken, runOperation } from "~/.server/agent/operations";
 
 /**
  * REST API for agents and scripts. Routes map onto the same operations the
- * MCP server exposes, so behaviour and validation are identical.
+ * MCP server exposes, so behaviour and validation are identical. Public
+ * reads (marked *) also work without a token, with a smaller rate limit.
  *
+ *   GET    /api/v1/users/:username          *
  *   GET    /api/v1/me
- *   GET    /api/v1/categories
- *   GET    /api/v1/tags
- *   GET    /api/v1/today
- *   GET    /api/v1/search?q=…&category=…   (category repeats; optional limit)
+ *   GET    /api/v1/categories               *
+ *   GET    /api/v1/tags                     *
+ *   GET    /api/v1/today                    *
+ *   GET    /api/v1/search?q=…&category=…   * (category repeats; optional limit)
  *   POST   /api/v1/goal
  *   POST   /api/v1/media                    (raw image body, or JSON { base64 })
  *   POST   /api/v1/videos                   (raw MP4 or WebM body, or JSON { base64 })
@@ -26,7 +27,7 @@ import { findOperation, runOperation } from "~/.server/agent/operations";
  *   POST   /api/v1/slops/:slop/updates
  *   POST   /api/v1/slops/:slop/money
  *   POST   /api/v1/slops/:slop/vote
- *   GET    /api/v1/slops/:slop/reviews
+ *   GET    /api/v1/slops/:slop/reviews      *
  *   PUT    /api/v1/slops/:slop/reviews/mine
  *   GET    /api/v1/slops/:slop/analytics?days=…
  *   GET    /api/v1/scheduled
@@ -38,12 +39,15 @@ interface Match {
   operation: string;
   slop?: string;
   scheduled?: string;
+  username?: string;
 }
 
 function route(method: string, path: string): Match | null {
   const parts = path.split("/").filter(Boolean);
   const [resource, ref, action] = parts;
   if (method === "GET" && parts.length === 1 && resource === "me") return { operation: "whoami" };
+  if (method === "GET" && parts.length === 2 && resource === "users")
+    return { operation: "get_profile", username: ref };
   if (method === "GET" && parts.length === 1 && resource === "categories") return { operation: "list_categories" };
   if (method === "GET" && parts.length === 1 && resource === "tags") return { operation: "list_tags" };
   if (method === "GET" && parts.length === 1 && resource === "today") return { operation: "todays_race" };
@@ -94,21 +98,29 @@ function errorResponse(error: ApiError): Response {
   return Response.json({ error: error.message, details: error.details ?? null }, { status: error.status });
 }
 
+function rateLimited({ error, retryAfter }: { error: string; retryAfter: number }): Response {
+  return Response.json({ error, details: null }, { status: 429, headers: { "retry-after": String(retryAfter) } });
+}
+
+function unauthorized(): Response {
+  return Response.json(
+    { error: missingToken().message },
+    { status: 401, headers: { "www-authenticate": 'Bearer realm="slopper"' } },
+  );
+}
+
 async function handle(request: Request, path: string): Promise<Response> {
   const user = await userForBearer(request);
-  if (!user) {
-    return Response.json(
-      { error: `Missing or invalid API token. Create one at ${absoluteUrl("/settings/api")}` },
-      { status: 401, headers: { "www-authenticate": 'Bearer realm="slopper"' } },
-    );
-  }
+  // A token that doesn't work is refused even on public reads, so its owner finds out.
+  if (!user && request.headers.has("authorization")) return unauthorized();
 
   const notFound = () => errorResponse(new ApiError(404, `No endpoint for ${request.method} /api/v1/${path}`));
   // Platform analytics for admins (app/.server/agent/adminAnalytics.ts): a 404 for everyone else.
   if (request.method === "GET" && path.replace(/\/+$/, "") === "admin/analytics") {
-    if (!can(user, "analytics.view")) return notFound();
+    if (!user || !can(user, "analytics.view")) return notFound();
     try {
-      if (!(await allowAction(`api:${user._id}`, 600, 3_600_000))) throw new ApiError(429, "Rate limit reached.");
+      const limited = await apiQuota("api", user, request);
+      if (limited) return rateLimited(limited);
       return Response.json(await adminReport(user, new URL(request.url).searchParams, new Date()));
     } catch (error) {
       if (error instanceof ApiError) return errorResponse(error);
@@ -118,18 +130,22 @@ async function handle(request: Request, path: string): Promise<Response> {
 
   const match = route(request.method, path);
   if (!match) return notFound();
+  const operation = findOperation(match.operation);
+  if (!operation) return notFound();
+  if (!user && !operation.public) return unauthorized();
 
   try {
-    if (!(await allowAction(`api:${user._id}`, 600, 3_600_000))) throw new ApiError(429, "Rate limit reached.");
+    const limited = await apiQuota("api", user, request);
+    if (limited) return rateLimited(limited);
 
     // Raw image uploads skip JSON entirely: `curl --data-binary @shot.png`.
     const contentType = request.headers.get("content-type") ?? "";
-    if (match.operation === "upload_screenshot" && contentType.startsWith("image/")) {
+    if (user && match.operation === "upload_screenshot" && contentType.startsWith("image/")) {
       const result = await uploadImage(user._id, { bytes: new Uint8Array(await request.arrayBuffer()) });
       if (!result.ok) throw new ApiError(400, result.error);
       return Response.json({ id: result.id, url: result.url, nsfw: result.contentCheck === "mature" }, { status: 201 });
     }
-    if (match.operation === "upload_video" && contentType.startsWith("video/")) {
+    if (user && match.operation === "upload_video" && contentType.startsWith("video/")) {
       const result = await uploadVideo(user._id, new Uint8Array(await request.arrayBuffer()));
       if (!result.ok) throw new ApiError(400, result.error);
       return Response.json({ id: result.id }, { status: 201 });
@@ -152,9 +168,8 @@ async function handle(request: Request, path: string): Promise<Response> {
     }
     if (match.slop) input = { ...input, slop: decodeURIComponent(match.slop) };
     if (match.scheduled) input = { ...input, scheduled: decodeURIComponent(match.scheduled) };
+    if (match.username) input = { ...input, username: decodeURIComponent(match.username) };
 
-    const operation = findOperation(match.operation);
-    if (!operation) throw new ApiError(404, "Unknown operation.");
     const result = await runOperation(operation, { user, now: new Date() }, input);
     return Response.json(result, { status: request.method === "POST" ? 201 : 200 });
   } catch (error) {
