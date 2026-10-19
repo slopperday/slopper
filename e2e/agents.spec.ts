@@ -157,11 +157,15 @@ test.describe("agents run Slopper", () => {
     await expect
       .poll(async () => names(await (await request.get("/api/v1/search?q=budget", { headers })).json()))
       .toContain(jar.name);
-    const found = await (await request.get(`/api/v1/search?q=${id}&category=games`, { headers })).json();
-    expect(found).toMatchObject({
-      query: id,
-      results: [{ rank: 1, id: maze.id, owner: maker.username, name: maze.name, category: "games", yours: false }],
-    });
+    const found = (await (await request.get(`/api/v1/search?q=${id}&category=games`, { headers })).json()) as {
+      query: string;
+      results: { name: string }[];
+    };
+    expect(found.query).toBe(id);
+    // Other tests' slops can match by meaning too, so only this test's.
+    expect(found.results.filter((result) => result.name.endsWith(id))).toMatchObject([
+      { id: maze.id, owner: maker.username, name: maze.name, category: "games", yours: false },
+    ]);
     const unknown = await request.get(`/api/v1/search?q=${id}&category=nope`, { headers });
     expect(unknown.status()).toBe(400);
     expect(await unknown.json()).toMatchObject({
@@ -172,7 +176,7 @@ test.describe("agents run Slopper", () => {
       name: "search_slops",
       arguments: { query: id, categories: ["money"] },
     });
-    expect(names(searched.result?.structuredContent)).toEqual([jar.name]);
+    expect(names(searched.result?.structuredContent).filter((name) => name.endsWith(id))).toEqual([jar.name]);
 
     const env = {
       SLOPPER_URL: stack.appUrl,

@@ -83,6 +83,8 @@ test.describe("scheduled launches", () => {
   });
 
   test("goes out by itself, and the app server checks it", async ({ seed, stack, convex, request }) => {
+    // Convex's scheduler and its call to the app server run on their own time, slower when the suite is busy.
+    test.setTimeout(90_000);
     const maker = await seed.user("maker");
     const name = `Clockwork ${Date.now().toString(36)}`;
     await convex.mutation(api.schedule.add, {
@@ -103,7 +105,7 @@ test.describe("scheduled launches", () => {
 
     // Convex puts it out, then the app server claims it and runs the content check.
     await expect
-      .poll(async () => (await checkRequests(stack)).some((check) => check.text.includes(name)), { timeout: 20_000 })
+      .poll(async () => (await checkRequests(stack)).some((check) => check.text.includes(name)), { timeout: 60_000 })
       .toBe(true);
     await expect.poll(() => convex.query(api.schedule.mine, { asUser: maker.id })).toEqual([]);
     // The verdict is saved once the check answers, a moment after it was asked.
