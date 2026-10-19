@@ -71,7 +71,12 @@ export default function Day({ loaderData }: Route.ComponentProps) {
       ) : (
         <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
           <Countdown className="text-[2.25rem]" />
-          <p className="text-muted">Live, ranked by votes. The top slop at midnight UTC wins and goes slopcessful.</p>
+          <p className="text-muted">
+            Live, ranked by today's votes. The top slop at midnight UTC wins and goes slopcessful.{" "}
+            <Link to="/rules" className="underline">
+              What counts
+            </Link>
+          </p>
           {votesLeft !== null && <VotesLeft left={votesLeft} />}
         </div>
       )}

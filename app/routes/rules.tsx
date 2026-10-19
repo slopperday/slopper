@@ -19,6 +19,10 @@ const RULES = [
     body: "Help the maker. Be specific and generous: everything here is meant to be rough. Downvotes are private for a reason.",
   },
   {
+    title: "Win the race fairly",
+    body: "One account each. Don't buy, swap or farm votes. Every vote shows on the slop, but the race only counts votes cast on its day, from accounts at least a day old. Makers racing the same day can't downvote each other, and upvotes they swap don't count.",
+  },
+  {
     title: "Auto-posts are yours",
     body: "Auto-post speaks as you. You own what it says, and each network's rules apply.",
   },

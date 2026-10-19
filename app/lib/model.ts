@@ -272,6 +272,8 @@ export const LIMITS = {
    * day. Taking one back today returns it.
    */
   votesPerDay: 5,
+  /** How old an account must be before its votes count in the race (they always count on the slop). */
+  raceVoterAge: 24 * 60 * 60 * 1000,
 } as const;
 
 /** Where people reach a human: privacy requests, account deletion, appeals. */

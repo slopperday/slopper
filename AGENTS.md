@@ -67,6 +67,9 @@ release. Add a tool name to select part of the graph. For example, run
   `POST /api/scheduled/:id`; the app server claims it once and runs `finishLaunch` (`app/.server/launch.ts`): the
   content check, then the auto-post.
 - **Votes and slopcessful:** everyone gets `LIMITS.votesPerDay` (5) votes per UTC day (`convex/slops.ts` `vote`).
+  A day's race ranks its launches on the votes cast that day (`raceUpvotes`/`raceDownvotes`, frozen when the day ends);
+  every vote still adds to the slop's total. `countsInRace` (`convex/race.ts`) keeps out votes from accounts under a
+  day old, downvotes from makers racing the same day, and upvotes two racing makers swap.
   Slopcessful is earned, never declared: `race.crown` marks the day's winner slopcessful, and verified milestones
   (1,000 users, $1,000 revenue; ROADMAP.md) will too. Keep its badge separate from slop of the day.
 - **Screenshots** go through `uploadImage` (`app/.server/media.ts`): checked before they're stored (blocked ones never

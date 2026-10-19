@@ -299,18 +299,40 @@ describe("votes, pledges and notifications", () => {
 });
 
 describe("slop of the day", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** People who joined the day before, so their votes count in the race (`LIMITS.raceVoterAge`). */
+  async function people(server: Server, ...names: string[]): Promise<Id<"users">[]> {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse("2026-10-05T09:00:00Z"));
+    const ids = [];
+    for (const name of names) ids.push(await makeUser(server, name));
+    vi.setSystemTime(Date.parse("2026-10-06T10:00:00Z"));
+    return ids;
+  }
+
+  async function tally(t: ReturnType<typeof setup>["t"], slopId: Id<"slops">) {
+    const slop = await t.run((ctx) => ctx.db.get(slopId));
+    return {
+      upvotes: slop?.upvotes,
+      downvotes: slop?.downvotes,
+      raceUpvotes: slop?.raceUpvotes,
+      raceDownvotes: slop?.raceDownvotes,
+    };
+  }
+
   it("ranks by net votes and crowns yesterday's leader once", async () => {
     const { t, server } = setup();
-    const a = await makeUser(server, "a");
-    const b = await makeUser(server, "b");
-    const voter = await makeUser(server, "voter");
+    const [a, b, voter] = await people(server, "a", "b", "voter");
     const first = await ship(server, a, "2026-10-06");
     const second = await ship(server, b, "2026-10-06");
     await server.mutation(api.slops.vote, { userId: voter, slopId: second.slopId, value: 1 });
     await server.mutation(api.slops.vote, { userId: a, slopId: second.slopId, value: 1 });
     await server.mutation(api.slops.vote, { userId: voter, slopId: first.slopId, value: 1 });
 
-    const date = new Date().toISOString().slice(0, 10);
+    const date = "2026-10-06";
     const race = await server.query(api.race.day, { date });
     expect(race.items.map((item) => item.slop.id)).toEqual([second.slopId, first.slopId]);
     expect(race.final).toBe(false);
@@ -335,6 +357,73 @@ describe("slop of the day", () => {
     );
     expect(updates.map((update) => update.kind)).toEqual(["launch", "slopcessful"]);
     expect((await server.query(api.slops.getForServer, { slopId: first.slopId }))?.slopcessfulAt).toBeNull();
+  });
+
+  it("counts only the votes cast on the race day, while the slop keeps collecting", async () => {
+    const { t, server } = setup();
+    const [maker, rival, early, late, fickle] = await people(server, "maker", "rival", "early", "late", "fickle");
+    const slop = await ship(server, maker, "2026-10-06");
+    const other = await ship(server, rival, "2026-10-06");
+    await server.mutation(api.slops.vote, { userId: early, slopId: slop.slopId, value: 1 });
+    await server.mutation(api.slops.vote, { userId: fickle, slopId: slop.slopId, value: 1 });
+    await server.mutation(api.slops.vote, { userId: early, slopId: other.slopId, value: 1 });
+    // Switching today's vote moves it in the race too.
+    await server.mutation(api.slops.vote, { userId: fickle, slopId: slop.slopId, value: -1 });
+    await server.mutation(api.slops.vote, { userId: fickle, slopId: slop.slopId, value: 1 });
+    expect(await tally(t, slop.slopId)).toEqual({ upvotes: 2, downvotes: 0, raceUpvotes: 2, raceDownvotes: 0 });
+
+    // Just after midnight, before the crown: votes still land on the slop, not in the race.
+    vi.setSystemTime(Date.parse("2026-10-07T00:00:30Z"));
+    await server.mutation(api.slops.vote, { userId: late, slopId: other.slopId, value: 1 });
+    await server.mutation(api.slops.vote, { userId: late, slopId: slop.slopId, value: 1 });
+    await server.mutation(api.slops.vote, { userId: fickle, slopId: slop.slopId, value: 0 });
+    expect(await tally(t, slop.slopId)).toEqual({ upvotes: 2, downvotes: 0, raceUpvotes: 2, raceDownvotes: 0 });
+    expect(await tally(t, other.slopId)).toEqual({ upvotes: 2, downvotes: 0, raceUpvotes: 1, raceDownvotes: 0 });
+
+    await t.mutation(internal.race.crown, {});
+    expect((await server.query(api.race.day, { date: "2026-10-06" })).winnerId).toBe(slop.slopId);
+    const winner = await server.query(api.slops.getForServer, { slopId: slop.slopId });
+    expect(winner?.slopcessfulNote).toMatch(/with 2 upvotes\.$/);
+  });
+
+  it("counts new accounts' votes on the slop but not in the race", async () => {
+    const { t, server } = setup();
+    const [maker] = await people(server, "maker");
+    const fresh = await makeUser(server, "fresh");
+    const { slopId } = await ship(server, maker, "2026-10-06");
+    await server.mutation(api.slops.vote, { userId: fresh, slopId, value: 1 });
+    expect(await tally(t, slopId)).toEqual({ upvotes: 1, downvotes: 0, raceUpvotes: 0, raceDownvotes: 0 });
+    // Taking it back takes nothing from the race.
+    await server.mutation(api.slops.vote, { userId: fresh, slopId, value: 0 });
+    expect(await tally(t, slopId)).toEqual({ upvotes: 0, downvotes: 0, raceUpvotes: 0, raceDownvotes: 0 });
+
+    // A day on, the same account counts, but only in a race that's still on.
+    vi.setSystemTime(Date.parse("2026-10-07T10:00:00Z"));
+    const next = await ship(server, maker, "2026-10-07", { input: { ...input, name: "TiltMaze 2" } });
+    await server.mutation(api.slops.vote, { userId: fresh, slopId: next.slopId, value: 1 });
+    await server.mutation(api.slops.vote, { userId: fresh, slopId, value: 1 });
+    expect(await tally(t, next.slopId)).toEqual({ upvotes: 1, downvotes: 0, raceUpvotes: 1, raceDownvotes: 0 });
+    expect(await tally(t, slopId)).toEqual({ upvotes: 1, downvotes: 0, raceUpvotes: 0, raceDownvotes: 0 });
+  });
+
+  it("doesn't let makers racing the same day push rivals down or trade upvotes", async () => {
+    const { t, server } = setup();
+    const [a, b, c, fan] = await people(server, "a", "b", "c", "fan");
+    const first = await ship(server, a, "2026-10-06");
+    const second = await ship(server, b, "2026-10-06");
+    const third = await ship(server, c, "2026-10-06");
+
+    await server.mutation(api.slops.vote, { userId: a, slopId: second.slopId, value: -1 });
+    expect(await tally(t, second.slopId)).toEqual({ upvotes: 0, downvotes: 1, raceUpvotes: 0, raceDownvotes: 0 });
+    // An upvote from a rival counts, until the other maker returns it.
+    await server.mutation(api.slops.vote, { userId: a, slopId: third.slopId, value: 1 });
+    expect(await tally(t, third.slopId)).toEqual({ upvotes: 1, downvotes: 0, raceUpvotes: 1, raceDownvotes: 0 });
+    await server.mutation(api.slops.vote, { userId: c, slopId: first.slopId, value: 1 });
+    expect(await tally(t, first.slopId)).toEqual({ upvotes: 1, downvotes: 0, raceUpvotes: 0, raceDownvotes: 0 });
+    expect(await tally(t, third.slopId)).toEqual({ upvotes: 1, downvotes: 0, raceUpvotes: 0, raceDownvotes: 0 });
+    // Someone not racing votes as usual.
+    await server.mutation(api.slops.vote, { userId: fan, slopId: second.slopId, value: -1 });
+    expect(await tally(t, second.slopId)).toEqual({ upvotes: 0, downvotes: 2, raceUpvotes: 0, raceDownvotes: 1 });
   });
 });
 
