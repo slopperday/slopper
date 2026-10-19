@@ -734,6 +734,31 @@ describe("web vitals", () => {
     measured = null;
   });
 
+  it("sends the paint timings the browser has when it's left before web-vitals reports", async () => {
+    const beacon = vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
+    const named = vi
+      .spyOn(performance, "getEntriesByName")
+      .mockImplementation((name) =>
+        name === "first-contentful-paint" ? [{ startTime: 312.4 } as PerformanceEntry] : [],
+      );
+    const typed = vi
+      .spyOn(performance, "getEntriesByType")
+      .mockImplementation((type) =>
+        type === "navigation" ? [{ responseStart: 88.6 } as PerformanceNavigationTiming] : [],
+      );
+    history.replaceState(null, "", "/wall");
+    make({ pageviews: false });
+    // Hidden at once: web-vitals hasn't loaded yet.
+    window.dispatchEvent(new Event("pagehide"));
+    await tick();
+    window.dispatchEvent(new Event("pagehide"));
+    const vitals = (await beaconed(beacon)).filter((event) => event.name === "$webVitals");
+    expect(vitals).toHaveLength(1);
+    expect(vitals[0]).toMatchObject({ path: "/wall", properties: { fcp: 312, ttfb: 89 } });
+    named.mockRestore();
+    typed.mockRestore();
+  });
+
   it("measures nothing when turned off", async () => {
     measured = { lcp: 1800 };
     const beacon = vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);

@@ -59,10 +59,12 @@ export async function countsInRace(
   const today = new Date(now).toISOString().slice(0, 10);
   if (slop.raceDate !== today) return false;
   if (now - voter._creationTime < LIMITS.raceVoterAge) return false;
+  // Read through the voter's own slops: a read of the whole day's race would
+  // conflict with every launch going out at the same time.
   const racing = await ctx.db
     .query("slops")
-    .withIndex("by_race_date", (q) => q.eq("raceDate", today))
-    .filter((q) => q.eq(q.field("userId"), voter._id))
+    .withIndex("by_user", (q) => q.eq("userId", voter._id))
+    .filter((q) => q.eq(q.field("raceDate"), today))
     .collect();
   if (racing.length === 0) return true;
   if (value === -1) return false;
