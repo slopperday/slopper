@@ -98,7 +98,8 @@ export function shareIntents(text: string, url: string) {
   return {
     x: `https://x.com/intent/post?text=${enc(text)}&url=${enc(url)}`,
     bluesky: `https://bsky.app/intent/compose?text=${enc(`${text} ${url}`)}`,
-    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${enc(url)}`,
+    // share-offsite ignores text; the feed composer prefills it and unfurls the link.
+    linkedin: `https://www.linkedin.com/feed/?shareActive=true&text=${enc(`${text} ${url}`)}`,
     threads: `https://www.threads.net/intent/post?text=${enc(`${text} ${url}`)}`,
   };
 }
