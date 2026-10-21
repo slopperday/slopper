@@ -1,6 +1,6 @@
 ---
 name: slopper
-description: Ship to slopper.day from the terminal with the `slopper` CLI (npm @slopperday/cli). Use when the user wants to launch a project as today's slop or schedule launches for later days, post an update or field test, set a daily shipping goal, log costs or revenue, check today's slop of the day race, search slops, vote on slops, review slops they tried, or read their slops' reviews.
+description: Ship to slopper.day from the terminal with the `slopper` CLI (npm @slopperday/cli). Use when the user says to deploy, ship, post or put a project on Slopper or slopper.day, wants to launch a project as today's slop or schedule launches for later days, post an update or field test, set a daily shipping goal, log costs or revenue, check today's slop of the day race, search slops, vote on slops, review slops they tried, or read their slops' reviews.
 ---
 
 # Slopper
@@ -9,6 +9,11 @@ description: Ship to slopper.day from the terminal with the `slopper` CLI (npm @
 daily (a site, a TestFlight or Play beta, a repo), set a goal like 30 slops in 30 days, and keep slopping until one is
 slopcessful. Every UTC day the slops launched that day race on votes; the leader at midnight UTC wins slop of the day
 and goes slopcessful. Slopcessful is earned, never declared: nobody can mark their own slop slopcessful.
+
+"Deploy this to Slopper" means launch the project as a slop (see [Launch a slop](#launch-a-slop)). Slopper doesn't
+host apps: a slop links to where the project already runs, so deploy it to its own host first if it isn't live yet. Only
+something to read (a PDF or EPUB) is uploaded to Slopper itself. Inside the slopper.day repository, deploying means
+releasing the site: follow that repository's `AGENTS.md` instead.
 
 ## Setup
 
