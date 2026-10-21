@@ -4,11 +4,11 @@ import { seo } from "~/lib/seo";
 const RULES = [
   {
     title: "Ship something real",
-    body: "Something people can try today: a site, a beta, a published app, a repo with a demo. Ideas and waitlists don't count.",
+    body: "Something people can try or read today: a site, a beta, a published app, a repo with a demo, or a book, zine or guide you wrote, uploaded as a PDF. Ideas and waitlists don't count.",
   },
   {
     title: "Keep it safe for work",
-    body: "Things you'd show anyone. Every launch, screenshot, video and auto-post is checked. Sexual or hateful screenshots are refused, and launches with anything sexual, hateful or illegal wait for a moderator and never auto-post.",
+    body: "Things you'd show anyone. Every launch, screenshot, PDF, video and auto-post is checked. Sexual or hateful screenshots and PDFs are refused, and launches with anything sexual, hateful or illegal wait for a moderator and never auto-post.",
   },
   {
     title: "No spam, malware or scams",

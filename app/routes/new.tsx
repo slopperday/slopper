@@ -7,7 +7,7 @@ import { requireUser, viewerContext } from "~/.server/session";
 import { convex, convexMessage } from "~/.server/convex";
 import { formText, parseSlopForm, slopFormValues, slopValues } from "~/.server/forms";
 import { redirectWithFlash } from "~/.server/http";
-import { deleteOrphanedMedia, screenshotsWithUrls } from "~/.server/media";
+import { deleteOrphanedMedia, publicationForForm, screenshotsWithUrls } from "~/.server/media";
 import { finishLaunch, launchFlash, releaseScheduled } from "~/.server/launch";
 import type { User } from "~/.server/session";
 import { utcDate } from "~/lib/dates";
@@ -49,7 +49,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       ? {
           id: source._id,
           name: source.name,
-          values: { ...slopValues(source), screenshots: await screenshotsWithUrls(source.screenshots) },
+          values: {
+            ...slopValues(source),
+            screenshots: await screenshotsWithUrls(source.screenshots),
+            publication: await publicationForForm(source.publication),
+          },
         }
       : null,
     autopost: accounts
@@ -119,6 +123,7 @@ export async function action({ request, context }: Route.ActionArgs) {
         values: {
           ...values,
           screenshots: await screenshotsWithUrls(values.screenshots),
+          publication: await publicationForForm(values.publication),
           launchLabel: label,
           when,
           releaseAt,

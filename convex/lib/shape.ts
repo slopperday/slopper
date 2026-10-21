@@ -10,7 +10,7 @@ import type {
 } from "../../app/lib/model";
 import { renderMarkdown } from "../../app/lib/markdown";
 import type { DemoVideo } from "../../app/lib/video";
-import { mediaUrl } from "./media";
+import { mediaUrl, publicationName } from "./media";
 
 /**
  * What leaves Convex. Public queries return these shapes, never raw
@@ -58,6 +58,8 @@ export interface PublicSlop {
   video: string | null;
   /** A video is waiting for a moderator (convex/videos.ts). */
   videoPending: boolean;
+  /** The PDF the maker wrote, to read on its page. */
+  publication: PublicPublication | null;
   madeWith: string[];
   /** A demo video linked on YouTube, Loom or Vimeo, shown beside the name. The uploaded promo is `video`. */
   demo: DemoVideo | null;
@@ -81,6 +83,19 @@ export interface PublicSlop {
   slopcessfulAt: number | null;
   slopcessfulNote: string | null;
   hidden: boolean;
+}
+
+export interface PublicPublication {
+  url: string;
+  fileName: string;
+  /** Bytes. */
+  size: number;
+}
+
+async function publicationOf(ctx: QueryCtx, id: Id<"media"> | undefined): Promise<PublicPublication | null> {
+  const media = id ? await ctx.db.get(id) : null;
+  const url = media ? await mediaUrl(ctx, media) : null;
+  return media && url ? { url, fileName: publicationName(media), size: media.size } : null;
 }
 
 export function productIdOf(slop: Doc<"slops">): Id<"slops"> {
@@ -118,6 +133,7 @@ export async function publicSlop(ctx: QueryCtx, slop: Doc<"slops">): Promise<Pub
     screenshots: await screenshotUrls(ctx, slop.screenshots),
     video: slop.video?.approvedAt ? await approvedVideoUrl(ctx, slop.video.mediaId) : null,
     videoPending: slop.video !== undefined && slop.video.approvedAt === null,
+    publication: await publicationOf(ctx, slop.publication),
     madeWith: slop.madeWith,
     demo: slop.demo ?? null,
     features: slop.features ?? [],

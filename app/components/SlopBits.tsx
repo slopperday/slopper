@@ -7,10 +7,12 @@ import { Splat } from "./Logo";
 /** Small pieces shared by slop cards, race rows and the slop page. */
 
 /** "Web · iOS beta": where you can try it, as plain words. */
-export function Platforms({ links }: { links: readonly SlopLink[] }) {
-  const badges = platformBadges(links);
+/** Where to try it, then "PDF" when there's a publication to read. */
+export function Platforms({ links, publication = false }: { links: readonly SlopLink[]; publication?: boolean }) {
+  const badges = platformBadges(links).map((badge) => `${badge.label}${badge.beta ? " beta" : ""}`);
+  if (publication) badges.push("PDF");
   if (badges.length === 0) return null;
-  return <span>{badges.map((badge) => `${badge.label}${badge.beta ? " beta" : ""}`).join(" · ")}</span>;
+  return <span>{badges.join(" · ")}</span>;
 }
 
 export function CategoryLink({ category: id }: { category: string }) {

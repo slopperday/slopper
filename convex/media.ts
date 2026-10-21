@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireServer } from "./lib/auth";
-import { mediaPublicBase, mediaUrl } from "./lib/media";
+import { isPublication, mediaPublicBase, mediaUrl, publicationName } from "./lib/media";
 import { consume } from "./lib/rate";
 import { mediaCheckValidator, mediaLocationValidator } from "./schema";
 
@@ -42,13 +42,22 @@ export const register = mutation({
     contentType: v.string(),
     size: v.number(),
     check: mediaCheckValidator,
+    /** A publication's file name, as it's shown on its slop. */
+    fileName: v.optional(v.string()),
   },
-  handler: async (ctx, { ownerId, location, contentType, size, check }) => {
+  handler: async (ctx, { ownerId, location, contentType, size, check, fileName }) => {
     await requireServer(ctx);
     if (location.backend === "convex" && !(await ctx.db.system.get(location.storageId))) {
       throw new ConvexError("Upload not found.");
     }
-    const mediaId = await ctx.db.insert("media", { ownerId, contentType, size, check, ...location });
+    const mediaId = await ctx.db.insert("media", {
+      ownerId,
+      contentType,
+      size,
+      check,
+      ...(fileName ? { fileName } : {}),
+      ...location,
+    });
     const media = await ctx.db.get(mediaId);
     return { mediaId, url: media ? await mediaUrl(ctx, media) : null };
   },
@@ -61,6 +70,30 @@ export const url = query({
     const id = ctx.db.normalizeId("media", mediaId);
     const media = id ? await ctx.db.get(id) : null;
     return media ? await mediaUrl(ctx, media) : null;
+  },
+});
+
+/** A publication as the slop forms show it: its name, size and where to read it. */
+export const publication = query({
+  args: { mediaId: v.string() },
+  handler: async (ctx, { mediaId }) => {
+    const id = ctx.db.normalizeId("media", mediaId);
+    const media = id ? await ctx.db.get(id) : null;
+    if (!media || !isPublication(media)) return null;
+    const url = await mediaUrl(ctx, media);
+    return url ? { id: media._id, fileName: publicationName(media), size: media.size, url } : null;
+  },
+});
+
+/** What the launch check needs to read a publication again: where it is and what the upload check said. */
+export const publicationForCheck = query({
+  args: { mediaId: v.id("media") },
+  handler: async (ctx, { mediaId }) => {
+    await requireServer(ctx);
+    const media = await ctx.db.get(mediaId);
+    if (!media || !isPublication(media)) return null;
+    const url = await mediaUrl(ctx, media);
+    return url ? { url, fileName: publicationName(media), verdict: media.check?.verdict ?? null } : null;
   },
 });
 

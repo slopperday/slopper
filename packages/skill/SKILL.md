@@ -77,6 +77,10 @@ slopper launch \
 Link kinds: `website`, `app_store`, `testflight`, `play_store`, `play_beta`, `source`, `other`. A bare URL is a
 website. Store links must use their store's domain.
 
+When the user wrote something to read (a book, zine, guide or paper), launch it with `--publication ./guide.pdf`
+(a PDF up to 4 MB, uploaded for you). People read it on the slop page, and `--link` becomes optional.
+`slopper edit <slop> --remove-publication` takes it off.
+
 The result has the slop's `id`, `slug` and `url`. Give the user the URL. `hidden: true` means only they can see it
 while it waits for a moderator, and `nsfw: true` that it's blurred.
 

@@ -25,7 +25,7 @@ import { TAG_KINDS, tagOptions } from "~/lib/tags";
 import { absoluteUrl, autopostNetworks, config } from "../config";
 import { convex, convexMessage } from "../convex";
 import { validateGoal, validateReview, validateSlop, validateUpdate } from "../forms";
-import { deleteOrphanedMedia, uploadImage, uploadVideo } from "../media";
+import { deleteOrphanedMedia, uploadImage, uploadPublication, uploadVideo } from "../media";
 import { checkedContent, checkSlop, checkVideo } from "../moderation";
 import { finishLaunch, releaseScheduled } from "../launch";
 import { announce } from "../social/announce";
@@ -129,6 +129,8 @@ function summarizeSlop(slop: Doc<"slops">, owner: User) {
       : null,
     /** The promo video: none, pending (waiting for a moderator) or live. */
     video: !slop.video ? "none" : slop.video.approvedAt === null ? "pending" : "live",
+    /** Whether it has a publication (a PDF) to read. */
+    publication: slop.publication !== undefined,
   };
 }
 
@@ -213,7 +215,8 @@ const SLOP_REF = { type: "string", description: "The slop's id or slug (from lis
 
 const LINKS_SCHEMA = {
   type: "array",
-  description: "Where people can try it. At least one. Store links must use their store's domain.",
+  description:
+    "Where people can try it. At least one, unless the slop has a publication to read. Store links must use their store's domain.",
   items: {
     type: "object",
     properties: { kind: { type: "string", enum: Object.keys(LINK_KINDS) }, url: { type: "string" } },
@@ -248,6 +251,13 @@ function summarizeScheduled(item: ScheduledItem, user: User) {
     out: item.out ? absoluteUrl(slopPath(user.username, item.out.slug)) : null,
   };
 }
+
+/** A publication to read, for create_slop and update_slop. */
+const PUBLICATION_SCHEMA = {
+  type: "string",
+  description:
+    "An id from upload_publication: a PDF the user wrote, read on the slop page. With one, links are optional. On update_slop, null takes it off.",
+};
 
 /** The product page fields, shared by create_slop and update_slop. */
 const PRODUCT_PAGE_SCHEMA = {
@@ -494,6 +504,32 @@ export const OPERATIONS: Operation[] = [
     },
   },
   {
+    name: "upload_publication",
+    title: "Upload a publication",
+    description: `Upload a PDF the user wrote (a book, zine, guide or paper; max ${LIMITS.publicationBytes / 1024 / 1024} MB) as base64. Explicit or hateful ones are refused. Returns an id to pass as publication in create_slop or update_slop, and nsfw: true when it will blur the slop that shows it.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        base64: { type: "string", description: "PDF bytes, base64 encoded (no data: prefix)." },
+        fileName: {
+          type: "string",
+          maxLength: LIMITS.publicationNameLength,
+          description: "The name it's shown by on the slop, like “field-guide.pdf”.",
+        },
+      },
+      required: ["base64"],
+    },
+    readOnly: false,
+    async run({ user }, input) {
+      const result = await uploadPublication(user._id, {
+        bytes: base64Bytes(input),
+        fileName: optionalString(input, "fileName"),
+      });
+      if (!result.ok) throw new ApiError(400, result.error);
+      return { id: result.id, url: result.url, fileName: result.fileName, nsfw: result.contentCheck === "mature" };
+    },
+  },
+  {
     name: "set_video",
     title: "Set a slop's promo video",
     description:
@@ -542,6 +578,7 @@ export const OPERATIONS: Operation[] = [
           maxItems: LIMITS.screenshots,
           description: "Ids from upload_screenshot; the first is the cover.",
         },
+        publication: PUBLICATION_SCHEMA,
         madeWith: {
           type: "array",
           items: { type: "string" },
@@ -567,7 +604,7 @@ export const OPERATIONS: Operation[] = [
         releaseAt: RELEASE_AT,
         autopost: AUTOPOST,
       },
-      required: ["name", "tagline", "category", "links"],
+      required: ["name", "tagline", "category"],
     },
     readOnly: false,
     async run(context, input) {
@@ -579,6 +616,7 @@ export const OPERATIONS: Operation[] = [
         category: optionalString(input, "category"),
         links: optionalLinks(input, "links"),
         screenshots: optionalStrings(input, "screenshots"),
+        publication: optionalString(input, "publication"),
         madeWith: optionalStrings(input, "madeWith"),
         demo: optionalString(input, "demo"),
         features: optionalFeatures(input, "features"),
@@ -649,6 +687,7 @@ export const OPERATIONS: Operation[] = [
         category: { type: "string", enum: CATEGORIES.map((category) => category.id) },
         links: LINKS_SCHEMA,
         screenshots: { type: "array", items: { type: "string" } },
+        publication: { ...PUBLICATION_SCHEMA, type: ["string", "null"] },
         madeWith: { type: "array", items: { type: "string" } },
         ...PRODUCT_PAGE_SCHEMA,
       },
@@ -664,6 +703,8 @@ export const OPERATIONS: Operation[] = [
         category: optionalString(input, "category") ?? slop.category,
         links: optionalLinks(input, "links") ?? slop.links,
         screenshots: optionalStrings(input, "screenshots") ?? slop.screenshots,
+        // null takes it off; left out, it stays.
+        publication: input.publication === null ? null : (optionalString(input, "publication") ?? slop.publication),
         madeWith: optionalStrings(input, "madeWith") ?? slop.madeWith,
         demo: optionalString(input, "demo") ?? (slop.demo ? videoPageUrl(slop.demo) : ""),
         features: optionalFeatures(input, "features") ?? slop.features ?? [],

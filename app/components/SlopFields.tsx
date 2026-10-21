@@ -1,6 +1,7 @@
 import { CATEGORIES, LIMITS, type SlopFeature, type SlopLink } from "~/lib/model";
 import { FeatureFields } from "./FeatureFields";
 import { LinkFields } from "./LinkFields";
+import { type Publication, PublicationPicker } from "./PublicationPicker";
 import { type Screenshot, ScreenshotPicker } from "./ScreenshotPicker";
 import { TagPicker } from "./TagPicker";
 
@@ -13,6 +14,7 @@ export interface SlopFormValues {
   category: string;
   links: SlopLink[];
   screenshots: Screenshot[];
+  publication: Publication | null;
   madeWith: string[];
   /** A YouTube, Loom or Vimeo link. */
   demo: string;
@@ -92,6 +94,14 @@ export function SlopFields({
 
       <Field label="Where to try it" error={errors.links} hint="TestFlight and Android beta links count too.">
         <LinkFields initial={values.links ?? []} max={LIMITS.links} />
+      </Field>
+
+      <Field
+        label="Publication"
+        error={errors.publication}
+        hint={`Wrote a book, zine, guide or paper? Upload the PDF (up to ${LIMITS.publicationBytes / 1024 / 1024} MB) and people read it here. With one, links are optional.`}
+      >
+        <PublicationPicker initial={values.publication ?? null} />
       </Field>
 
       <Field label="Screenshots" error={errors.screenshots} hint="The first is the cover. Big images get shrunk.">

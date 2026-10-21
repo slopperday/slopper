@@ -188,8 +188,17 @@ function startFakeCheck(): void {
       model: string;
       messages: {
         role: string;
-        content: string | { type: string; text?: string; image_url?: { url: string }; video_url?: { url: string } }[];
+        content:
+          | string
+          | {
+              type: string;
+              text?: string;
+              image_url?: { url: string };
+              video_url?: { url: string };
+              file?: { filename?: string; file_data?: string };
+            }[];
       }[];
+      plugins?: { id?: string; pdf?: { engine?: string } }[];
       response_format?: { type: string };
       reasoning?: { enabled?: boolean };
       provider?: { require_parameters?: boolean };
@@ -219,6 +228,14 @@ function startFakeCheck(): void {
     // Videos too, and only the video check sends them.
     const videos = parts.flatMap((part) => (part.type === "video_url" ? [part.video_url?.url ?? ""] : []));
     const inlineVideos = videos.map((url) => /^data:video\/(mp4|webm);base64,([A-Za-z0-9+/=]+)$/.exec(url));
+    // PDFs too, named, with the free text parser asked for.
+    const files = parts.flatMap((part) => (part.type === "file" ? [part.file ?? {}] : []));
+    const inlineFiles = files.map((file) =>
+      file.filename ? /^data:application\/pdf;base64,([A-Za-z0-9+/=]+)$/.exec(file.file_data ?? "") : null,
+    );
+    const parsesPdfs =
+      files.length === 0 ||
+      body.plugins?.some((plugin) => plugin.id === "file-parser" && plugin.pdf?.engine === "pdf-text");
     const wellFormed =
       request.headers.authorization === "Bearer e2e-key" &&
       system?.role === "system" &&
@@ -228,22 +245,41 @@ function startFakeCheck(): void {
       body.reasoning?.enabled === false &&
       body.provider?.require_parameters === true &&
       inline.every((match) => match !== null) &&
-      inlineVideos.every((match) => match !== null);
+      inlineVideos.every((match) => match !== null) &&
+      inlineFiles.every((match) => match !== null) &&
+      parsesPdfs === true;
     if (!wellFormed) {
       response.writeHead(400, { "content-type": "application/json" }).end('{"error":"malformed check request"}');
       return;
     }
-    // A video's markers are in its bytes, as if the model watched them.
+    // A video's markers are in its bytes, as if the model watched them, and a PDF's as if its text was read out.
     const watched = inlineVideos.map((match) => Buffer.from(match?.[2] ?? "", "base64").toString("latin1")).join("\n");
-    const content = `${text}\n${watched}`;
+    const read = inlineFiles.map((match) => Buffer.from(match?.[1] ?? "", "base64").toString("latin1")).join("\n");
+    const content = `${text}\n${watched}\n${read}`;
     const imageHashes = inline.map((match) => sha256Hex(Buffer.from(match?.[2] ?? "", "base64")));
     if (content.includes("[e2e:error]")) {
-      log.push({ model: body.model, text, images: images.length, videos: videos.length, imageHashes, verdict: null });
+      log.push({
+        model: body.model,
+        text,
+        images: images.length,
+        videos: videos.length,
+        files: files.length,
+        imageHashes,
+        verdict: null,
+      });
       response.writeHead(502, { "content-type": "application/json" }).end('{"error":"upstream failed"}');
       return;
     }
     const verdict = content.includes("[e2e:blocked]") ? "blocked" : content.includes("[e2e:mature]") ? "mature" : "ok";
-    log.push({ model: body.model, text, images: images.length, videos: videos.length, imageHashes, verdict });
+    log.push({
+      model: body.model,
+      text,
+      images: images.length,
+      videos: videos.length,
+      files: files.length,
+      imageHashes,
+      verdict,
+    });
     const reply = { verdict, reason: `Fake check: ${verdict}.` };
     response
       .writeHead(200, { "content-type": "application/json" })

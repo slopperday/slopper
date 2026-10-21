@@ -25,6 +25,7 @@ export async function loader({ params }: Route.LoaderArgs) {
       url: absoluteUrl(slopPath(owner.username, slop.slug)),
       links: slop.links,
       screenshots: slop.screenshots,
+      publication: slop.publication,
       madeWith: slop.madeWith,
       launchDate: slop.launchDate,
       goalDay: slop.goalDay,

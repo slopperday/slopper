@@ -16,7 +16,7 @@ import { modeFor } from "~/.server/social/crosspost";
 import { shareIntents } from "~/lib/compose";
 import { formatDay, localDate, timeAgo } from "~/lib/dates";
 import { editWindow } from "~/lib/editing";
-import { dayLabel, launchTitle, listWords, numberLabel, plural, slopPath } from "~/lib/display";
+import { dayLabel, fileSize, launchTitle, listWords, numberLabel, plural, slopPath } from "~/lib/display";
 import { parseAmount } from "~/lib/money";
 import {
   COST_CATEGORIES,
@@ -467,7 +467,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
               )}
               {slop.demo && reveal && (
                 <div className="mt-6 grid gap-2">
-                  <HeroActions loaderData={loaderData} path={path} primary={primary} />
+                  <HeroActions loaderData={loaderData} path={path} primary={primary} reveal={reveal} />
                   <LiveTeaser traction={loaderData.traction} />
                 </div>
               )}
@@ -476,7 +476,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
               <DemoVideo video={slop.demo} name={slop.name} />
             ) : (
               <div className="grid gap-2 lg:justify-items-end">
-                <HeroActions loaderData={loaderData} path={path} primary={primary} />
+                <HeroActions loaderData={loaderData} path={path} primary={primary} reveal={reveal} />
                 <LiveTeaser traction={loaderData.traction} />
               </div>
             )}
@@ -498,6 +498,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
                 <Platforms links={slop.links} />
               </Fact>
             )}
+            {slop.publication && <Fact label="Read it">PDF · {fileSize(slop.publication.size)}</Fact>}
             {slop.madeWith.length > 0 && (
               <Fact label="Made with">
                 <span className="flex flex-wrap gap-1.5">
@@ -529,6 +530,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
             </video>
           </section>
         )}
+        {slop.publication && <PublicationCard slop={slop} reveal={reveal} />}
         {slop.screenshots.length > 0 && (
           <section className="relative mt-10" aria-label="Screenshots">
             <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2">
@@ -600,12 +602,15 @@ function HeroActions({
   loaderData,
   path,
   primary,
+  reveal,
 }: {
   loaderData: View;
   path: string;
   primary: View["slop"]["links"][number] | undefined;
+  reveal: boolean;
 }) {
   const { slop } = loaderData;
+  const { publication } = slop;
   return (
     <div className="flex flex-wrap items-center gap-3">
       <VoteButtons
@@ -628,7 +633,51 @@ function HeroActions({
           <Icon name="out" className="size-5" />
         </a>
       )}
+      {publication && (
+        <a
+          href={reveal ? publication.url : "?reveal=1"}
+          target={reveal ? "_blank" : undefined}
+          rel="noopener"
+          data-capture="read"
+          className={`btn btn-lg ${primary ? "" : "btn-slop"}`}
+        >
+          Read it
+          <Icon name={reveal ? "out" : "eye"} className="size-5" />
+        </a>
+      )}
     </div>
+  );
+}
+
+/** The maker's own publication: what it is, how big, and where to read it. NSFW ones wait for a reveal. */
+function PublicationCard({ slop, reveal }: { slop: View["slop"]; reveal: boolean }) {
+  const { publication } = slop;
+  if (!publication) return null;
+  return (
+    <section className="mt-10" aria-labelledby="publication-title">
+      <a
+        href={reveal ? publication.url : "?reveal=1"}
+        target={reveal ? "_blank" : undefined}
+        rel="noopener"
+        data-capture="read"
+        className="flex items-center gap-4 rounded-2xl bg-sunk p-5 transition-colors hover:bg-board sm:p-6"
+      >
+        <Icon name="page" className="size-10 text-muted" />
+        <span className="min-w-0 flex-1">
+          <span id="publication-title" className="caps block text-[0.8rem] text-muted">
+            Publication
+          </span>
+          <span className="mt-1 block truncate font-display text-[1.5rem] leading-tight font-extrabold">
+            {publication.fileName}
+          </span>
+          <span className="mt-1 block text-[0.9375rem] text-muted">
+            PDF · {fileSize(publication.size)}
+            {reveal ? "" : " · NSFW, show anyway"}
+          </span>
+        </span>
+        <Icon name={reveal ? "out" : "eye"} className="size-6" />
+      </a>
+    </section>
   );
 }
 
