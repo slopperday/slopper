@@ -1,0 +1,1146 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-10-21T06:36:37Z",
+  "command": "release",
+  "version": null,
+  "versions": {
+    "cli": "0.1.7",
+    "slopper": "1.11.0"
+  },
+  "release_targets": [
+    {
+      "id": "cli",
+      "kind": "group",
+      "version": "0.1.7",
+      "version_format": "namespaced",
+      "tag": true,
+      "release": false,
+      "tag_name": "cli/v0.1.7",
+      "rendered_title": "cli v0.1.7 (2026-10-21)",
+      "rendered_changelog_title": "cli 0.1.7 (2026-10-21)",
+      "members": ["@slopperday/cli", "@slopperday/skill"]
+    },
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.11.0",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.11.0",
+      "rendered_title": "v1.11.0 (2026-10-21)",
+      "rendered_changelog_title": "1.11.0 (2026-10-21)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["@slopperday/cli", "@slopperday/skill", "slopper"],
+  "changed_files": [
+    "CHANGELOG.md",
+    "app/changelog/1.11.0.json",
+    "package.json",
+    "packages/cli/CHANGELOG.md",
+    "packages/cli/package.json",
+    "packages/skill/package.json"
+  ],
+  "package_publications": [
+    {
+      "package": "@slopperday/cli",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.7",
+      "mode": "builtin",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    },
+    {
+      "package": "@slopperday/skill",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.7",
+      "mode": "builtin",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    }
+  ],
+  "updated_changelogs": ["CHANGELOG.md", "app/changelog/1.11.0.json", "packages/cli/CHANGELOG.md"],
+  "deleted_changesets": [
+    ".changeset/cli-profile.md",
+    ".changeset/cli-utc-days.md",
+    ".changeset/fair-race-internals.md",
+    ".changeset/fair-race.md",
+    ".changeset/linkedin-share-text.md",
+    ".changeset/public-api-reads-internals.md",
+    ".changeset/public-api-reads.md",
+    ".changeset/skill-profile.md",
+    ".changeset/skill-race-votes.md",
+    ".changeset/utc-days-internals.md",
+    ".changeset/utc-days.md",
+    ".changeset/vitals-early-leave.md",
+    ".changeset/votes-busy-days.md"
+  ],
+  "changesets": [
+    {
+      "path": ".changeset/cli-profile.md",
+      "summary": "slopper profile, and public reads without a token",
+      "details": "`slopper profile @username` prints anyone's open goal day by day, what's still to go, their streak and slops. It, `today`, `search`, `categories`, `tags` and `reviews` work without logging in, and send the token when there is one.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f0ed9309b60e8e45fa00ca5f1133f930bc7f0711",
+            "short_sha": "f0ed930",
+            "url": null,
+            "authored_at": "2026-10-19T11:52:02+01:00",
+            "committed_at": "2026-10-19T11:52:02+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f0ed9309b60e8e45fa00ca5f1133f930bc7f0711",
+            "short_sha": "f0ed930",
+            "url": null,
+            "authored_at": "2026-10-19T11:52:02+01:00",
+            "committed_at": "2026-10-19T11:52:02+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/cli-utc-days.md",
+      "summary": "Goal days end at midnight UTC",
+      "details": "`slopper goal --days` help, `whoami`'s summary and the skill say every day on Slopper is a UTC day.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "none",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "docs"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "6372f1b2f005702b26291ff7e9169471c1e70172",
+            "short_sha": "6372f1b",
+            "url": null,
+            "authored_at": "2026-10-21T01:14:00+01:00",
+            "committed_at": "2026-10-21T01:14:00+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "6372f1b2f005702b26291ff7e9169471c1e70172",
+            "short_sha": "6372f1b",
+            "url": null,
+            "authored_at": "2026-10-21T01:14:00+01:00",
+            "committed_at": "2026-10-21T01:14:00+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/fair-race-internals.md",
+      "summary": "Race tallies and anti-gaming rules for slop of the day",
+      "details": "- Slops keep raceUpvotes/raceDownvotes beside their totals: only votes cast on raceDate move them, so the tally stops when the day ends and the crown at 00:01 UTC ranks on it (convex/race.ts raceTally). Older slops fall back to their totals.\n- Votes record inRace. countsInRace leaves out votes from accounts younger than LIMITS.raceVoterAge (a day), downvotes from makers with a slop in the same race, and swapped upvotes between two racing makers (the earlier one comes out of its tally too).\n- The rules page, /today, llms.txt and the agent skill say what counts.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "40168d4e27b0ed3430bbda69a49498ff7cdf7e54",
+            "short_sha": "40168d4",
+            "url": null,
+            "authored_at": "2026-10-19T08:24:57+01:00",
+            "committed_at": "2026-10-19T08:24:57+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "40168d4e27b0ed3430bbda69a49498ff7cdf7e54",
+            "short_sha": "40168d4",
+            "url": null,
+            "authored_at": "2026-10-19T08:24:57+01:00",
+            "committed_at": "2026-10-19T08:24:57+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/fair-race.md",
+      "summary": "Slop of the day counts only fair votes",
+      "details": "Every vote still shows on a slop, whenever it's cast. The daily race now counts only the votes cast on its own day (votes in the minute after midnight used to slip in), and leaves out votes from accounts less than a day old, downvotes from makers racing the same day, and upvotes two racing makers swap. The rules page says what counts.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_change"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "40168d4e27b0ed3430bbda69a49498ff7cdf7e54",
+            "short_sha": "40168d4",
+            "url": null,
+            "authored_at": "2026-10-19T08:24:57+01:00",
+            "committed_at": "2026-10-19T08:24:57+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "40168d4e27b0ed3430bbda69a49498ff7cdf7e54",
+            "short_sha": "40168d4",
+            "url": null,
+            "authored_at": "2026-10-19T08:24:57+01:00",
+            "committed_at": "2026-10-19T08:24:57+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/linkedin-share-text.md",
+      "summary": "Sharing to LinkedIn fills in the post",
+      "details": "The LinkedIn share button opened an empty post box with only the link. It now opens LinkedIn's composer with the same text as the other networks, followed by the link.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8fb198bdf3a7f1854756db058e2c1cd29439c4e2",
+            "short_sha": "8fb198b",
+            "url": null,
+            "authored_at": "2026-10-21T03:53:26+01:00",
+            "committed_at": "2026-10-21T03:53:26+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8fb198bdf3a7f1854756db058e2c1cd29439c4e2",
+            "short_sha": "8fb198b",
+            "url": null,
+            "authored_at": "2026-10-21T03:53:26+01:00",
+            "committed_at": "2026-10-21T03:53:26+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/public-api-reads-internals.md",
+      "summary": "Public operations and per-address rate limits",
+      "details": "- Operations are `UserOperation` or `PublicOperation` (`app/.server/agent/operations.ts`); `runOperation` refuses a user operation without a user. REST serves public ones without a token; a bad token is still a 401 everywhere. MCP still needs a token.\n- `apiQuota` (`app/.server/tokens.ts`) keys calls by user, or by `callerAddress` without one, with `LIMITS.apiCallsPerHour` and `LIMITS.anonymousApiCallsPerHour`; a 429 carries `Retry-After`.\n- `users.profile` returns the owner's `today`.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f0ed9309b60e8e45fa00ca5f1133f930bc7f0711",
+            "short_sha": "f0ed930",
+            "url": null,
+            "authored_at": "2026-10-19T11:52:02+01:00",
+            "committed_at": "2026-10-19T11:52:02+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f0ed9309b60e8e45fa00ca5f1133f930bc7f0711",
+            "short_sha": "f0ed930",
+            "url": null,
+            "authored_at": "2026-10-19T11:52:02+01:00",
+            "committed_at": "2026-10-19T11:52:02+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/public-api-reads.md",
+      "summary": "Look anyone up from the API without signing in",
+      "details": "Anyone's profile, with their goal day by day, streak and slops, is now at `/api/v1/users/{username}` and the `get_profile` agent tool. That profile, today's race, search, categories, tags and reviews all work without an API token, at up to 120 calls an hour from one address. Signed in, everything works, at up to 1,200 calls an hour, and a call over the limit says when to try again.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f0ed9309b60e8e45fa00ca5f1133f930bc7f0711",
+            "short_sha": "f0ed930",
+            "url": null,
+            "authored_at": "2026-10-19T11:52:02+01:00",
+            "committed_at": "2026-10-19T11:52:02+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f0ed9309b60e8e45fa00ca5f1133f930bc7f0711",
+            "short_sha": "f0ed930",
+            "url": null,
+            "authored_at": "2026-10-19T11:52:02+01:00",
+            "committed_at": "2026-10-19T11:52:02+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/skill-profile.md",
+      "summary": "The skill looks people up with slopper profile",
+      "details": null,
+      "targets": [
+        {
+          "id": "@slopperday/skill",
+          "kind": "package",
+          "bump": "none",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "docs"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f0ed9309b60e8e45fa00ca5f1133f930bc7f0711",
+            "short_sha": "f0ed930",
+            "url": null,
+            "authored_at": "2026-10-19T11:52:02+01:00",
+            "committed_at": "2026-10-19T11:52:02+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "f0ed9309b60e8e45fa00ca5f1133f930bc7f0711",
+            "short_sha": "f0ed930",
+            "url": null,
+            "authored_at": "2026-10-19T11:52:02+01:00",
+            "committed_at": "2026-10-19T11:52:02+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/skill-race-votes.md",
+      "summary": "The skill says which votes count in the race",
+      "details": null,
+      "targets": [
+        {
+          "id": "@slopperday/skill",
+          "kind": "package",
+          "bump": "none",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "docs"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "40168d4e27b0ed3430bbda69a49498ff7cdf7e54",
+            "short_sha": "40168d4",
+            "url": null,
+            "authored_at": "2026-10-19T08:24:57+01:00",
+            "committed_at": "2026-10-19T08:24:57+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "40168d4e27b0ed3430bbda69a49498ff7cdf7e54",
+            "short_sha": "40168d4",
+            "url": null,
+            "authored_at": "2026-10-19T08:24:57+01:00",
+            "committed_at": "2026-10-19T08:24:57+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/utc-days-internals.md",
+      "summary": "Launch days are UTC days",
+      "details": "- `insertLaunch` dates a launch itself: `launchDate` is the UTC date it went out, the same as `raceDate`. `slops.create` no longer takes `today`, and goal, profile, streak, scheduling and edit-window code use `utcDate` (app/lib/dates.ts). `timeZone` is only for clock times, typed wall times and the digest.\n- `raceStartOn` and `localDayStart` are gone: the next free day starts at its midnight UTC.\n- `launchDays.toUtcDays` (internal) lists launches whose `launchDate` was their maker's local date and, with `apply`, moves them onto their `raceDate` with their goal day; `launchDays.moveLaunch` backdates one launch for the e2e tests.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "6372f1b2f005702b26291ff7e9169471c1e70172",
+            "short_sha": "6372f1b",
+            "url": null,
+            "authored_at": "2026-10-21T01:14:00+01:00",
+            "committed_at": "2026-10-21T01:14:00+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "6372f1b2f005702b26291ff7e9169471c1e70172",
+            "short_sha": "6372f1b",
+            "url": null,
+            "authored_at": "2026-10-21T01:14:00+01:00",
+            "committed_at": "2026-10-21T01:14:00+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/utc-days.md",
+      "summary": "Every day is a UTC day",
+      "details": "Launches, goal days and streaks now all end at midnight UTC, the same moment for everyone, like slop of the day already did. A slop thrown at 23:55 UTC counts for that day even where it's already past midnight, so a late one no longer looks like a missed day. Settings shows times in your time zone, and the goal form says when midnight UTC is there.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_change"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "6372f1b2f005702b26291ff7e9169471c1e70172",
+            "short_sha": "6372f1b",
+            "url": null,
+            "authored_at": "2026-10-21T01:14:00+01:00",
+            "committed_at": "2026-10-21T01:14:00+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "6372f1b2f005702b26291ff7e9169471c1e70172",
+            "short_sha": "6372f1b",
+            "url": null,
+            "authored_at": "2026-10-21T01:14:00+01:00",
+            "committed_at": "2026-10-21T01:14:00+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/vitals-early-leave.md",
+      "summary": "Page speed counts visits that leave early",
+      "details": "A visit that left before the web-vitals chunk loaded or reported sent no `$webVitals`, so the quickest bounces were missing from /analytics/speed. It now sends the first paint and time to first byte the browser already has. The e2e speed test waits for the first paint instead of racing the chunk, and the scheduled-launch test polls for the content check's verdict instead of reading it once.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7fe30fae9803c47487039dd440dfa8725c9321c0",
+            "short_sha": "7fe30fa",
+            "url": null,
+            "authored_at": "2026-10-19T12:25:52+01:00",
+            "committed_at": "2026-10-19T12:25:52+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7fe30fae9803c47487039dd440dfa8725c9321c0",
+            "short_sha": "7fe30fa",
+            "url": null,
+            "authored_at": "2026-10-19T12:25:52+01:00",
+            "committed_at": "2026-10-19T12:25:52+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/votes-busy-days.md",
+      "summary": "Votes go through while slops are launching",
+      "details": "A vote could fail with an error when lots of slops were launching at the same moment. It now goes through.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7fe30fae9803c47487039dd440dfa8725c9321c0",
+            "short_sha": "7fe30fa",
+            "url": null,
+            "authored_at": "2026-10-19T12:25:52+01:00",
+            "committed_at": "2026-10-19T12:25:52+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "7fe30fae9803c47487039dd440dfa8725c9321c0",
+            "short_sha": "7fe30fa",
+            "url": null,
+            "authored_at": "2026-10-19T12:25:52+01:00",
+            "committed_at": "2026-10-19T12:25:52+01:00",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.11.0 (2026-10-21)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "#### Race tallies and anti-gaming rules for slop of the day\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 40168d4\n\n- Slops keep raceUpvotes/raceDownvotes beside their totals: only votes cast on raceDate move them, so the tally stops when the day ends and the crown at 00:01 UTC ranks on it (convex/race.ts raceTally). Older slops fall back to their totals.\n- Votes record inRace. countsInRace leaves out votes from accounts younger than LIMITS.raceVoterAge (a day), downvotes from makers with a slop in the same race, and swapped upvotes between two racing makers (the earlier one comes out of its tally too).\n- The rules page, /today, llms.txt and the agent skill say what counts.",
+              "#### Public operations and per-address rate limits\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ f0ed930\n\n- Operations are `UserOperation` or `PublicOperation` (`app/.server/agent/operations.ts`); `runOperation` refuses a user operation without a user. REST serves public ones without a token; a bad token is still a 401 everywhere. MCP still needs a token.\n- `apiQuota` (`app/.server/tokens.ts`) keys calls by user, or by `callerAddress` without one, with `LIMITS.apiCallsPerHour` and `LIMITS.anonymousApiCallsPerHour`; a 429 carries `Retry-After`.\n- `users.profile` returns the owner's `today`."
+            ]
+          },
+          {
+            "title": "Fixes",
+            "collapsed": false,
+            "entries": [
+              "#### Launch days are UTC days\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 6372f1b\n\n- `insertLaunch` dates a launch itself: `launchDate` is the UTC date it went out, the same as `raceDate`. `slops.create` no longer takes `today`, and goal, profile, streak, scheduling and edit-window code use `utcDate` (app/lib/dates.ts). `timeZone` is only for clock times, typed wall times and the digest.\n- `raceStartOn` and `localDayStart` are gone: the next free day starts at its midnight UTC.\n- `launchDays.toUtcDays` (internal) lists launches whose `launchDate` was their maker's local date and, with `apply`, moves them onto their `raceDate` with their goal day; `launchDays.moveLaunch` backdates one launch for the e2e tests.",
+              "- **Page speed counts visits that leave early.** A visit that left before the web-vitals chunk loaded or reported sent no `$webVitals`, so the quickest bounces were missing from /analytics/speed. It now sends the first paint and time to first byte the browser already has. The e2e speed test waits for the first paint instead of racing the chunk, and the scheduled-launch test polls for the content check's verdict instead of reading it once.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 7fe30fa"
+            ]
+          }
+        ]
+      },
+      "rendered": "## 1.11.0 (2026-10-21)\n\n### Features\n\n#### Race tallies and anti-gaming rules for slop of the day\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 40168d4\n\n- Slops keep raceUpvotes/raceDownvotes beside their totals: only votes cast on raceDate move them, so the tally stops when the day ends and the crown at 00:01 UTC ranks on it (convex/race.ts raceTally). Older slops fall back to their totals.\n- Votes record inRace. countsInRace leaves out votes from accounts younger than LIMITS.raceVoterAge (a day), downvotes from makers with a slop in the same race, and swapped upvotes between two racing makers (the earlier one comes out of its tally too).\n- The rules page, /today, llms.txt and the agent skill say what counts.\n\n#### Public operations and per-address rate limits\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ f0ed930\n\n- Operations are `UserOperation` or `PublicOperation` (`app/.server/agent/operations.ts`); `runOperation` refuses a user operation without a user. REST serves public ones without a token; a bad token is still a 401 everywhere. MCP still needs a token.\n- `apiQuota` (`app/.server/tokens.ts`) keys calls by user, or by `callerAddress` without one, with `LIMITS.apiCallsPerHour` and `LIMITS.anonymousApiCallsPerHour`; a 429 carries `Retry-After`.\n- `users.profile` returns the owner's `today`.\n\n### Fixes\n\n#### Launch days are UTC days\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 6372f1b\n\n- `insertLaunch` dates a launch itself: `launchDate` is the UTC date it went out, the same as `raceDate`. `slops.create` no longer takes `today`, and goal, profile, streak, scheduling and edit-window code use `utcDate` (app/lib/dates.ts). `timeZone` is only for clock times, typed wall times and the digest.\n- `raceStartOn` and `localDayStart` are gone: the next free day starts at its midnight UTC.\n- `launchDays.toUtcDays` (internal) lists launches whose `launchDate` was their maker's local date and, with `apply`, moves them onto their `raceDate` with their goal day; `launchDays.moveLaunch` backdates one launch for the e2e tests.\n\n- **Page speed counts visits that leave early.** A visit that left before the web-vitals chunk loaded or reported sent no `$webVitals`, so the quickest bounces were missing from /analytics/speed. It now sends the first paint and time to first byte the browser already has. The e2e speed test waits for the first paint instead of racing the chunk, and the scheduled-launch test polls for the content check's verdict instead of reading it once.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 7fe30fa"
+    },
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "user",
+      "stream": "user",
+      "path": "app/changelog/1.11.0.json",
+      "format": "json",
+      "notes": {
+        "title": "1.11.0 (2026-10-21)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Changed",
+            "collapsed": false,
+            "entries": [
+              "- **Slop of the day counts only fair votes.** Every vote still shows on a slop, whenever it's cast. The daily race now counts only the votes cast on its own day (votes in the minute after midnight used to slip in), and leaves out votes from accounts less than a day old, downvotes from makers racing the same day, and upvotes two racing makers swap. The rules page says what counts.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 40168d4",
+              "- **Every day is a UTC day.** Launches, goal days and streaks now all end at midnight UTC, the same moment for everyone, like slop of the day already did. A slop thrown at 23:55 UTC counts for that day even where it's already past midnight, so a late one no longer looks like a missed day. Settings shows times in your time zone, and the goal form says when midnight UTC is there.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 6372f1b"
+            ]
+          },
+          {
+            "title": "New",
+            "collapsed": false,
+            "entries": [
+              "- **Look anyone up from the API without signing in.** Anyone's profile, with their goal day by day, streak and slops, is now at `/api/v1/users/{username}` and the `get_profile` agent tool. That profile, today's race, search, categories, tags and reviews all work without an API token, at up to 120 calls an hour from one address. Signed in, everything works, at up to 1,200 calls an hour, and a call over the limit says when to try again.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ f0ed930"
+            ]
+          },
+          {
+            "title": "Fixed",
+            "collapsed": false,
+            "entries": [
+              "- **Sharing to LinkedIn fills in the post.** The LinkedIn share button opened an empty post box with only the link. It now opens LinkedIn's composer with the same text as the other networks, followed by the link.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 8fb198b",
+              "- **Votes go through while slops are launching.** A vote could fail with an error when lots of slops were launching at the same moment. It now goes through.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 7fe30fa"
+            ]
+          }
+        ]
+      },
+      "rendered": "{\n  \"title\": \"1.11.0 (2026-10-21)\",\n  \"summary\": [],\n  \"sections\": [\n    {\n      \"title\": \"Changed\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Slop of the day counts only fair votes\",\n          \"details_markdown\": \"Every vote still shows on a slop, whenever it's cast. The daily race now counts only the votes cast on its own day (votes in the minute after midnight used to slip in), and leaves out votes from accounts less than a day old, downvotes from makers racing the same day, and upvotes two racing makers swap. The rules page says what counts.\",\n          \"change_type\": \"user_change\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/fair-race.md\",\n            \"changeset_path\": \".changeset/fair-race.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"40168d4\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Every day is a UTC day\",\n          \"details_markdown\": \"Launches, goal days and streaks now all end at midnight UTC, the same moment for everyone, like slop of the day already did. A slop thrown at 23:55 UTC counts for that day even where it's already past midnight, so a late one no longer looks like a missed day. Settings shows times in your time zone, and the goal form says when midnight UTC is there.\",\n          \"change_type\": \"user_change\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/utc-days.md\",\n            \"changeset_path\": \".changeset/utc-days.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"6372f1b\"\n            }\n          }\n        }\n      ]\n    },\n    {\n      \"title\": \"New\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Look anyone up from the API without signing in\",\n          \"details_markdown\": \"Anyone's profile, with their goal day by day, streak and slops, is now at `/api/v1/users/{username}` and the `get_profile` agent tool. That profile, today's race, search, categories, tags and reviews all work without an API token, at up to 120 calls an hour from one address. Signed in, everything works, at up to 1,200 calls an hour, and a call over the limit says when to try again.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/public-api-reads.md\",\n            \"changeset_path\": \".changeset/public-api-reads.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"f0ed930\"\n            }\n          }\n        }\n      ]\n    },\n    {\n      \"title\": \"Fixed\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Sharing to LinkedIn fills in the post\",\n          \"details_markdown\": \"The LinkedIn share button opened an empty post box with only the link. It now opens LinkedIn's composer with the same text as the other networks, followed by the link.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/linkedin-share-text.md\",\n            \"changeset_path\": \".changeset/linkedin-share-text.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"8fb198b\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Votes go through while slops are launching\",\n          \"details_markdown\": \"A vote could fail with an error when lots of slops were launching at the same moment. It now goes through.\",\n          \"change_type\": \"user_fix\",\n          \"bump\": \"patch\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/votes-busy-days.md\",\n            \"changeset_path\": \".changeset/votes-busy-days.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"7fe30fa\"\n            }\n          }\n        }\n      ]\n    }\n  ]\n}"
+    },
+    {
+      "owner_id": "cli",
+      "owner_kind": "group",
+      "output": "default",
+      "stream": "default",
+      "path": "packages/cli/CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "cli 0.1.7 (2026-10-21)",
+        "summary": ["Grouped release for `cli`."],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "- **slopper profile, and public reads without a token.** `slopper profile @username` prints anyone's open goal day by day, what's still to go, their streak and slops. It, `today`, `search`, `categories`, `tags` and `reviews` work without logging in, and send the token when there is one.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ f0ed930"
+            ]
+          },
+          {
+            "title": "Documentation",
+            "collapsed": false,
+            "entries": [
+              "- **Goal days end at midnight UTC.** `slopper goal --days` help, `whoami`'s summary and the skill say every day on Slopper is a UTC day.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 6372f1b",
+              "- **The skill looks people up with slopper profile.**\n  _Packages:_ ⚪ _@slopperday/skill_\n  _Owner:_ Ifiok Jr. · _Introduced in:_ f0ed930",
+              "- **The skill says which votes count in the race.**\n  _Packages:_ ⚪ _@slopperday/skill_\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 40168d4"
+            ]
+          }
+        ]
+      },
+      "rendered": "## cli 0.1.7 (2026-10-21)\n\nGrouped release for `cli`.\n\n### Features\n\n- **slopper profile, and public reads without a token.** `slopper profile @username` prints anyone's open goal day by day, what's still to go, their streak and slops. It, `today`, `search`, `categories`, `tags` and `reviews` work without logging in, and send the token when there is one.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ f0ed930\n\n### Documentation\n\n- **Goal days end at midnight UTC.** `slopper goal --days` help, `whoami`'s summary and the skill say every day on Slopper is a UTC day.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 6372f1b\n- **The skill looks people up with slopper profile.**\n  _Packages:_ ⚪ _@slopperday/skill_\n  _Owner:_ Ifiok Jr. · _Introduced in:_ f0ed930\n- **The skill says which votes count in the race.**\n  _Packages:_ ⚪ _@slopperday/skill_\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 40168d4"
+    }
+  ],
+  "provider": null
+}
