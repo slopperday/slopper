@@ -13,7 +13,7 @@ import {
   REVENUE_CATEGORIES,
   REVIEW_EXPERIENCES,
 } from "~/lib/model";
-import { localDate } from "~/lib/dates";
+import { localDate, utcDate } from "~/lib/dates";
 import { editableUntil } from "~/lib/editing";
 import { normalizeQuery, SEARCH_LIMIT, SEARCH_QUERY_LENGTH } from "~/lib/search";
 import { formatRelease, parseRelease, releaseProblem } from "~/lib/schedule";
@@ -113,7 +113,7 @@ function summarizeSlop(slop: Doc<"slops">, owner: User) {
     launchDate: slop.launchDate,
     /** When update_slop stops working; post_update is the way to add news after that. */
     editableUntil: new Date(
-      editableUntil({ launchedAt: slop._creationTime, launchDate: slop.launchDate }, owner.timeZone),
+      editableUntil({ launchedAt: slop._creationTime, launchDate: slop.launchDate }),
     ).toISOString(),
     goalDay: slop.goalDay,
     upvotes: slop.upvotes,
@@ -230,7 +230,7 @@ const SCHEDULED_REF = {
 const RELEASE_AT = {
   type: "string",
   description:
-    "Schedule it instead of launching now. “next”: the next day with nothing out or scheduled, as that day's race starts (all 24 hours of votes). Or an ISO 8601 date-time within 100 days: with an offset, or without one for the user's own time zone. It counts towards the goal on the day it goes out.",
+    "Schedule it instead of launching now. “next”: the next day with nothing out or scheduled, at midnight UTC as that day's race starts (all 24 hours of votes). Or an ISO 8601 date-time within 100 days: with an offset, or without one for the user's own time zone. It counts towards the goal on the UTC day it goes out.",
 };
 
 type ScheduledItem = FunctionReturnType<typeof api.schedule.mine>[number];
@@ -306,7 +306,8 @@ export const OPERATIONS: Operation[] = [
         displayName: user.displayName,
         profileUrl: absoluteUrl(`/@${user.username}`),
         timeZone: user.timeZone,
-        today: localDate(now, user.timeZone),
+        /** Days are UTC days, for everyone. */
+        today: utcDate(now),
         streak: profile?.streak ?? 0,
         totalSlops: profile?.totalShipped ?? 0,
         votesLeft,
@@ -430,7 +431,7 @@ export const OPERATIONS: Operation[] = [
     name: "set_goal",
     title: "Set a goal",
     description:
-      "Start a goal such as 30 slops in 30 days. Only one goal can be open; days end at midnight in the user's time zone.",
+      "Start a goal such as 30 slops in 30 days. Only one goal can be open; days are UTC days, ending at midnight UTC.",
     inputSchema: {
       type: "object",
       properties: {
@@ -443,7 +444,7 @@ export const OPERATIONS: Operation[] = [
     },
     readOnly: false,
     async run({ user, now }, input) {
-      const today = localDate(now, user.timeZone);
+      const today = utcDate(now);
       const parsed = validateGoal(
         {
           target: optionalNumber(input, "target"),
@@ -624,7 +625,6 @@ export const OPERATIONS: Operation[] = [
         userId: user._id,
         input: fields,
         launchNote: launchNote || fields.tagline,
-        today: localDate(now, user.timeZone),
         ...relaunch,
       });
       const finished = await finishLaunch(user, created, launchNote, autopost);

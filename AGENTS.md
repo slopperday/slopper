@@ -66,6 +66,10 @@ release. Add a tool name to select part of the graph. For example, run
   needs to hide them. At `releaseAt` Convex puts one out with `insertLaunch` (shared with `slops.create`) and calls
   `POST /api/scheduled/:id`; the app server claims it once and runs `finishLaunch` (`app/.server/launch.ts`): the
   content check, then the auto-post.
+- **Days are UTC days**, the same for everyone (`app/lib/dates.ts`): a launch's `launchDate` (its goal day and the
+  streak) is the UTC date it went out, equal to `raceDate`, and `insertLaunch` sets it, never the caller. Count days
+  with `utcDate`; a person's `timeZone` is only for showing clock times, reading wall times they type and the 9am
+  digest. Launches from before this hold their maker's local date: `launchDays.toUtcDays` lists and moves them.
 - **Votes and slopcessful:** everyone gets `LIMITS.votesPerDay` (5) votes per UTC day (`convex/slops.ts` `vote`).
   A day's race ranks its launches on the votes cast that day (`raceUpvotes`/`raceDownvotes`, frozen when the day ends);
   every vote still adds to the slop's total. `countsInRace` (`convex/race.ts`) keeps out votes from accounts under a

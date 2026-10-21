@@ -48,7 +48,6 @@ async function ship({ server }: Setup, userId: Id<"users">): Promise<Id<"slops">
       madeWith: [],
     },
     launchNote: "Day 1",
-    today: "2026-10-17",
   });
   return slopId;
 }
@@ -235,7 +234,6 @@ describe("reviews", () => {
         madeWith: [],
       },
       launchNote: "",
-      today: "2026-10-17",
     });
     expect(await w.server.mutation(api.slops.remove, { slopId: own.slopId, byUserId: w.tester })).toEqual({
       orphaned: 0,

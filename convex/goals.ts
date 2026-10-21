@@ -4,7 +4,7 @@ import { mutation, query, type QueryCtx } from "./_generated/server";
 import { captureFor } from "./analytics";
 import { requireServer } from "./lib/auth";
 import { publicUser } from "./lib/shape";
-import { addDays, currentStreak, localDate } from "../app/lib/dates";
+import { currentStreak, utcDate } from "../app/lib/dates";
 import { goalEndDate, goalProgress, isGoalOpen } from "../app/lib/goal";
 
 /** The goal a launch today counts towards, if any. */
@@ -66,11 +66,10 @@ const STATUS_RANK = { won: 0, active: 1, upcoming: 2, ended: 3, abandoned: 4 } a
 export const standings = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {
-    // Goals that ended up to a day ago may still be "today" somewhere.
-    const cutoff = addDays(new Date().toISOString().slice(0, 10), -1);
+    const today = utcDate(Date.now());
     const goals = await ctx.db
       .query("goals")
-      .withIndex("by_end", (q) => q.gte("endDate", cutoff))
+      .withIndex("by_end", (q) => q.gte("endDate", today))
       .collect();
     const rows = [];
     for (const goal of goals) {
@@ -84,7 +83,6 @@ export const standings = query({
       const launches = slops
         .filter((slop) => !slop.hidden)
         .map((slop) => ({ id: slop._id, name: slop.name, slug: slop.slug, launchDate: slop.launchDate }));
-      const today = localDate(new Date(), user.timeZone);
       if (!isGoalOpen(goal, today)) continue;
       rows.push({
         user: publicUser(user),

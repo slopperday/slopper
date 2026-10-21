@@ -75,7 +75,6 @@ describe("tag counts", () => {
         userId,
         input: { ...input, madeWith },
         launchNote: "",
-        today: new Date().toISOString().slice(0, 10),
       });
     const first = await ship(["Claude Code", "Pixi"]);
     await ship(["claude code", "pixi"]);
@@ -101,7 +100,6 @@ describe("tag counts", () => {
       userId,
       input: { ...input, madeWith: [] },
       launchNote: "",
-      today: new Date().toISOString().slice(0, 10),
     });
     await t.run(async (ctx) => {
       await ctx.db.patch(slopId as Id<"slops">, { madeWith: ["claude code", "Flutter", "flutter"] });

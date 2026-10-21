@@ -10,8 +10,8 @@ import { redirectWithFlash } from "~/.server/http";
 import { deleteOrphanedMedia, screenshotsWithUrls } from "~/.server/media";
 import { finishLaunch, launchFlash, releaseScheduled } from "~/.server/launch";
 import type { User } from "~/.server/session";
+import { utcDate } from "~/lib/dates";
 import { goalDayFor } from "~/lib/goal";
-import { localDate } from "~/lib/dates";
 import { LIMITS, NETWORK_LABELS } from "~/lib/model";
 import { launchTitle, listWords, slopPath } from "~/lib/display";
 import { useAutopostNetworks } from "~/components/Shared";
@@ -33,7 +33,7 @@ async function relaunchSource(user: Doc<"users">, ref: string | null): Promise<D
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const user = requireUser(context.get(viewerContext), request);
-  const today = localDate(new Date(), user.timeZone);
+  const today = utcDate(Date.now());
   const [goal, accounts, source, nextFree, queue, tags] = await Promise.all([
     convex.query(api.goals.open, { userId: user._id, today }),
     convex.query(api.accounts.list, { userId: user._id }),
@@ -151,7 +151,6 @@ export async function action({ request, context }: Route.ActionArgs) {
       userId: user._id,
       input,
       launchNote: launchNote || input.tagline,
-      today: localDate(new Date(), user.timeZone),
       ...relaunch,
     });
     const finished = await finishLaunch(user, created, launchNote, autopost);

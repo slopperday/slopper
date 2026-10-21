@@ -25,6 +25,7 @@ import { rankHot } from "../app/lib/ranking";
 import { embeddingText } from "../app/lib/search";
 import { moneyTotals } from "../app/lib/money";
 import { slugify } from "../app/lib/username";
+import { utcDate } from "../app/lib/dates";
 
 export const slopInput = v.object({
   name: v.string(),
@@ -96,20 +97,20 @@ export interface LaunchDraft {
   /** For another launch of a product: one of its earlier launches. */
   source: Doc<"slops"> | null;
   launchLabel: string | null;
-  /** Calendar date in the owner's time zone. */
-  today: string;
 }
 
 /**
  * Puts a launch out: counts it towards the open goal, enters it in today's
- * race and posts its launch note as the first update.
+ * race and posts its launch note as the first update. Today is the UTC day,
+ * for everyone: the day its goal, streak and race all count it on.
  */
 export async function insertLaunch(ctx: MutationCtx, draft: LaunchDraft) {
-  const { userId, input, screenshots, launchNote, source, launchLabel, today } = draft;
+  const { userId, input, screenshots, launchNote, source, launchLabel } = draft;
+  const now = Date.now();
+  const today = utcDate(now);
   const goal = await openGoal(ctx, userId, today);
   const goalDay = goal ? goalDayFor(goal, today) : null;
   const slug = await freeSlug(ctx, userId, slugify(source ? `${input.name} ${launchLabel}` : input.name));
-  const now = Date.now();
   const slopId = await ctx.db.insert("slops", {
     userId,
     productId: source ? productIdOf(source) : null,
@@ -121,7 +122,7 @@ export async function insertLaunch(ctx: MutationCtx, draft: LaunchDraft) {
     nsfw: false,
     screenshots,
     launchDate: today,
-    raceDate: new Date(now).toISOString().slice(0, 10),
+    raceDate: today,
     goalId: goalDay && goal ? goal._id : null,
     goalDay,
     goalLength: goalDay && goal ? goal.days : null,
@@ -169,12 +170,10 @@ export const create = mutation({
     userId: v.id("users"),
     input: slopInput,
     launchNote: v.string(),
-    /** Calendar date in the owner's time zone, computed by the server. */
-    today: v.string(),
     relaunchOf: v.optional(v.id("slops")),
     launchLabel: v.optional(v.string()),
   },
-  handler: async (ctx, { userId, input, launchNote, today, relaunchOf, launchLabel }) => {
+  handler: async (ctx, { userId, input, launchNote, relaunchOf, launchLabel }) => {
     await requireServer(ctx);
     await consume(ctx, `ship:${userId}`, 20, 86_400_000);
     const source = relaunchOf ? await ownSlop(ctx, userId, relaunchOf) : null;
@@ -188,7 +187,6 @@ export const create = mutation({
       launchNote,
       source,
       launchLabel: launchLabel ?? null,
-      today,
     });
   },
 });
@@ -204,9 +202,7 @@ export const edit = mutation({
   handler: async (ctx, { userId, slopId, input }) => {
     await requireServer(ctx);
     const slop = await ownSlop(ctx, userId, slopId);
-    const owner = await ctx.db.get(userId);
-    if (!owner) throw new ConvexError("That slop isn't yours.");
-    const until = editableUntil({ launchedAt: slop._creationTime, launchDate: slop.launchDate }, owner.timeZone);
+    const until = editableUntil({ launchedAt: slop._creationTime, launchDate: slop.launchDate });
     if (Date.now() >= until) throw new ConvexError(EDITING_CLOSED);
     const screenshots = await ownedMedia(ctx, userId, input.screenshots, slop.screenshots);
     const madeWith = await retag(ctx, slop.madeWith, input.madeWith);

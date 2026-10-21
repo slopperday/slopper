@@ -23,7 +23,7 @@ export function loader() {
 
 ## Concepts
 - Slop: one shipped thing with links (website, App Store, TestFlight, Google Play, Android beta, source), screenshots, a tagline and a Markdown description. nsfw: true means it's blurred; hidden: true means only its maker can see it while it waits for a moderator.
-- Goal: N slops in M days. Days end at midnight in the user's time zone. Every slop counts, so three out in one day are three.
+- Goal: N slops in M days. Days are UTC days, ending at midnight UTC for everyone. Every slop counts, so three out in one day are three.
 - Scheduled launches: a ready slop can go out later, at a set time or on the next free day as its race starts. Only the user sees it until then, and it counts on the day it goes out.
 - Slop of the day: every UTC day, slops launched that day race on the votes cast that day. The leader at midnight UTC wins. Votes from accounts less than a day old, rivals' downvotes and swapped upvotes show on the slop but don't count in the race.
 - Votes: everyone gets ${LIMITS.votesPerDay} a day (UTC), up or private down. Switching today's vote is free and clearing it gives it back.

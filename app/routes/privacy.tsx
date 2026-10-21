@@ -29,7 +29,7 @@ const SECTIONS: readonly LegalSection[] = [
   {
     title: "Cookies",
     body: [
-      "Only the ones Slopper needs: your session, a short-lived one while you sign in, one that carries a message to the next page, one with your time zone so “today” means your today, and two for analytics, the random id above and one that remembers if you turned analytics off. No advertising or third-party cookies.",
+      "Only the ones Slopper needs: your session, a short-lived one while you sign in, one that carries a message to the next page, one with your time zone so times show in it, and two for analytics, the random id above and one that remembers if you turned analytics off. No advertising or third-party cookies.",
     ],
   },
   {

@@ -46,7 +46,6 @@ async function ship(
       madeWith: [],
     },
     launchNote: "Day 1",
-    today,
     ...options,
   });
   return slopId;

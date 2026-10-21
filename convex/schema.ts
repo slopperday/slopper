@@ -321,7 +321,7 @@ export default defineSchema({
     demo: v.optional(v.union(demoVideoValidator, v.null())),
     features: v.optional(v.array(featureValidator)),
     audience: v.optional(v.string()),
-    /** Calendar date in the owner's zone (goal accounting). */
+    /** UTC date it went out (goals and streaks), the same as `raceDate`. */
     launchDate: v.string(),
     /** UTC calendar date (slop of the day race). */
     raceDate: v.string(),

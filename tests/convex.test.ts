@@ -47,17 +47,15 @@ const input = {
   madeWith: [],
 };
 
-async function ship(server: Server, userId: Id<"users">, today: string, extra: object = {}) {
-  return await server.mutation(api.slops.create, { userId, input, launchNote: "Day 1", today, ...extra });
+async function ship(server: Server, userId: Id<"users">, extra: object = {}) {
+  return await server.mutation(api.slops.create, { userId, input, launchNote: "Day 1", ...extra });
 }
 
 describe("auth roles", () => {
   it("refuses privileged writes from anyone but the server", async () => {
     const { t, server } = setup();
     const userId = await makeUser(server, "ifiok");
-    await expect(ship(t.withIdentity({ subject: userId }), userId, "2026-10-06")).rejects.toThrow(
-      "Only the Slopper server",
-    );
+    await expect(ship(t.withIdentity({ subject: userId }), userId)).rejects.toThrow("Only the Slopper server");
     await expect(
       t.mutation(api.users.upsertFromIdentity, {
         provider: "github",
@@ -116,8 +114,14 @@ describe("users", () => {
 });
 
 describe("launching", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("counts towards the goal, numbers launches and links relaunches", async () => {
     const { server } = setup();
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse("2026-10-06T09:00:00Z"));
     const userId = await makeUser(server, "ifiok");
     const today = "2026-10-06";
     const goal = await server.mutation(api.goals.create, {
@@ -130,8 +134,8 @@ describe("launching", () => {
     });
     expect(goal.ok).toBe(true);
 
-    const first = await ship(server, userId, today);
-    const relaunch = await ship(server, userId, today, { relaunchOf: first.slopId, launchLabel: "iOS beta" });
+    const first = await ship(server, userId);
+    const relaunch = await ship(server, userId, { relaunchOf: first.slopId, launchLabel: "iOS beta" });
     const doc = await server.query(api.slops.getForServer, { slopId: relaunch.slopId });
     expect(first.slug).toBe("tiltmaze");
     expect(relaunch.slug).toBe("tiltmaze-ios-beta");
@@ -147,13 +151,74 @@ describe("launching", () => {
     expect(page?.slop).not.toHaveProperty("crosspost");
   });
 
+  it("counts a launch on the UTC day, even past midnight where its maker is", async () => {
+    // 23:55 UTC on the 20th is 00:55 on the 21st in Lagos: still the 20th on Slopper.
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse("2026-10-19T12:00:00Z"));
+    const { server } = setup();
+    const userId = await makeUser(server, "ifiok", "Africa/Lagos");
+    await server.mutation(api.goals.create, {
+      userId,
+      title: "7 in 7",
+      target: 7,
+      days: 7,
+      startDate: "2026-10-19",
+      today: "2026-10-19",
+    });
+    await ship(server, userId);
+    vi.setSystemTime(Date.parse("2026-10-20T23:55:00Z"));
+    const late = await ship(server, userId, { input: { ...input, name: "Late one" } });
+    const doc = await server.query(api.slops.getForServer, { slopId: late.slopId });
+    expect([doc?.launchDate, doc?.raceDate, doc?.goalDay]).toEqual(["2026-10-20", "2026-10-20", 2]);
+
+    const profile = await server.query(api.users.profile, { username: "ifiok" });
+    expect(profile?.today).toBe("2026-10-20");
+    expect(profile?.streak).toBe(2);
+    expect(profile?.progress?.days.slice(0, 3).map((day) => day.state)).toEqual(["shipped", "shipped", "upcoming"]);
+  });
+
+  it("moves launches from their maker's own day onto the UTC day they went out", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse("2026-10-19T12:00:00Z"));
+    const { t, server } = setup();
+    const userId = await makeUser(server, "ifiok", "Africa/Lagos");
+    const other = await makeUser(server, "other");
+    await server.mutation(api.goals.create, {
+      userId,
+      title: "7 in 7",
+      target: 7,
+      days: 7,
+      startDate: "2026-10-19",
+      today: "2026-10-19",
+    });
+    vi.setSystemTime(Date.parse("2026-10-20T23:55:00Z"));
+    const { slopId } = await ship(server, userId);
+    const theirs = await ship(server, other);
+    // As launches went out before days were UTC days: on the Lagos date.
+    await t.run(async (ctx) => {
+      await ctx.db.patch(slopId, { launchDate: "2026-10-21", goalDay: 3 });
+      await ctx.db.patch(theirs.slopId, { launchDate: "2026-10-21" });
+    });
+
+    const listed = await t.mutation(internal.launchDays.toUtcDays, { username: "ifiok" });
+    expect(listed).toEqual({
+      applied: false,
+      moved: [{ slopId, name: "TiltMaze", from: "2026-10-21", to: "2026-10-20" }],
+    });
+    expect((await server.query(api.slops.getForServer, { slopId }))?.launchDate).toBe("2026-10-21");
+
+    await t.mutation(internal.launchDays.toUtcDays, { username: "ifiok", apply: true });
+    const doc = await server.query(api.slops.getForServer, { slopId });
+    expect([doc?.launchDate, doc?.goalDay, doc?.goalLength]).toEqual(["2026-10-20", 2, 7]);
+    expect((await server.query(api.slops.getForServer, { slopId: theirs.slopId }))?.launchDate).toBe("2026-10-21");
+    expect((await t.mutation(internal.launchDays.toUtcDays, {})).moved).toHaveLength(1);
+  });
+
   it("requires a label for relaunches and only one open goal", async () => {
     const { server } = setup();
     const userId = await makeUser(server, "ifiok");
-    const first = await ship(server, userId, "2026-10-06");
-    await expect(ship(server, userId, "2026-10-06", { relaunchOf: first.slopId })).rejects.toThrow(
-      "Say what's launching",
-    );
+    const first = await ship(server, userId);
+    await expect(ship(server, userId, { relaunchOf: first.slopId })).rejects.toThrow("Say what's launching");
     const card = { userId, title: "7 in 7", target: 7, days: 7, startDate: "2026-10-06", today: "2026-10-06" };
     expect((await server.mutation(api.goals.create, card)).ok).toBe(true);
     expect(await server.mutation(api.goals.create, card)).toEqual({
@@ -177,7 +242,7 @@ describe("editing a launch", () => {
     const owner = await makeUser(server, "owner");
     const flagger = await makeUser(server, "flagger");
     const admin = await makeStaff(t, server, "admin", "admin");
-    const { slopId } = await ship(server, owner, "2026-10-17");
+    const { slopId } = await ship(server, owner);
     const edit = () => server.mutation(api.slops.edit, { userId: owner, slopId, input: edited });
 
     vi.setSystemTime(Date.parse("2026-10-18T09:59:00Z"));
@@ -198,18 +263,18 @@ describe("editing a launch", () => {
     expect(page?.slop).toMatchObject({ tagline: "Tilt harder", updateCount: 2, nsfw: true, hidden: true });
   });
 
-  it("stays open to the end of the owner's launch day after a morning launch", async () => {
-    // 8am in Los Angeles; the day ends at 07:00 UTC.
+  it("stays open to the end of the UTC launch day after a morning launch, wherever the owner is", async () => {
+    // 6am in Lagos, 05:00 UTC; the day ends at midnight UTC, 1am in Lagos.
     vi.useFakeTimers();
-    vi.setSystemTime(Date.parse("2026-10-17T15:00:00Z"));
+    vi.setSystemTime(Date.parse("2026-10-17T05:00:00Z"));
     const { server } = setup();
-    const owner = await makeUser(server, "owner", "America/Los_Angeles");
-    const { slopId } = await ship(server, owner, "2026-10-17");
+    const owner = await makeUser(server, "owner", "Africa/Lagos");
+    const { slopId } = await ship(server, owner);
     const edit = () => server.mutation(api.slops.edit, { userId: owner, slopId, input: edited });
 
-    vi.setSystemTime(Date.parse("2026-10-18T06:59:00Z"));
+    vi.setSystemTime(Date.parse("2026-10-17T23:59:00Z"));
     await expect(edit()).resolves.toEqual({ blurred: false, orphaned: 0 });
-    vi.setSystemTime(Date.parse("2026-10-18T07:00:00Z"));
+    vi.setSystemTime(Date.parse("2026-10-18T00:00:00Z"));
     await expect(edit()).rejects.toThrow(EDITING_CLOSED);
   });
 });
@@ -220,7 +285,7 @@ describe("votes, pledges and notifications", () => {
     const owner = await makeUser(server, "owner");
     const fan = await makeUser(server, "fan");
     const hater = await makeUser(server, "hater");
-    const { slopId } = await ship(server, owner, "2026-10-06");
+    const { slopId } = await ship(server, owner);
 
     await expect(server.mutation(api.slops.vote, { userId: owner, slopId, value: 1 })).rejects.toThrow(
       "can't vote on your own",
@@ -258,7 +323,7 @@ describe("votes, pledges and notifications", () => {
     const fan = await makeUser(server, "fan");
     const today = new Date().toISOString().slice(0, 10);
     const slops: Id<"slops">[] = [];
-    for (let index = 0; index < 7; index++) slops.push((await ship(server, owner, today)).slopId);
+    for (let index = 0; index < 7; index++) slops.push((await ship(server, owner)).slopId);
     const vote = (slopId: Id<"slops">, value: 1 | -1 | 0) =>
       server.mutation(api.slops.vote, { userId: fan, slopId, value });
     const left = () => server.query(api.slops.votesLeft, { asUser: fan });
@@ -326,8 +391,8 @@ describe("slop of the day", () => {
   it("ranks by net votes and crowns yesterday's leader once", async () => {
     const { t, server } = setup();
     const [a, b, voter] = await people(server, "a", "b", "voter");
-    const first = await ship(server, a, "2026-10-06");
-    const second = await ship(server, b, "2026-10-06");
+    const first = await ship(server, a);
+    const second = await ship(server, b);
     await server.mutation(api.slops.vote, { userId: voter, slopId: second.slopId, value: 1 });
     await server.mutation(api.slops.vote, { userId: a, slopId: second.slopId, value: 1 });
     await server.mutation(api.slops.vote, { userId: voter, slopId: first.slopId, value: 1 });
@@ -362,8 +427,8 @@ describe("slop of the day", () => {
   it("counts only the votes cast on the race day, while the slop keeps collecting", async () => {
     const { t, server } = setup();
     const [maker, rival, early, late, fickle] = await people(server, "maker", "rival", "early", "late", "fickle");
-    const slop = await ship(server, maker, "2026-10-06");
-    const other = await ship(server, rival, "2026-10-06");
+    const slop = await ship(server, maker);
+    const other = await ship(server, rival);
     await server.mutation(api.slops.vote, { userId: early, slopId: slop.slopId, value: 1 });
     await server.mutation(api.slops.vote, { userId: fickle, slopId: slop.slopId, value: 1 });
     await server.mutation(api.slops.vote, { userId: early, slopId: other.slopId, value: 1 });
@@ -390,7 +455,7 @@ describe("slop of the day", () => {
     const { t, server } = setup();
     const [maker] = await people(server, "maker");
     const fresh = await makeUser(server, "fresh");
-    const { slopId } = await ship(server, maker, "2026-10-06");
+    const { slopId } = await ship(server, maker);
     await server.mutation(api.slops.vote, { userId: fresh, slopId, value: 1 });
     expect(await tally(t, slopId)).toEqual({ upvotes: 1, downvotes: 0, raceUpvotes: 0, raceDownvotes: 0 });
     // Taking it back takes nothing from the race.
@@ -399,7 +464,7 @@ describe("slop of the day", () => {
 
     // A day on, the same account counts, but only in a race that's still on.
     vi.setSystemTime(Date.parse("2026-10-07T10:00:00Z"));
-    const next = await ship(server, maker, "2026-10-07", { input: { ...input, name: "TiltMaze 2" } });
+    const next = await ship(server, maker, { input: { ...input, name: "TiltMaze 2" } });
     await server.mutation(api.slops.vote, { userId: fresh, slopId: next.slopId, value: 1 });
     await server.mutation(api.slops.vote, { userId: fresh, slopId, value: 1 });
     expect(await tally(t, next.slopId)).toEqual({ upvotes: 1, downvotes: 0, raceUpvotes: 1, raceDownvotes: 0 });
@@ -409,9 +474,9 @@ describe("slop of the day", () => {
   it("doesn't let makers racing the same day push rivals down or trade upvotes", async () => {
     const { t, server } = setup();
     const [a, b, c, fan] = await people(server, "a", "b", "c", "fan");
-    const first = await ship(server, a, "2026-10-06");
-    const second = await ship(server, b, "2026-10-06");
-    const third = await ship(server, c, "2026-10-06");
+    const first = await ship(server, a);
+    const second = await ship(server, b);
+    const third = await ship(server, c);
 
     await server.mutation(api.slops.vote, { userId: a, slopId: second.slopId, value: -1 });
     expect(await tally(t, second.slopId)).toEqual({ upvotes: 0, downvotes: 1, raceUpvotes: 0, raceDownvotes: 0 });
@@ -432,7 +497,7 @@ describe("money", () => {
     const { server } = setup();
     const owner = await makeUser(server, "owner");
     const visitor = await makeUser(server, "visitor");
-    const { slopId } = await ship(server, owner, "2026-10-06");
+    const { slopId } = await ship(server, owner);
     await server.mutation(api.money.add, {
       userId: owner,
       slopId,
@@ -462,7 +527,7 @@ describe("feedback and kudos", () => {
     const { t, server } = setup();
     const owner = await makeUser(server, "owner");
     const fan = await makeUser(server, "fan");
-    const { slopId } = await ship(server, owner, "2026-10-06");
+    const { slopId } = await ship(server, owner);
 
     await server.mutation(api.activity.addComment, {
       userId: fan,
@@ -494,7 +559,7 @@ describe("feedback and kudos", () => {
     const stranger = await makeUser(server, "stranger");
     const moderator = await makeStaff(t, server, "mia", "moderator");
     const admin = await makeStaff(t, server, "ada", "admin");
-    const { slopId } = await ship(server, owner, "2026-10-06");
+    const { slopId } = await ship(server, owner);
     const add = () => server.mutation(api.activity.addComment, { userId: fan, slopId, kind: "feedback", body: "Hm." });
     const [first, second, third] = [await add(), await add(), await add()];
 
@@ -519,7 +584,7 @@ describe("feedback and kudos", () => {
     const owner = await makeUser(server, "owner");
     const fan = await makeUser(server, "fan");
     const admin = await makeStaff(t, server, "ada", "admin");
-    const { slopId } = await ship(server, owner, "2026-10-06");
+    const { slopId } = await ship(server, owner);
     await server.mutation(api.slops.setHidden, { adminId: admin, slopId, hidden: true });
     await expect(
       server.mutation(api.activity.addComment, { userId: fan, slopId, kind: "feedback", body: "Hello?" }),
@@ -706,7 +771,7 @@ describe("the moderation team", () => {
     const visitor = await makeUser(server, "visitor");
     const moderator = await makeStaff(t, server, "mia", "moderator");
     const admin = await makeStaff(t, server, "ada", "admin");
-    const { slopId } = await ship(server, owner, "2026-10-17");
+    const { slopId } = await ship(server, owner);
     await expect(server.mutation(api.slops.setHidden, { adminId: moderator, slopId, hidden: true })).rejects.toThrow(
       "Only admins can do that.",
     );
@@ -772,7 +837,7 @@ describe("the moderation team", () => {
     const moderator = await makeStaff(t, server, "mia", "moderator");
     const admin = await makeStaff(t, server, "ada", "admin");
     const flagger = await makeUser(server, "flagger");
-    const { slopId } = await ship(server, moderator, "2026-10-17");
+    const { slopId } = await ship(server, moderator);
     await server.mutation(api.moderation.flag, { userId: flagger, slopId, reason: "Spam" });
     await server.mutation(api.slops.setHidden, { adminId: admin, slopId, hidden: true });
     await server.mutation(api.moderation.flag, { userId: flagger, slopId, reason: "Spam" });
@@ -794,12 +859,11 @@ describe("the moderation team", () => {
     const fan = await makeUser(server, "fan");
     const helper = await makeUser(server, "helper");
     const admin = await makeStaff(t, server, "ada", "admin");
-    const { slopId } = await ship(server, owner, "2026-10-17");
+    const { slopId } = await ship(server, owner);
     const mine = await server.mutation(api.slops.create, {
       userId: fan,
       input: { ...input, name: "Fan Game" },
       launchNote: "Mine",
-      today: "2026-10-17",
     });
 
     await server.mutation(api.team.setRole, { adminId: admin, username: "helper", role: "moderator" });
@@ -855,7 +919,7 @@ describe("promo videos", () => {
     const owner = await makeUser(server, "owner");
     const other = await makeUser(server, "other");
     const moderator = await makeStaff(t, server, "mia", "moderator");
-    const { slopId } = await ship(server, owner, "2026-10-17");
+    const { slopId } = await ship(server, owner);
     const video = await upload(t, server, owner, "video/mp4");
     const image = await upload(t, server, owner, "image/png");
     const theirs = await upload(t, server, other, "video/mp4");
@@ -894,7 +958,7 @@ describe("promo videos", () => {
     const { t, server } = setup();
     const moderator = await makeStaff(t, server, "mia", "moderator");
     const admin = await makeStaff(t, server, "ada", "admin");
-    const { slopId } = await ship(server, moderator, "2026-10-17");
+    const { slopId } = await ship(server, moderator);
     const video = await upload(t, server, moderator, "video/mp4");
     await server.mutation(api.videos.set, { userId: moderator, slopId, mediaId: video });
 
@@ -922,7 +986,7 @@ describe("promo videos", () => {
     const { t, server } = setup();
     const owner = await makeUser(server, "owner");
     const moderator = await makeStaff(t, server, "mia", "moderator");
-    const { slopId } = await ship(server, owner, "2026-10-17");
+    const { slopId } = await ship(server, owner);
     const first = await upload(t, server, owner, "video/mp4");
     const second = await upload(t, server, owner, "video/webm");
     await expect(t.mutation(api.videos.set, { userId: owner, slopId, mediaId: first })).rejects.toThrow(
@@ -957,7 +1021,7 @@ describe("promo videos", () => {
     const other = await makeUser(server, "other");
     const moderator = await makeStaff(t, server, "mia", "moderator");
     const admin = await makeStaff(t, server, "ada", "admin");
-    const first = await ship(server, owner, "2026-10-16");
+    const first = await ship(server, owner);
     const approved = await upload(t, server, owner, "video/mp4");
     await server.mutation(api.videos.set, { userId: owner, slopId: first.slopId, mediaId: approved });
     await server.mutation(api.videos.decide, {
@@ -970,7 +1034,6 @@ describe("promo videos", () => {
       userId: owner,
       input: { ...input, name: "TiltMaze 2" },
       launchNote: "Day 2",
-      today: "2026-10-17",
     });
     const page = () => server.query(api.slops.page, { username: "owner", slug: "tiltmaze-2", asUser: other });
     const setVideo = async () => {

@@ -1,4 +1,4 @@
-import { addDays, isIsoDate, localDate, localInstant, raceStartOn } from "./dates";
+import { addDays, dayStart, formatClock, isIsoDate, localDate, localInstant } from "./dates";
 import { LIMITS } from "./model";
 
 /**
@@ -12,14 +12,14 @@ import { LIMITS } from "./model";
 export type ReleaseWhen = { kind: "now" } | { kind: "next" } | { kind: "at"; at: number };
 
 /**
- * The next day, from today on, with nothing out or queued, at the start of
- * its slop of the day race (the UTC midnight that falls on it), so the slop
- * gets all 24 hours of votes. `taken` holds local dates.
+ * The next (UTC) day, from today on, with nothing out or queued, at its
+ * midnight UTC, when its slop of the day race starts, so the slop gets all
+ * 24 hours of votes. `taken` holds UTC dates.
  */
-export function nextFreeRelease(taken: ReadonlySet<string>, today: string, timeZone: string, now: number): number {
+export function nextFreeRelease(taken: ReadonlySet<string>, today: string, now: number): number {
   for (let date = today; ; date = addDays(date, 1)) {
     if (taken.has(date)) continue;
-    const at = raceStartOn(date, timeZone);
+    const at = dayStart(date);
     if (at > now) return at;
   }
 }
@@ -77,7 +77,5 @@ export function formatRelease(at: number, timeZone: string): string {
 
 /** An instant as a datetime-local value ("2026-10-15T17:00") in `timeZone`. */
 export function localDateTimeValue(at: number, timeZone: string): string {
-  const date = localDate(new Date(at), timeZone);
-  const clock = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-  return `${date}T${clock.format(at)}`;
+  return `${localDate(new Date(at), timeZone)}T${formatClock(at, timeZone)}`;
 }

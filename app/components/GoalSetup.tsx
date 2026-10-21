@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Form, Link } from "react-router";
-import { addDays, formatDay } from "~/lib/dates";
+import { addDays, dayStart, formatClock, formatDay } from "~/lib/dates";
 import {
   DEFAULT_GOAL_DAYS,
   DEFAULT_GOAL_PACE,
@@ -50,6 +50,7 @@ export function GoalSetup({
   const typedTarget = typedNumber(exactTarget, 1000);
   const target = typedTarget ?? paceTarget(pace, days);
   const start = startDate >= today ? startDate : today;
+  const dayEnds = formatClock(dayStart(addDays(today, 1)), timeZone);
   const blurb = typedTarget === null ? pace.blurb : `${target === 1 ? "One slop" : `${target} slops`}, your call.`;
 
   return (
@@ -210,11 +211,18 @@ export function GoalSetup({
           </Field>
         </div>
         <p className="mt-6 text-muted">
-          Days end at midnight in your time zone (<strong className="text-ink">{timeZone}</strong>,{" "}
-          <Link to="/settings" className="link">
-            change
-          </Link>
-          ).
+          Days end at midnight UTC, the same moment for everyone
+          {dayEnds !== "00:00" && (
+            <>
+              {" "}
+              (<strong className="text-ink">{dayEnds}</strong> in {timeZone},{" "}
+              <Link to="/settings" className="link">
+                change
+              </Link>
+              )
+            </>
+          )}
+          .
         </p>
       </details>
     </Form>
