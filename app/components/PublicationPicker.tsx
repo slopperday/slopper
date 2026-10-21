@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import type { PublicationFormat } from "@convex/lib/media";
 import { fileSize } from "~/lib/display";
 import { LIMITS } from "~/lib/model";
 import { Icon } from "./Icon";
@@ -6,12 +7,13 @@ import { Icon } from "./Icon";
 export interface Publication {
   id: string;
   fileName: string;
+  format: PublicationFormat;
   size: number;
   url: string;
 }
 
 /**
- * One PDF the maker wrote: a book, zine, guide or paper. It goes up as it
+ * One PDF or EPUB the maker wrote: a book, zine, guide or paper. It goes up as it
  * is (no shrinking, unlike screenshots), so a file over the limit is refused
  * here before it's sent. Sent as `publication`, empty when there's none.
  */
@@ -26,7 +28,7 @@ export function PublicationPicker({ initial }: { initial: Publication | null }) 
     setError(null);
     setNotice(null);
     if (file.size > LIMITS.publicationBytes) {
-      setError(`That PDF is ${fileSize(file.size)}. Keep it under ${LIMITS.publicationBytes / 1024 / 1024} MB.`);
+      setError(`That file is ${fileSize(file.size)}. Keep it under ${LIMITS.publicationBytes / 1024 / 1024} MB.`);
       return;
     }
     setPending(true);
@@ -36,11 +38,11 @@ export function PublicationPicker({ initial }: { initial: Publication | null }) 
       body.set("file", file, file.name);
       const response = await fetch("/api/media", { method: "POST", body });
       const result = (await response.json()) as Partial<Publication> & { nsfw?: boolean; error?: string };
-      const { id, url, fileName, size } = result;
-      if (!response.ok || !id || !url || !fileName || size === undefined) {
+      const { id, url, fileName, format, size } = result;
+      if (!response.ok || !id || !url || !fileName || !format || size === undefined) {
         throw new Error(result.error ?? "Upload failed");
       }
-      setPublication({ id, url, fileName, size });
+      setPublication({ id, url, fileName, format, size });
       if (result.nsfw) setNotice("That one looks NSFW, so this slop will be blurred.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Upload failed");
@@ -58,7 +60,9 @@ export function PublicationPicker({ initial }: { initial: Publication | null }) 
           <Icon name="page" className="size-8 text-muted" />
           <a href={publication.url} target="_blank" rel="noopener" className="min-w-0 flex-1 hover:underline">
             <span className="block truncate font-bold">{publication.fileName}</span>
-            <span className="block text-sm text-muted">PDF · {fileSize(publication.size)}</span>
+            <span className="block text-sm text-muted">
+              {publication.format.toUpperCase()} · {fileSize(publication.size)}
+            </span>
           </a>
           <button
             type="button"
@@ -77,12 +81,12 @@ export function PublicationPicker({ initial }: { initial: Publication | null }) 
         <label className="grid min-h-20 cursor-pointer place-items-center rounded-xl border border-dashed border-line-strong p-3 text-center font-bold text-muted transition-colors focus-within:border-(--focus) hover:border-ink hover:text-ink">
           <span className="flex items-center gap-2">
             <Icon name="page" className="size-6" />
-            Upload a PDF
+            Upload a PDF or EPUB
           </span>
           <input
             ref={input}
             type="file"
-            accept="application/pdf,.pdf"
+            accept="application/pdf,.pdf,application/epub+zip,.epub"
             className="sr-only"
             onChange={(event) => {
               const file = event.currentTarget.files?.[0];

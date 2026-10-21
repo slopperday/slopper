@@ -1,3 +1,4 @@
+import { epub } from "../tests/epubs.ts";
 import { bucketObjects, checkRequests, expect, test } from "./fixtures.ts";
 
 /**
@@ -27,7 +28,7 @@ test.describe("publications", () => {
 
     // Neither a link nor a PDF: there's nothing to try or read yet.
     await page.getByRole("button", { name: "Throw it at the wall" }).click();
-    await expect(page.getByText("Add at least one link so people can try it, or upload a PDF.")).toBeVisible();
+    await expect(page.getByText("Add at least one link so people can try it, or upload a PDF or EPUB.")).toBeVisible();
 
     const fileName = `field-guide-${id}.pdf`;
     await page
@@ -69,7 +70,7 @@ test.describe("publications", () => {
       data: pdfWith("[e2e:blocked]"),
     });
     expect(blocked.status()).toBe(400);
-    expect(await blocked.json()).toMatchObject({ error: "This PDF can't go on Slopper." });
+    expect(await blocked.json()).toMatchObject({ error: "This publication can't go on Slopper." });
     expect(await bucketObjects(stack)).toHaveLength(before);
 
     // Slopper's own safety scan refuses a PDF that runs a script when it's opened, before any check.
@@ -89,7 +90,7 @@ test.describe("publications", () => {
       headers: auth,
       data: { base64: Buffer.from("plain text").toString("base64") },
     });
-    expect(await notPdf.json()).toMatchObject({ error: "Use a PDF." });
+    expect(await notPdf.json()).toMatchObject({ error: "Use a PDF or an EPUB." });
 
     const uploaded = await request.post(`${stack.appUrl}/api/v1/publications`, {
       headers: auth,
@@ -105,5 +106,53 @@ test.describe("publications", () => {
     });
     expect(launched.status()).toBe(201);
     expect(await launched.json()).toMatchObject({ slop: { publication: true } });
+  });
+
+  test("an EPUB goes through its own safety scan, and a clean one launches and downloads as an EPUB", async ({
+    seed,
+    stack,
+    request,
+  }) => {
+    const maker = await seed.user("novelist");
+    const auth = { authorization: `Bearer ${await seed.apiToken(maker)}` };
+    const before = (await bucketObjects(stack)).length;
+    const send = (book: Uint8Array, fileName: string) =>
+      request.post(`${stack.appUrl}/api/v1/publications?fileName=${fileName}`, {
+        headers: { ...auth, "content-type": "application/epub+zip" },
+        data: Buffer.from(book),
+      });
+
+    const scripted = await send(epub({ body: "<p>Hi</p><script>alert(1)</script>" }), "script.epub");
+    expect(scripted.status()).toBe(400);
+    expect((await scripted.json()) as { error: string }).toMatchObject({
+      error: expect.stringContaining("scripts, forms or links that run code"),
+    });
+    expect(await bucketObjects(stack)).toHaveLength(before);
+
+    // The check reads the book's words: its markers are in the text the scan read out.
+    const id = Date.now().toString(36);
+    const uploaded = await send(epub({ body: `<p>A novella about slop ${id}.</p>` }), "novella.epub");
+    expect(uploaded.status()).toBe(201);
+    const result = (await uploaded.json()) as { id: string; fileName: string; format: string };
+    expect(result).toMatchObject({ fileName: "novella.epub", format: "epub" });
+    const checked = (await checkRequests(stack)).find((check) => check.text.includes(`A novella about slop ${id}.`));
+    expect(checked).toMatchObject({ files: 0, verdict: "ok" });
+
+    const launched = await request.post(`${stack.appUrl}/api/v1/slops`, {
+      headers: auth,
+      data: { name: `Novella ${id}`, tagline: "A novella", category: "creative", publication: result.id },
+    });
+    expect(launched.status()).toBe(201);
+    const { slop } = (await launched.json()) as { slop: { url: string } };
+
+    const visitor = await seed.visitorPage();
+    await visitor.goto(new URL(slop.url).pathname);
+    const card = visitor.getByRole("region", { name: "Publication" });
+    await expect(card).toContainText("novella.epub");
+    await expect(card).toContainText("EPUB");
+    const read = visitor.getByRole("link", { name: "Read it" });
+    await expect(read).toHaveAttribute("href", /\/publications\/[\w-]+\.epub$/);
+    const served = await fetch((await read.getAttribute("href")) ?? "");
+    expect(served.headers.get("content-type")).toBe("application/epub+zip");
   });
 });

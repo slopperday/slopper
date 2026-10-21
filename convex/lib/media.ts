@@ -16,17 +16,26 @@ export function isVideo(media: Doc<"media">): boolean {
   return media.contentType.startsWith("video/");
 }
 
-/** Publications are PDFs, and only PDFs. */
-export const PUBLICATION_TYPE = "application/pdf";
+/** Publications are PDFs or EPUBs, and nothing else. */
+export const PUBLICATION_TYPES = { pdf: "application/pdf", epub: "application/epub+zip" } as const;
 
-/** Whether a media row holds a publication: one PDF a maker wrote. */
+export type PublicationFormat = keyof typeof PUBLICATION_TYPES;
+
+/** Which kind of publication a content type is, or null when it isn't one. */
+export function publicationFormat(contentType: string): PublicationFormat | null {
+  if (contentType === PUBLICATION_TYPES.pdf) return "pdf";
+  if (contentType === PUBLICATION_TYPES.epub) return "epub";
+  return null;
+}
+
+/** Whether a media row holds a publication: one PDF or EPUB a maker wrote. */
 export function isPublication(media: Doc<"media">): boolean {
-  return media.contentType === PUBLICATION_TYPE;
+  return publicationFormat(media.contentType) !== null;
 }
 
 /** The name a publication is shown by. */
 export function publicationName(media: Doc<"media">): string {
-  return media.fileName ?? "publication.pdf";
+  return media.fileName ?? `publication.${publicationFormat(media.contentType) ?? "pdf"}`;
 }
 
 /** Whether a media row holds an image, the only thing a screenshot can be. */

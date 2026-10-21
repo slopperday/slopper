@@ -99,7 +99,7 @@ export function SlopFields({
       <Field
         label="Publication"
         error={errors.publication}
-        hint={`Wrote a book, zine, guide or paper? Upload the PDF (up to ${LIMITS.publicationBytes / 1024 / 1024} MB) and people read it here. With one, links are optional.`}
+        hint={`Wrote a book, zine, guide or paper? Upload the PDF or EPUB (up to ${LIMITS.publicationBytes / 1024 / 1024} MB) and people read it here. With one, links are optional.`}
       >
         <PublicationPicker initial={values.publication ?? null} />
       </Field>

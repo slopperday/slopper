@@ -27,7 +27,7 @@ export interface SlopInput {
   links: SlopLink[];
   /** Media ids; Convex re-checks each one belongs to the uploader. */
   screenshots: string[];
-  /** A PDF's media id, or null for none. Stands in for links. */
+  /** A PDF's or EPUB's media id, or null for none. Stands in for links. */
   publication: string | null;
   madeWith: string[];
   demo: DemoVideo | null;
@@ -95,7 +95,7 @@ export function parseLinks(
     links.push(parsed.link);
   }
   if (links.length === 0 && required) {
-    return { links, error: "Add at least one link so people can try it, or upload a PDF." };
+    return { links, error: "Add at least one link so people can try it, or upload a PDF or EPUB." };
   }
   if (links.length > LIMITS.links) {
     return { links, error: `Up to ${LIMITS.links} links.` };
@@ -118,7 +118,7 @@ export interface SlopDraft {
   category?: string;
   links?: readonly { kind?: string; url?: string }[];
   screenshots?: readonly string[];
-  /** A PDF's media id from a publication upload; empty or null for none. */
+  /** A PDF's or EPUB's media id from a publication upload; empty or null for none. */
   publication?: string | null;
   madeWith?: readonly string[];
   /** A YouTube, Loom or Vimeo link; empty for none. */
@@ -197,7 +197,7 @@ export function validateSlop(draft: SlopDraft): Parsed<SlopForm> {
   if (featureError) errors.features = featureError;
 
   const publication = draft.publication?.trim() || null;
-  if (publication && !MEDIA_ID.test(publication)) errors.publication = "That PDF didn't upload. Try it again.";
+  if (publication && !MEDIA_ID.test(publication)) errors.publication = "That publication didn't upload. Try it again.";
 
   const rawLinks = draft.links ?? [];
   const { links, error: linkError } = parseLinks(

@@ -3,7 +3,7 @@ import type { Route } from "./+types/api.media";
 import { viewerContext } from "~/.server/session";
 import { uploadImage, uploadPublication } from "~/.server/media";
 
-/** Screenshot and publication (PDF) uploads for the new-slop and edit forms. */
+/** Screenshot and publication (PDF or EPUB) uploads for the new-slop and edit forms. */
 export async function action({ request, context }: Route.ActionArgs) {
   const user = context.get(viewerContext).user;
   if (!user) return data({ error: "Sign in first." }, { status: 401 });
@@ -14,8 +14,9 @@ export async function action({ request, context }: Route.ActionArgs) {
   if (form.get("kind") === "publication") {
     const result = await uploadPublication(user._id, { bytes, fileName: file.name });
     if (!result.ok) return data({ error: result.error }, { status: 400 });
-    const { id, url, fileName } = result;
-    return data({ id, url, fileName, size: bytes.byteLength, nsfw: result.contentCheck === "mature" }, { status: 201 });
+    const { id, url, fileName, format } = result;
+    const nsfw = result.contentCheck === "mature";
+    return data({ id, url, fileName, format, size: bytes.byteLength, nsfw }, { status: 201 });
   }
   const result = await uploadImage(user._id, { bytes, fileName: file.name });
   if (!result.ok) return data({ error: result.error }, { status: 400 });

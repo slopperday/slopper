@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireServer } from "./lib/auth";
-import { isPublication, mediaPublicBase, mediaUrl, publicationName } from "./lib/media";
+import { isPublication, mediaPublicBase, mediaUrl, publicationFormat, publicationName } from "./lib/media";
 import { consume } from "./lib/rate";
 import { mediaCheckValidator, mediaLocationValidator } from "./schema";
 
@@ -81,7 +81,8 @@ export const publication = query({
     const media = id ? await ctx.db.get(id) : null;
     if (!media || !isPublication(media)) return null;
     const url = await mediaUrl(ctx, media);
-    return url ? { id: media._id, fileName: publicationName(media), size: media.size, url } : null;
+    const format = publicationFormat(media.contentType);
+    return url && format ? { id: media._id, fileName: publicationName(media), format, size: media.size, url } : null;
   },
 });
 
@@ -93,7 +94,9 @@ export const publicationForCheck = query({
     const media = await ctx.db.get(mediaId);
     if (!media || !isPublication(media)) return null;
     const url = await mediaUrl(ctx, media);
-    return url ? { url, fileName: publicationName(media), verdict: media.check?.verdict ?? null } : null;
+    return url
+      ? { url, fileName: publicationName(media), contentType: media.contentType, verdict: media.check?.verdict ?? null }
+      : null;
   },
 });
 

@@ -17,7 +17,7 @@ import { randomToken } from "./encoding";
 export type MediaLocation = Infer<typeof mediaLocationValidator>;
 
 /**
- * Screenshots, promo videos and publications (PDFs) go on slops; avatars are
+ * Screenshots, promo videos and publications (PDFs and EPUBs) go on slops; avatars are
  * copies of sign-in pictures that expire.
  */
 export type MediaKind = "screenshot" | "avatar" | "video" | "publication";
@@ -48,6 +48,7 @@ const EXTENSIONS: Readonly<Record<string, string>> = {
   "video/mp4": "mp4",
   "video/webm": "webm",
   "application/pdf": "pdf",
+  "application/epub+zip": "epub",
 };
 
 /** SHA-256 of no bytes: every request signs its payload, even an empty one. */

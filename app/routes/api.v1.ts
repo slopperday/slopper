@@ -20,7 +20,7 @@ import { findOperation, missingToken, runOperation } from "~/.server/agent/opera
  *   POST   /api/v1/goal
  *   POST   /api/v1/media                    (raw image body, or JSON { base64 })
  *   POST   /api/v1/videos                   (raw MP4 or WebM body, or JSON { base64 })
- *   POST   /api/v1/publications             (raw PDF body with ?fileName=…, or JSON { base64, fileName })
+ *   POST   /api/v1/publications             (raw PDF or EPUB body with ?fileName=…, or JSON { base64, fileName })
  *   GET    /api/v1/slops
  *   POST   /api/v1/slops
  *   PATCH  /api/v1/slops/:slop
@@ -154,14 +154,15 @@ async function handle(request: Request, path: string): Promise<Response> {
       if (!result.ok) throw new ApiError(400, result.error);
       return Response.json({ id: result.id }, { status: 201 });
     }
-    if (user && match.operation === "upload_publication" && contentType.startsWith("application/pdf")) {
+    const rawPublication = contentType.startsWith("application/pdf") || contentType.startsWith("application/epub+zip");
+    if (user && match.operation === "upload_publication" && rawPublication) {
       const result = await uploadPublication(user._id, {
         bytes: new Uint8Array(await request.arrayBuffer()),
         fileName: new URL(request.url).searchParams.get("fileName"),
       });
       if (!result.ok) throw new ApiError(400, result.error);
-      const { id, url, fileName } = result;
-      return Response.json({ id, url, fileName, nsfw: result.contentCheck === "mature" }, { status: 201 });
+      const { id, url, fileName, format } = result;
+      return Response.json({ id, url, fileName, format, nsfw: result.contentCheck === "mature" }, { status: 201 });
     }
 
     let input: JsonObject = {};

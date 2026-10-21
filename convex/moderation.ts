@@ -108,7 +108,7 @@ export async function checkScreenshots(
     if (alreadyShown.includes(id)) continue;
     const media = await ctx.db.get(id);
     if (media?.check?.verdict === "mature") {
-      reasons.push(`${isPublication(media) ? "The PDF" : "A screenshot"}: ${media.check.reason}`);
+      reasons.push(`${isPublication(media) ? "The publication" : "A screenshot"}: ${media.check.reason}`);
     }
   }
   if (reasons.length === 0) return false;

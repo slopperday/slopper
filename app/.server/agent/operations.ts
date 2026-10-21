@@ -129,7 +129,7 @@ function summarizeSlop(slop: Doc<"slops">, owner: User) {
       : null,
     /** The promo video: none, pending (waiting for a moderator) or live. */
     video: !slop.video ? "none" : slop.video.approvedAt === null ? "pending" : "live",
-    /** Whether it has a publication (a PDF) to read. */
+    /** Whether it has a publication (a PDF or EPUB) to read. */
     publication: slop.publication !== undefined,
   };
 }
@@ -256,7 +256,7 @@ function summarizeScheduled(item: ScheduledItem, user: User) {
 const PUBLICATION_SCHEMA = {
   type: "string",
   description:
-    "An id from upload_publication: a PDF the user wrote, read on the slop page. With one, links are optional. On update_slop, null takes it off.",
+    "An id from upload_publication: a PDF or EPUB the user wrote, read from the slop page. With one, links are optional. On update_slop, null takes it off.",
 };
 
 /** The product page fields, shared by create_slop and update_slop. */
@@ -506,15 +506,15 @@ export const OPERATIONS: Operation[] = [
   {
     name: "upload_publication",
     title: "Upload a publication",
-    description: `Upload a PDF the user wrote (a book, zine, guide or paper; max ${LIMITS.publicationBytes / 1024 / 1024} MB) as base64. Explicit or hateful ones are refused. Returns an id to pass as publication in create_slop or update_slop, and nsfw: true when it will blur the slop that shows it.`,
+    description: `Upload a PDF or EPUB the user wrote (a book, zine, guide or paper; max ${LIMITS.publicationBytes / 1024 / 1024} MB) as base64. Explicit or hateful ones are refused, and so are files with scripts, forms, attachments, DRM or things loaded from the web. Returns an id to pass as publication in create_slop or update_slop, and nsfw: true when it will blur the slop that shows it.`,
     inputSchema: {
       type: "object",
       properties: {
-        base64: { type: "string", description: "PDF bytes, base64 encoded (no data: prefix)." },
+        base64: { type: "string", description: "PDF or EPUB bytes, base64 encoded (no data: prefix)." },
         fileName: {
           type: "string",
           maxLength: LIMITS.publicationNameLength,
-          description: "The name it's shown by on the slop, like “field-guide.pdf”.",
+          description: "The name it's shown by on the slop, like “field-guide.pdf” or “zine.epub”.",
         },
       },
       required: ["base64"],
@@ -526,7 +526,8 @@ export const OPERATIONS: Operation[] = [
         fileName: optionalString(input, "fileName"),
       });
       if (!result.ok) throw new ApiError(400, result.error);
-      return { id: result.id, url: result.url, fileName: result.fileName, nsfw: result.contentCheck === "mature" };
+      const { id, url, fileName, format } = result;
+      return { id, url, fileName, format, nsfw: result.contentCheck === "mature" };
     },
   },
   {

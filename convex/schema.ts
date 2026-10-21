@@ -208,7 +208,7 @@ const mediaFields = {
   size: v.number(),
   /** Absent on images uploaded before the upload check existed. */
   check: v.optional(mediaCheckValidator),
-  /** The name a publication (a PDF) was uploaded with, shown on its slop. */
+  /** The name a publication (a PDF or EPUB) was uploaded with, shown on its slop. */
   fileName: v.optional(v.string()),
   /**
    * Set when no slop shows a B2 image any more. Only the app server holds the

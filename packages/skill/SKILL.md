@@ -78,8 +78,9 @@ Link kinds: `website`, `app_store`, `testflight`, `play_store`, `play_beta`, `so
 website. Store links must use their store's domain.
 
 When the user wrote something to read (a book, zine, guide or paper), launch it with `--publication ./guide.pdf`
-(a PDF up to 4 MB, uploaded for you). People read it on the slop page, and `--link` becomes optional. PDFs with
-scripts, auto-run actions, forms, attachments or a password are refused; export a plain PDF instead.
+(a PDF or EPUB up to 4 MB, uploaded for you). People read it from the slop page, and `--link` becomes optional.
+Files with scripts, auto-run actions, forms, attachments, a password or DRM are refused, and so are EPUBs that load
+anything from the web; export a plain PDF or EPUB instead.
 `slopper edit <slop> --remove-publication` takes it off.
 
 The result has the slop's `id`, `slug` and `url`. Give the user the URL. `hidden: true` means only they can see it

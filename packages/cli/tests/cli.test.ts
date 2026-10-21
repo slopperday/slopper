@@ -1116,6 +1116,20 @@ describe("publications", () => {
     ]);
   });
 
+  it("uploads an EPUB as one, by its extension", async () => {
+    const cli = await harness(
+      { "POST /api/v1/publications": UPLOADED, "PATCH /api/v1/slops/guide": { body: {} } },
+      TOKEN,
+    );
+    const path = join(cli.home, "zine.EPUB");
+    await writeFile(path, new Uint8Array([0x50, 0x4b, 3, 4]));
+    expect((await cli.run("edit", "guide", "--publication", path)).code).toBe(0);
+    expect(cli.calls[0]).toMatchObject({
+      url: "https://slopper.day/api/v1/publications?fileName=zine.EPUB",
+      contentType: "application/epub+zip",
+    });
+  });
+
   it("passes an uploaded PDF's id as it is, and takes one off with --remove-publication", async () => {
     const cli = await harness({ "PATCH /api/v1/slops/guide": { body: {} } }, TOKEN);
     await cli.run("edit", "guide", "--publication", "media_pdf");
@@ -1129,7 +1143,7 @@ describe("publications", () => {
     await writeFile(doc, new Uint8Array([1]));
     expect(await cli.run("edit", "guide", "--publication", doc)).toMatchObject({
       code: 2,
-      stderr: expect.stringContaining("isn't a PDF."),
+      stderr: expect.stringContaining("isn't a PDF or an EPUB."),
     });
     const big = join(cli.home, "big.pdf");
     await writeFile(big, new Uint8Array(PUBLICATION_BYTES + 1));

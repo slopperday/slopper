@@ -263,7 +263,7 @@ export const LIMITS = {
   mediaBytes: 4 * 1024 * 1024,
   /** Under Netlify's request cap, like images: a 20 s 1080p promo at CRF 23 is about 2 MB. */
   videoBytes: 4 * 1024 * 1024,
-  /** A publication (a book, zine, guide or paper) as one PDF, under the same request cap. */
+  /** A publication (a book, zine, guide or paper) as one PDF or EPUB, under the same request cap. */
   publicationBytes: 4 * 1024 * 1024,
   /** The file name a publication is shown by. */
   publicationNameLength: 120,

@@ -14,12 +14,14 @@ import {
   uploadImage,
   uploadPublication,
 } from "~/.server/media";
+import { EPUB_PROBLEMS } from "~/.server/epubSafety";
 import { checkedContent, publicationSubmission } from "~/.server/moderation";
 import { PDF_PROBLEMS } from "~/.server/pdfSafety";
 import type { MediaKind, MediaLocation, MediaStore } from "~/.server/storage";
 import { fileSize } from "~/lib/display";
 import { LIMITS } from "~/lib/model";
 import { convexApp } from "./convexApp";
+import { epub } from "./epubs";
 
 const MEDIA_URL = "https://media.test/file/slopper-media";
 const CHECK = {
@@ -73,7 +75,8 @@ class MemoryBucket implements MediaStore {
   readonly objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
 
   async put(bytes: Uint8Array<ArrayBuffer>, contentType: string, kind: MediaKind): Promise<MediaLocation> {
-    const key = `${kind}s/${this.objects.size + 1}.${contentType === "application/pdf" ? "pdf" : "png"}`;
+    const extension = { "application/pdf": "pdf", "application/epub+zip": "epub" }[contentType] ?? "png";
+    const key = `${kind}s/${this.objects.size + 1}.${extension}`;
     this.objects.set(key, { bytes, contentType });
     return { backend: "b2", key };
   }
@@ -167,6 +170,54 @@ describe("publication uploads", () => {
     ]);
   });
 
+  it("scans an EPUB, checks the text its scan read out, then stores it as an EPUB", async () => {
+    const { t, server } = setup();
+    const owner = await makeUser(server, "writer");
+    const bucket = new MemoryBucket();
+    const check = contentCheck("ok");
+    const book = epub({ body: "<h1>Chapter one</h1><p>Ship it &amp; see.</p>" });
+    const result = await uploadPublication(
+      owner,
+      { bytes: book, fileName: "zine.pdf" },
+      services(server, bucket, check.fetcher),
+    );
+    expect(result).toMatchObject({ ok: true, fileName: "zine.epub", format: "epub", contentCheck: "ok" });
+    expect(bucket.objects.get("publications/1.epub")).toEqual({ bytes: book, contentType: "application/epub+zip" });
+    const [row] = await t.run(async (ctx) => await ctx.db.query("media").collect());
+    expect(row).toMatchObject({ contentType: "application/epub+zip", fileName: "zine.epub" });
+
+    // No file part and no parser: the model reads the book's words as text.
+    const body = JSON.parse(check.bodies[0]) as { messages: { content: { type: string; text?: string }[] }[] };
+    expect(body).not.toHaveProperty("plugins");
+    const parts = body.messages[1].content;
+    expect(parts.map((part) => part.type)).toEqual(["text", "text"]);
+    expect(parts[1].text).toContain("Chapter one Ship it & see.");
+
+    const page = await server.query(api.media.publication, { mediaId: result.ok ? result.id : "" });
+    expect(page).toMatchObject({ fileName: "zine.epub", format: "epub", size: book.byteLength });
+  });
+
+  it("refuses an EPUB the safety scan won't pass before the check sees it", async () => {
+    const { server } = setup();
+    const owner = await makeUser(server, "writer");
+    const bucket = new MemoryBucket();
+    const check = contentCheck("ok");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const scripted = epub({ body: "<p>Hi</p><script>fetch('https://evil.example')</script>" });
+    expect(await uploadPublication(owner, { bytes: scripted }, services(server, bucket, check.fetcher))).toEqual({
+      ok: false,
+      error: EPUB_PROBLEMS.active,
+    });
+    const tracked = epub({ body: '<img src="https://tracker.example/p.gif"/>' });
+    expect(await uploadPublication(owner, { bytes: tracked }, services(server, bucket, check.fetcher))).toEqual({
+      ok: false,
+      error: EPUB_PROBLEMS.remote,
+    });
+    expect(check.bodies).toEqual([]);
+    expect(bucket.objects.size).toBe(0);
+    expect(warn).toHaveBeenCalledWith(`Refused a publication from ${owner} (active: script)`);
+  });
+
   it("refuses a blocked PDF before anything is stored", async () => {
     const { t, server } = setup();
     const owner = await makeUser(server, "writer");
@@ -200,11 +251,11 @@ describe("publication uploads", () => {
     const check = contentCheck("ok");
     const send = (bytes: Uint8Array<ArrayBuffer>) =>
       uploadPublication(owner, { bytes }, services(server, new MemoryBucket(), check.fetcher));
-    expect(await send(PNG)).toEqual({ ok: false, error: "Use a PDF." });
+    expect(await send(PNG)).toEqual({ ok: false, error: "Use a PDF or an EPUB." });
     expect(await send(new Uint8Array())).toEqual({ ok: false, error: "Empty file." });
     const huge = new Uint8Array(LIMITS.publicationBytes + 1);
     huge.set(PDF);
-    expect(await send(huge)).toEqual({ ok: false, error: "PDFs must be 4 MB or smaller." });
+    expect(await send(huge)).toEqual({ ok: false, error: "Publications must be 4 MB or smaller." });
     expect(check.bodies).toEqual([]);
   });
 
@@ -243,6 +294,9 @@ describe("publication uploads", () => {
     expect(publicationFileName(null)).toBe("publication.pdf");
     expect(publicationFileName("bad\u0000name.pdf")).toBe("badname.pdf");
     expect(publicationFileName(`${"a".repeat(300)}.pdf`)).toHaveLength(LIMITS.publicationNameLength);
+    expect(publicationFileName("zine.pdf", "epub")).toBe("zine.epub");
+    expect(publicationFileName("Zine.EPUB", "epub")).toBe("Zine.epub");
+    expect(publicationFileName(`${"a".repeat(300)}.epub`, "epub")).toHaveLength(LIMITS.publicationNameLength);
   });
 });
 
@@ -256,7 +310,12 @@ describe("slops with a publication", () => {
     const page = await server.query(api.slops.page, { username: "writer", slug: "field-guide" });
     expect(page?.slop).toMatchObject({
       links: [],
-      publication: { url: `${MEDIA_URL}/publications/1.pdf`, fileName: "Field Guide.pdf", size: PDF.byteLength },
+      publication: {
+        url: `${MEDIA_URL}/publications/1.pdf`,
+        fileName: "Field Guide.pdf",
+        format: "pdf",
+        size: PDF.byteLength,
+      },
     });
     const stored = await server.query(api.slops.getForServer, { slopId });
     if (!stored) throw new Error("No slop.");
@@ -272,7 +331,7 @@ describe("slops with a publication", () => {
     expect(blurred).toBe(true);
     expect(await server.query(api.slops.getForServer, { slopId })).toMatchObject({
       nsfw: true,
-      check: { verdict: "mature", reason: "The PDF: Looks mature." },
+      check: { verdict: "mature", reason: "The publication: Looks mature." },
     });
   });
 
@@ -281,7 +340,7 @@ describe("slops with a publication", () => {
     const owner = await makeUser(server, "writer");
     const other = await makeUser(server, "other");
     const theirs = await upload(server, other);
-    await expect(launch(server, owner, theirs.id)).rejects.toThrow("That isn't one of your uploaded PDFs.");
+    await expect(launch(server, owner, theirs.id)).rejects.toThrow("That isn't one of your uploaded publications.");
 
     const image = await uploadImage(
       owner,
@@ -289,7 +348,7 @@ describe("slops with a publication", () => {
       services(server, new MemoryBucket(), contentCheck("ok").fetcher),
     );
     if (!image.ok) throw new Error(image.error);
-    await expect(launch(server, owner, image.id)).rejects.toThrow("That isn't one of your uploaded PDFs.");
+    await expect(launch(server, owner, image.id)).rejects.toThrow("That isn't one of your uploaded publications.");
 
     const mine = await upload(server, owner);
     const { slopId } = await server.mutation(api.slops.create, {
@@ -353,7 +412,7 @@ describe("validation", () => {
   it("needs a link or a publication", () => {
     expect(validateSlop({ ...base, links: [] })).toMatchObject({
       ok: false,
-      errors: { links: "Add at least one link so people can try it, or upload a PDF." },
+      errors: { links: "Add at least one link so people can try it, or upload a PDF or EPUB." },
     });
     expect(validateSlop({ ...base, links: [], publication: "k57abcdefghijklmnop" })).toMatchObject({
       ok: true,
@@ -365,12 +424,12 @@ describe("validation", () => {
     });
     expect(validateSlop({ ...base, publication: "not an id!" })).toMatchObject({
       ok: false,
-      errors: { publication: "That PDF didn't upload. Try it again." },
+      errors: { publication: "That publication didn't upload. Try it again." },
     });
   });
 
   it("says what the check reads", () => {
-    expect(publicationSubmission({ bytes: PDF, fileName: "zine.pdf" }).fields).toEqual({
+    expect(publicationSubmission({ bytes: PDF, fileName: "zine.pdf", contentType: "application/pdf" }).fields).toEqual({
       upload: "publication",
       fileName: "zine.pdf",
     });

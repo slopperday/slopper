@@ -10,7 +10,7 @@ import type {
 } from "../../app/lib/model";
 import { renderMarkdown } from "../../app/lib/markdown";
 import type { DemoVideo } from "../../app/lib/video";
-import { mediaUrl, publicationName } from "./media";
+import { mediaUrl, type PublicationFormat, publicationFormat, publicationName } from "./media";
 
 /**
  * What leaves Convex. Public queries return these shapes, never raw
@@ -88,6 +88,7 @@ export interface PublicSlop {
 export interface PublicPublication {
   url: string;
   fileName: string;
+  format: PublicationFormat;
   /** Bytes. */
   size: number;
 }
@@ -95,7 +96,8 @@ export interface PublicPublication {
 async function publicationOf(ctx: QueryCtx, id: Id<"media"> | undefined): Promise<PublicPublication | null> {
   const media = id ? await ctx.db.get(id) : null;
   const url = media ? await mediaUrl(ctx, media) : null;
-  return media && url ? { url, fileName: publicationName(media), size: media.size } : null;
+  const format = media ? publicationFormat(media.contentType) : null;
+  return media && url && format ? { url, fileName: publicationName(media), format, size: media.size } : null;
 }
 
 export function productIdOf(slop: Doc<"slops">): Id<"slops"> {

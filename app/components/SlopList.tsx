@@ -120,7 +120,7 @@ function SlopRow({
             <span key={part}>{part}</span>
           ))}
           <span className="hidden sm:inline">
-            <Platforms links={slop.links} publication={slop.publication !== null} />
+            <Platforms links={slop.links} publication={slop.publication?.format} />
           </span>
         </p>
       </div>

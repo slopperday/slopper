@@ -35,7 +35,7 @@ export const slopInput = v.object({
   links: v.array(linkValidator),
   /** Media ids as typed or sent by an agent; checked against ownership. */
   screenshots: v.array(v.string()),
-  /** A PDF's media id from a publication upload, or null for none. Left out, it stays as it is. */
+  /** A publication's media id (a PDF or EPUB), or null for none. Left out, it stays as it is. */
   publication: v.optional(v.union(v.string(), v.null())),
   madeWith: v.array(v.string()),
   /** The product page. Left out, they stay as they are. */
@@ -64,14 +64,14 @@ export async function ownedMedia(
       continue;
     }
     const media = await ctx.db.get(id);
-    // Videos go through set_video and a moderator, and PDFs in as publications, never as screenshots.
+    // Videos go through set_video and a moderator, and PDFs and EPUBs in as publications, never as screenshots.
     if (media?.ownerId === userId && media.orphanedAt === undefined && isImage(media)) kept.push(id);
   }
   return kept.slice(0, max);
 }
 
 /**
- * The publication a launch will show: a PDF the user uploaded, or the one
+ * The publication a launch will show: a PDF or EPUB the user uploaded, or the one
  * already on it (or on the launch it relaunches). Null for none.
  */
 export async function ownedPublication(
@@ -85,7 +85,7 @@ export async function ownedPublication(
   if (id && id === alreadyAttached) return id;
   const media = id ? await ctx.db.get(id) : null;
   if (!media || media.ownerId !== userId || media.orphanedAt !== undefined || !isPublication(media)) {
-    throw new ConvexError("That isn't one of your uploaded PDFs.");
+    throw new ConvexError("That isn't one of your uploaded publications.");
   }
   return media._id;
 }

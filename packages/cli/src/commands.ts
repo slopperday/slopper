@@ -93,7 +93,7 @@ export const MEDIA_BYTES = 4 * 1024 * 1024;
 /** The site's LIMITS.videoBytes, for promo videos. */
 export const VIDEO_BYTES = 4 * 1024 * 1024;
 
-/** The site's LIMITS.publicationBytes, for a PDF to read on a slop. */
+/** The site's LIMITS.publicationBytes, for a PDF or EPUB to read on a slop. */
 export const PUBLICATION_BYTES = 4 * 1024 * 1024;
 
 function text(values: Values, key: string): string | undefined {
@@ -191,8 +191,15 @@ async function uploadVideoFile(api: Api, file: string): Promise<{ id: string }> 
   return uploaded as { id: string };
 }
 
+/** The publication formats, by extension. */
+const PUBLICATION_TYPES: Readonly<Record<string, string>> = {
+  ".pdf": "application/pdf",
+  ".epub": "application/epub+zip",
+};
+
 async function uploadPublicationFile(api: Api, file: string): Promise<{ id: string }> {
-  if (extname(file).toLowerCase() !== ".pdf") throw usageError(`${file} isn't a PDF.`);
+  const contentType = PUBLICATION_TYPES[extname(file).toLowerCase()];
+  if (!contentType) throw usageError(`${file} isn't a PDF or an EPUB.`);
   let bytes: Uint8Array<ArrayBuffer>;
   try {
     bytes = new Uint8Array(await readFile(resolve(file)));
@@ -203,20 +210,16 @@ async function uploadPublicationFile(api: Api, file: string): Promise<{ id: stri
   if (bytes.byteLength > PUBLICATION_BYTES) {
     throw usageError(`${file} is bigger than ${PUBLICATION_BYTES / 1024 / 1024} MB, the most a publication can be.`);
   }
-  const uploaded = await api.upload(
-    `/publications?fileName=${encodeURIComponent(basename(file))}`,
-    bytes,
-    "application/pdf",
-  );
+  const uploaded = await api.upload(`/publications?fileName=${encodeURIComponent(basename(file))}`, bytes, contentType);
   if (typeof uploaded !== "object" || uploaded === null || typeof (uploaded as { id?: unknown }).id !== "string") {
     throw new SlopperError(`Uploading ${file} returned no media id.`);
   }
   return uploaded as { id: string };
 }
 
-/** A publication is a PDF file, uploaded first, or a media id from an earlier upload. */
+/** A publication is a PDF or EPUB file, uploaded first, or a media id from an earlier upload. */
 async function publicationId(api: Api, value: string): Promise<string> {
-  const isFile = value.includes("/") || value.includes("\\") || extname(value).toLowerCase() === ".pdf";
+  const isFile = value.includes("/") || value.includes("\\") || extname(value).toLowerCase() in PUBLICATION_TYPES;
   return isFile ? (await uploadPublicationFile(api, value)).id : value;
 }
 
@@ -274,7 +277,7 @@ const SLOP_FLAGS = {
   "--screenshot <file|id>":
     "An image file (uploaded for you) or an id from `slopper upload`; repeat for more. The first is the cover.",
   "--publication <file|id>":
-    "A PDF you wrote (a book, zine, guide or paper, up to 4 MB), uploaded for you and read on the slop page. With one, --link is optional.",
+    "A PDF or EPUB you wrote (a book, zine, guide or paper, up to 4 MB), uploaded for you and read from the slop page. With one, --link is optional.",
   "--made-with <tag>":
     "What built it: the model, the harness, the framework; repeat for more. Spellings from `slopper tags`.",
 };
@@ -508,7 +511,7 @@ export const COMMANDS: Command[] = [
     args: "<slop>",
     summary:
       "Change one of your slops, until the end of its launch day (at least 12 hours after launch); then post updates instead. Only the flags you pass change; --link and --screenshot replace the lists.",
-    flags: { ...SLOP_FLAGS, "--remove-publication": "Take the slop's PDF off." },
+    flags: { ...SLOP_FLAGS, "--remove-publication": "Take the slop's PDF or EPUB off." },
     options: { ...SLOP_OPTIONS, "remove-publication": { type: "boolean" } },
     async run(context) {
       const slop = positional(context, 0, "slop");

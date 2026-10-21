@@ -498,7 +498,11 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
                 <Platforms links={slop.links} />
               </Fact>
             )}
-            {slop.publication && <Fact label="Read it">PDF · {fileSize(slop.publication.size)}</Fact>}
+            {slop.publication && (
+              <Fact label="Read it">
+                {slop.publication.format.toUpperCase()} · {fileSize(slop.publication.size)}
+              </Fact>
+            )}
             {slop.madeWith.length > 0 && (
               <Fact label="Made with">
                 <span className="flex flex-wrap gap-1.5">
@@ -671,7 +675,7 @@ function PublicationCard({ slop, reveal }: { slop: View["slop"]; reveal: boolean
             {publication.fileName}
           </span>
           <span className="mt-1 block text-[0.9375rem] text-muted">
-            PDF · {fileSize(publication.size)}
+            {publication.format.toUpperCase()} · {fileSize(publication.size)}
             {reveal ? "" : " · NSFW, show anyway"}
           </span>
         </span>
