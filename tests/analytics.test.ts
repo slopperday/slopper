@@ -139,7 +139,7 @@ describe("the analytics endpoint", () => {
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("access-control-allow-origin")).toBe("https://slopper.day");
-    expect(await response.json()).toEqual({ stored: 1, duplicates: 0, dropped: 0 });
+    expect(await response.json()).toEqual({ stored: 1, duplicates: 0, dropped: 0, throttled: 0 });
     const [event] = await t.query(components.analytics.events.recent, { distinctId: "visitor" });
     expect(event).toMatchObject({ name: "$pageview", path: "/" });
     const person = await t.query(components.analytics.persons.get, { distinctId: "visitor" });
@@ -156,6 +156,18 @@ describe("the analytics endpoint", () => {
     const posted = await t.fetch("/a/e", post(batch([{}]), { origin: "https://evil.example" }));
     expect(posted.status).toBe(403);
     expect(await t.query(components.analytics.events.recent, {})).toEqual([]);
+  });
+
+  it("throttles a flood rather than storing all of it", async () => {
+    // The endpoint is public, so a distinct id's day ceiling (lib/limits.ts)
+    // is what a flood hits: batches past it keep nothing.
+    const { t } = setup();
+    vi.setSystemTime(new Date("2026-10-21T12:00:00Z"));
+    const flood = () => t.fetch("/a/e", post(batch(Array.from({ length: 100 }, () => ({ distinctId: "flood" })))));
+    for (let i = 0; i < 20; i++) await flood();
+    const over = await flood();
+    expect(over.status).toBe(200);
+    expect(await over.json()).toMatchObject({ stored: 0, throttled: 100 });
   });
 
   it("drops crawlers without telling them", async () => {

@@ -3,6 +3,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { captureFor } from "./analytics";
 import { requireServer } from "./lib/auth";
+import { LIMITS } from "../app/lib/model";
 import { publicUser } from "./lib/shape";
 import { currentStreak, utcDate } from "../app/lib/dates";
 import { goalEndDate, goalProgress, isGoalOpen } from "../app/lib/goal";
@@ -39,6 +40,14 @@ export const create = mutation({
     { userId, today, ...input },
   ): Promise<{ ok: true; goal: Doc<"goals"> } | { ok: false; error: string }> => {
     await requireServer(ctx);
+    // The same shape the form requires (app/.server/forms.ts validateGoal);
+    // Convex-side, because a degenerate goal (target 0) would render as
+    // instantly won in every list that reads one.
+    const days = Number.isInteger(input.days) ? input.days : 0;
+    const target = Number.isInteger(input.target) ? input.target : 0;
+    if (days < 1 || days > LIMITS.goalDays || target < 1 || target > 1000 || input.title.length > 80) {
+      return { ok: false, error: "That isn't a goal the form would accept." };
+    }
     if (await openGoal(ctx, userId, today)) return { ok: false, error: "Finish or drop your current goal first." };
     const draft = { ...input, abandonedAt: null };
     const id = await ctx.db.insert("goals", { userId, ...draft, endDate: goalEndDate(draft) });
@@ -67,10 +76,13 @@ export const standings = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {
     const today = utcDate(Date.now());
+    // The query is public and reads every open goal's every launch, so it is
+    // bounded on both: far past anything honest, low enough that a stranger
+    // looping the deployment URL can't make it scan the database.
     const goals = await ctx.db
       .query("goals")
       .withIndex("by_end", (q) => q.gte("endDate", today))
-      .collect();
+      .take(2_000);
     const rows = [];
     for (const goal of goals) {
       if (goal.abandonedAt !== null) continue;
@@ -79,7 +91,7 @@ export const standings = query({
       const slops = await ctx.db
         .query("slops")
         .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .collect();
+        .take(2_000);
       const launches = slops
         .filter((slop) => !slop.hidden)
         .map((slop) => ({ id: slop._id, name: slop.name, slug: slop.slug, launchDate: slop.launchDate }));

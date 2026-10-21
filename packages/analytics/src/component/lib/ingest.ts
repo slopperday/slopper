@@ -6,6 +6,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import type { deviceValidator, requestContextValidator } from "../validators";
+import { INGEST_LIMITS, take } from "./limits";
 import { markChanged } from "./rollupDays";
 
 export type RequestContext = Infer<typeof requestContextValidator>;
@@ -212,6 +213,13 @@ class IngestBatch {
    * anonymous one is merged in, unless it was itself signed in to another
    * account (a shared computer): two accounts are never merged.
    */
+  /** Whether the account still takes an `$identify` linking or merge today. */
+  private async allowsIdentify(accountId: string): Promise<boolean> {
+    return (
+      (await take(this.ctx, `identify:merge:${accountId}`, 1, INGEST_LIMITS.mergesPerAccountPerDay, 86_400_000)) > 0
+    );
+  }
+
   async identify(event: WireEvent): Promise<void> {
     const accountId = event.distinctId;
     const anonymousId = stringProperty(event.properties, "anonDistinctId");
@@ -228,10 +236,18 @@ class IngestBatch {
       await this.link(accountId, anonymous.doc._id);
       target = anonymous;
     } else if (account && !anonymous) {
-      if (anonymousId && anonymousId !== accountId) await this.link(anonymousId, account.doc._id);
+      // Linking an unseen id into an account is the same gift to a forger as
+      // merging one in, so it draws from the same day's allowance.
+      if (anonymousId && anonymousId !== accountId && (await this.allowsIdentify(accountId))) {
+        await this.link(anonymousId, account.doc._id);
+      }
       target = account;
     } else if (account && anonymous && account.doc._id !== anonymous.doc._id && !anonymous.doc.identified) {
-      await this.merge(anonymous, account);
+      // The route is public and sends no proof of who it speaks for, so an
+      // account only takes a few merges a day (`lib/limits.ts`): enough for a
+      // person's own browsers, too few to make merging into someone else's
+      // person a tool.
+      if (await this.allowsIdentify(accountId)) await this.merge(anonymous, account);
       target = account;
     } else {
       // Already one person, or the anonymous one is someone else's account.

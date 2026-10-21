@@ -5,6 +5,7 @@ import { requireServer } from "./lib/auth";
 import { isPublication } from "./lib/media";
 import { requireMayJudge, requirePermission } from "./lib/permissions";
 import { consume } from "./lib/rate";
+import { checkedContentHash } from "./lib/shape";
 import { logStaffAction } from "./lib/staffLog";
 import { checkVerdictValidator, flagDecisionValidator } from "./schema";
 import { FLAGS_TO_BLUR } from "../app/lib/model";
@@ -84,10 +85,24 @@ export const applyCheck = mutation({
     scope: v.union(v.literal("slop"), v.literal("update")),
     verdict: checkVerdictValidator,
     reason: v.string(),
+    /**
+     * The fingerprint of the content this verdict was made from
+     * (lib/shape.ts `checkedContentHash`). When it's there, the verdict only
+     * lands if the slop still says the same things: a check that was in
+     * flight while the slop was edited must not clear the way for text the
+     * model never saw.
+     */
+    contentHash: v.optional(v.string()),
   },
-  handler: async (ctx, { slopId, scope, verdict, reason }) => {
+  handler: async (ctx, { slopId, scope, verdict, reason, contentHash }) => {
     await requireServer(ctx);
-    if (await ctx.db.get(slopId)) await recordCheck(ctx, slopId, scope, verdict, reason);
+    const slop = await ctx.db.get(slopId);
+    if (!slop) return { applied: false };
+    if (contentHash !== undefined && scope === "slop" && checkedContentHash(slop) !== contentHash) {
+      return { applied: false };
+    }
+    await recordCheck(ctx, slopId, scope, verdict, reason);
+    return { applied: true };
   },
 });
 

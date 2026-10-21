@@ -275,5 +275,9 @@ export async function takePendingAuthorization(state: string): Promise<PendingAu
 export function safeReturnTo(value: string | null | undefined): string {
   if (!value || !value.startsWith("/")) return "/";
   if (value.startsWith("//") || value.startsWith("/\\")) return "/";
+  // Browsers strip tab, line and carriage feeds out of URLs, so a control
+  // character hiding "//evil.com" behind a "/" still redirects there.
+  // oxlint-disable-next-line no-control-regex -- the control characters are the point.
+  if (/[\x00-\x1f\x7f]/.test(value)) return "/";
   return value;
 }

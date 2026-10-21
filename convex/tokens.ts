@@ -7,6 +7,10 @@ import { requireServer } from "./lib/auth";
 
 const MAX_TOKENS = 10;
 
+/** A token lives a year from its creation: a leaked one stops working on its own. */
+export const TOKEN_DAYS = 365;
+const TOKEN_MS = TOKEN_DAYS * 86_400_000;
+
 export interface NewToken {
   userId: Id<"users">;
   name: string;
@@ -69,7 +73,7 @@ export const revoke = mutation({
   },
 });
 
-/** The user behind a bearer token, recording when it was last used. */
+/** The user behind a bearer token, recording when it was last used. A token older than a year is done. */
 export const use = mutation({
   args: { hash: v.string() },
   handler: async (ctx, { hash }): Promise<Doc<"users"> | null> => {
@@ -79,6 +83,10 @@ export const use = mutation({
       .withIndex("by_hash", (q) => q.eq("hash", hash))
       .unique();
     if (!token) return null;
+    if (Date.now() - token._creationTime > TOKEN_MS) {
+      await ctx.db.delete(token._id);
+      return null;
+    }
     // Touch at most hourly so busy agents don't write on every call.
     if (Date.now() - (token.lastUsedAt ?? 0) > 3_600_000) await ctx.db.patch(token._id, { lastUsedAt: Date.now() });
     return await ctx.db.get(token.userId);

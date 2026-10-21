@@ -842,7 +842,9 @@ export const OPERATIONS: Operation[] = [
       const category = optionalString(input, "category") ?? "other";
       const note = (optionalString(input, "note") ?? "").trim();
       const date = optionalString(input, "date") ?? localDate(context.now, context.user.timeZone);
-      if (amount <= 0 || amount > 1e12) throw new ApiError(422, "amount must be above zero.");
+      if (!Number.isFinite(amount) || amount <= 0 || amount > 1e12) {
+        throw new ApiError(422, "amount must be above zero.");
+      }
       if (!(CURRENCIES as readonly string[]).includes(currency))
         throw new ApiError(422, `currency is one of ${CURRENCIES.join(", ")}.`);
       if (!categories.includes(category)) throw new ApiError(422, `category is one of ${categories.join(", ")}.`);

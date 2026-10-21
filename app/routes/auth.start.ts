@@ -1,4 +1,5 @@
 import type { Route } from "./+types/auth.start";
+import { allowAction, callerAddress } from "~/.server/tokens";
 import { viewerContext } from "~/.server/session";
 import {
   authorizationUrl,
@@ -34,6 +35,12 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
   const viewer = context.get(viewerContext);
   // Linking and connecting add to the signed-in account.
   if (intent !== "login" && !viewer.user) return redirectWithFlash(loginUrl(home));
+
+  // Each start is a Convex write, and the page is public: a flood of starts
+  // must hit an address's ceiling, not the oauthStates table.
+  if (!(await allowAction(`oauth-start:${callerAddress(request)}`, 30, 3_600_000))) {
+    return redirectWithFlash(home, { tone: "error", message: "Too many sign-ins started. Try again in an hour." });
+  }
 
   const state = randomToken();
   const codeVerifier = randomToken(48);

@@ -24,7 +24,7 @@
     "prepack": "vp pack"
   },
   "devDependencies": {
-    "vite-plus": "1.0.0"
+    "vite-plus": "catalog:"
   },
   "engines": {
     "node": ">=22"

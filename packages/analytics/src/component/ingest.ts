@@ -1,21 +1,41 @@
 import { v } from "convex/values";
 import { BATCH_LIMITS } from "../shared/events";
 import { normalizeProperties } from "../shared/properties";
-import { mutation } from "./_generated/server";
+import { internalMutation, mutation } from "./_generated/server";
 import { ingestEvents } from "./lib/ingest";
+import { INGEST_LIMITS, take } from "./lib/limits";
 import { properties, requestContextValidator, wireEventValidator } from "./validators";
 
-const resultValidator = v.object({ stored: v.number(), duplicates: v.number() });
+const resultValidator = v.object({ stored: v.number(), duplicates: v.number(), throttled: v.number() });
+
+const MINUTE_MS = 60_000;
+const DAY_MS = 86_400_000;
 
 /**
  * A batch from the SDK, already validated by `parseBatch` (shared/events.ts)
  * in the HTTP endpoint, with what the endpoint learned from the request.
+ * The route is public, so the batch is trimmed to what the deployment's
+ * ingest ceilings (`lib/limits.ts`) still allow.
  */
 export const batch = mutation({
   args: { events: v.array(wireEventValidator), context: requestContextValidator },
   returns: resultValidator,
   handler: async (ctx, { events, context }) => {
-    return await ingestEvents(ctx, events.slice(0, BATCH_LIMITS.events), context);
+    const valid = events.slice(0, BATCH_LIMITS.events);
+    const minute = await take(ctx, "events:minute", valid.length, INGEST_LIMITS.eventsPerMinute, MINUTE_MS);
+    const day = await take(ctx, "events:day", minute, INGEST_LIMITS.eventsPerDay, DAY_MS);
+    let kept = valid.slice(0, day);
+    // One distinct id can't spend the whole day's ceiling on its own.
+    const counts = new Map<string, number>();
+    for (const event of kept) counts.set(event.distinctId, (counts.get(event.distinctId) ?? 0) + 1);
+    for (const [distinctId, want] of counts) {
+      const allowed = await take(ctx, `events:id:${distinctId}`, want, INGEST_LIMITS.eventsPerDistinctIdPerDay, DAY_MS);
+      if (allowed === want) continue;
+      let left = allowed;
+      kept = kept.filter((event) => event.distinctId !== distinctId || left-- > 0);
+    }
+    const result = await ingestEvents(ctx, kept, context);
+    return { ...result, throttled: valid.length - result.stored - result.duplicates };
   },
 });
 
@@ -55,6 +75,14 @@ export const capture = mutation({
       setOnce: setOnce && Object.keys(setOnce).length > 0 ? setOnce : null,
       group: args.group?.slice(0, BATCH_LIMITS.idLength) ?? null,
     };
-    return await ingestEvents(ctx, [event], null, { identified: args.identified });
+    // Server captures are trusted, so no ceiling applies — but the shape matches a batch's.
+    return { ...(await ingestEvents(ctx, [event], null, { identified: args.identified })), throttled: 0 };
   },
+});
+
+/** Spends from an ingest ceiling for an action (the recordings route); mutations call `take` directly. */
+export const spend = internalMutation({
+  args: { key: v.string(), amount: v.number(), cap: v.number(), windowMs: v.number() },
+  returns: v.number(),
+  handler: async (ctx, { key, amount, cap, windowMs }) => await take(ctx, key, amount, cap, windowMs),
 });

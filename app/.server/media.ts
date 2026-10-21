@@ -305,9 +305,12 @@ export async function publicationForForm(id: string | null | undefined): Promise
  */
 export async function copyAvatar(userId: Id<"users">, pictureUrl: string): Promise<void> {
   try {
-    const response = await fetch(pictureUrl);
+    // A provider that hangs or answers huge must not hold up sign-in.
+    const response = await fetch(pictureUrl, { signal: AbortSignal.timeout(10_000) });
     if (!response.ok) throw new Error(`Picture request failed (${response.status})`);
-    const upload = await uploadImage(userId, { bytes: new Uint8Array(await response.arrayBuffer()), kind: "avatar" });
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > LIMITS.mediaBytes) throw new Error("Picture too large");
+    const upload = await uploadImage(userId, { bytes, kind: "avatar" });
     if (!upload.ok) throw new Error(upload.error);
     if (upload.url) await convex.mutation(api.users.setAvatar, { userId, avatarUrl: upload.url });
   } catch (error) {

@@ -85,6 +85,8 @@ export const set = mutation({
     for (const review of reviews) await ctx.db.delete(review._id);
     let check: VideoToCheck | null = null;
     if (next) {
+      // The slop now shows it, so it's attached (media.sweepUnattached).
+      if (next.attached !== true) await ctx.db.patch(next._id, { attached: true });
       await ctx.db.patch(slopId, { video: { mediaId: next._id, approvedAt: null } });
       await ctx.db.insert("videoReviews", { slopId, mediaId: next._id });
       const url = (await trustOf(ctx, userId))?.trusted ? await mediaUrl(ctx, next) : null;

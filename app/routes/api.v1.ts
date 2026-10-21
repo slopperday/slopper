@@ -1,6 +1,7 @@
 import type { Route } from "./+types/api.v1";
+import { LIMITS } from "~/lib/model";
 import { uploadImage, uploadPublication, uploadVideo } from "~/.server/media";
-import { apiQuota, userForBearer } from "~/.server/tokens";
+import { allowAction, apiQuota, callerAddress, userForBearer } from "~/.server/tokens";
 import { can } from "@convex/lib/permissions";
 import { adminReport } from "~/.server/agent/adminAnalytics";
 import { ApiError, asObject, type JsonObject } from "~/.server/agent/input";
@@ -114,6 +115,12 @@ function unauthorized(): Response {
 }
 
 async function handle(request: Request, path: string): Promise<Response> {
+  // Resolving a bearer costs a Convex call, well-formed or not, so an address
+  // ceiling comes first: floods of made-up tokens can't buy Convex mutations
+  // at request speed. Far above one token's quota, so shared addresses are safe.
+  if (!(await allowAction(`api-pre:${callerAddress(request)}`, LIMITS.apiCallsPerHour * 4, 3_600_000))) {
+    return Response.json({ error: "Rate limit reached. Try again later." }, { status: 429 });
+  }
   const user = await userForBearer(request);
   // A token that doesn't work is refused even on public reads, so its owner finds out.
   if (!user && request.headers.has("authorization")) return unauthorized();

@@ -9,6 +9,7 @@ import {
   linkedinIdentity,
   xIdentity,
 } from "~/.server/auth/identity";
+import * as oauth from "~/.server/auth/oauth";
 import { authorizationUrl, exchangeCode, FACEBOOK_GRAPH_VERSION, parseIntent } from "~/.server/auth/oauth";
 import { absoluteUrl } from "~/.server/config";
 import { OAUTH_PROVIDERS } from "~/lib/model";
@@ -300,5 +301,28 @@ describe("flows", () => {
     );
     await expect(exchangeCode("x", client, "bad", "v")).rejects.toThrow("Value passed for the token was invalid.");
     expect(calls[0].headers.get("authorization")).toBe(`Basic ${btoa("client-id:app-secret")}`);
+  });
+});
+
+describe("post-login destinations", () => {
+  it("allow same-site paths, and nothing that could leave the site", () => {
+    const { safeReturnTo } = oauth;
+    expect(safeReturnTo("/wall")).toBe("/wall");
+    for (const value of [
+      null,
+      "",
+      "https://evil.example/",
+      "//evil.example/",
+      "/\\evil.example/",
+      "\\evil.example/",
+      "javascript:alert(1)",
+    ]) {
+      expect(safeReturnTo(value), String(value)).toBe("/");
+    }
+    // Browsers strip tabs and newlines out of URLs: "/\t//evil.example" still
+    // leaves the site, so control characters never survive.
+    for (const value of ["/\t//evil.example/", "/\n//evil.example/", "/\r//evil.example/", "/\x7f", "/\x00"]) {
+      expect(safeReturnTo(value), JSON.stringify(value)).toBe("/");
+    }
   });
 });

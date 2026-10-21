@@ -215,6 +215,14 @@ const mediaFields = {
    * bucket key, so it deletes the object, then the row (app/.server/media.ts).
    */
   orphanedAt: v.optional(v.number()),
+  /**
+   * False until a slop, update, review, scheduled launch or the slop's video
+   * shows it (`ownedMedia`, `videos.set`). Uploads nothing ever attaches — an
+   * abandoned form, or someone filling storage on purpose — are swept after a
+   * grace period (`media.sweepUnattached`). Absent on media from before the
+   * flag, which the sweep leaves alone.
+   */
+  attached: v.optional(v.boolean()),
 };
 
 export default defineSchema({
@@ -298,7 +306,9 @@ export default defineSchema({
       v.object({ ...mediaFields, backend: v.optional(v.literal("convex")), storageId: v.id("_storage") }),
       v.object({ ...mediaFields, backend: v.literal("b2"), key: v.string() }),
     ),
-  ).index("by_orphaned", ["orphanedAt"]),
+  )
+    .index("by_orphaned", ["orphanedAt"])
+    .index("by_attached", ["attached"]),
 
   /** One launch. Later launches of a product point at its first via `productId`. */
   slops: defineTable({

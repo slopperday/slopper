@@ -205,4 +205,19 @@ export default defineSchema({
   })
     .index("by_key", ["key"])
     .index("by_flag", ["flagKey"]),
+
+  /**
+   * Fixed-window counters the ingest endpoints spend (`lib/limits.ts`). The
+   * HTTP routes are public, so these are the ceiling a flood hits; they are
+   * swept like everything else once their window is past.
+   */
+  counters: defineTable({
+    key: v.string(),
+    window: v.number(),
+    count: v.number(),
+    /** `(window + 1) * windowMs`: when the row stops mattering. */
+    expiresAt: v.number(),
+  })
+    .index("by_key_window", ["key", "window"])
+    .index("by_expires", ["expiresAt"]),
 });

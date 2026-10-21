@@ -6,9 +6,18 @@ import { readerFor, requireServer } from "./lib/auth";
 import { notify } from "./lib/notify";
 import { can, requirePermission } from "./lib/permissions";
 import { logStaffAction } from "./lib/staffLog";
-import { consume, nextCounter } from "./lib/rate";
+import { consume, nextCounter, spent } from "./lib/rate";
 import { reviewsFor } from "./lib/reviews";
-import { isVisibleTo, productIdOf, publicSlop, publicUpdate, publicUser, toCards, voteOf } from "./lib/shape";
+import {
+  checkedContentOf,
+  isVisibleTo,
+  productIdOf,
+  publicSlop,
+  publicUpdate,
+  publicUser,
+  toCards,
+  voteOf,
+} from "./lib/shape";
 import { demoVideoValidator, featureValidator, linkValidator } from "./schema";
 import { openGoal } from "./goals";
 import { tractionFor } from "./integrations";
@@ -46,10 +55,11 @@ export const slopInput = v.object({
 
 /**
  * Keeps only media the user uploaded (or already attached), in order, up to
- * `max`. Orphaned media is on its way out.
+ * `max`. Orphaned media is on its way out. Whatever is kept is attached: it
+ * leaves the never-attached sweep's pool (`media.sweepUnattached`).
  */
 export async function ownedMedia(
-  ctx: QueryCtx,
+  ctx: MutationCtx,
   userId: Id<"users">,
   ids: readonly string[],
   alreadyAttached: readonly Id<"media">[] = [],
@@ -67,7 +77,12 @@ export async function ownedMedia(
     // Videos go through set_video and a moderator, and PDFs and EPUBs in as publications, never as screenshots.
     if (media?.ownerId === userId && media.orphanedAt === undefined && isImage(media)) kept.push(id);
   }
-  return kept.slice(0, max);
+  const attached = kept.slice(0, max);
+  for (const id of new Set(attached)) {
+    const media = await ctx.db.get(id);
+    if (media && media.attached !== true) await ctx.db.patch(id, { attached: true });
+  }
+  return attached;
 }
 
 /**
@@ -75,7 +90,7 @@ export async function ownedMedia(
  * already on it (or on the launch it relaunches). Null for none.
  */
 export async function ownedPublication(
-  ctx: QueryCtx,
+  ctx: MutationCtx,
   userId: Id<"users">,
   raw: string | null | undefined,
   alreadyAttached?: Id<"media">,
@@ -87,6 +102,8 @@ export async function ownedPublication(
   if (!media || media.ownerId !== userId || media.orphanedAt !== undefined || !isPublication(media)) {
     throw new ConvexError("That isn't one of your uploaded publications.");
   }
+  // A slop now shows it, so it's attached (`media.sweepUnattached`).
+  if (media.attached !== true) await ctx.db.patch(media._id, { attached: true });
   return media._id;
 }
 
@@ -226,6 +243,7 @@ export const edit = mutation({
   args: { userId: v.id("users"), slopId: v.id("slops"), input: slopInput },
   handler: async (ctx, { userId, slopId, input }) => {
     await requireServer(ctx);
+    await consume(ctx, `edit:${userId}`, 30, 86_400_000);
     const slop = await ownSlop(ctx, userId, slopId);
     const until = editableUntil({ launchedAt: slop._creationTime, launchDate: slop.launchDate });
     if (Date.now() >= until) throw new ConvexError(EDITING_CLOSED);
@@ -236,8 +254,20 @@ export const edit = mutation({
         ? (slop.publication ?? null)
         : await ownedPublication(ctx, userId, rawPublication, slop.publication);
     const madeWith = await retag(ctx, slop.madeWith, fields.madeWith);
+    // An edit that changes what the check reads clears the old verdict, so a
+    // re-check that errors leaves the slop uncleared — held like a launch
+    // whose check failed — instead of showing a stale "ok" over new text.
+    // A verdict already in flight for the old text won't land either
+    // (moderation.applyCheck ties verdicts to the content they judged).
+    const rechecked = checkedContentOf({ ...fields, publication }) !== checkedContentOf(slop);
     // An undefined field is removed by the patch.
-    await ctx.db.patch(slopId, { ...fields, madeWith, screenshots, publication: publication ?? undefined });
+    await ctx.db.patch(slopId, {
+      ...fields,
+      madeWith,
+      screenshots,
+      publication: publication ?? undefined,
+      ...(rechecked ? { check: undefined } : {}),
+    });
     if (embeddingText(fields) !== embeddingText(slop)) await scheduleEmbedding(ctx, slopId);
     const shown = (ids: Id<"media">[], pdf: Id<"media"> | null | undefined) => (pdf ? [...ids, pdf] : ids);
     const blurred = await checkScreenshots(
@@ -337,12 +367,24 @@ export const remove = mutation({
       .withIndex("by_slop", (q) => q.eq("slopId", slopId))
       .collect();
     for (const row of reports) await ctx.db.delete(row._id);
-    for (const table of ["votes", "pledges"] as const) {
-      const rows = await ctx.db
-        .query(table)
-        .withIndex("by_slop_user", (q) => q.eq("slopId", slopId))
-        .collect();
-      for (const row of rows) await ctx.db.delete(row._id);
+    const pledges = await ctx.db
+      .query("pledges")
+      .withIndex("by_slop_user", (q) => q.eq("slopId", slopId))
+      .collect();
+    for (const row of pledges) await ctx.db.delete(row._id);
+    const votes = await ctx.db
+      .query("votes")
+      .withIndex("by_slop_user", (q) => q.eq("slopId", slopId))
+      .collect();
+    // Today's votes stay past the slop they were cast on: a vote is one of
+    // the day's five whether or not its slop survives, so deleting a slop
+    // can't hand its voters their budget back to spend again. They're rows
+    // about nothing now — tomorrow's deletion sweeps nothing, but each row
+    // is small and bounded by the day's votes.
+    const today = utcToday();
+    for (const row of votes) {
+      if (row.castOn === today) continue;
+      await ctx.db.delete(row._id);
     }
     if (slop.productId === null) {
       const ledger = await ctx.db
@@ -442,7 +484,7 @@ export const vote = mutation({
     if (value === 0 && existing) await ctx.db.delete(existing._id);
     else if (existing && value !== 0) await ctx.db.patch(existing._id, { value, castOn: today, inRace });
     else if (value !== 0) await ctx.db.insert("votes", { slopId: slop._id, userId, value, castOn: today, inRace });
-    if (value === 1) {
+    if (value === 1 && (await spent(ctx, `notify-upvote:${slop._id}:${userId}`, 1, 3_600_000))) {
       await notify(ctx, { userId: slop.userId, kind: "upvote", slopId: slop._id, actorId: userId, amount: null });
     }
     await captureFor(ctx, userId, {
@@ -506,6 +548,28 @@ export const publicById = query({
     if (!slop || slop.hidden) return null;
     const owner = await ctx.db.get(slop.userId);
     return owner ? { slop: await publicSlop(ctx, slop), owner: publicUser(owner) } : null;
+  },
+});
+
+/**
+ * Just what a share card draws, by username and slug: the page query also
+ * gathers updates, launches and money, and card URLs are fetched by every
+ * crawler that sees a link, so this one stays light.
+ */
+export const card = query({
+  args: { username: v.string(), slug: v.string() },
+  handler: async (ctx, { username, slug }) => {
+    const owner = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", username.toLowerCase()))
+      .unique();
+    if (!owner) return null;
+    const slop = await ctx.db
+      .query("slops")
+      .withIndex("by_user_slug", (q) => q.eq("userId", owner._id).eq("slug", slug))
+      .unique();
+    if (!slop || slop.hidden) return null;
+    return { slop: await publicSlop(ctx, slop), owner: publicUser(owner) };
   },
 });
 
@@ -573,23 +637,24 @@ export const page = query({
     // Moderators see hidden slops too, to judge them.
     if (slop.hidden && !isOwner && !can(reader, "slops.viewHidden")) return null;
 
+    // Bounded reads: the query is public, and no slop honestly reaches these.
     const updates = await ctx.db
       .query("updates")
       .withIndex("by_slop", (q) => q.eq("slopId", slop._id))
       .order("desc")
-      .collect();
+      .take(500);
     const comments = withComments
       ? await ctx.db
           .query("comments")
           .withIndex("by_slop", (q) => q.eq("slopId", slop._id))
-          .collect()
+          .take(500)
       : [];
     const productId = productIdOf(slop);
     const product = await ctx.db.get(productId);
     const later = await ctx.db
       .query("slops")
       .withIndex("by_product", (q) => q.eq("productId", productId))
-      .collect();
+      .take(500);
     const launches = [product, ...later].filter((launch): launch is Doc<"slops"> => launch !== null);
     const moneyPublic = product?.moneyPublic ?? false;
     const ledger =

@@ -5,7 +5,7 @@ import type { SocialProvider } from "~/lib/model";
 import { convex } from "../convex";
 import { seal, unseal } from "../crypto";
 import { clientCredentials, refreshTokens } from "../auth/oauth";
-import { assertFetchable, isPublicAddress } from "../preview";
+import { assertFetchable, isPublicAddress, publicFetch } from "../preview";
 import { composeFor, type PostContent } from "~/lib/compose";
 
 export type ConnectedAccount = Doc<"accounts">;
@@ -321,13 +321,16 @@ export async function assertPublicService(service: string): Promise<void> {
 
 export async function createBlueskySession(credentials: BlueskyCredentials): Promise<BlueskySession> {
   await assertPublicService(credentials.service);
-  const response = await fetch(`${credentials.service}/xrpc/com.atproto.server.createSession`, {
+  // The pinned transport (`publicFetch`): the address can't rebind to a
+  // private one between the check above and the connection.
+  const response = await publicFetch(new URL(`${credentials.service}/xrpc/com.atproto.server.createSession`), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       identifier: credentials.identifier,
       password: credentials.appPassword,
     }),
+    timeoutMs: 15_000,
   });
   await expectOk(response, "Bluesky");
   return (await response.json()) as BlueskySession;
@@ -360,13 +363,14 @@ export function blueskyAdapter(): SocialAdapter {
     collection: string,
     record: Record<string, unknown>,
   ): Promise<{ uri: string; cid: string }> {
-    const response = await fetch(`${service}/xrpc/com.atproto.repo.createRecord`, {
+    const response = await publicFetch(new URL(`${service}/xrpc/com.atproto.repo.createRecord`), {
       method: "POST",
       headers: {
         authorization: `Bearer ${auth.accessJwt}`,
         "content-type": "application/json",
       },
       body: JSON.stringify({ repo: auth.did, collection, record }),
+      timeoutMs: 15_000,
     });
     await expectOk(response, "Bluesky");
     return (await response.json()) as { uri: string; cid: string };
@@ -379,13 +383,14 @@ export function blueskyAdapter(): SocialAdapter {
       const image = await loadImage(content.imageUrl, 950_000);
       let thumb: unknown = undefined;
       if (image) {
-        const upload = await fetch(`${credentials.service}/xrpc/com.atproto.repo.uploadBlob`, {
+        const upload = await publicFetch(new URL(`${credentials.service}/xrpc/com.atproto.repo.uploadBlob`), {
           method: "POST",
           headers: {
             authorization: `Bearer ${auth.accessJwt}`,
             "content-type": image.contentType,
           },
           body: image.bytes,
+          timeoutMs: 15_000,
         });
         if (upload.ok) thumb = ((await upload.json()) as { blob: unknown }).blob;
       }

@@ -356,7 +356,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             uuid: string;
           }>;
         },
-        { duplicates: number; stored: number },
+        { duplicates: number; stored: number; throttled: number },
         Name
       >;
       capture: FunctionReference<
@@ -382,7 +382,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           >;
           timestamp?: number;
         },
-        { duplicates: number; stored: number },
+        { duplicates: number; stored: number; throttled: number },
         Name
       >;
     };

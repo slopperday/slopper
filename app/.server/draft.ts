@@ -1,7 +1,7 @@
 import { isIP } from "node:net";
 import { LIMITS, type SlopFeature } from "~/lib/model";
 import type { ContentCheckConfig } from "./config";
-import { resolvesPublicly } from "./network";
+import { publicFetch } from "./preview";
 
 /**
  * Drafts a slop's product page: a sharper tagline, a description, what it
@@ -104,10 +104,11 @@ export function pageText(html: string): string {
 
 /**
  * The text of the slop's website, or null when it can't be read. Only public
- * https pages: the host must resolve to a public address, and redirects
- * aren't followed.
+ * https pages, read on the SSRF-pinned transport (../preview): the address
+ * can't be private, and can't rebind to one between the check and the
+ * connection. Redirects aren't followed.
  */
-export async function readWebsite(raw: string, fetcher: typeof fetch = fetch): Promise<string | null> {
+export async function readWebsite(raw: string): Promise<string | null> {
   let url: URL;
   try {
     url = new URL(raw);
@@ -116,30 +117,13 @@ export async function readWebsite(raw: string, fetcher: typeof fetch = fetch): P
   }
   if (url.protocol !== "https:" || url.port !== "" || isIP(url.hostname.replace(/^\[|\]$/g, ""))) return null;
   try {
-    if (!(await resolvesPublicly(url.hostname))) return null;
-    const response = await fetcher(url, {
-      redirect: "manual",
-      signal: AbortSignal.timeout(PAGE_TIMEOUT_MS),
+    const response = await publicFetch(url, {
       headers: { accept: "text/html", "user-agent": "SlopperBot/1.0 (+https://slopper.day)" },
+      timeoutMs: PAGE_TIMEOUT_MS,
     });
-    if (!response.ok || !response.body || !response.headers.get("content-type")?.includes("text/html")) return null;
-    const reader = response.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let size = 0;
-    while (size < PAGE_BYTES) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      size += value.byteLength;
-    }
-    await reader.cancel();
-    const bytes = new Uint8Array(size);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return pageText(new TextDecoder().decode(bytes.subarray(0, PAGE_BYTES))) || null;
+    if (!response.ok || !response.headers.get("content-type")?.includes("text/html")) return null;
+    const page = new Uint8Array(await response.arrayBuffer());
+    return pageText(new TextDecoder().decode(page.subarray(0, PAGE_BYTES))) || null;
   } catch {
     // A site that's down or slow just means a draft from the maker's own words.
     return null;

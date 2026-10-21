@@ -1,6 +1,7 @@
 import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
 import { PUBLICATION_TYPES, updateMedia } from "@convex/lib/media";
+import { checkedContentHash } from "@convex/lib/shape";
 import type { VideoStatus, VideoToCheck } from "@convex/videos";
 import { config, type ContentCheckConfig } from "./config";
 import { convex, type ConvexCaller } from "./convex";
@@ -298,7 +299,16 @@ export async function checkSlop(slopId: Id<"slops">, launchNote = ""): Promise<C
     submission.file = { url, fileName, contentType };
   }
   const result = await tryCheck(submission);
-  if (result) await convex.mutation(api.moderation.applyCheck, { slopId, scope: "slop", ...result });
+  if (result) {
+    // The verdict is tied to the content it was made from: if the slop was
+    // edited while the model was reading it, this lands on nothing.
+    await convex.mutation(api.moderation.applyCheck, {
+      slopId,
+      scope: "slop",
+      ...result,
+      contentHash: checkedContentHash(slop),
+    });
+  }
   return result;
 }
 

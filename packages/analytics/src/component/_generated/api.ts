@@ -14,6 +14,7 @@ import type * as experiments from "../experiments.js";
 import type * as flags from "../flags.js";
 import type * as ingest from "../ingest.js";
 import type * as lib_ingest from "../lib/ingest.js";
+import type * as lib_limits from "../lib/limits.js";
 import type * as lib_paging from "../lib/paging.js";
 import type * as lib_rollupDays from "../lib/rollupDays.js";
 import type * as maintenance from "../maintenance.js";
@@ -41,6 +42,7 @@ const fullApi: ApiFromModules<{
   flags: typeof flags;
   ingest: typeof ingest;
   "lib/ingest": typeof lib_ingest;
+  "lib/limits": typeof lib_limits;
   "lib/paging": typeof lib_paging;
   "lib/rollupDays": typeof lib_rollupDays;
   maintenance: typeof maintenance;

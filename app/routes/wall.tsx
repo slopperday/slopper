@@ -3,6 +3,7 @@ import type { Route } from "./+types/wall";
 import { api } from "@convex/_generated/api";
 import { viewerContext } from "~/.server/session";
 import { convex } from "~/.server/convex";
+import { allowAction, callerAddress } from "~/.server/tokens";
 import { categoryFilter, findCategory } from "~/lib/model";
 import { listWords } from "~/lib/display";
 import { seo } from "~/lib/seo";
@@ -13,12 +14,23 @@ import { Icon } from "~/components/Icon";
 import { WallFilters } from "~/components/WallFilters";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  const asUser = context.get(viewerContext).user?._id;
+  const viewer = context.get(viewerContext).user;
+  const asUser = viewer?._id;
   const params = new URL(request.url).searchParams;
   const view = parseWallView(params);
   const { categories } = view;
 
   if (view.query) {
+    // Searching by meaning costs an embedding model call. Signed-in people
+    // get the API's own limit; a visitor's address gets the anonymous API's,
+    // so crawlers can't mint paid calls at request speed.
+    const limited = viewer
+      ? null
+      : (await allowAction(`wall-search:${callerAddress(request)}`, 120, 3_600_000))
+        ? null
+        : { error: "Too many searches. Try again in a while." };
+    if (limited)
+      throw new Response(JSON.stringify(limited), { status: 429, headers: { "content-type": "application/json" } });
     const items = await convex.action(api.search.find, { query: view.query, categories, asUser });
     return { view, items, cursor: null };
   }

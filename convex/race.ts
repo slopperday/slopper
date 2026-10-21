@@ -109,11 +109,15 @@ export const day = query({
       .query("dailyWinners")
       .withIndex("by_date", (q) => q.eq("date", date))
       .unique();
+    // The query is public (live subscriptions), so no caller — page or
+    // stranger with the deployment URL — asks for more than a day could
+    // reasonably hold.
+    const cap = Math.min(limit ?? 500, 500);
     return {
       date,
       final: date < utcToday(),
       winnerId: crowned?.slopId ?? null,
-      items: await toCards(ctx, limit ? ranking.slice(0, limit) : ranking, reader),
+      items: await toCards(ctx, ranking.slice(0, cap), reader),
     };
   },
 });

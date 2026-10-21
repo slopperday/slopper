@@ -18,7 +18,7 @@ export function parseMotion(value: string | null | undefined): MotionChoice {
 
 /** The choice as a cookie to write in the browser, or one that clears it. */
 export function motionCookie(choice: MotionChoice): string {
-  const base = `${MOTION_COOKIE}=${choice ?? ""}; path=/; samesite=lax`;
+  const base = `${MOTION_COOKIE}=${choice ?? ""}; path=/; samesite=lax${typeof location !== "undefined" && location.protocol === "https:" ? "; secure" : ""}`;
   return choice ? `${base}; max-age=31536000` : `${base}; max-age=0`;
 }
 
