@@ -67,7 +67,9 @@ describe("composing posts", () => {
   it("encodes share intents", () => {
     const intents = shareIntents("A & B", "https://slopper.day/@a/b");
     expect(intents.x).toContain("text=A%20%26%20B");
-    expect(intents.linkedin.endsWith(encodeURIComponent("https://slopper.day/@a/b"))).toBe(true);
+    expect(intents.linkedin).toBe(
+      `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent("A & B https://slopper.day/@a/b")}`,
+    );
   });
 
   it("announces relaunches with their label and goal day", () => {

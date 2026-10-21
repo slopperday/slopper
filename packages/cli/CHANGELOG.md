@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## cli 0.1.7 (2026-10-21)
+
+Grouped release for `cli`.
+
+### Features
+
+- **slopper profile, and public reads without a token.** `slopper profile @username` prints anyone's open goal day by day, what's still to go, their streak and slops. It, `today`, `search`, `categories`, `tags` and `reviews` work without logging in, and send the token when there is one.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ f0ed930
+
+### Documentation
+
+- **Goal days end at midnight UTC.** `slopper goal --days` help, `whoami`'s summary and the skill say every day on Slopper is a UTC day.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 6372f1b
+- **The skill looks people up with slopper profile.**
+  _Packages:_ ⚪ _@slopperday/skill_
+  _Owner:_ Ifiok Jr. · _Introduced in:_ f0ed930
+- **The skill says which votes count in the race.**
+  _Packages:_ ⚪ _@slopperday/skill_
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 40168d4
+
 ## cli 0.1.6 (2026-10-18)
 
 Grouped release for `cli`.
