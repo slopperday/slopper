@@ -92,8 +92,6 @@ function services(server: Server, store: MediaStore, fetcher: typeof fetch): Upl
   return { store, convex: caller(server), contentCheck: CHECK, fetcher };
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
-
 function guideInput(publication: string | null, links: { kind: "website"; url: string }[] = []) {
   return {
     name: "Field guide",
@@ -127,7 +125,6 @@ async function launch(server: Server, owner: Id<"users">, publication: string | 
     userId: owner,
     input: guideInput(publication),
     launchNote: "Day 1",
-    today: today(),
   });
 }
 
@@ -273,7 +270,6 @@ describe("slops with a publication", () => {
       userId: owner,
       input: { ...guideInput(mine.id), screenshots: [mine.id, image.id] },
       launchNote: "Day 1",
-      today: today(),
     });
     const stored = await server.query(api.slops.getForServer, { slopId });
     expect(stored?.screenshots).toEqual([image.id]);
