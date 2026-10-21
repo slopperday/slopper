@@ -13,7 +13,7 @@ import { demoVideoValidator, featureValidator, linkValidator } from "./schema";
 import { openGoal } from "./goals";
 import { tractionFor } from "./integrations";
 import { countedInRace, countsInRace, raceTally, utcToday } from "./race";
-import { isVideo, releaseMedia, updateMedia } from "./lib/media";
+import { isImage, isPublication, releaseMedia, updateMedia } from "./lib/media";
 import { checkScreenshots } from "./moderation";
 import { scheduleEmbedding } from "./search";
 import { retag } from "./lib/tags";
@@ -35,6 +35,8 @@ export const slopInput = v.object({
   links: v.array(linkValidator),
   /** Media ids as typed or sent by an agent; checked against ownership. */
   screenshots: v.array(v.string()),
+  /** A publication's media id (a PDF or EPUB), or null for none. Left out, it stays as it is. */
+  publication: v.optional(v.union(v.string(), v.null())),
   madeWith: v.array(v.string()),
   /** The product page. Left out, they stay as they are. */
   demo: v.optional(v.union(demoVideoValidator, v.null())),
@@ -62,10 +64,30 @@ export async function ownedMedia(
       continue;
     }
     const media = await ctx.db.get(id);
-    // Videos go through set_video and a moderator, never in as screenshots.
-    if (media?.ownerId === userId && media.orphanedAt === undefined && !isVideo(media)) kept.push(id);
+    // Videos go through set_video and a moderator, and PDFs and EPUBs in as publications, never as screenshots.
+    if (media?.ownerId === userId && media.orphanedAt === undefined && isImage(media)) kept.push(id);
   }
   return kept.slice(0, max);
+}
+
+/**
+ * The publication a launch will show: a PDF or EPUB the user uploaded, or the one
+ * already on it (or on the launch it relaunches). Null for none.
+ */
+export async function ownedPublication(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+  raw: string | null | undefined,
+  alreadyAttached?: Id<"media">,
+): Promise<Id<"media"> | null> {
+  if (!raw) return null;
+  const id = ctx.db.normalizeId("media", raw);
+  if (id && id === alreadyAttached) return id;
+  const media = id ? await ctx.db.get(id) : null;
+  if (!media || media.ownerId !== userId || media.orphanedAt !== undefined || !isPublication(media)) {
+    throw new ConvexError("That isn't one of your uploaded publications.");
+  }
+  return media._id;
 }
 
 async function freeSlug(ctx: QueryCtx, userId: Id<"users">, base: string): Promise<string> {
@@ -88,11 +110,12 @@ export async function ownSlop(ctx: QueryCtx, userId: Id<"users">, slopId: Id<"sl
 
 export type SlopInput = Infer<typeof slopInput>;
 
-/** A launch ready to go out, its screenshots already checked as the owner's. */
+/** A launch ready to go out, its screenshots and publication already checked as the owner's. */
 export interface LaunchDraft {
   userId: Id<"users">;
-  input: Omit<SlopInput, "screenshots">;
+  input: Omit<SlopInput, "screenshots" | "publication">;
   screenshots: Id<"media">[];
+  publication: Id<"media"> | null;
   launchNote: string;
   /** For another launch of a product: one of its earlier launches. */
   source: Doc<"slops"> | null;
@@ -105,7 +128,7 @@ export interface LaunchDraft {
  * for everyone: the day its goal, streak and race all count it on.
  */
 export async function insertLaunch(ctx: MutationCtx, draft: LaunchDraft) {
-  const { userId, input, screenshots, launchNote, source, launchLabel } = draft;
+  const { userId, input, screenshots, publication, launchNote, source, launchLabel } = draft;
   const now = Date.now();
   const today = utcDate(now);
   const goal = await openGoal(ctx, userId, today);
@@ -121,6 +144,7 @@ export async function insertLaunch(ctx: MutationCtx, draft: LaunchDraft) {
     // Set by the content check, flags or moderators; never by the maker.
     nsfw: false,
     screenshots,
+    ...(publication ? { publication } : {}),
     launchDate: today,
     raceDate: today,
     goalId: goalDay && goal ? goal._id : null,
@@ -151,7 +175,7 @@ export async function insertLaunch(ctx: MutationCtx, draft: LaunchDraft) {
     body: launchNote,
     crossposts: [],
   });
-  const blurred = await checkScreenshots(ctx, slopId, screenshots);
+  const blurred = await checkScreenshots(ctx, slopId, publication ? [...screenshots, publication] : screenshots);
   await scheduleEmbedding(ctx, slopId);
   await captureFor(ctx, userId, {
     name: "slop launched",
@@ -179,11 +203,12 @@ export const create = mutation({
     const source = relaunchOf ? await ownSlop(ctx, userId, relaunchOf) : null;
     if (source && !launchLabel?.trim())
       throw new ConvexError("Say what's launching: a platform, a version, a new app.");
-    const { screenshots, ...fields } = input;
+    const { screenshots, publication, ...fields } = input;
     return await insertLaunch(ctx, {
       userId,
       input: fields,
       screenshots: await ownedMedia(ctx, userId, screenshots, source?.screenshots),
+      publication: await ownedPublication(ctx, userId, publication, source?.publication),
       launchNote,
       source,
       launchLabel: launchLabel ?? null,
@@ -204,12 +229,26 @@ export const edit = mutation({
     const slop = await ownSlop(ctx, userId, slopId);
     const until = editableUntil({ launchedAt: slop._creationTime, launchDate: slop.launchDate });
     if (Date.now() >= until) throw new ConvexError(EDITING_CLOSED);
-    const screenshots = await ownedMedia(ctx, userId, input.screenshots, slop.screenshots);
-    const madeWith = await retag(ctx, slop.madeWith, input.madeWith);
-    await ctx.db.patch(slopId, { ...input, madeWith, screenshots });
-    if (embeddingText(input) !== embeddingText(slop)) await scheduleEmbedding(ctx, slopId);
-    const blurred = await checkScreenshots(ctx, slopId, screenshots, slop.screenshots);
-    const dropped = slop.screenshots.filter((id) => !screenshots.includes(id));
+    const { publication: rawPublication, ...fields } = input;
+    const screenshots = await ownedMedia(ctx, userId, fields.screenshots, slop.screenshots);
+    const publication =
+      rawPublication === undefined
+        ? (slop.publication ?? null)
+        : await ownedPublication(ctx, userId, rawPublication, slop.publication);
+    const madeWith = await retag(ctx, slop.madeWith, fields.madeWith);
+    // An undefined field is removed by the patch.
+    await ctx.db.patch(slopId, { ...fields, madeWith, screenshots, publication: publication ?? undefined });
+    if (embeddingText(fields) !== embeddingText(slop)) await scheduleEmbedding(ctx, slopId);
+    const shown = (ids: Id<"media">[], pdf: Id<"media"> | null | undefined) => (pdf ? [...ids, pdf] : ids);
+    const blurred = await checkScreenshots(
+      ctx,
+      slopId,
+      shown(screenshots, publication),
+      shown(slop.screenshots, slop.publication),
+    );
+    const dropped = shown(slop.screenshots, slop.publication).filter(
+      (id) => !screenshots.includes(id) && id !== publication,
+    );
     return { blurred, orphaned: await releaseMedia(ctx, userId, dropped) };
   },
 });
@@ -333,7 +372,12 @@ export const remove = mutation({
     if (slop.embeddingId) await ctx.db.delete(slop.embeddingId);
     await retag(ctx, slop.madeWith, []);
     await ctx.db.delete(slopId);
-    const media = [...slop.screenshots, ...(slop.video ? [slop.video.mediaId] : []), ...updateImages];
+    const media = [
+      ...slop.screenshots,
+      ...(slop.video ? [slop.video.mediaId] : []),
+      ...(slop.publication ? [slop.publication] : []),
+      ...updateImages,
+    ];
     return { orphaned: (await releaseMedia(ctx, slop.userId, media)) + reviewImages };
   },
 });

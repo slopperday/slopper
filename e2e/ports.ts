@@ -81,6 +81,8 @@ export interface FakeCheckRequest {
   text: string;
   images: number;
   videos: number;
+  /** PDFs (publications), read as text by OpenRouter's parser. */
+  files: number;
   /** SHA-256 of each image's bytes, to match against what the bucket stored. */
   imageHashes: string[];
   /** Null when a marker made the call fail. */

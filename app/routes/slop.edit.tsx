@@ -6,7 +6,7 @@ import { requireUser, viewerContext } from "~/.server/session";
 import { convex, convexMessage } from "~/.server/convex";
 import { formText, parseSlopForm, slopFormValues, slopValues } from "~/.server/forms";
 import { forbidden, notFound, redirectWithFlash } from "~/.server/http";
-import { deleteOrphanedMedia, screenshotsWithUrls } from "~/.server/media";
+import { deleteOrphanedMedia, publicationForForm, screenshotsWithUrls } from "~/.server/media";
 import { checkedContent, checkSlop } from "~/.server/moderation";
 import { config } from "~/.server/config";
 import { draftProductPage, readWebsite } from "~/.server/draft";
@@ -58,7 +58,11 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
       slug: slop.slug,
       name: slop.name,
       launchLabel: slop.launchLabel,
-      values: { ...slopValues(slop), screenshots: await screenshotsWithUrls(slop.screenshots) },
+      values: {
+        ...slopValues(slop),
+        screenshots: await screenshotsWithUrls(slop.screenshots),
+        publication: await publicationForForm(slop.publication),
+      },
     },
     accounts: accounts.map((account) => ({
       id: account._id,
@@ -99,7 +103,14 @@ export async function action({ params, request, context }: Route.ActionArgs) {
   if (!parsed.ok) {
     const values = slopFormValues(form);
     return data(
-      { errors: parsed.errors, values: { ...values, screenshots: await screenshotsWithUrls(values.screenshots) } },
+      {
+        errors: parsed.errors,
+        values: {
+          ...values,
+          screenshots: await screenshotsWithUrls(values.screenshots),
+          publication: await publicationForForm(values.publication),
+        },
+      },
       { status: 422 },
     );
   }
@@ -180,7 +191,11 @@ async function sourceAction(
 /** Fills the form with an AI draft of the product page. Nothing is saved until the maker saves. */
 async function draft(user: Doc<"users">, form: FormData) {
   const values = slopFormValues(form);
-  const echo = { ...values, screenshots: await screenshotsWithUrls(values.screenshots) };
+  const echo = {
+    ...values,
+    screenshots: await screenshotsWithUrls(values.screenshots),
+    publication: await publicationForForm(values.publication),
+  };
   const failed = (notice: string) => data({ errors: {}, values: echo, notice, drafted: null }, { status: 422 });
   if (!config.contentCheck) return failed("AI drafts aren't set up on this server.");
   if (!(await convex.mutation(api.limits.hit, { key: `draft:${user._id}`, limit: 20, windowMs: 86_400_000 }))) {

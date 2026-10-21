@@ -1,11 +1,14 @@
 import type { Infer } from "convex/values";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { PUBLICATION_TYPES, type PublicationFormat } from "@convex/lib/media";
 import type { mediaCheckValidator } from "@convex/schema";
 import { LIMITS } from "~/lib/model";
 import { config, type ContentCheckConfig } from "./config";
 import { convex, type ConvexCaller, convexMessage } from "./convex";
-import { tryCheck, uploadSubmission } from "./moderation";
+import { publicationSubmission, tryCheck, uploadSubmission } from "./moderation";
+import { EPUB_PROBLEMS, scanEpub, sniffEpub } from "./epubSafety";
+import { PDF_PROBLEMS, scanPdf } from "./pdfSafety";
 import { b2Bucket, type MediaKind, type MediaStore, mediaStore, type S3Bucket } from "./storage";
 
 /** Recognises the image formats we accept by their magic bytes. */
@@ -25,6 +28,18 @@ export function sniffVideoType(bytes: Uint8Array): string | null {
   return null;
 }
 
+/** Recognises a PDF by its header. Readers allow up to 1 KB of junk before it, so we do too. */
+export function sniffPdf(bytes: Uint8Array): boolean {
+  const head = String.fromCharCode(...bytes.subarray(0, 1024));
+  return head.includes("%PDF-");
+}
+
+/** Which kind of publication some bytes are: an EPUB (a ZIP that says so first), a PDF, or neither. */
+export function sniffPublication(bytes: Uint8Array): PublicationFormat | null {
+  if (sniffEpub(bytes)) return "epub";
+  return sniffPdf(bytes) ? "pdf" : null;
+}
+
 /** What the upload check said about a stored image. */
 export type MediaCheck = Infer<typeof mediaCheckValidator>;
 
@@ -38,7 +53,7 @@ export interface ImageUpload {
    * A screenshot (the default) or an avatar. Avatars show everywhere,
    * unblurred, so a mature one is refused like a blocked one.
    */
-  kind?: Exclude<MediaKind, "video">;
+  kind?: Exclude<MediaKind, "video" | "publication">;
 }
 
 export type UploadResult =
@@ -158,6 +173,128 @@ export async function uploadVideo(
     if (message) return { ok: false, error: message };
     throw error;
   }
+}
+
+export const BLOCKED_PUBLICATION = "This publication can't go on Slopper.";
+
+export interface PublicationUpload {
+  bytes: Uint8Array<ArrayBuffer>;
+  /** The name it's shown by on its slop. Agents may leave it out. */
+  fileName?: string | null;
+}
+
+export type PublicationUploadResult =
+  | {
+      ok: true;
+      id: Id<"media">;
+      url: string | null;
+      fileName: string;
+      format: PublicationFormat;
+      contentCheck: MediaCheck["verdict"];
+    }
+  | { ok: false; error: string };
+
+/** A file name fit to show: no folders, ending in its format's extension (.pdf or .epub), and not too long. */
+export function publicationFileName(raw: string | null | undefined, format: PublicationFormat = "pdf"): string {
+  const base = (raw?.split(/[\\/]/).pop() ?? "").replace(/\p{Cc}/gu, "").trim();
+  const stem = base.replace(/\.(?:pdf|epub)$/i, "").trim() || "publication";
+  return `${stem.slice(0, LIMITS.publicationNameLength - format.length - 1)}.${format}`;
+}
+
+/** Why our own safety scan refuses a publication, with what the maker is told, or null when it passes. */
+function safetyScan(
+  format: PublicationFormat,
+  bytes: Uint8Array,
+): { reason: string; found: string[]; message: string } | null {
+  if (format === "epub") {
+    const scan = scanEpub(bytes);
+    return scan.safe ? null : { ...scan, message: EPUB_PROBLEMS[scan.reason] };
+  }
+  const scan = scanPdf(bytes);
+  return scan.safe ? null : { ...scan, message: PDF_PROBLEMS[scan.reason] };
+}
+
+/**
+ * Checks a publication (one PDF or EPUB: a book, zine, guide or paper) and
+ * stores it, like a screenshot. First Slopper's own safety scan
+ * (./pdfSafety.ts or ./epubSafety.ts) refuses any file with scripts, actions,
+ * attachments, things it loads from the web or parts it can't see into, so a
+ * publication from Slopper carries nothing that runs when it's opened.
+ * Then the content check reads its text before anything is stored: a
+ * blocked one is refused and never kept, and a mature one blurs any slop
+ * that shows it. When the check can't run, it's stored as "unchecked" and the
+ * launch check reads it again (`checkSlop` in ./moderation.ts).
+ */
+export async function uploadPublication(
+  ownerId: Id<"users">,
+  { bytes, fileName: rawName }: PublicationUpload,
+  services: UploadServices = uploadServices(),
+): Promise<PublicationUploadResult> {
+  if (bytes.byteLength === 0) return { ok: false, error: "Empty file." };
+  if (bytes.byteLength > LIMITS.publicationBytes) {
+    return { ok: false, error: `Publications must be ${LIMITS.publicationBytes / 1024 / 1024} MB or smaller.` };
+  }
+  const format = sniffPublication(bytes);
+  if (!format) return { ok: false, error: "Use a PDF or an EPUB." };
+  const fileName = publicationFileName(rawName, format);
+  const contentType = PUBLICATION_TYPES[format];
+  // Our own safety scan comes first: nothing that runs, attaches files or hides from it is checked or kept.
+  const refused = safetyScan(format, bytes);
+  if (refused) {
+    console.warn(
+      `Refused a publication from ${ownerId} (${refused.reason}: ${refused.found.join(", ") || "structure"})`,
+    );
+    return { ok: false, error: refused.message };
+  }
+
+  try {
+    await services.convex.mutation(api.media.beginUpload, { userId: ownerId, backend: services.store.backend });
+    const result = await tryCheck(
+      publicationSubmission({ bytes, fileName, contentType }),
+      services.contentCheck,
+      services.fetcher,
+    );
+    if (result?.verdict === "blocked") {
+      console.warn(`Refused a publication from ${ownerId}: ${result.reason}`);
+      return { ok: false, error: BLOCKED_PUBLICATION };
+    }
+    const check: MediaCheck = result
+      ? { verdict: result.verdict === "mature" ? "mature" : "ok", reason: result.reason }
+      : { verdict: "unchecked", reason: "The content check couldn't run at upload." };
+
+    const location = await services.store.put(bytes, contentType, "publication").catch((error: unknown) => {
+      console.error("Storing a publication failed", error);
+      return null;
+    });
+    if (!location) return { ok: false, error: "That upload didn't save. Try again." };
+    const { mediaId, url } = await services.convex.mutation(api.media.register, {
+      ownerId,
+      location,
+      contentType,
+      size: bytes.byteLength,
+      check,
+      fileName,
+    });
+    return { ok: true, id: mediaId, url, fileName, format, contentCheck: check.verdict };
+  } catch (error) {
+    const message = convexMessage(error);
+    if (message) return { ok: false, error: message };
+    throw error;
+  }
+}
+
+export interface FormPublication {
+  id: string;
+  fileName: string;
+  format: PublicationFormat;
+  size: number;
+  url: string;
+}
+
+/** A publication as the slop forms show it, or null for none (or an id that isn't one). */
+export async function publicationForForm(id: string | null | undefined): Promise<FormPublication | null> {
+  if (!id) return null;
+  return await convex.query(api.media.publication, { mediaId: id });
 }
 
 /**

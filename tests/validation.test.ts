@@ -130,7 +130,9 @@ describe("slop validation", () => {
     expect(ok.error).toBeNull();
     expect(ok.links[0]).toEqual({ kind: "website", url: "https://my-slop.app/" });
     expect(parseLinks(["website"], ["javascript:alert(1)"]).links).toEqual([]);
-    expect(parseLinks(["website"], [""]).error).toBe("Add at least one link so people can try it.");
+    expect(parseLinks(["website"], [""]).error).toBe(
+      "Add at least one link so people can try it, or upload a PDF or EPUB.",
+    );
   });
 
   it("reports every problem at once", () => {

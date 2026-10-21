@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import type { PublicationFormat } from "@convex/lib/media";
 import { findCategory, type SlopLink } from "~/lib/model";
 import { platformBadges } from "~/lib/display";
 import { Icon } from "./Icon";
@@ -7,10 +8,18 @@ import { Splat } from "./Logo";
 /** Small pieces shared by slop cards, race rows and the slop page. */
 
 /** "Web · iOS beta": where you can try it, as plain words. */
-export function Platforms({ links }: { links: readonly SlopLink[] }) {
-  const badges = platformBadges(links);
+/** Where to try it, then "PDF" or "EPUB" when there's a publication to read. */
+export function Platforms({
+  links,
+  publication = null,
+}: {
+  links: readonly SlopLink[];
+  publication?: PublicationFormat | null;
+}) {
+  const badges = platformBadges(links).map((badge) => `${badge.label}${badge.beta ? " beta" : ""}`);
+  if (publication) badges.push(publication.toUpperCase());
   if (badges.length === 0) return null;
-  return <span>{badges.map((badge) => `${badge.label}${badge.beta ? " beta" : ""}`).join(" · ")}</span>;
+  return <span>{badges.join(" · ")}</span>;
 }
 
 export function CategoryLink({ category: id }: { category: string }) {

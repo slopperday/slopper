@@ -27,6 +27,8 @@ export interface SlopInput {
   links: SlopLink[];
   /** Media ids; Convex re-checks each one belongs to the uploader. */
   screenshots: string[];
+  /** A PDF's or EPUB's media id, or null for none. Stands in for links. */
+  publication: string | null;
   madeWith: string[];
   demo: DemoVideo | null;
   features: SlopFeature[];
@@ -78,7 +80,12 @@ function parseLink(kind: string, raw: string): { link: SlopLink } | { error: str
   return { link: { kind, url: url.href } };
 }
 
-export function parseLinks(kinds: string[], urls: string[]): { links: SlopLink[]; error: string | null } {
+/** With `required` off (a slop with a publication to read), no links is fine. */
+export function parseLinks(
+  kinds: string[],
+  urls: string[],
+  required = true,
+): { links: SlopLink[]; error: string | null } {
   const links: SlopLink[] = [];
   for (let index = 0; index < urls.length; index++) {
     const raw = urls[index];
@@ -87,8 +94,8 @@ export function parseLinks(kinds: string[], urls: string[]): { links: SlopLink[]
     if ("error" in parsed) return { links, error: parsed.error };
     links.push(parsed.link);
   }
-  if (links.length === 0) {
-    return { links, error: "Add at least one link so people can try it." };
+  if (links.length === 0 && required) {
+    return { links, error: "Add at least one link so people can try it, or upload a PDF or EPUB." };
   }
   if (links.length > LIMITS.links) {
     return { links, error: `Up to ${LIMITS.links} links.` };
@@ -111,6 +118,8 @@ export interface SlopDraft {
   category?: string;
   links?: readonly { kind?: string; url?: string }[];
   screenshots?: readonly string[];
+  /** A PDF's or EPUB's media id from a publication upload; empty or null for none. */
+  publication?: string | null;
   madeWith?: readonly string[];
   /** A YouTube, Loom or Vimeo link; empty for none. */
   demo?: string;
@@ -128,6 +137,7 @@ export function slopDraftFromForm(form: FormData): SlopDraft {
     category: text(form, "category"),
     links: all(form, "linkUrl").map((url, index) => ({ kind: kinds[index] ?? "website", url })),
     screenshots: all(form, "screenshot"),
+    publication: text(form, "publication"),
     // One input per picked tag, plus whatever is still typed in the box (commas split it).
     madeWith: all(form, "madeWith"),
     demo: text(form, "demo"),
@@ -186,10 +196,14 @@ export function validateSlop(draft: SlopDraft): Parsed<SlopForm> {
   const { features, error: featureError } = parseFeatures(draft.features ?? []);
   if (featureError) errors.features = featureError;
 
+  const publication = draft.publication?.trim() || null;
+  if (publication && !MEDIA_ID.test(publication)) errors.publication = "That publication didn't upload. Try it again.";
+
   const rawLinks = draft.links ?? [];
   const { links, error: linkError } = parseLinks(
     rawLinks.map((link) => link.kind?.trim() || "website"),
     rawLinks.map((link) => link.url?.trim() ?? ""),
+    publication === null,
   );
   if (linkError) errors.links = linkError;
 
@@ -208,6 +222,7 @@ export function validateSlop(draft: SlopDraft): Parsed<SlopForm> {
       category: category.id,
       links,
       screenshots,
+      publication,
       madeWith,
       demo,
       features,
@@ -424,6 +439,7 @@ export function slopFormValues(form: FormData) {
       return { kind: isLinkKind(kind) ? kind : "website", url: link.url ?? "" };
     }),
     screenshots: (draft.screenshots ?? []).filter((id) => MEDIA_ID.test(id)),
+    publication: draft.publication && MEDIA_ID.test(draft.publication) ? draft.publication : null,
     madeWith: cleanTags(draft.madeWith ?? []),
     demo: draft.demo ?? "",
     features: (draft.features ?? []).map((row) => ({ title: row.title ?? "", body: row.body ?? "" })),

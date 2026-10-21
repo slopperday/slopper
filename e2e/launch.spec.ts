@@ -23,7 +23,7 @@ test.describe("a maker's day", () => {
     await page.getByLabel("Tagline").fill("A marble maze you play by tilting your phone");
     await page.getByLabel("Link 1 address").fill("https://tiltmaze.example/");
     await page
-      .locator('input[type="file"]')
+      .locator('input[type="file"][accept*="image"]')
       .setInputFiles({ name: "shot.png", mimeType: "image/png", buffer: screenshot });
     await expect(page.getByRole("img", { name: "Screenshot 1" })).toBeVisible();
     await page.getByLabel("Category").selectOption("games");

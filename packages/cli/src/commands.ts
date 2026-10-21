@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { extname, join, resolve } from "node:path";
+import { basename, extname, join, resolve } from "node:path";
 import type { ParseArgsOptionsConfig } from "node:util";
 import {
   type Api,
@@ -92,6 +92,9 @@ export const MEDIA_BYTES = 4 * 1024 * 1024;
 
 /** The site's LIMITS.videoBytes, for promo videos. */
 export const VIDEO_BYTES = 4 * 1024 * 1024;
+
+/** The site's LIMITS.publicationBytes, for a PDF or EPUB to read on a slop. */
+export const PUBLICATION_BYTES = 4 * 1024 * 1024;
 
 function text(values: Values, key: string): string | undefined {
   const value = values[key];
@@ -188,6 +191,38 @@ async function uploadVideoFile(api: Api, file: string): Promise<{ id: string }> 
   return uploaded as { id: string };
 }
 
+/** The publication formats, by extension. */
+const PUBLICATION_TYPES: Readonly<Record<string, string>> = {
+  ".pdf": "application/pdf",
+  ".epub": "application/epub+zip",
+};
+
+async function uploadPublicationFile(api: Api, file: string): Promise<{ id: string }> {
+  const contentType = PUBLICATION_TYPES[extname(file).toLowerCase()];
+  if (!contentType) throw usageError(`${file} isn't a PDF or an EPUB.`);
+  let bytes: Uint8Array<ArrayBuffer>;
+  try {
+    bytes = new Uint8Array(await readFile(resolve(file)));
+  } catch (error) {
+    if (!isSystemError(error)) throw error;
+    throw usageError(`Couldn't read ${file} (${error.code}).`);
+  }
+  if (bytes.byteLength > PUBLICATION_BYTES) {
+    throw usageError(`${file} is bigger than ${PUBLICATION_BYTES / 1024 / 1024} MB, the most a publication can be.`);
+  }
+  const uploaded = await api.upload(`/publications?fileName=${encodeURIComponent(basename(file))}`, bytes, contentType);
+  if (typeof uploaded !== "object" || uploaded === null || typeof (uploaded as { id?: unknown }).id !== "string") {
+    throw new SlopperError(`Uploading ${file} returned no media id.`);
+  }
+  return uploaded as { id: string };
+}
+
+/** A publication is a PDF or EPUB file, uploaded first, or a media id from an earlier upload. */
+async function publicationId(api: Api, value: string): Promise<string> {
+  const isFile = value.includes("/") || value.includes("\\") || extname(value).toLowerCase() in PUBLICATION_TYPES;
+  return isFile ? (await uploadPublicationFile(api, value)).id : value;
+}
+
 /**
  * Screenshots are image files, uploaded first, or media ids from
  * `slopper upload`. Anything with an image extension or a path in it is a file.
@@ -206,6 +241,7 @@ async function slopFields(context: Context): Promise<Record<string, unknown>> {
   const { values, api } = context;
   const links = list(values, "link");
   const screenshots = list(values, "screenshot");
+  const publication = text(values, "publication");
   const madeWith = list(values, "made-with");
   const fields: Record<string, unknown> = {
     name: text(values, "name"),
@@ -214,6 +250,7 @@ async function slopFields(context: Context): Promise<Record<string, unknown>> {
     category: text(values, "category"),
     links: links?.map(parseLink),
     screenshots: screenshots ? await screenshotIds(api, screenshots) : undefined,
+    publication: publication === undefined ? undefined : await publicationId(api, publication),
     madeWith,
   };
   return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
@@ -226,6 +263,7 @@ const SLOP_OPTIONS = {
   category: { type: "string" },
   link: { type: "string", multiple: true },
   screenshot: { type: "string", multiple: true },
+  publication: { type: "string" },
   "made-with": { type: "string", multiple: true },
 } satisfies ParseArgsOptionsConfig;
 
@@ -238,6 +276,8 @@ const SLOP_FLAGS = {
     "Where to try it; repeat for more. Kinds: website, app_store, testflight, play_store, play_beta, source, other. A bare URL is a website.",
   "--screenshot <file|id>":
     "An image file (uploaded for you) or an id from `slopper upload`; repeat for more. The first is the cover.",
+  "--publication <file|id>":
+    "A PDF or EPUB you wrote (a book, zine, guide or paper, up to 4 MB), uploaded for you and read from the slop page. With one, --link is optional.",
   "--made-with <tag>":
     "What built it: the model, the harness, the framework; repeat for more. Spellings from `slopper tags`.",
 };
@@ -471,11 +511,15 @@ export const COMMANDS: Command[] = [
     args: "<slop>",
     summary:
       "Change one of your slops, until the end of its launch day (at least 12 hours after launch); then post updates instead. Only the flags you pass change; --link and --screenshot replace the lists.",
-    flags: SLOP_FLAGS,
-    options: SLOP_OPTIONS,
+    flags: { ...SLOP_FLAGS, "--remove-publication": "Take the slop's PDF or EPUB off." },
+    options: { ...SLOP_OPTIONS, "remove-publication": { type: "boolean" } },
     async run(context) {
       const slop = positional(context, 0, "slop");
+      if (context.values["remove-publication"] === true && context.values.publication !== undefined) {
+        throw usageError("Pass --publication or --remove-publication, not both.");
+      }
       const fields = await slopFields(context);
+      if (context.values["remove-publication"] === true) fields.publication = null;
       if (Object.keys(fields).length === 0) throw usageError("Nothing to change: pass a flag, like --tagline.");
       return context.api.patch(slopPath(slop), fields);
     },

@@ -16,6 +16,33 @@ export function isVideo(media: Doc<"media">): boolean {
   return media.contentType.startsWith("video/");
 }
 
+/** Publications are PDFs or EPUBs, and nothing else. */
+export const PUBLICATION_TYPES = { pdf: "application/pdf", epub: "application/epub+zip" } as const;
+
+export type PublicationFormat = keyof typeof PUBLICATION_TYPES;
+
+/** Which kind of publication a content type is, or null when it isn't one. */
+export function publicationFormat(contentType: string): PublicationFormat | null {
+  if (contentType === PUBLICATION_TYPES.pdf) return "pdf";
+  if (contentType === PUBLICATION_TYPES.epub) return "epub";
+  return null;
+}
+
+/** Whether a media row holds a publication: one PDF or EPUB a maker wrote. */
+export function isPublication(media: Doc<"media">): boolean {
+  return publicationFormat(media.contentType) !== null;
+}
+
+/** The name a publication is shown by. */
+export function publicationName(media: Doc<"media">): string {
+  return media.fileName ?? `publication.${publicationFormat(media.contentType) ?? "pdf"}`;
+}
+
+/** Whether a media row holds an image, the only thing a screenshot can be. */
+export function isImage(media: Doc<"media">): boolean {
+  return media.contentType.startsWith("image/");
+}
+
 /** The public URL of an image or video, or null when nothing should show it. */
 export async function mediaUrl(ctx: QueryCtx, media: Doc<"media">): Promise<string | null> {
   if (media.orphanedAt !== undefined) return null;
@@ -35,9 +62,9 @@ export function updateMedia(update: Doc<"updates">): Id<"media">[] {
 }
 
 /**
- * Lets go of images none of their owner's launches, updates or reviews show
- * any more, after a slop, update or review is deleted, its screenshots
- * change, a link card is removed or a scheduled launch is cancelled. Media is
+ * Lets go of images (and publications) none of their owner's launches,
+ * updates or reviews show any more, after a slop, update or review is
+ * deleted, its screenshots or publication change, a link card is removed or a scheduled launch is cancelled. Media is
  * only ever attached to its owner's slops, updates, reviews and scheduled
  * launches, so those are the only places to look.
  *
@@ -60,7 +87,10 @@ export async function releaseMedia(
     .query("scheduledLaunches")
     .withIndex("by_user_release", (q) => q.eq("userId", ownerId))
     .collect();
-  for (const launch of [...launches, ...queued]) for (const id of launch.screenshots) shown.add(id);
+  for (const launch of [...launches, ...queued]) {
+    for (const id of launch.screenshots) shown.add(id);
+    if (launch.publication) shown.add(launch.publication);
+  }
   for (const launch of launches) if (launch.video) shown.add(launch.video.mediaId);
   const updates = await ctx.db
     .query("updates")

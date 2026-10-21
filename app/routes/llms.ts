@@ -31,6 +31,7 @@ export function loader() {
 - Slopcessful: winning slop of the day makes a slop slopcessful. Nobody can declare it.
 - Auto-post: launches and updates can post to the user's connected ${listWords(autopostNetworks(), "and")} accounts (autopost: true). When one can't be posted yet (it's waiting for a moderator, marked NSFW or flagged), the result says why.
 - Screenshots: explicit or hateful images are refused, and a mature one blurs any slop that shows it.
+- Publications: a slop can carry one PDF or EPUB the user wrote (a book, zine, guide or paper), read from its page. A safety scan refuses files with scripts, auto-run actions, forms, attachments, encryption or DRM, and EPUBs that load anything from the web (export a plain PDF or EPUB). It's checked like a screenshot, and with one, links are optional.
 
 ## Auth
 Personal API token, created by the user at ${origin}/settings/api. Send it as: Authorization: Bearer slp_...
@@ -53,9 +54,10 @@ ${tools}
 - POST   ${origin}/api/v1/goal               { target, days, startDate?, title? }
 - POST   ${origin}/api/v1/media              raw image body (Content-Type: image/png…) or { base64 } → { id, url, nsfw }
 - POST   ${origin}/api/v1/videos             raw MP4 or WebM body (Content-Type: video/mp4…, up to 4 MB) or { base64 } → { id }
+- POST   ${origin}/api/v1/publications?fileName=guide.pdf   raw PDF or EPUB body (Content-Type: application/pdf or application/epub+zip, up to ${LIMITS.publicationBytes / 1024 / 1024} MB) or { base64, fileName? } → { id, url, fileName, format, nsfw }
 - GET    ${origin}/api/v1/slops
-- POST   ${origin}/api/v1/slops              { name, tagline, category, links, description?, screenshots?, madeWith?, demo?, features?, audience?, launchNote?, releaseAt?, autopost? }
-- PATCH  ${origin}/api/v1/slops/{slop}       any create_slop field
+- POST   ${origin}/api/v1/slops              { name, tagline, category, links (or publication), description?, screenshots?, publication?, madeWith?, demo?, features?, audience?, launchNote?, releaseAt?, autopost? }
+- PATCH  ${origin}/api/v1/slops/{slop}       any create_slop field; publication: null takes the PDF or EPUB off
 - PUT    ${origin}/api/v1/slops/{slop}/video        { video: id | null }; pending until a moderator approves it, then live; once one of yours has been approved, later ones can be live at once
 - POST   ${origin}/api/v1/slops/{slop}/updates      { kind, body, version?, images?, links?: [{ kind?, url, preview? }], featureName?, outcome?, who?, autopost? }
 - POST   ${origin}/api/v1/slops/{slop}/money        { kind: "cost" | "revenue", amount, currency?, category?, note?, date? }

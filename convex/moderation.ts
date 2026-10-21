@@ -2,6 +2,7 @@ import { ConvexError, type Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
 import { requireServer } from "./lib/auth";
+import { isPublication } from "./lib/media";
 import { requireMayJudge, requirePermission } from "./lib/permissions";
 import { consume } from "./lib/rate";
 import { logStaffAction } from "./lib/staffLog";
@@ -91,10 +92,10 @@ export const applyCheck = mutation({
 });
 
 /**
- * A slop that newly shows a screenshot the upload check found mature gets
- * that verdict too: blurred, queued for a moderator, never auto-posted.
- * Screenshots it already showed are skipped, so a moderator's "looks fine"
- * survives later edits. Returns whether it blurred the slop.
+ * A slop that newly shows a screenshot (or publication) the upload check
+ * found mature gets that verdict too: blurred, queued for a moderator, never
+ * auto-posted. Uploads it already showed are skipped, so a moderator's
+ * "looks fine" survives later edits. Returns whether it blurred the slop.
  */
 export async function checkScreenshots(
   ctx: MutationCtx,
@@ -106,10 +107,12 @@ export async function checkScreenshots(
   for (const id of screenshots) {
     if (alreadyShown.includes(id)) continue;
     const media = await ctx.db.get(id);
-    if (media?.check?.verdict === "mature") reasons.push(media.check.reason);
+    if (media?.check?.verdict === "mature") {
+      reasons.push(`${isPublication(media) ? "The publication" : "A screenshot"}: ${media.check.reason}`);
+    }
   }
   if (reasons.length === 0) return false;
-  await recordCheck(ctx, slopId, "slop", "mature", `A screenshot: ${reasons.join(" ")}`);
+  await recordCheck(ctx, slopId, "slop", "mature", reasons.join(" "));
   return true;
 }
 

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { LIMITS } from "../../../app/lib/model.ts";
 import manifest from "../package.json" with { type: "json" };
-import { COMMANDS, MEDIA_BYTES, VIDEO_BYTES } from "../src/commands.ts";
+import { COMMANDS, MEDIA_BYTES, PUBLICATION_BYTES, VIDEO_BYTES } from "../src/commands.ts";
 import { type Io, main } from "../src/main.ts";
 
 interface Call {
@@ -1092,6 +1092,73 @@ describe("promo videos", () => {
   });
 });
 
+describe("publications", () => {
+  const UPLOADED = { status: 201, body: { id: "media_pdf", url: "https://cdn.test/x.pdf", fileName: "guide.pdf" } };
+  const PDF = [0x25, 0x50, 0x44, 0x46, 0x2d];
+
+  it("uploads a PDF with its name, then launches with it and no link", async () => {
+    const cli = await harness(
+      { "POST /api/v1/publications": UPLOADED, "POST /api/v1/slops": { status: 201, body: { slop: {} } } },
+      TOKEN,
+    );
+    const path = join(cli.home, "Field Guide.pdf");
+    await writeFile(path, new Uint8Array(PDF));
+    const result = await cli.run("launch", "--name", "Field guide", "--tagline", "How to slop", "--publication", path);
+    expect(result.code).toBe(0);
+    expect(cli.calls).toMatchObject([
+      {
+        method: "POST",
+        url: "https://slopper.day/api/v1/publications?fileName=Field%20Guide.pdf",
+        contentType: "application/pdf",
+        body: PDF,
+      },
+      { method: "POST", url: "https://slopper.day/api/v1/slops", body: { publication: "media_pdf" } },
+    ]);
+  });
+
+  it("uploads an EPUB as one, by its extension", async () => {
+    const cli = await harness(
+      { "POST /api/v1/publications": UPLOADED, "PATCH /api/v1/slops/guide": { body: {} } },
+      TOKEN,
+    );
+    const path = join(cli.home, "zine.EPUB");
+    await writeFile(path, new Uint8Array([0x50, 0x4b, 3, 4]));
+    expect((await cli.run("edit", "guide", "--publication", path)).code).toBe(0);
+    expect(cli.calls[0]).toMatchObject({
+      url: "https://slopper.day/api/v1/publications?fileName=zine.EPUB",
+      contentType: "application/epub+zip",
+    });
+  });
+
+  it("passes an uploaded PDF's id as it is, and takes one off with --remove-publication", async () => {
+    const cli = await harness({ "PATCH /api/v1/slops/guide": { body: {} } }, TOKEN);
+    await cli.run("edit", "guide", "--publication", "media_pdf");
+    await cli.run("edit", "guide", "--remove-publication");
+    expect(cli.calls.map((call) => call.body)).toEqual([{ publication: "media_pdf" }, { publication: null }]);
+  });
+
+  it("refuses what isn't a PDF, one too big, or a PDF and --remove-publication together, before sending", async () => {
+    const cli = await harness({}, TOKEN);
+    const doc = join(cli.home, "guide.docx");
+    await writeFile(doc, new Uint8Array([1]));
+    expect(await cli.run("edit", "guide", "--publication", doc)).toMatchObject({
+      code: 2,
+      stderr: expect.stringContaining("isn't a PDF or an EPUB."),
+    });
+    const big = join(cli.home, "big.pdf");
+    await writeFile(big, new Uint8Array(PUBLICATION_BYTES + 1));
+    expect(await cli.run("edit", "guide", "--publication", big)).toMatchObject({
+      code: 2,
+      stderr: expect.stringContaining("bigger than 4 MB, the most a publication can be."),
+    });
+    expect(await cli.run("edit", "guide", "--publication", "media_pdf", "--remove-publication")).toMatchObject({
+      code: 2,
+      stderr: expect.stringContaining("Pass --publication or --remove-publication, not both."),
+    });
+    expect(cli.calls).toEqual([]);
+  });
+});
+
 describe("screenshots", () => {
   const MEDIA = { status: 201, body: { id: "media_1", url: "https://cdn.test/x.png", nsfw: false } };
 
@@ -1203,6 +1270,7 @@ describe("screenshots", () => {
   it("refuses screenshots over the site's limit without sending them", async () => {
     expect(MEDIA_BYTES).toBe(LIMITS.mediaBytes);
     expect(VIDEO_BYTES).toBe(LIMITS.videoBytes);
+    expect(PUBLICATION_BYTES).toBe(LIMITS.publicationBytes);
     const cli = await harness({ "POST /api/v1/media": MEDIA }, TOKEN);
     const big = join(cli.home, "big.png");
     await writeFile(big, new Uint8Array(MEDIA_BYTES + 1));

@@ -18,7 +18,7 @@ test.describe("screenshots", () => {
     const id = Date.now().toString(36);
     const page = await seed.pageAs(await seed.user("snapper"));
     await page.goto("/new");
-    const files = page.locator('input[type="file"]');
+    const files = page.locator('input[type="file"][accept*="image"]');
 
     // Refused before it's stored: the check saw the image, the bucket never did.
     const blockedName = `nope-${id} [e2e:blocked].png`;
@@ -77,7 +77,7 @@ test.describe("screenshots", () => {
 
     const fileName = `gore-${id} [e2e:mature].png`;
     await page
-      .locator('input[type="file"]')
+      .locator('input[type="file"][accept*="image"]')
       .setInputFiles({ name: fileName, mimeType: "image/png", buffer: await page.screenshot() });
     await expect(page.getByRole("img", { name: "Screenshot 1" })).toBeVisible();
     await expect(page.getByText("That one looks NSFW, so this slop will be blurred.")).toBeVisible();

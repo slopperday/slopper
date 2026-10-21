@@ -13,7 +13,7 @@ import { readerFor, requireServer } from "./lib/auth";
 import { releaseMedia } from "./lib/media";
 import { consume } from "./lib/rate";
 import { productIdOf, screenshotUrls } from "./lib/shape";
-import { insertLaunch, ownedMedia, ownSlop, slopInput } from "./slops";
+import { insertLaunch, ownedMedia, ownedPublication, ownSlop, slopInput } from "./slops";
 import { utcDate } from "../app/lib/dates";
 import { LIMITS } from "../app/lib/model";
 import { nextFreeRelease, releaseProblem } from "../app/lib/schedule";
@@ -72,6 +72,7 @@ async function putOut(ctx: MutationCtx, entry: Doc<"scheduledLaunches">) {
     userId: entry.userId,
     input: { name, tagline, description, category, links, madeWith, demo, features, audience },
     screenshots: await ownedMedia(ctx, entry.userId, entry.screenshots, source?.screenshots),
+    publication: entry.publication ?? null,
     launchNote: entry.launchNote,
     source,
     launchLabel: entry.launchLabel,
@@ -116,12 +117,14 @@ export const add = mutation({
     if (problem) throw new ConvexError(problem);
     await consume(ctx, `ship:${userId}`, 20, 86_400_000);
 
-    const { screenshots, ...fields } = input;
+    const { screenshots, publication: rawPublication, ...fields } = input;
+    const publication = await ownedPublication(ctx, userId, rawPublication, source?.publication);
     const id = await ctx.db.insert("scheduledLaunches", {
       userId,
       releaseAt,
       ...fields,
       screenshots: await ownedMedia(ctx, userId, screenshots, source?.screenshots),
+      ...(publication ? { publication } : {}),
       launchNote,
       productId: source ? productIdOf(source) : null,
       launchLabel: source ? label.slice(0, LIMITS.launchLabelLength) : null,
@@ -221,7 +224,8 @@ export const cancel = mutation({
     const entry = await ownEntry(ctx, userId, id);
     if (entry.released) throw new ConvexError("That one is already out. Delete the slop instead.");
     await ctx.db.delete(entry._id);
-    return { name: entry.name, orphaned: await releaseMedia(ctx, userId, entry.screenshots) };
+    const media = entry.publication ? [...entry.screenshots, entry.publication] : entry.screenshots;
+    return { name: entry.name, orphaned: await releaseMedia(ctx, userId, media) };
   },
 });
 

@@ -46,6 +46,12 @@ export function slopPath(username: string, slug: string): string {
   return `/@${username}/${slug}`;
 }
 
+/** "340 KB", "2.4 MB": a file's size, to the nearest tenth of a megabyte. */
+export function fileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 /** "1 update", "3 updates". */
 export function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;

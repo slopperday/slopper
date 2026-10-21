@@ -208,6 +208,8 @@ const mediaFields = {
   size: v.number(),
   /** Absent on images uploaded before the upload check existed. */
   check: v.optional(mediaCheckValidator),
+  /** The name a publication (a PDF or EPUB) was uploaded with, shown on its slop. */
+  fileName: v.optional(v.string()),
   /**
    * Set when no slop shows a B2 image any more. Only the app server holds the
    * bucket key, so it deletes the object, then the row (app/.server/media.ts).
@@ -316,6 +318,12 @@ export default defineSchema({
      * for everyone once a moderator approves it (convex/videos.ts).
      */
     video: v.optional(v.object({ mediaId: v.id("media"), approvedAt: v.union(v.number(), v.null()) })),
+    /**
+     * A publication the maker wrote (a book, zine, guide or paper) as one
+     * PDF, read on the slop page. It's checked at upload like a screenshot,
+     * and stands in for links: a slop needs one or the other.
+     */
+    publication: v.optional(v.id("media")),
     madeWith: v.array(v.string()),
     /** The product page: a linked demo video, what it does and who it's for. Absent on slops from before them. */
     demo: v.optional(v.union(demoVideoValidator, v.null())),
@@ -445,6 +453,7 @@ export default defineSchema({
     category: v.string(),
     links: v.array(linkValidator),
     screenshots: v.array(v.id("media")),
+    publication: v.optional(v.id("media")),
     madeWith: v.array(v.string()),
     /** The product page, carried onto the launch when it goes out. */
     demo: v.optional(v.union(demoVideoValidator, v.null())),
