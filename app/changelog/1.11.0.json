@@ -1,0 +1,114 @@
+{
+  "title": "1.11.0 (2026-10-21)",
+  "summary": [],
+  "sections": [
+    {
+      "title": "Changed",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Slop of the day counts only fair votes",
+          "details_markdown": "Every vote still shows on a slop, whenever it's cast. The daily race now counts only the votes cast on its own day (votes in the minute after midnight used to slip in), and leaves out votes from accounts less than a day old, downvotes from makers racing the same day, and upvotes two racing makers swap. The rules page says what counts.",
+          "change_type": "user_change",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/fair-race.md",
+            "changeset_path": ".changeset/fair-race.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "40168d4"
+            }
+          }
+        },
+        {
+          "summary": "Every day is a UTC day",
+          "details_markdown": "Launches, goal days and streaks now all end at midnight UTC, the same moment for everyone, like slop of the day already did. A slop thrown at 23:55 UTC counts for that day even where it's already past midnight, so a late one no longer looks like a missed day. Settings shows times in your time zone, and the goal form says when midnight UTC is there.",
+          "change_type": "user_change",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/utc-days.md",
+            "changeset_path": ".changeset/utc-days.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "6372f1b"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "New",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Look anyone up from the API without signing in",
+          "details_markdown": "Anyone's profile, with their goal day by day, streak and slops, is now at `/api/v1/users/{username}` and the `get_profile` agent tool. That profile, today's race, search, categories, tags and reviews all work without an API token, at up to 120 calls an hour from one address. Signed in, everything works, at up to 1,200 calls an hour, and a call over the limit says when to try again.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/public-api-reads.md",
+            "changeset_path": ".changeset/public-api-reads.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "f0ed930"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Fixed",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Sharing to LinkedIn fills in the post",
+          "details_markdown": "The LinkedIn share button opened an empty post box with only the link. It now opens LinkedIn's composer with the same text as the other networks, followed by the link.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/linkedin-share-text.md",
+            "changeset_path": ".changeset/linkedin-share-text.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "8fb198b"
+            }
+          }
+        },
+        {
+          "summary": "Votes go through while slops are launching",
+          "details_markdown": "A vote could fail with an error when lots of slops were launching at the same moment. It now goes through.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/votes-busy-days.md",
+            "changeset_path": ".changeset/votes-busy-days.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "7fe30fa"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

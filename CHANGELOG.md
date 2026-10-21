@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.11.0 (2026-10-21)
+
+### Features
+
+#### Race tallies and anti-gaming rules for slop of the day
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 40168d4
+
+- Slops keep raceUpvotes/raceDownvotes beside their totals: only votes cast on raceDate move them, so the tally stops when the day ends and the crown at 00:01 UTC ranks on it (convex/race.ts raceTally). Older slops fall back to their totals.
+- Votes record inRace. countsInRace leaves out votes from accounts younger than LIMITS.raceVoterAge (a day), downvotes from makers with a slop in the same race, and swapped upvotes between two racing makers (the earlier one comes out of its tally too).
+- The rules page, /today, llms.txt and the agent skill say what counts.
+
+#### Public operations and per-address rate limits
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ f0ed930
+
+- Operations are `UserOperation` or `PublicOperation` (`app/.server/agent/operations.ts`); `runOperation` refuses a user operation without a user. REST serves public ones without a token; a bad token is still a 401 everywhere. MCP still needs a token.
+- `apiQuota` (`app/.server/tokens.ts`) keys calls by user, or by `callerAddress` without one, with `LIMITS.apiCallsPerHour` and `LIMITS.anonymousApiCallsPerHour`; a 429 carries `Retry-After`.
+- `users.profile` returns the owner's `today`.
+
+### Fixes
+
+#### Launch days are UTC days
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 6372f1b
+
+- `insertLaunch` dates a launch itself: `launchDate` is the UTC date it went out, the same as `raceDate`. `slops.create` no longer takes `today`, and goal, profile, streak, scheduling and edit-window code use `utcDate` (app/lib/dates.ts). `timeZone` is only for clock times, typed wall times and the digest.
+- `raceStartOn` and `localDayStart` are gone: the next free day starts at its midnight UTC.
+- `launchDays.toUtcDays` (internal) lists launches whose `launchDate` was their maker's local date and, with `apply`, moves them onto their `raceDate` with their goal day; `launchDays.moveLaunch` backdates one launch for the e2e tests.
+
+- **Page speed counts visits that leave early.** A visit that left before the web-vitals chunk loaded or reported sent no `$webVitals`, so the quickest bounces were missing from /analytics/speed. It now sends the first paint and time to first byte the browser already has. The e2e speed test waits for the first paint instead of racing the chunk, and the scheduled-launch test polls for the content check's verdict instead of reading it once.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 7fe30fa
+
 ## 1.10.0 (2026-10-18)
 
 ### Features
