@@ -1,8 +1,15 @@
 import { bucketObjects, checkRequests, expect, test } from "./fixtures.ts";
 
-/** The smallest file that reads as a PDF, with words the fake check reads as its text (e2e/stack.ts). */
-function pdfWith(text: string): Buffer {
-  return Buffer.from(`%PDF-1.4\n% ${text}\n%%EOF\n`, "latin1");
+/**
+ * A small, plain PDF that passes the safety scan, with words the fake check reads as its text
+ * (e2e/stack.ts). `catalog` goes in its catalog, for a PDF the scan should refuse.
+ */
+function pdfWith(text: string, catalog = ""): Buffer {
+  return Buffer.from(
+    `%PDF-1.4\n% ${text}\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R ${catalog}>>\nendobj\n` +
+      "2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n",
+    "latin1",
+  );
 }
 
 test.describe("publications", () => {
@@ -63,6 +70,19 @@ test.describe("publications", () => {
     });
     expect(blocked.status()).toBe(400);
     expect(await blocked.json()).toMatchObject({ error: "This PDF can't go on Slopper." });
+    expect(await bucketObjects(stack)).toHaveLength(before);
+
+    // Slopper's own safety scan refuses a PDF that runs a script when it's opened, before any check.
+    const checksBefore = (await checkRequests(stack)).length;
+    const scripted = await request.post(`${stack.appUrl}/api/v1/publications?fileName=script.pdf`, {
+      headers: { ...auth, "content-type": "application/pdf" },
+      data: pdfWith("A harmless zine.", "/OpenAction << /S /JavaScript /JS (app.alert(1)) >> "),
+    });
+    expect(scripted.status()).toBe(400);
+    expect((await scripted.json()) as { error: string }).toMatchObject({
+      error: expect.stringContaining("scripts, forms or actions"),
+    });
+    expect(await checkRequests(stack)).toHaveLength(checksBefore);
     expect(await bucketObjects(stack)).toHaveLength(before);
 
     const notPdf = await request.post(`${stack.appUrl}/api/v1/publications`, {

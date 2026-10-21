@@ -7,6 +7,7 @@ import { LIMITS } from "~/lib/model";
 import { config, type ContentCheckConfig } from "./config";
 import { convex, type ConvexCaller, convexMessage } from "./convex";
 import { publicationSubmission, tryCheck, uploadSubmission } from "./moderation";
+import { PDF_PROBLEMS, scanPdf } from "./pdfSafety";
 import { b2Bucket, type MediaKind, type MediaStore, mediaStore, type S3Bucket } from "./storage";
 
 /** Recognises the image formats we accept by their magic bytes. */
@@ -188,8 +189,11 @@ export function publicationFileName(raw: string | null | undefined): string {
 
 /**
  * Checks a publication (one PDF: a book, zine, guide or paper) and stores
- * it, like a screenshot. The check reads its text before anything is stored:
- * a blocked one is refused and never kept, and a mature one blurs any slop
+ * it, like a screenshot. First Slopper's own safety scan (./pdfSafety.ts)
+ * refuses any PDF with scripts, actions, attachments or parts it can't see
+ * into, so a PDF from Slopper carries nothing that runs when it's opened.
+ * Then the content check reads its text before anything is stored: a
+ * blocked one is refused and never kept, and a mature one blurs any slop
  * that shows it. When the check can't run, it's stored as "unchecked" and the
  * launch check reads it again (`checkSlop` in ./moderation.ts).
  */
@@ -204,6 +208,12 @@ export async function uploadPublication(
   }
   if (!sniffPdf(bytes)) return { ok: false, error: "Use a PDF." };
   const fileName = publicationFileName(rawName);
+  // Our own safety scan comes first: nothing that runs, attaches files or hides from it is checked or kept.
+  const scan = scanPdf(bytes);
+  if (!scan.safe) {
+    console.warn(`Refused a publication from ${ownerId} (${scan.reason}: ${scan.found.join(", ") || "structure"})`);
+    return { ok: false, error: PDF_PROBLEMS[scan.reason] };
+  }
 
   try {
     await services.convex.mutation(api.media.beginUpload, { userId: ownerId, backend: services.store.backend });

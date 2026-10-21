@@ -15,6 +15,7 @@ import {
   uploadPublication,
 } from "~/.server/media";
 import { checkedContent, publicationSubmission } from "~/.server/moderation";
+import { PDF_PROBLEMS } from "~/.server/pdfSafety";
 import type { MediaKind, MediaLocation, MediaStore } from "~/.server/storage";
 import { fileSize } from "~/lib/display";
 import { LIMITS } from "~/lib/model";
@@ -27,8 +28,10 @@ const CHECK = {
   model: "deepseek/deepseek-v4.1-flash",
   provider: "deepseek",
 };
-/** A PDF header is all the sniffing needs. */
-const PDF = new Uint8Array([...new TextEncoder().encode("%PDF-1.7\n"), 1, 2, 3]);
+/** The smallest PDF the safety scan passes: a header, objects and an end. */
+const PDF = new TextEncoder().encode(
+  "%PDF-1.7\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n",
+);
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 
 function setup() {
@@ -205,9 +208,32 @@ describe("publication uploads", () => {
     expect(check.bodies).toEqual([]);
   });
 
-  it("reads a PDF header after a little junk, as readers do", () => {
-    expect(sniffPdf(new Uint8Array([0xef, 0xbb, 0xbf, ...PDF]))).toBe(true);
+  it("refuses a PDF the safety scan won't pass before the check sees it or anything is stored", async () => {
+    const { t, server } = setup();
+    const owner = await makeUser(server, "writer");
+    const bucket = new MemoryBucket();
+    const check = contentCheck("ok");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const scripted = new TextEncoder().encode(
+      "%PDF-1.7\n1 0 obj\n<< /Type /Catalog /OpenAction << /S /JavaScript /JS (app.alert(1)) >> >>\nendobj\n%%EOF\n",
+    );
+    expect(await uploadPublication(owner, { bytes: scripted }, services(server, bucket, check.fetcher))).toEqual({
+      ok: false,
+      error: PDF_PROBLEMS.active,
+    });
+    // Junk before the header is how other files pass as PDFs: readers allow it, Slopper doesn't.
+    expect(
+      await uploadPublication(
+        owner,
+        { bytes: new Uint8Array([0x4d, 0x5a, ...PDF]) },
+        services(server, bucket, check.fetcher),
+      ),
+    ).toEqual({ ok: false, error: PDF_PROBLEMS.disguised });
     expect(sniffPdf(PNG)).toBe(false);
+    expect(check.bodies).toEqual([]);
+    expect(bucket.objects.size).toBe(0);
+    expect(await t.run(async (ctx) => await ctx.db.query("media").collect())).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(`Refused a publication from ${owner} (active: JavaScript, JS)`);
   });
 
   it("names files fit to show", () => {

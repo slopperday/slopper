@@ -8,7 +8,7 @@ const RULES = [
   },
   {
     title: "Keep it safe for work",
-    body: "Things you'd show anyone. Every launch, screenshot, PDF, video and auto-post is checked. Sexual or hateful screenshots and PDFs are refused, and launches with anything sexual, hateful or illegal wait for a moderator and never auto-post.",
+    body: "Things you'd show anyone. Every launch, screenshot, PDF, video and auto-post is checked. Sexual or hateful screenshots and PDFs are refused, and so are PDFs with scripts, auto-run actions or attached files, and launches with anything sexual, hateful or illegal wait for a moderator and never auto-post.",
   },
   {
     title: "No spam, malware or scams",

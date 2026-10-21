@@ -20,8 +20,11 @@ it to people, and keep slopping until one of them is **slopcessful**.
   mature one blurs any slop that shows it. Mature slops are blurred, anything worse is held for a moderator, and nothing
   auto-posts until it passes. Anyone signed in can flag a slop; moderators decide at `/mod`.
 - **Publications.** Wrote a book, zine, guide or paper? A slop can carry it as one PDF (up to 4 MB), read from its
-  page, with or without links. It's checked as it's uploaded, like a screenshot: blocked ones are refused and never
-  stored, mature ones blur the slop, and one the check couldn't read is read again with the launch.
+  page, with or without links. Before anything else, Slopper's own safety scan (`app/.server/pdfSafety.ts`) refuses a
+  PDF that could do more than show pages: scripts, actions that run when it's opened, forms that send data, attached
+  files, encryption, other files disguised as a PDF, and anything packed where the scan can't see. Then it's checked
+  like a screenshot: blocked ones are refused and never stored, mature ones blur the slop, and one the check couldn't
+  read is read again with the launch.
 - **Take my money.** Non-binding pledges that show how much people would pay.
 - **Product pages.** Each slop can carry a demo video (YouTube, Loom or Vimeo, loaded on a click), what it does and who
   it's for. AI drafts them from the maker's words and website; the maker edits before saving.

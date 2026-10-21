@@ -31,7 +31,7 @@ export function loader() {
 - Slopcessful: winning slop of the day makes a slop slopcessful. Nobody can declare it.
 - Auto-post: launches and updates can post to the user's connected ${listWords(autopostNetworks(), "and")} accounts (autopost: true). When one can't be posted yet (it's waiting for a moderator, marked NSFW or flagged), the result says why.
 - Screenshots: explicit or hateful images are refused, and a mature one blurs any slop that shows it.
-- Publications: a slop can carry one PDF the user wrote (a book, zine, guide or paper), read on its page. It's checked like a screenshot, and with one, links are optional.
+- Publications: a slop can carry one PDF the user wrote (a book, zine, guide or paper), read on its page. A safety scan refuses PDFs with scripts, auto-run actions, forms, attachments or encryption (export a plain PDF). It's checked like a screenshot, and with one, links are optional.
 
 ## Auth
 Personal API token, created by the user at ${origin}/settings/api. Send it as: Authorization: Bearer slp_...
