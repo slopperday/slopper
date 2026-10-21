@@ -292,3 +292,56 @@ export async function toCards(
   }
   return cards;
 }
+
+/**
+ * What the content check reads from a slop (app/.server/moderation.ts
+ * `checkedContent`, mirrored here: Convex can't import app code). A check's
+ * verdict is tied to this: `applyCheck` only lands when the slop still says
+ * the same things, so a verdict computed before an edit can't clear the way
+ * for the edited text (convex/moderation.ts).
+ */
+export function checkedContentOf(slop: {
+  name: string;
+  tagline: string;
+  description: string;
+  links: unknown;
+  madeWith: readonly string[];
+  screenshots: readonly unknown[];
+  demo?: unknown;
+  features?: readonly unknown[];
+  audience?: string;
+  publication?: unknown;
+}): string {
+  return JSON.stringify([
+    slop.name,
+    slop.tagline,
+    slop.description,
+    slop.links,
+    slop.madeWith,
+    slop.screenshots,
+    slop.demo ?? null,
+    slop.features ?? [],
+    slop.audience ?? "",
+    slop.publication ?? null,
+  ]);
+}
+
+/** FNV-1a, 32 bits, as eight hex digits: short, stable, and quick. */
+function fnv1a(text: string, seed: number): string {
+  let hash = seed;
+  for (const char of text) {
+    hash ^= char.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+/**
+ * A fingerprint of the checked content: forwards and backwards, so two texts
+ * that collide one way don't the other. Good enough to stop a verdict meant
+ * for one text from clearing another.
+ */
+export function checkedContentHash(slop: Parameters<typeof checkedContentOf>[0]): string {
+  const content = checkedContentOf(slop);
+  return `${fnv1a(content, 0x811c9dc5)}${fnv1a(content, 0x7fffffff)}`;
+}

@@ -413,7 +413,7 @@ Solid, plain, confident: one shape, no outline, no shadow.
   pulsing lime "now" bar; missed is a dimmed tile with a small dot; upcoming is an empty cell with a faint hairline and a
   muted number.
 - **Motion:** once the page is live, a changed glyph drops into place with a 340ms flap (`cubic-bezier(0.2, 0.7, 0.2,
-1)`), staggered 45ms per tile; never in server markup. The "now" bar breathes on a 2.4s cycle and is the only looping
+  1)`), staggered 45ms per tile; never in server markup. The "now" bar breathes on a 2.4s cycle and is the only looping
   motion. Reduced motion collapses all of it.
 
 ### Slop Rows

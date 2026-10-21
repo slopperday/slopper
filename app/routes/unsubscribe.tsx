@@ -2,6 +2,7 @@ import { data, Form, Link } from "react-router";
 import type { Route } from "./+types/unsubscribe";
 import { api } from "@convex/_generated/api";
 import { convex } from "~/.server/convex";
+import { allowAction, callerAddress } from "~/.server/tokens";
 import { seo } from "~/lib/seo";
 
 /** `crypto.randomUUID()`, as Convex makes them. */
@@ -15,7 +16,12 @@ export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "
  * this page, whose button does the same. Opening the page alone changes
  * nothing, so link scanners can't unsubscribe anyone.
  */
-export async function action({ params }: Route.ActionArgs) {
+export async function action({ params, request }: Route.ActionArgs) {
+  // Mail apps post once; anyone else gets an address ceiling, so random
+  // tokens can't be posted here at Convex-mutation speed.
+  if (!(await allowAction(`unsubscribe:${callerAddress(request)}`, 60, 3_600_000))) {
+    return data({ done: false }, { status: 429 });
+  }
   const result = TOKEN.test(params.token)
     ? await convex.mutation(api.users.unsubscribe, { token: params.token })
     : null;

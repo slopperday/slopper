@@ -4,6 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import {
   internalAction,
   internalMutation,
+  internalQuery,
   mutation,
   type MutationCtx,
   query,
@@ -170,6 +171,44 @@ export const tellApp = internalAction({
       // Past the last try, the owner finishes it from their queue.
       if (attempt < RETRIES) {
         await ctx.scheduler.runAfter(attempt * 60_000, internal.schedule.tellApp, { id, attempt: attempt + 1 });
+      }
+    }
+  },
+});
+
+/** Releases still out but not finished: the row survives until it's claimed. */
+export const unfinished = internalQuery({
+  args: { olderThanMs: v.number(), limit: v.number() },
+  handler: async (ctx, { olderThanMs, limit }) => {
+    const cutoff = Date.now() - olderThanMs;
+    const rows = await ctx.db
+      .query("scheduledLaunches")
+      .filter((q) => q.and(q.neq(q.field("released"), null), q.lt(q.field("releaseAt"), cutoff)))
+      .take(Math.min(limit, 25));
+    return rows.map((row) => row._id);
+  },
+});
+
+/**
+ * The backstop for releases the app server never finished: a launch that
+ * went out while the server was down must not sit live and unchecked — the
+ * check and auto-post are what make showing it safe (`tellApp` gives up
+ * after three tries). Runs from a cron; each call just asks again.
+ */
+export const tellUnfinished = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const base = (process.env.APP_URL ?? "https://slopper.day").replace(/\/+$/, "");
+    const ids = await ctx.runQuery(internal.schedule.unfinished, { olderThanMs: 10 * 60_000, limit: 25 });
+    for (const id of ids) {
+      try {
+        const response = await fetch(`${base}/api/scheduled/${id}`, {
+          method: "POST",
+          signal: AbortSignal.timeout(60_000),
+        });
+        if (!response.ok && response.status !== 404) throw new Error(`The app server answered ${response.status}.`);
+      } catch (error) {
+        console.error(`Couldn't finish scheduled launch ${id} (backstop)`, error);
       }
     }
   },

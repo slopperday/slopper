@@ -368,6 +368,9 @@ async function main(): Promise<void> {
       CONVEX_SITE_URL,
       SLOPPER_JWT_ISSUER: APP_URL,
       SLOPPER_JWT_PRIVATE_KEY: keys.privateKey,
+      // The fake Solana RPC runs on loopback, which the SSRF-pinned transport
+      // refuses everywhere else (app/.server/preview.ts).
+      SLOPPER_ALLOW_LOCAL_FETCH: "1",
       SLOPPER_SECRET_KEY: randomBytes(32).toString("base64"),
       ADMIN_IDENTITIES: `${E2E_ADMIN_IDENTITY.provider}:${E2E_ADMIN_IDENTITY.providerId}`,
       OPENROUTER_API_KEY: "e2e-key",

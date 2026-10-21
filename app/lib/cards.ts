@@ -78,6 +78,11 @@ export function slopCardScreenshot(slop: Pick<PublicSlop, "screenshots" | "nsfw"
 }
 
 export function slopCardPath(username: string, slop: SlopCardSlop & Pick<PublicSlop, "slug" | "screenshots" | "nsfw">) {
+  return `${slopPath(username, slop.slug)}/card.png?v=${slopCardVersion(slop)}`;
+}
+
+/** The version a slop's card URL carries: it changes when what the card shows changes. */
+export function slopCardVersion(slop: SlopCardSlop & Pick<PublicSlop, "screenshots" | "nsfw">) {
   const shown: SlopCardSlop & { screenshot: string | null } = {
     name: slop.name,
     tagline: slop.tagline,
@@ -90,9 +95,14 @@ export function slopCardPath(username: string, slop: SlopCardSlop & Pick<PublicS
     slopcessfulAt: slop.slopcessfulAt,
     screenshot: slopCardScreenshot(slop),
   };
-  return `${slopPath(username, slop.slug)}/card.png?v=${version(shown)}`;
+  return version(shown);
 }
 
-export function profileCardPath(card: ProfileCardData): string {
-  return `/@${card.username}/card.png?v=${version(card)}`;
+export function profileCardPath(card: ProfileCardData) {
+  return `/@${card.username}/card.png?v=${profileCardVersion(card)}`;
+}
+
+/** The version a profile's card URL carries. */
+export function profileCardVersion(card: ProfileCardData) {
+  return version(card);
 }

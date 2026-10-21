@@ -93,7 +93,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     // Tells the server the visitor's time zone, so clock times show in it
     // and a new account starts in their zone, before anyone has signed in.
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    document.cookie = `slopper_tz=${encodeURIComponent(zone)}; path=/; max-age=31536000; samesite=lax`;
+    const secure = window.isSecureContext ? "; secure" : "";
+    document.cookie = `slopper_tz=${encodeURIComponent(zone)}; path=/; max-age=31536000; samesite=lax${secure}`;
   }, []);
   useEffect(() => {
     // Replacing the entry in place keeps React Router from loading the page again.

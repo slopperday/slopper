@@ -207,9 +207,12 @@ describe("browser notifications", () => {
     expect(live?.headers.get("authorization")).toMatch(/^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=[\w-]+$/);
     expect(live?.bytes).toBeGreaterThan(0);
 
-    // The gone browser is forgotten, so the next upvote reaches only the live one.
+    // The gone browser is forgotten, so the next upvote reaches only the live
+    // one. An hour passes first: an upvote notifies its owner once an hour,
+    // not once per toggle.
     posts.length = 0;
     await server.mutation(api.slops.vote, { userId: fan, slopId, value: 0 });
+    vi.advanceTimersByTime(3_600_001);
     await server.mutation(api.slops.vote, { userId: fan, slopId, value: 1 });
     await t.finishAllScheduledFunctions(vi.runAllTimers);
     expect(posts.map((post) => post.endpoint)).toEqual([LIVE]);

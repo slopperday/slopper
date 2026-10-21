@@ -31,7 +31,7 @@
     "convex-test": "^0.0.60",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "vite-plus": "1.0.0"
+    "vite-plus": "catalog:"
   },
   "peerDependencies": {
     "convex": "^1.46.0",

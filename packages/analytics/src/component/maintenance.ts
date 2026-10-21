@@ -76,9 +76,21 @@ async function sweepPage(
     if (rows.length === PAGE) moreRollups = true;
   }
   const recordings = await sweepRecordings(ctx, now - (retention.recordingDays ?? RECORDING_DAYS) * DAY_MS);
+  // Ingest counters whose window has closed; a day's rows can wait a day.
+  const counters = await ctx.db
+    .query("counters")
+    .withIndex("by_expires", (q) => q.lt("expiresAt", now - DAY_MS))
+    .take(PAGE);
+  for (const counter of counters) await ctx.db.delete(counter._id);
   return {
-    deleted: events + sessions.length + persons.length + definitions + rollups + recordings.deleted,
-    more: events === PAGE || sessions.length === PAGE || persons.length === PAGE / 5 || moreRollups || recordings.more,
+    deleted: events + sessions.length + persons.length + definitions + rollups + recordings.deleted + counters.length,
+    more:
+      events === PAGE ||
+      sessions.length === PAGE ||
+      persons.length === PAGE / 5 ||
+      moreRollups ||
+      recordings.more ||
+      counters.length === PAGE,
   };
 }
 

@@ -19,3 +19,13 @@ for = "/assets/*"
 
 [headers.values]
 Cache-Control = "public, max-age=31536000, immutable"
+
+# Static files the CDN serves directly (fonts, images, sw.js) get the same
+# basic headers the server sets on everything it renders; the per-response
+# CSP with its nonce stays the server's to write.
+[[headers]]
+for = "/*"
+
+[headers.values]
+X-Content-Type-Options = "nosniff"
+Referrer-Policy = "strict-origin-when-cross-origin"

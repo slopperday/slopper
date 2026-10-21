@@ -77,7 +77,7 @@ describe("ingest", () => {
       event({ name: "$autocapture", timestamp: start + MINUTE, path: "/", properties: { eventType: "click" } }),
       event({ timestamp: start + 2 * MINUTE, path: "/wall" }),
     ]);
-    expect(result).toEqual({ stored: 3, duplicates: 0 });
+    expect(result).toEqual({ stored: 3, duplicates: 0, throttled: 0 });
 
     const { persons, distinctIds, sessions, events } = await all(t);
     expect(events).toHaveLength(3);
@@ -112,7 +112,7 @@ describe("ingest", () => {
     const t = setup();
     const batch = [event(), event({ name: "$autocapture" })];
     await send(t, batch);
-    expect(await send(t, batch)).toEqual({ stored: 0, duplicates: 2 });
+    expect(await send(t, batch)).toEqual({ stored: 0, duplicates: 2, throttled: 0 });
     const { events, sessions } = await all(t);
     expect(events).toHaveLength(2);
     expect(sessions[0]?.events).toBe(2);
@@ -281,7 +281,7 @@ describe("capture from server code", () => {
       set: { username: "ifiok" },
       identified: true,
     });
-    expect(result).toEqual({ stored: 1, duplicates: 0 });
+    expect(result).toEqual({ stored: 1, duplicates: 0, throttled: 0 });
     const { persons, sessions, events } = await all(t);
     expect(sessions).toHaveLength(0);
     expect(events[0]).toMatchObject({ name: "slop launched", sessionId: null, properties: { category: "games" } });

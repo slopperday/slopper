@@ -1,16 +1,32 @@
 import { createElement } from "react";
+import { redirect } from "react-router";
 import type { Route } from "./+types/card.slop";
 import { api } from "@convex/_generated/api";
 import { convex } from "~/.server/convex";
 import { notFound } from "~/.server/http";
+import { allowAction, callerAddress } from "~/.server/tokens";
 import { cardImage, cardResponse, renderCard, SlopCard } from "~/.server/cards";
-import { slopCardScreenshot } from "~/lib/cards";
+import { slopCardScreenshot, slopCardVersion } from "~/lib/cards";
 
-/** The image a slop's link unfurls with (app/lib/cards.ts). Hidden slops have none. */
-export async function loader({ params }: Route.LoaderArgs) {
+/**
+ * The image a slop's link unfurls with (app/lib/cards.ts). Hidden slops have
+ * none. Any other version than the card's own is redirected to it, so the
+ * only URLs that render (and fill the CDN) are the one the page hands out —
+ * a flood of made-up `?v=`s can't make the server draw.
+ */
+export async function loader({ request, params }: Route.LoaderArgs) {
   if (!params.handle.startsWith("@")) notFound();
-  const page = await convex.query(api.slops.page, { username: params.handle.slice(1), slug: params.slug });
+  // Drawing is CPU the one server function pays for, so each address gets a ceiling.
+  if (!(await allowAction(`card:${callerAddress(request)}`, 240, 3_600_000))) {
+    throw new Response("Too many card requests. Try again later.", { status: 429 });
+  }
+  const page = await convex.query(api.slops.card, { username: params.handle.slice(1), slug: params.slug });
   if (!page) notFound();
+  const canonical = slopCardVersion(page.slop);
+  const asked = new URL(request.url).searchParams.get("v");
+  if (asked !== null && asked !== canonical) {
+    return redirect(`/@${page.owner.username}/${page.slop.slug}/card.png?v=${canonical}`, 301);
+  }
   const cover = slopCardScreenshot(page.slop);
   const screenshot = cover ? await cardImage(cover) : null;
   return cardResponse(

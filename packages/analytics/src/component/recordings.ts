@@ -3,6 +3,7 @@ import { REPLAY_LIMITS } from "../shared/replay";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { action, internalMutation, internalQuery, type MutationCtx, query } from "./_generated/server";
+import { INGEST_LIMITS } from "./lib/limits";
 import { pageArgs, pageByKey } from "./lib/paging";
 import { recordingDoc, sessionDoc } from "./shapes";
 
@@ -49,6 +50,22 @@ export const store = action({
   returns: v.boolean(),
   handler: async (ctx, { data, ...meta }) => {
     if (data.byteLength === 0 || data.byteLength > REPLAY_LIMITS.chunkBytes) return false;
+    // The route is public, so the deployment takes only so much a minute and
+    // a day (`lib/limits.ts`): a flood hits the ceiling, not file storage.
+    const chunk = await ctx.runMutation(internal.ingest.spend, {
+      key: "replay:chunks:minute",
+      amount: 1,
+      cap: INGEST_LIMITS.replayChunksPerMinute,
+      windowMs: 60_000,
+    });
+    if (chunk === 0) return false;
+    const bytes = await ctx.runMutation(internal.ingest.spend, {
+      key: "replay:bytes:day",
+      amount: data.byteLength,
+      cap: INGEST_LIMITS.replayBytesPerDay,
+      windowMs: 86_400_000,
+    });
+    if (bytes < data.byteLength) return false;
     const room = await ctx.runQuery(internal.recordings.room, { sessionId: meta.sessionId });
     if (room < data.byteLength) return false;
     const type = meta.encoding === "gzip" ? "application/gzip" : "application/json";

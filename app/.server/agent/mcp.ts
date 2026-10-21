@@ -1,6 +1,6 @@
 import { LIMITS } from "~/lib/model";
 import { absoluteUrl } from "../config";
-import { apiQuota, userForBearer } from "../tokens";
+import { allowAction, apiQuota, callerAddress, userForBearer } from "../tokens";
 import { ApiError } from "./input";
 import { findOperation, OPERATIONS, runOperation } from "./operations";
 
@@ -40,12 +40,35 @@ function unauthorized(): Response {
   );
 }
 
+/**
+ * Lets an unread request body go without wedging the connection it came on:
+ * answering and dropping the socket mid-body resets it, and the client's
+ * next request on that keep-alive connection dies with it.
+ */
+async function dropBody(request: Request): Promise<void> {
+  await request.body?.cancel().catch(() => {});
+}
+
 export async function handleMcp(request: Request): Promise<Response> {
   if (request.method !== "POST") {
+    await dropBody(request);
     return new Response("Slopper's MCP endpoint takes JSON-RPC over POST.", {
       status: 405,
       headers: { allow: "POST" },
     });
+  }
+
+  // The bearer's shape costs nothing to check, and everything below it costs
+  // Convex calls or a body parse: an address ceiling comes first, and a
+  // request without a token is refused before its body is parsed.
+  if (!(await allowAction(`mcp-pre:${callerAddress(request)}`, LIMITS.apiCallsPerHour * 4, 3_600_000))) {
+    await dropBody(request);
+    return fail(null, -32000, "Rate limit reached. Try again later.", 429);
+  }
+  const header = request.headers.get("authorization") ?? "";
+  if (!/^Bearer\s+slp_[A-Za-z0-9_-]+$/i.test(header.trim())) {
+    await dropBody(request);
+    return unauthorized();
   }
 
   let message: JsonRpcMessage;

@@ -26,3 +26,4 @@ playwright-report/
 
 # Built packages (packages/*)
 dist/
+.vitest/

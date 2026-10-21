@@ -88,7 +88,7 @@ release. Add a tool name to select part of the graph. For example, run
   verdict, an error or no key leaves it queued. Every automatic decision goes in `videoChecks`, which stays server-side.
 - **Moderation team:** roles are `users.role` in Convex (`convex/team.ts`); what each role may do is one table in
   `convex/lib/permissions.ts`. Check permissions, never role names: `can(user, "slops.hide")`, `requireStaff(viewer,
-request, permission)` on routes, and `requirePermission(ctx, actorId, permission)` in Convex with the acting
+  request, permission)` on routes, and `requirePermission(ctx, actorId, permission)` in Convex with the acting
   `moderatorId`/`adminId`, so Convex checks the stored role; never trust a role flag from the caller. Loaders send
   `permissionsOf(user)`, not the role. Moderators only approve or reject what's queued at /mod (videos, flagged slops),
   never their own slops (`mayJudge`), and can see hidden slops; everything else is for admins. Every use of a staff
@@ -107,6 +107,24 @@ request, permission)` on routes, and `requirePermission(ctx, actorId, permission
   open flags. Makers can't mark their own slops NSFW; the check, flags and moderators do. Keep the policy prompt
   stable: it's the cached prefix of every call. The check goes through OpenRouter (`OPENROUTER_MODEL`, DeepSeek V4.1
   Flash by default), so switching models is config only.
+- **Security invariants** (from the 2026-10 audits; `tests/security.test.ts` and `e2e/security.spec.ts` pin them):
+  - Every public Convex function calls an auth gate (`requireServer`, `viewer…`) — a bounded public read is the only
+    exception and belongs in that test's `OPEN_FUNCTIONS` list, with a cap on what it returns.
+  - Anything an anonymous visitor can reach that costs Convex work — a write, a bearer lookup, a model call, a card
+    render — gets a per-address ceiling first (`allowAction` in `app/.server/tokens.ts`), and sweeper tables (`crons.ts`)
+    must reschedule while pages stay full, or a flood outgrows the sweep.
+  - The analytics ingest endpoints (`/a/e`, `/a/r`) are public with ceilings in
+    `packages/analytics/src/component/lib/limits.ts`: raise a cap only with a reason, the tests bound them.
+  - Share cards render only their canonical `?v=` (`app/lib/cards.ts`); anything else 301s to it.
+  - Outbound fetches to addresses people type go through the pinned transport (`publicFetch` in
+    `app/.server/preview.ts`): the public-address check happens inside the DNS lookup the socket connects with, so
+    DNS rebinding can't slip a private address past a check-then-fetch. Never `fetch()` a user-supplied host directly.
+  - The CSP is nonce-based (`app/.server/csp.ts`): no `unsafe-inline` in `script-src`. Raw HTML goes only through the
+    markdown sanitizer (`app/components/Shared.tsx`), the one `dangerouslySetInnerHTML` the test allows.
+  - `safeReturnTo` (`app/.server/auth/oauth.ts`) rejects control characters: browsers strip tabs from URLs, and
+    `/\t//evil.com` would leave the site.
+  - Content-check verdicts are cleared when the checked content changes (`convex/slops.ts` `edit`): a failed re-check
+    must leave a slop held, never a stale "ok".
 - **Sign-in:** every OAuth provider is one spec in `app/.server/auth/oauth.ts` with one redirect URI; the flow (`login`,
   `link`, `connect`) is stored with the pending authorization, never put in the URL. Linking rules live in
   `convex/users.ts` (`linkIdentity`/`unlinkIdentity`): one identity per provider, never the last one removed.

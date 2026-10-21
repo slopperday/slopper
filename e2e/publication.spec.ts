@@ -1,5 +1,21 @@
 import { epub } from "../tests/epubs.ts";
 import { bucketObjects, checkRequests, expect, test } from "./fixtures.ts";
+import { sha256Hex } from "./fake-s3.ts";
+import type { Stack } from "./ports.ts";
+
+/**
+ * The bucket and the check log are shared by every test and every worker, so
+ * "nothing new was stored" can't be a count: it's this file's bytes, by
+ * hash, not being among the bucket's objects.
+ */
+async function neverStored(stack: Stack, bytes: Uint8Array): Promise<void> {
+  const hash = sha256Hex(bytes);
+  const objects = await bucketObjects(stack);
+  expect(
+    objects.find((object) => object.sha256 === hash),
+    "these exact bytes are in the bucket",
+  ).toBeUndefined();
+}
 
 /**
  * A small, plain PDF that passes the safety scan, with words the fake check reads as its text
@@ -63,28 +79,29 @@ test.describe("publications", () => {
   }) => {
     const maker = await seed.user("author");
     const auth = { authorization: `Bearer ${await seed.apiToken(maker)}` };
-    const before = (await bucketObjects(stack)).length;
 
+    const blockedBytes = pdfWith("[e2e:blocked]");
     const blocked = await request.post(`${stack.appUrl}/api/v1/publications?fileName=nope.pdf`, {
       headers: { ...auth, "content-type": "application/pdf" },
-      data: pdfWith("[e2e:blocked]"),
+      data: blockedBytes,
     });
     expect(blocked.status()).toBe(400);
     expect(await blocked.json()).toMatchObject({ error: "This publication can't go on Slopper." });
-    expect(await bucketObjects(stack)).toHaveLength(before);
+    await neverStored(stack, blockedBytes);
 
     // Slopper's own safety scan refuses a PDF that runs a script when it's opened, before any check.
-    const checksBefore = (await checkRequests(stack)).length;
+    const scriptedBytes = pdfWith("A harmless zine.", "/OpenAction << /S /JavaScript /JS (app.alert(1)) >> ");
     const scripted = await request.post(`${stack.appUrl}/api/v1/publications?fileName=script.pdf`, {
       headers: { ...auth, "content-type": "application/pdf" },
-      data: pdfWith("A harmless zine.", "/OpenAction << /S /JavaScript /JS (app.alert(1)) >> "),
+      data: scriptedBytes,
     });
     expect(scripted.status()).toBe(400);
     expect((await scripted.json()) as { error: string }).toMatchObject({
       error: expect.stringContaining("scripts, forms or actions"),
     });
-    expect(await checkRequests(stack)).toHaveLength(checksBefore);
-    expect(await bucketObjects(stack)).toHaveLength(before);
+    await neverStored(stack, scriptedBytes);
+    // The model never read it: no check request carries its words.
+    expect((await checkRequests(stack)).find((check) => check.text.includes("A harmless zine."))).toBeUndefined();
 
     const notPdf = await request.post(`${stack.appUrl}/api/v1/publications`, {
       headers: auth,
@@ -115,19 +132,19 @@ test.describe("publications", () => {
   }) => {
     const maker = await seed.user("novelist");
     const auth = { authorization: `Bearer ${await seed.apiToken(maker)}` };
-    const before = (await bucketObjects(stack)).length;
     const send = (book: Uint8Array, fileName: string) =>
       request.post(`${stack.appUrl}/api/v1/publications?fileName=${fileName}`, {
         headers: { ...auth, "content-type": "application/epub+zip" },
         data: Buffer.from(book),
       });
 
-    const scripted = await send(epub({ body: "<p>Hi</p><script>alert(1)</script>" }), "script.epub");
+    const scriptedBook = epub({ body: "<p>Hi</p><script>alert(1)</script>" });
+    const scripted = await send(scriptedBook, "script.epub");
     expect(scripted.status()).toBe(400);
     expect((await scripted.json()) as { error: string }).toMatchObject({
       error: expect.stringContaining("scripts, forms or links that run code"),
     });
-    expect(await bucketObjects(stack)).toHaveLength(before);
+    await neverStored(stack, new Uint8Array(scriptedBook));
 
     // The check reads the book's words: its markers are in the text the scan read out.
     const id = Date.now().toString(36);

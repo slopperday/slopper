@@ -105,9 +105,14 @@ export async function releaseMedia(
 
   let waiting = 0;
   for (const id of new Set(ids)) {
-    if (shown.has(id)) continue;
     const media = await ctx.db.get(id);
     if (!media || media.orphanedAt !== undefined) continue;
+    if (shown.has(id)) {
+      // Still shown somewhere, so it stays — and counts as attached, which
+      // keeps the never-attached sweep from looking at it again.
+      if (media.attached !== true) await ctx.db.patch(id, { attached: true });
+      continue;
+    }
     if (media.backend === "b2") {
       await ctx.db.patch(id, { orphanedAt: Date.now() });
       waiting++;

@@ -13,11 +13,33 @@ import { config } from "../config";
 import { convex } from "../convex";
 import { seal, unseal } from "../crypto";
 import { isLocalHostname } from "../network";
+import { publicFetch } from "../preview";
 import { GA_PROPERTY_ID, syncGoogleAnalytics } from "./google";
 import { EVENT_NAME, POSTHOG_KEY, POSTHOG_PROJECT_ID, syncPostHog } from "./posthog";
 import { SOLANA_ADDRESS, syncSolana } from "./solana";
 import { SourceError, type SyncInput, type SyncResult } from "./source";
 import { STRIPE_KEY, syncStripe } from "./stripe";
+
+/**
+ * Every source is read through the SSRF-pinned transport (../preview): an
+ * address a person typed — a self-hosted PostHog, a Solana RPC — can't be
+ * private, and can't rebind to private between check and connection. Fixed
+ * cloud APIs ride the same road for one rule everywhere.
+ */
+const pinnedFetch: typeof fetch = async (input, init) => {
+  const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+  const body = init?.body;
+  return await publicFetch(url, {
+    method: init?.method,
+    headers: init ? Object.fromEntries(new Headers(init.headers)) : undefined,
+    body: typeof body === "string" ? body : undefined,
+    timeoutMs: 20_000,
+    // The e2e stack's fake Solana RPC answers on 127.0.0.1; production never
+    // sets this, and even with it only loopback opens up (preview.ts).
+    loopback: process.env.SLOPPER_ALLOW_LOCAL_FETCH === "1",
+    ...(init?.signal ? { signal: init.signal } : {}),
+  });
+};
 
 /**
  * Connecting sources and keeping their numbers fresh. Syncs run here because
@@ -141,7 +163,7 @@ export async function connectSource(
     cursor: null,
     since: sinceFor(null, today),
     today,
-    fetcher: fetch,
+    fetcher: pinnedFetch,
   });
   if (!outcome.ok) return outcome;
   const integrationId = await convex.mutation(api.integrations.connect, {
@@ -174,7 +196,7 @@ async function syncOne(row: Doc<"integrations">, today: string): Promise<void> {
     cursor: row.cursor,
     since: sinceFor(row.syncedAt, today),
     today,
-    fetcher: fetch,
+    fetcher: pinnedFetch,
   });
   await convex.mutation(api.integrations.record, {
     integrationId: row._id,

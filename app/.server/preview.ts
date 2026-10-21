@@ -68,17 +68,30 @@ class NotPublicError extends Error {
   readonly code = "ENOTPUBLIC";
 }
 
-/** Resolves like the default lookup, but fails unless every address is public. */
-const publicLookup: LookupFunction = (hostname, options, callback) => {
-  lookup(hostname, { ...options, all: true }, (error, addresses) => {
-    if (error) return callback(error, "");
-    if (addresses.length === 0 || addresses.some((entry) => !isPublicAddress(entry.address))) {
-      return callback(new NotPublicError(`${hostname} isn't on the public internet.`), "");
-    }
-    if (options.all) return callback(null, addresses);
-    callback(null, addresses[0].address, addresses[0].family);
-  });
-};
+function isLoopback(host: string): boolean {
+  return host === "localhost" || host === "::1" || /^127\.\d+\.\d+\.\d+$/.test(host);
+}
+
+/**
+ * Resolves like the default lookup, but fails unless every address is public.
+ * With `loopback`, 127.0.0.1 and localhost pass too: the e2e stack's fake
+ * services live there, and only the integrations transport
+ * (SLOPPER_ALLOW_LOCAL_FETCH) ever says yes — link previews refuse loopback
+ * everywhere, tests included.
+ */
+function publicLookup(loopback: boolean): LookupFunction {
+  return (hostname, options, callback) => {
+    if (loopback && isLoopback(hostname)) return lookup(hostname, options, callback);
+    lookup(hostname, { ...options, all: true }, (error, addresses) => {
+      if (error) return callback(error, "");
+      if (addresses.length === 0 || addresses.some((entry) => !isPublicAddress(entry.address))) {
+        return callback(new NotPublicError(`${hostname} isn't on the public internet.`), "");
+      }
+      if (options.all) return callback(null, addresses);
+      callback(null, addresses[0].address, addresses[0].family);
+    });
+  };
+}
 
 export interface FetchLimits {
   accept: string;
@@ -104,21 +117,26 @@ const MAX_REDIRECTS = 3;
 const USER_AGENT = "Slopper link previews (+https://slopper.day)";
 
 /** Refuses what the lookup never sees: other schemes, ports, credentials and private IP literals. */
-export function assertFetchable(url: URL): void {
+export function assertFetchable(url: URL, loopback = false): void {
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new NotPublicError("Only web pages have previews.");
-  if (url.port !== "") throw new NotPublicError("Previews only read pages on the standard web ports.");
-  if (url.username || url.password) throw new NotPublicError("Previews don't sign in to pages.");
   const host = url.hostname.replace(/^\[(.*)\]$/, "$1");
-  if (isIP(host) !== 0 && !isPublicAddress(host)) throw new NotPublicError(`${host} isn't on the public internet.`);
+  const local = loopback && isLoopback(host);
+  if (url.port !== "" && !local) {
+    throw new NotPublicError("Previews only read pages on the standard web ports.");
+  }
+  if (url.username || url.password) throw new NotPublicError("Previews don't sign in to pages.");
+  if (!local && isIP(host) !== 0 && !isPublicAddress(host)) {
+    throw new NotPublicError(`${host} isn't on the public internet.`);
+  }
 }
 
-function get(url: URL, accept: string, signal: AbortSignal): Promise<IncomingMessage> {
+function get(url: URL, accept: string, signal: AbortSignal, loopback = false): Promise<IncomingMessage> {
   return new Promise((resolve, reject) => {
     const request = (url.protocol === "https:" ? httpsRequest : httpRequest)(
       url,
       {
         method: "GET",
-        lookup: publicLookup,
+        lookup: publicLookup(loopback),
         signal,
         headers: { accept, "accept-encoding": "gzip, deflate, br", "user-agent": USER_AGENT },
       },
@@ -185,6 +203,80 @@ export const fetchPublic: PublicFetch = async (start, limits) => {
   }
   throw new Error("Too many redirects.");
 };
+
+/** A service's answer is capped: enough for any API reply, small enough to be safe. */
+const SERVICE_BYTES = 2 * 1024 * 1024;
+
+/**
+ * One request to a public web service — a Bluesky PDS, a self-hosted
+ * PostHog, a slop's website — on the same pinned transport as link previews:
+ * the public-address check runs inside the DNS lookup the socket connects
+ * with, so a name can't resolve public for the check and private for the
+ * connection (SSRF by DNS rebinding). Redirects are not followed: the 3xx
+ * answer itself is returned, so nothing is ever connected to but the checked
+ * address.
+ */
+export async function publicFetch(
+  url: URL,
+  init: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string | Uint8Array<ArrayBuffer>;
+    timeoutMs?: number;
+    signal?: AbortSignal;
+    /** For the integrations transport under e2e (SLOPPER_ALLOW_LOCAL_FETCH): 127.0.0.1 only. */
+    loopback?: boolean;
+  } = {},
+): Promise<Response> {
+  assertFetchable(url, init.loopback);
+  const body = init.body;
+  return await new Promise((resolve, reject) => {
+    const request = (url.protocol === "https:" ? httpsRequest : httpRequest)(
+      url,
+      {
+        method: init.method ?? "GET",
+        lookup: publicLookup(init.loopback ?? false),
+        signal: init.signal ?? AbortSignal.timeout(init.timeoutMs ?? TIMEOUT_MS),
+        headers: {
+          accept: "*/*",
+          // The caller reads the body as text; answers stay uncompressed.
+          "accept-encoding": "identity",
+          "user-agent": USER_AGENT,
+          ...(body !== undefined
+            ? { "content-length": String(typeof body === "string" ? Buffer.byteLength(body) : body.byteLength) }
+            : {}),
+          ...init.headers,
+        },
+      },
+      (response) => {
+        void (async () => {
+          const chunks: Buffer[] = [];
+          let size = 0;
+          for await (const chunk of response as AsyncIterable<Buffer>) {
+            chunks.push(chunk);
+            size += chunk.byteLength;
+            if (size > SERVICE_BYTES) {
+              response.destroy();
+              break;
+            }
+          }
+          const headers = new Headers();
+          for (const [key, value] of Object.entries(response.headers)) {
+            if (value !== undefined) headers.set(key, Array.isArray(value) ? value.join(", ") : value);
+          }
+          resolve(
+            new Response(new Uint8Array(Buffer.concat(chunks).subarray(0, SERVICE_BYTES)), {
+              status: response.statusCode ?? 200,
+              headers,
+            }),
+          );
+        })().catch(reject);
+      },
+    );
+    request.on("error", reject);
+    request.end(body);
+  });
+}
 
 /** What a page says about itself, before its image is fetched. */
 export interface PageMeta extends LinkPreview {
