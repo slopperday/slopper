@@ -63,7 +63,7 @@ test.describe("your account", () => {
     await maker.getByLabel("Link 1 address").fill("https://example.com/");
     await maker.getByLabel("Category").selectOption("utilities");
     await maker
-      .locator('input[type="file"]')
+      .locator('input[type="file"][accept*="image"]')
       .setInputFiles({ name: `shot-${id} [e2e:mature].png`, mimeType: "image/png", buffer: await maker.screenshot() });
     await expect(maker.getByRole("img", { name: "Screenshot 1" })).toBeVisible();
     await maker.getByRole("button", { name: "Throw it at the wall" }).click();
