@@ -6,7 +6,7 @@ import { readerFor, requireServer } from "./lib/auth";
 import { firstEmail, nextDigestAt } from "./lib/digest";
 import { publicUser, toCards } from "./lib/shape";
 import { queuedDays } from "./schedule";
-import { currentStreak, isValidTimeZone, localDate } from "../app/lib/dates";
+import { currentStreak, isValidTimeZone, utcDate } from "../app/lib/dates";
 import { goalProgress, type Launch } from "../app/lib/goal";
 import { LIMITS } from "../app/lib/model";
 import { normalizeUsername, usernameProblem } from "../app/lib/username";
@@ -290,7 +290,7 @@ export const profile = query({
       .order("desc")
       .collect();
 
-    const today = localDate(new Date(), owner.timeZone);
+    const today = utcDate(Date.now());
     const launches = toLaunches(slops);
     const current = goals.find((goal) => goal.abandonedAt === null) ?? null;
     const chronological = [...slops].reverse();
@@ -299,7 +299,7 @@ export const profile = query({
     return {
       owner: publicUser(owner),
       isSelf,
-      /** The owner's date, which their goal days follow. */
+      /** Today's UTC date, which goal days and streaks follow. */
       today,
       streak: currentStreak(
         launches.map((launch) => launch.launchDate),

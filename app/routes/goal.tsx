@@ -6,7 +6,7 @@ import { requireUser, viewerContext } from "~/.server/session";
 import { convex } from "~/.server/convex";
 import { formText, parseGoalForm } from "~/.server/forms";
 import { redirectWithFlash } from "~/.server/http";
-import { localDate } from "~/lib/dates";
+import { utcDate } from "~/lib/dates";
 import { goalShareText } from "~/lib/goal";
 import { seo } from "~/lib/seo";
 import { GoalGrid } from "~/components/GoalGrid";
@@ -17,7 +17,7 @@ import { goalPrompt } from "~/lib/prompts";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const user = requireUser(context.get(viewerContext), request);
-  const today = localDate(new Date(), user.timeZone);
+  const today = utcDate(Date.now());
   const profile = await convex.query(api.users.profile, { username: user.username, asUser: user._id });
   // Only a running goal shows here; finished ones live on the profile.
   const progress = profile?.progress && profile.progress.status !== "ended" ? profile.progress : null;
@@ -34,7 +34,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 export async function action({ request, context }: Route.ActionArgs) {
   const user = requireUser(context.get(viewerContext), request);
-  const today = localDate(new Date(), user.timeZone);
+  const today = utcDate(Date.now());
   const form = await request.formData();
 
   if (formText(form, "intent") === "abandon") {

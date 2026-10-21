@@ -81,7 +81,6 @@ async function ship(server: Server, userId: Id<"users">, screenshots: readonly s
     userId,
     input: slopInput(screenshots),
     launchNote: "Day 1",
-    today: new Date().toISOString().slice(0, 10),
     ...(relaunchOf ? { relaunchOf, launchLabel: "iOS app" } : {}),
   });
 }

@@ -44,8 +44,8 @@ like a Markdown list, needs `=`: `--description="- one"`.
 
 ## Start with whoami
 
-`slopper whoami` returns the user's username, time zone, today's date in that zone, the open goal and its progress, the
-streak, and the votes left today. Goal days end at midnight in the user's time zone; the race runs on UTC days.
+`slopper whoami` returns the user's username, time zone, today's UTC date, the open goal and its progress, the streak,
+and the votes left today. Every day on Slopper is a UTC day: goal days, streaks and the race all end at midnight UTC.
 
 `slopper profile @username` looks anyone up, the user included: their open goal day by day (`shipped`, `missed`,
 `today`, `upcoming`, with how many are `scheduled`), how many are still `toGo`, their streak and their slops. It needs

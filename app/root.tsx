@@ -90,7 +90,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
   const location = useLocation();
   useEffect(() => {
-    // Tells the server the visitor's time zone, so a goal day ends at their midnight
+    // Tells the server the visitor's time zone, so clock times show in it
     // and a new account starts in their zone, before anyone has signed in.
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     document.cookie = `slopper_tz=${encodeURIComponent(zone)}; path=/; max-age=31536000; samesite=lax`;

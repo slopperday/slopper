@@ -1,4 +1,4 @@
-import { addDays, formatDay, localDate, localDayStart } from "./dates";
+import { addDays, dayStart, formatClock, formatDay, localDate } from "./dates";
 
 /**
  * How long a launch's original post (name, tagline, description, links,
@@ -16,35 +16,18 @@ export const EDITING_CLOSED = "Editing has closed for this slop. Post an update 
 export interface Launched {
   /** When it went out: the slop's creation time. */
   launchedAt: number;
-  /** The owner's calendar date when it went out (`slops.launchDate`). */
+  /** The UTC date it went out (`slops.launchDate`). */
   launchDate: string;
 }
 
 /**
  * When editing closes: 12 hours after launch or the end of the launch day,
- * whichever is later. A morning launch stays open until midnight; a late
- * one gets its full 12 hours into the next day.
- *
- * The launch day is `launchDate`, the owner's own date, not `raceDate` (the
- * UTC date of the slop of the day race): it's the day the slop page shows
- * and the one the maker means by "the day I launched". It ends at the
- * owner's next midnight in their current time zone, so moving zones moves
- * that end; the 12 hours never move.
+ * whichever is later. A launch early in the (UTC) day stays open until
+ * midnight UTC; a late one gets its full 12 hours into the next day.
  */
-export function editableUntil(slop: Launched, ownerTimeZone: string): number {
-  const endOfLaunchDay = localDayStart(addDays(slop.launchDate, 1), ownerTimeZone);
+export function editableUntil(slop: Launched): number {
+  const endOfLaunchDay = dayStart(addDays(slop.launchDate, 1));
   return Math.max(slop.launchedAt + EDIT_WINDOW_MS, endOfLaunchDay);
-}
-
-const clocks = new Map<string, Intl.DateTimeFormat>();
-
-function clockFor(timeZone: string): Intl.DateTimeFormat {
-  let clock = clocks.get(timeZone);
-  if (!clock) {
-    clock = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-    clocks.set(timeZone, clock);
-  }
-  return clock;
 }
 
 /** What the owner is told: how long editing stays open, or that it's locked. */
@@ -52,13 +35,13 @@ export type EditWindow = { open: true; label: string } | { open: false };
 
 /** The edit window as of `now`, labelled on the owner's clock. */
 export function editWindow(slop: Launched, ownerTimeZone: string, now: number): EditWindow {
-  const until = editableUntil(slop, ownerTimeZone);
+  const until = editableUntil(slop);
   return now < until ? { open: true, label: openLabel(until, now, ownerTimeZone) } : { open: false };
 }
 
 /** "Editable until midnight", "Editable until 09:30 tomorrow". */
 function openLabel(until: number, now: number, timeZone: string): string {
-  const clock = clockFor(timeZone).format(until);
+  const clock = formatClock(until, timeZone);
   const midnight = clock === "00:00";
   // Midnight ends the day before it.
   const day = localDate(new Date(midnight ? until - 1 : until), timeZone);

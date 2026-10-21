@@ -67,7 +67,6 @@ async function ship(server: Server, userId: Id<"users">, fields: SlopFields): Pr
     userId,
     input: slopInput(fields),
     launchNote: "Day 1",
-    today: "2026-10-17",
   });
   return slopId;
 }

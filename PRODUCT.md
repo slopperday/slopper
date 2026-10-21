@@ -29,7 +29,7 @@ persistence, where launch sites are built around one big day.
 
 ## Operating Context
 
-- Goals run in the maker's own time zone; a day ends at midnight where they are.
+- Every day is a UTC day, the same for everyone: goal days, streaks and the race all end at midnight UTC.
 - Slop of the day is a race on votes for each UTC day, crowned just after midnight UTC. Everyone gets 5 votes a day.
 - Slopcessful is earned, never declared: by winning slop of the day, and (planned) by passing 1,000 users verified by
   signups or $1,000 of revenue verified through integrations. It stays its own badge, separate from slop of the day.

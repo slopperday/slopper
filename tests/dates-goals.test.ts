@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { addDays, currentStreak, daysBetween, isIsoDate, localDate, localInstant, raceStartOn } from "~/lib/dates";
+import { addDays, currentStreak, daysBetween, isIsoDate, localDate, localInstant, utcDate } from "~/lib/dates";
 import {
   GOAL_PACES,
   type Goal,
@@ -14,7 +14,13 @@ import { hotScore, rankHot } from "~/lib/ranking";
 import { formatRelease, localDateTimeValue, nextFreeRelease, parseRelease, releaseProblem } from "~/lib/schedule";
 
 describe("dates", () => {
-  it("uses the owner's time zone, not UTC", () => {
+  it("counts every day as the UTC day, wherever the clock is", () => {
+    // 23:55 UTC on 20 Oct is already 21 Oct in Lagos; it still counts for the 20th.
+    expect(utcDate(Date.parse("2026-10-20T23:55:00Z"))).toBe("2026-10-20");
+    expect(utcDate(new Date("2026-10-21T00:00:00Z"))).toBe("2026-10-21");
+  });
+
+  it("reads clock dates in a time zone", () => {
     // 23:30 UTC on 5 Oct is already 6 Oct in Lagos and still 5 Oct in New York.
     const instant = new Date("2026-10-05T23:30:00Z");
     expect(localDate(instant, "UTC")).toBe("2026-10-05");
@@ -145,35 +151,12 @@ describe("scheduled launches", () => {
     expect(new Date(localInstant("2026-10-26", 60, "Europe/London")).toISOString()).toBe("2026-10-26T01:00:00.000Z");
   });
 
-  it("starts each local day's release at the UTC midnight inside it", () => {
-    // In Los Angeles, UTC midnight falls at 5pm the evening before the UTC date.
-    expect(new Date(raceStartOn("2026-10-15", "America/Los_Angeles")).toISOString()).toBe("2026-10-16T00:00:00.000Z");
-    // In Tokyo it falls at 9am on the same date.
-    expect(new Date(raceStartOn("2026-10-15", "Asia/Tokyo")).toISOString()).toBe("2026-10-15T00:00:00.000Z");
-    expect(new Date(raceStartOn("2026-10-15", "UTC")).toISOString()).toBe("2026-10-15T00:00:00.000Z");
-    // The Azores' spring-forward day runs 01:00 to 24:00 UTC and holds no UTC midnight.
-    const azores = raceStartOn("2026-03-29", "Atlantic/Azores");
-    expect(localDate(new Date(azores), "Atlantic/Azores")).toBe("2026-03-29");
-  });
-
-  it("lines launches up on the next free days, skipping ones already taken", () => {
+  it("lines launches up on the next free days, at midnight UTC, skipping ones already taken", () => {
     const now = Date.parse("2026-10-15T12:00:00Z");
-    // Today's UTC midnight has passed in UTC, so today isn't free any more.
-    expect(new Date(nextFreeRelease(new Set(), "2026-10-15", "UTC", now)).toISOString()).toBe(
-      "2026-10-16T00:00:00.000Z",
-    );
+    // Today's midnight has passed, so today isn't free any more.
+    expect(new Date(nextFreeRelease(new Set(), "2026-10-15", now)).toISOString()).toBe("2026-10-16T00:00:00.000Z");
     const taken = new Set(["2026-10-16", "2026-10-17"]);
-    expect(new Date(nextFreeRelease(taken, "2026-10-15", "UTC", now)).toISOString()).toBe("2026-10-18T00:00:00.000Z");
-    // 5am in Los Angeles: today's race start (5pm) is still ahead, so today is free.
-    expect(new Date(nextFreeRelease(new Set(), "2026-10-15", "America/Los_Angeles", now)).toISOString()).toBe(
-      "2026-10-16T00:00:00.000Z",
-    );
-    expect(
-      localDate(
-        new Date(nextFreeRelease(new Set(["2026-10-15"]), "2026-10-15", "America/Los_Angeles", now)),
-        "America/Los_Angeles",
-      ),
-    ).toBe("2026-10-16");
+    expect(new Date(nextFreeRelease(taken, "2026-10-15", now)).toISOString()).toBe("2026-10-18T00:00:00.000Z");
   });
 
   it("reads now, next, wall times in the owner's zone and zoned times", () => {

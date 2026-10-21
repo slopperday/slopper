@@ -276,7 +276,6 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
             madeWith: [],
           },
           launchNote: tagline,
-          today: new Date().toISOString().slice(0, 10),
         });
         if (verdict) {
           await convex.mutation(api.moderation.applyCheck, {
@@ -292,7 +291,7 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
       async pastSlop(owner, launchedAt) {
         const name = `Old slop ${unique()}`;
         const slug = name.toLowerCase().replaceAll(" ", "-");
-        // Seeded people live in UTC, so the UTC date is their launch date too.
+        // Launch dates are UTC dates.
         const launchDate = new Date(launchedAt).toISOString().slice(0, 10);
         const document = {
           _creationTime: launchedAt,

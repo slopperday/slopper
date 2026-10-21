@@ -191,7 +191,6 @@ describe("product events", () => {
         madeWith: [],
       },
       launchNote: "Day 1",
-      today: new Date().toISOString().slice(0, 10),
     });
     await server.mutation(api.slops.vote, { userId: fan, slopId, value: 1 });
     await server.mutation(api.slops.pledge, { userId: fan, slopId, amount: 500 });
@@ -715,7 +714,6 @@ describe("analytics by slop", () => {
       userId,
       input: SLOP_INPUT,
       launchNote: "Day 1",
-      today: new Date().toISOString().slice(0, 10),
     });
   }
 

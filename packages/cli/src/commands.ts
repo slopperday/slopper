@@ -334,7 +334,7 @@ export const COMMANDS: Command[] = [
   },
   {
     name: "whoami",
-    summary: "You: profile, time zone, today's date, the open goal, streak and votes left today. Start here.",
+    summary: "You: profile, time zone, today's (UTC) date, the open goal, streak and votes left today. Start here.",
     run: ({ api }) => api.get("/me"),
   },
   {
@@ -384,7 +384,7 @@ export const COMMANDS: Command[] = [
     summary: "Start a goal, like 30 slops in 30 days. Only one can be open.",
     flags: {
       "--target <n>": "Required: how many slops to ship.",
-      "--days <n>": "Required: how many days. They end at midnight in your time zone.",
+      "--days <n>": "Required: how many days. They end at midnight UTC.",
       "--start <YYYY-MM-DD>": "Today or later. Defaults to today.",
       "--title <title>": "Defaults to “N slops in M days”.",
     },

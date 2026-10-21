@@ -3,12 +3,13 @@ import type { Page } from "@playwright/test";
 import { api } from "../convex/_generated/api.js";
 import type { Id } from "../convex/_generated/dataModel.js";
 import { addDays, formatDay } from "../app/lib/dates.ts";
-import { expect, type SeededUser, test } from "./fixtures.ts";
+import { expect, runInternal, type SeededUser, test } from "./fixtures.ts";
+import type { Stack } from "./ports.ts";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-/** A launch dated `date` on its maker's clock, as if thrown that day. */
-async function launchOn(convex: ConvexHttpClient, owner: SeededUser, name: string, date: string) {
+/** A launch dated `date`, as if thrown that (UTC) day. */
+async function launchOn(stack: Stack, convex: ConvexHttpClient, owner: SeededUser, name: string, date: string) {
   const { slopId, slug } = await convex.mutation(api.slops.create, {
     userId: owner.id,
     input: {
@@ -21,9 +22,9 @@ async function launchOn(convex: ConvexHttpClient, owner: SeededUser, name: strin
       madeWith: [],
     },
     launchNote: "Day one",
-    today: date,
   });
   await convex.mutation(api.moderation.applyCheck, { slopId, scope: "slop", verdict: "ok", reason: "Seeded" });
+  runInternal(stack, "launchDays:moveLaunch", { slopId, date });
   return { id: slopId as Id<"slops">, slug, name, path: `/@${owner.username}/${slug}` };
 }
 
@@ -213,6 +214,7 @@ test.describe("finding slop", () => {
 
   test("a goal shows day by day on its maker's profile, with a streak and the streaks board", async ({
     seed,
+    stack,
     convex,
   }) => {
     const maker = await seed.user("streaker");
@@ -229,7 +231,7 @@ test.describe("finding slop", () => {
     const id = Date.now().toString(36);
     const slops = [];
     for (const offset of [-2, -1, 0]) {
-      slops.push(await launchOn(convex, maker, `Streak ${id} day ${offset + 3}`, addDays(now, offset)));
+      slops.push(await launchOn(stack, convex, maker, `Streak ${id} day ${offset + 3}`, addDays(now, offset)));
     }
 
     const page = await seed.visitorPage();

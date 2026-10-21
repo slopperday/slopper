@@ -4,7 +4,7 @@ import { internalMutation, type MutationCtx, query, type QueryCtx } from "./_gen
 import { readerFor } from "./lib/auth";
 import { notify } from "./lib/notify";
 import { toCards } from "./lib/shape";
-import { addDays, formatDay } from "../app/lib/dates";
+import { addDays, formatDay, utcDate } from "../app/lib/dates";
 import { plural } from "../app/lib/display";
 import { LIMITS } from "../app/lib/model";
 
@@ -21,7 +21,7 @@ import { LIMITS } from "../app/lib/model";
  */
 
 export function utcToday(): string {
-  return new Date().toISOString().slice(0, 10);
+  return utcDate(Date.now());
 }
 
 /** The votes a slop's race counts. Slops from before race tallies use their totals. */
@@ -56,7 +56,7 @@ export async function countsInRace(
   value: 1 | -1,
   now: number,
 ): Promise<boolean> {
-  const today = new Date(now).toISOString().slice(0, 10);
+  const today = utcDate(now);
   if (slop.raceDate !== today) return false;
   if (now - voter._creationTime < LIMITS.raceVoterAge) return false;
   // Read through the voter's own slops: a read of the whole day's race would

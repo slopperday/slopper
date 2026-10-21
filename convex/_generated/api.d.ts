@@ -19,6 +19,7 @@ import type * as goals from "../goals.js";
 import type * as home from "../home.js";
 import type * as http from "../http.js";
 import type * as integrations from "../integrations.js";
+import type * as launchDays from "../launchDays.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_digest from "../lib/digest.js";
 import type * as lib_embeddings from "../lib/embeddings.js";
@@ -67,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   home: typeof home;
   http: typeof http;
   integrations: typeof integrations;
+  launchDays: typeof launchDays;
   "lib/auth": typeof lib_auth;
   "lib/digest": typeof lib_digest;
   "lib/embeddings": typeof lib_embeddings;

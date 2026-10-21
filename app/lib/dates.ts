@@ -1,7 +1,9 @@
 /**
- * Calendar-day math. Slopper is about *days*, and a day ends at midnight in
- * the owner's own time zone, so dates are plain `YYYY-MM-DD` strings and all
- * arithmetic happens on UTC midnights to stay clear of DST.
+ * Calendar-day math. Slopper is about *days*, and a day is the UTC day, the
+ * same for everyone wherever they are: launches, goal days, streaks and the
+ * slop of the day race all turn over at midnight UTC. Dates are plain
+ * `YYYY-MM-DD` strings. Time zones are only for showing clock times (and the
+ * morning digest).
  */
 
 const DAY_MS = 86_400_000;
@@ -30,10 +32,20 @@ export function isValidTimeZone(timeZone: string): boolean {
   }
 }
 
-/** The calendar date of `instant` as seen in `timeZone`. */
+/** The UTC date of `instant`: the day it counts for on Slopper. */
+export function utcDate(instant: Date | number): string {
+  return new Date(instant).toISOString().slice(0, 10);
+}
+
+/** The calendar date of `instant` as seen in `timeZone`, for showing clock times. */
 export function localDate(instant: Date, timeZone: string): string {
   // en-CA formats as YYYY-MM-DD.
   return formatterFor(timeZone).format(instant);
+}
+
+/** The moment `date` begins: its midnight UTC. */
+export function dayStart(date: string): number {
+  return toUtcMidnight(date);
 }
 
 function toUtcMidnight(date: string): number {
@@ -85,30 +97,16 @@ export function nextLocalHour(timeZone: string, hour: number, now: number): numb
   }
 }
 
-/**
- * The UTC midnight that falls on `date` in `timeZone`: a slop out then gets
- * the whole of a slop of the day race and still counts for that local day.
- * A day shortened by a clock change can miss every UTC midnight (the Azores
- * in spring); it starts at its first whole hour instead, since its midnight
- * may be the hour the clocks skipped.
- */
-export function raceStartOn(date: string, timeZone: string): number {
-  for (const offset of [-1, 0, 1]) {
-    const midnight = toUtcMidnight(addDays(date, offset));
-    if (localDate(new Date(midnight), timeZone) === date) return midnight;
-  }
-  return localDayStart(date, timeZone);
-}
+const clockFormats = new Map<string, Intl.DateTimeFormat>();
 
-/**
- * The moment `date` begins in `timeZone`: its midnight, or its first whole
- * hour when a clock change skips midnight (the Azores in spring).
- */
-export function localDayStart(date: string, timeZone: string): number {
-  for (let hour = 0; ; hour++) {
-    const at = localInstant(date, hour * 60, timeZone);
-    if (localDate(new Date(at), timeZone) === date) return at;
+/** "09:30": the clock in `timeZone` at `instant`. */
+export function formatClock(instant: number, timeZone: string): string {
+  let clock = clockFormats.get(timeZone);
+  if (!clock) {
+    clock = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+    clockFormats.set(timeZone, clock);
   }
+  return clock.format(instant);
 }
 
 /** Whole days from `from` to `to` (positive when `to` is later). */
@@ -157,7 +155,7 @@ export function timeAgo(at: string | number, now: Date = new Date()): string {
 
 /**
  * Current run of consecutive shipping days ending today or yesterday.
- * A streak survives until the owner's midnight, so yesterday still counts.
+ * A streak survives until midnight UTC, so yesterday still counts.
  */
 export function currentStreak(shipDates: Iterable<string>, today: string): number {
   const shipped = new Set(shipDates);

@@ -14,7 +14,7 @@ import { releaseMedia } from "./lib/media";
 import { consume } from "./lib/rate";
 import { productIdOf, screenshotUrls } from "./lib/shape";
 import { insertLaunch, ownedMedia, ownSlop, slopInput } from "./slops";
-import { localDate } from "../app/lib/dates";
+import { utcDate } from "../app/lib/dates";
 import { LIMITS } from "../app/lib/model";
 import { nextFreeRelease, releaseProblem } from "../app/lib/schedule";
 
@@ -35,11 +35,9 @@ async function queueOf(ctx: QueryCtx, userId: Id<"users">): Promise<Doc<"schedul
     .collect();
 }
 
-/** Local dates of a person's launches still waiting to go out, for the goal grid. */
+/** UTC dates of a person's launches still waiting to go out, for the goal grid. */
 export async function queuedDays(ctx: QueryCtx, user: Doc<"users">): Promise<string[]> {
-  return (await queueOf(ctx, user._id))
-    .filter((entry) => !entry.released)
-    .map((entry) => localDate(new Date(entry.releaseAt), user.timeZone));
+  return (await queueOf(ctx, user._id)).filter((entry) => !entry.released).map((entry) => utcDate(entry.releaseAt));
 }
 
 /** When "next free day" would put a launch out: the first day with nothing out or queued. */
@@ -51,9 +49,9 @@ async function nextRelease(ctx: QueryCtx, user: Doc<"users">, now: number): Prom
   const queued = await queueOf(ctx, user._id);
   const taken = new Set([
     ...slops.filter((slop) => !slop.hidden).map((slop) => slop.launchDate),
-    ...queued.map((entry) => localDate(new Date(entry.releaseAt), user.timeZone)),
+    ...queued.map((entry) => utcDate(entry.releaseAt)),
   ]);
-  return nextFreeRelease(taken, localDate(new Date(now), user.timeZone), user.timeZone, now);
+  return nextFreeRelease(taken, utcDate(now), now);
 }
 
 async function ownEntry(ctx: QueryCtx, userId: Id<"users">, rawId: string): Promise<Doc<"scheduledLaunches">> {
@@ -63,7 +61,7 @@ async function ownEntry(ctx: QueryCtx, userId: Id<"users">, rawId: string): Prom
   return entry;
 }
 
-/** Turns a queued launch into a slop, as of now in its owner's time zone. */
+/** Turns a queued launch into a slop, on today's UTC date like any launch. */
 async function putOut(ctx: MutationCtx, entry: Doc<"scheduledLaunches">) {
   const owner = await ctx.db.get(entry.userId);
   if (!owner) throw new Error(`Scheduled launch ${entry._id} has no owner.`);
@@ -77,7 +75,6 @@ async function putOut(ctx: MutationCtx, entry: Doc<"scheduledLaunches">) {
     launchNote: entry.launchNote,
     source,
     launchLabel: entry.launchLabel,
-    today: localDate(new Date(), owner.timeZone),
   });
 }
 

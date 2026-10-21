@@ -92,7 +92,6 @@ describe("scheduled launches", () => {
       userId: maker,
       input: input("Today"),
       launchNote: "",
-      today: "2026-10-15",
     });
     const second = await schedule(server, maker, "Second", { kind: "next" });
     const third = await schedule(server, maker, "Third", { kind: "next" });
@@ -148,16 +147,16 @@ describe("scheduled launches", () => {
     expect(await server.mutation(api.schedule.claim, { id: "not-an-id" })).toBeNull();
   });
 
-  it("puts a launch out at a picked time in the maker's own day", async () => {
+  it("puts a launch out at a picked time on that moment's UTC day", async () => {
     stubApp();
     const { t, server } = setup();
     const maker = await makeUser(server, "maker", "America/Los_Angeles");
-    // 11pm in Los Angeles on the 15th is already the 16th in UTC.
+    // 11pm in Los Angeles on the 15th is already the 16th in UTC, the day it counts for.
     const at = Date.parse("2026-10-16T06:00:00Z");
     await schedule(server, maker, "Late", { kind: "at", at });
     await t.finishAllScheduledFunctions(vi.runAllTimers);
     const [slop] = await server.query(api.slops.listForServer, { userId: maker });
-    expect([slop.launchDate, slop.raceDate]).toEqual(["2026-10-15", "2026-10-16"]);
+    expect([slop.launchDate, slop.raceDate]).toEqual(["2026-10-16", "2026-10-16"]);
     expect(Math.floor(slop._creationTime)).toBe(at);
   });
 
@@ -238,7 +237,6 @@ describe("scheduled launches", () => {
       userId: maker,
       input: input("Marbles"),
       launchNote: "",
-      today: "2026-10-15",
     });
     const shot = await t.run((ctx) =>
       ctx.db.insert("media", { ownerId: maker, contentType: "image/png", size: 1, backend: "b2", key: "a.png" }),
@@ -274,7 +272,6 @@ describe("scheduled launches", () => {
       userId: maker,
       input: input("Marbles"),
       launchNote: "",
-      today: "2026-10-15",
     });
     await server.mutation(api.schedule.add, {
       userId: maker,

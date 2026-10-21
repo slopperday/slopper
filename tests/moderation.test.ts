@@ -50,7 +50,6 @@ async function ship(server: Server, userId: Id<"users">): Promise<Id<"slops">> {
       madeWith: [],
     },
     launchNote: "Day 1",
-    today: new Date().toISOString().slice(0, 10),
   });
   return slopId;
 }

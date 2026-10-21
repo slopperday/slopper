@@ -159,7 +159,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
             placeholder="https://"
           />
         </Field>
-        <Field id="timeZone" label="Time zone" hint="Your day ends at midnight here.">
+        <Field id="timeZone" label="Time zone" hint="Times are shown in it. Days still end at midnight UTC.">
           <select id="timeZone" name="timeZone" className="input" defaultValue={user.timeZone}>
             {timeZones.map((zone) => (
               <option key={zone} value={zone}>

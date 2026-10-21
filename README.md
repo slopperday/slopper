@@ -5,7 +5,7 @@
 Slopper is where you throw slop at the wall every day: set a goal (30 slops in 30 days), ship something every day, show
 it to people, and keep slopping until one of them is **slopcessful**.
 
-- **Goals on a board of days.** Every day you ship flips its tile to a "!". Days end at midnight in your time zone.
+- **Goals on a board of days.** Every day you ship flips its tile to a "!". Days are UTC days, ending at midnight UTC for everyone.
 - **Slop of the day.** Each UTC day is a race on votes (5 each a day); a cron crowns the winner after midnight, and
   winning makes it slopcessful.
 - **Scheduled launches.** Ready with three? Throw one now and line the others up: each goes out on its next free day

@@ -50,7 +50,6 @@ async function ship({ server }: Setup, userId: Id<"users">, screenshots: string[
       madeWith: [],
     },
     launchNote: "Day 1",
-    today: "2026-10-17",
   });
   return slopId;
 }
