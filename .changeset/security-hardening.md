@@ -1,9 +1,8 @@
 ---
-slopper:
-  type: fix
+slopper: fix
 ---
 
-# Security hardening: ingest ceilings, rate limits and fail-safe checks
+# Harden ingestion limits and security checks
 
 Round one — the attacks the audits proved, closed:
 
