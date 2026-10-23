@@ -9,6 +9,11 @@
   ],
   "homepage": "https://slopper.day",
   "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ifiokjr/slopper.git",
+    "directory": "packages/skill"
+  },
   "files": [
     "SKILL.md"
   ],
