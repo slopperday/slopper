@@ -320,9 +320,15 @@ async function signInFromBrowser({ io, url, userAgent }: Context, openBrowser: b
   const started = await postWithoutToken(site, "/api/cli/login", { name: `slopper CLI on ${io.hostname}` });
   if (!isBrowserSignIn(started)) throw new SlopperError(`${url} didn't start a browser sign-in. Is it a Slopper site?`);
 
-  const opened = openBrowser && (await io.openUrl(started.url));
+  // Match the server's approval route without trusting its URL as a launch target.
+  const page = new URL("/cli", url);
+  page.searchParams.set("code", started.userCode);
+
+  if (started.url !== page.href) throw new SlopperError(`${url} returned an unexpected sign-in page.`);
+
+  const opened = openBrowser && (await io.openUrl(page.href));
   io.stderr(
-    `${opened ? "Opened" : "Open"} ${started.url}\n` +
+    `${opened ? "Opened" : "Open"} ${page.href}\n` +
       `Check the page shows ${started.userCode}, then approve it. Waiting…\n`,
   );
   for (let waited = 0; waited < SIGN_IN_TIMEOUT_MS; waited += started.interval * 1000) {

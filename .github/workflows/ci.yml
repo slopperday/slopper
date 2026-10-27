@@ -1,0 +1,119 @@
+# Opt-in hosted checks for authorized security repairs; ordinary development keeps local CI.
+name: security CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+concurrency:
+  group: security-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ci:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'security-ci')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      VITEST_MAX_WORKERS: "2"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
+        with:
+          node-version: "24.22.1"
+          run-install: false
+          cache: true
+
+      - name: Install dependencies and package runners
+        run: |
+          vp install --frozen-lockfile
+          vp env install pnpm@12.9.1
+          vp env install yarn@4.18.1
+          vp env install bun@1.4.4
+          # Package smoke tests use fresh HOME directories. Give them real executables,
+          # so a manager shim cannot download another toolchain into each private home.
+          dirname "$(vp env which yarn | head -n 1)" >> "$GITHUB_PATH"
+          dirname "$(vp env which pnpm | head -n 1)" >> "$GITHUB_PATH"
+          dirname "$(vp env which node | head -n 1)" >> "$GITHUB_PATH"
+          dirname "$(vp env which bun | head -n 1)" >> "$GITHUB_PATH"
+          # The repository's action allowlist stays intact: install Deno's official binary.
+          curl --disable --fail --location --silent --show-error --user-agent ci \
+            https://github.com/denoland/deno/releases/download/v2.9.8/deno-x86_64-unknown-linux-gnu.zip \
+            --output "$RUNNER_TEMP/deno.zip"
+          printf '%s  %s\n' e890975bc2549807bbcc0b584ffafda72cc7c93349dd99c80483dd784f6c4609 "$RUNNER_TEMP/deno.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/deno.zip" -d "$RUNNER_TEMP/deno"
+          echo "$RUNNER_TEMP/deno" >> "$GITHUB_PATH"
+
+      - name: Verify CLI runtimes and package runners
+        run: |
+          node --version
+          npm --version
+          npx --version
+          pnpm --version
+          yarn --version
+          bun --version
+          bunx --version
+          deno --version
+
+      - name: Install browser and throwaway backend
+        env:
+          CONVEX_VERSION: precompiled-2026-10-10-72ce13c
+        run: |
+          vp exec playwright install --with-deps chromium
+          binary_dir="$HOME/.cache/convex/binaries/$CONVEX_VERSION"
+          mkdir -p "$binary_dir"
+          curl --disable --fail --location --silent --show-error --user-agent ci \
+            "https://github.com/get-convex/convex-backend/releases/download/$CONVEX_VERSION/convex-local-backend-x86_64-unknown-linux-gnu.zip" \
+            --output "$RUNNER_TEMP/convex.zip"
+          printf '%s  %s\n' fcc51faa1168011819eec9aba85bf6959a6a7ce3929381cdc21c7da29f4bf3d5 "$RUNNER_TEMP/convex.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/convex.zip" -d "$binary_dir"
+          chmod +x "$binary_dir/convex-local-backend"
+
+      - name: Typegen, check, unit tests, production build and browser journeys
+        run: vp run ci
+
+      - name: Browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: browser-failure-evidence
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  windows-browser:
+    name: CLI browser on Windows
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'security-ci')
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      VITEST_MAX_WORKERS: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
+        with:
+          node-version: "24.22.1"
+          cache: true
+          run-install: false
+
+      - run: vp install --frozen-lockfile
+      - run: vp test packages/cli/tests/browser.test.ts

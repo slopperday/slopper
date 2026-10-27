@@ -76,8 +76,7 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts", "packages/*/tests/**/*.test.{ts,tsx}"],
   },
-  // CI runs on this machine, not on GitHub: `vp run ci`, also run by the
-  // pre-push hook (.vite-hooks/pre-push).
+  // The same full gate runs locally (including pre-push) and in opt-in hosted security CI.
   run: {
     tasks: {
       ci: {

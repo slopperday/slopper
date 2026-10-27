@@ -908,13 +908,46 @@ describe("login and logout", () => {
     });
 
     it("signs in on the site it was pointed at", async () => {
-      const cli = await harness(signIn(APPROVED));
+      const approvalUrl = "http://localhost:5173/cli?code=BCDF-GHJK";
+      const cli = await harness({
+        ...signIn(APPROVED),
+        "POST /api/cli/login": { body: { ...STARTED, url: approvalUrl } },
+      });
       await cli.run("login", "--url", "http://localhost:5173/");
       expect(cli.calls[0].url).toBe("http://localhost:5173/api/cli/login");
+      expect(cli.opened).toEqual([approvalUrl]);
       expect(JSON.parse(await readFile(cli.configFile, "utf8"))).toEqual({
         token: "slp_browser",
         url: "http://localhost:5173",
       });
+    });
+
+    it.each([
+      "not a URL",
+      "javascript:alert(1)",
+      "file:///C:/Windows/System32/calc.exe",
+      "https://elsewhere.example/cli?code=BCDF-GHJK",
+      "http://slopper.day/cli?code=BCDF-GHJK",
+      "https://slopper.day:444/cli?code=BCDF-GHJK",
+      "https://slopper.day/settings/api",
+      "https://slopper.day/cli?code=WRONG-CODE",
+      "https://user:password@slopper.day/cli?code=BCDF-GHJK",
+      "https://slopper.day/cli?code=BCDF-GHJK& calc.exe",
+    ])("rejects an unexpected approval URL before opening or polling: %s", async (url) => {
+      for (const flags of [[], ["--no-browser"]]) {
+        const cli = await harness({
+          ...signIn(APPROVED),
+          "POST /api/cli/login": { body: { ...STARTED, url } },
+        });
+        expect(await cli.run("login", ...flags)).toEqual({
+          code: 1,
+          stdout: "",
+          stderr: "slopper: https://slopper.day returned an unexpected sign-in page.\n",
+        });
+        expect(cli.opened).toEqual([]);
+        expect(cli.calls).toHaveLength(1);
+        await expect(stat(cli.configFile)).rejects.toMatchObject({ code: "ENOENT" });
+      }
     });
 
     it("prints the link to open with --no-browser, or when no browser opens", async () => {
