@@ -32,6 +32,7 @@ export interface RecorderHost {
   /** Rewrites a path before it leaves the browser. */
   sanitizePath(path: string): string;
   fetch: typeof fetch;
+  getToken?: () => Promise<string | null>;
 }
 
 type RecordOptions = NonNullable<Parameters<typeof record<eventWithTime>>[0]>;
@@ -171,11 +172,12 @@ export class Recorder {
       sentAt: Date.now(),
     });
     try {
+      const token = await this.host.getToken?.();
       await this.host.fetch(`${this.host.url}?${params.toString()}`, {
         method: "POST",
         body,
-        // text/plain keeps it a "simple" request: no CORS preflight.
-        headers: { "content-type": "text/plain" },
+        // Anonymous chunks need no preflight; account chunks also carry authentication.
+        headers: { "content-type": "text/plain", ...(token ? { authorization: `Bearer ${token}` } : {}) },
         keepalive: keepalive && bytes <= KEEPALIVE_BYTES,
         credentials: "omit",
       });

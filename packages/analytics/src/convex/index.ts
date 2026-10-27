@@ -7,7 +7,7 @@ import {
   type HttpRouter,
 } from "convex/server";
 import type { ComponentApi } from "../component/_generated/component";
-import { BATCH_LIMITS, parseBatch } from "../shared/events";
+import { BATCH_LIMITS, EVENTS, isBrowserEvent, parseBatch } from "../shared/events";
 import type { GroupReport, GroupReportQuery, InsightAnswer, InsightQuery } from "../shared/insights";
 import type { Properties } from "../shared/properties";
 import { ROUTES } from "../shared/routes";
@@ -58,7 +58,16 @@ export interface Retention {
   recordingDays?: number;
 }
 
+export interface BrowserIdentity {
+  /** Proven by the request's authentication, never by its event payload. */
+  accountId: string | null;
+  /** Unidentified ids in a namespace disjoint from account ids. */
+  anonymousIds: readonly string[];
+}
+
 export interface RouteOptions {
+  /** Resolves browser claims against the app's authenticated identity and account-id namespace. */
+  browserIdentity?: (ctx: GenericActionCtx<GenericDataModel>, ids: string[]) => Promise<BrowserIdentity>;
   /** Where the endpoints live on the deployment's `.convex.site` URL: `ROUTES.prefix` unless set. */
   pathPrefix?: string;
   /** Origins browsers may send from, like `https://slopper.day`; "*" for any. */
@@ -125,6 +134,15 @@ export class Analytics {
 
   /** Mounts the endpoints the browser SDK sends to on the app's HTTP router. */
   registerRoutes(http: HttpRouter, options: RouteOptions): void {
+    const resolveIdentity = async (ctx: GenericActionCtx<GenericDataModel>, ids: string[]): Promise<BrowserIdentity> =>
+      options.browserIdentity
+        ? await options.browserIdentity(ctx, ids)
+        : {
+            accountId: null,
+            anonymousIds: ids.filter((id) =>
+              /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id),
+            ),
+          };
     const prefix = (options.pathPrefix ?? ROUTES.prefix).replace(/\/+$/, "");
     const allowed = (origin: string | null) =>
       options.allowedOrigins === "*" || (origin !== null && options.allowedOrigins.includes(origin));
@@ -143,7 +161,7 @@ export class Analytics {
             headers: {
               ...corsHeaders(origin),
               "access-control-allow-methods": "POST",
-              "access-control-allow-headers": "content-type",
+              "access-control-allow-headers": "content-type, authorization",
               "access-control-max-age": "86400",
             },
           });
@@ -171,13 +189,42 @@ export class Analytics {
         }
         const batch = parseBatch(input, Date.now());
         if (batch.events.length === 0) return Response.json({ stored: 0, dropped: batch.dropped }, { headers });
-        const paths = [...new Set(batch.events.flatMap((event) => (event.path ? [event.path] : [])))];
+        const ids = [
+          ...new Set(
+            batch.events.flatMap((event) => {
+              const anonymous = event.properties.anonDistinctId;
+              return typeof anonymous === "string" ? [event.distinctId, anonymous] : [event.distinctId];
+            }),
+          ),
+        ];
+        const identity = await resolveIdentity(ctx, ids);
+        if (request.headers.has("authorization") && identity.accountId === null) {
+          return new Response(null, { status: 401, headers });
+        }
+        const anonymousIds = new Set(identity.anonymousIds);
+        const accepted = batch.events.filter((event) => {
+          if (!isBrowserEvent(event.name)) return false;
+          if (event.distinctId !== identity.accountId && !anonymousIds.has(event.distinctId)) return false;
+          if (event.name !== EVENTS.identify) return true;
+          if (event.distinctId !== identity.accountId) return false;
+          const anonymous = event.properties.anonDistinctId;
+          return (
+            anonymous === undefined ||
+            (typeof anonymous === "string" &&
+              anonymous.length > 0 &&
+              anonymous.length <= BATCH_LIMITS.idLength &&
+              anonymousIds.has(anonymous))
+          );
+        });
+        batch.dropped += batch.events.length - accepted.length;
+        const paths = [...new Set(accepted.flatMap((event) => (event.path ? [event.path] : [])))];
         const groups = options.groupsForPaths && paths.length > 0 ? await options.groupsForPaths(ctx, paths) : null;
         const events = groups
-          ? batch.events.map((event) => ({ ...event, group: (event.path && groups.get(event.path)) || null }))
-          : batch.events;
+          ? accepted.map((event) => ({ ...event, group: (event.path && groups.get(event.path)) || null }))
+          : accepted;
         const result = await ctx.runMutation(this.component.ingest.batch, {
           events,
+          accountId: identity.accountId ?? undefined,
           context: { device: parseUserAgent(userAgent), ownHost: origin ? hostOf(origin) : null },
         });
         return Response.json({ ...result, dropped: batch.dropped }, { headers });
@@ -194,6 +241,13 @@ export class Analytics {
         if (isBot(request.headers.get("user-agent") ?? "")) return new Response(null, { status: 204, headers });
         const meta = parseReplayChunkParams(new URL(request.url).searchParams);
         if (!meta) return new Response(null, { status: 400, headers });
+        const identity = await resolveIdentity(ctx, [meta.distinctId]);
+        if (request.headers.has("authorization") && identity.accountId === null) {
+          return new Response(null, { status: 401, headers });
+        }
+        if (meta.distinctId !== identity.accountId && !identity.anonymousIds.includes(meta.distinctId)) {
+          return new Response(null, { status: 403, headers });
+        }
         if (Number(request.headers.get("content-length") ?? 0) > REPLAY_LIMITS.chunkBytes) {
           return new Response(null, { status: 413, headers });
         }
@@ -205,6 +259,7 @@ export class Analytics {
         const startedAt = Math.min(meta.startedAt + skew, now);
         if (startedAt < now - REPLAY_LIMITS.maxAgeMs) return Response.json({ stored: false }, { headers });
         const stored = await ctx.runAction(this.component.recordings.store, {
+          accountId: identity.accountId ?? undefined,
           sessionId: meta.sessionId,
           distinctId: meta.distinctId,
           startedAt,

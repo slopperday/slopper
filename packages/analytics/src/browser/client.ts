@@ -21,6 +21,8 @@ export interface AnalyticsOptions {
    * `https://happy-otter-123.convex.site/a`.
    */
   endpoint: string;
+  /** Supplies the app's short-lived authenticated Convex token. */
+  getToken?: () => Promise<string | null>;
   /** Names the cookies and storage keys. */
   storageKey?: string;
   /** A page view on every history change. Turn off to call `capturePageview` yourself. */
@@ -91,7 +93,8 @@ const ACTIVITY_WRITE_MS = 5_000;
 /**
  * The browser SDK. Make one per page with `new Analytics(options)` (the
  * React provider does), and it captures page views, page leaves and
- * interactions on its own; `capture` records anything else.
+ * interactions on its own; `capture` records other SDK observations.
+ * Product actions are reserved for server capture.
  */
 export class Analytics {
   private readonly cookies: ReturnType<typeof cookieNames>;
@@ -123,6 +126,7 @@ export class Analytics {
       batchSize: options.batchSize ?? 20,
       flushIntervalMs: options.flushIntervalMs ?? 3_000,
       maxQueue: 1_000,
+      getToken: options.getToken,
       fetch: options.fetch ?? ((input, init) => fetch(input, init)),
     });
     this.pages = new PageTracker(
@@ -262,8 +266,9 @@ export class Analytics {
    */
   identify(distinctId: string, set?: Properties, setOnce?: Properties): void {
     if (this.stopped || this.optedOut || !distinctId) return;
+    if (this.id === distinctId && this.identified) return;
+    if (this.identified) this.reset();
     const previous = this.id;
-    if (previous === distinctId && this.identified) return;
     this.id = distinctId;
     writeCookie(this.cookies.distinctId, distinctId);
     this.update((state) => ({ ...state, identified: true }));
@@ -386,6 +391,7 @@ export class Analytics {
           },
           mayRecord: (path) => this.sanitizePath(path) === path && (replay.mayRecord?.(path) ?? true),
           sanitizePath: this.sanitizePath,
+          getToken: this.options.getToken,
           fetch: this.options.fetch ?? ((input, init) => fetch(input, init)),
         });
         this.recorder.start();

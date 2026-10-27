@@ -89,6 +89,21 @@ function named(name: string): WireEvent[] {
   return events().filter((event) => event.name === name);
 }
 
+it("authenticates normal sends and page-hide sends with the latest app token", async () => {
+  const getToken = vi.fn().mockResolvedValueOnce("first-token").mockResolvedValue("refreshed-token");
+  const beacon = vi.spyOn(navigator, "sendBeacon");
+  const client = make({ getToken });
+  client.identify("user-1");
+  await client.flush();
+  expect(sent[0]?.init.headers).toMatchObject({ authorization: "Bearer first-token" });
+  client.capturePageview();
+  window.dispatchEvent(new Event("pagehide"));
+  await tick();
+  expect(sent.at(-1)?.init.headers).toMatchObject({ authorization: "Bearer refreshed-token" });
+  expect(sent.at(-1)?.init.keepalive).toBe(true);
+  expect(beacon).not.toHaveBeenCalled();
+});
+
 async function tick(ms = 0) {
   await new Promise((done) => setTimeout(done, ms));
 }

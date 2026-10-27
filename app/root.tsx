@@ -8,7 +8,7 @@ import {
   useLocation,
   useRouteLoaderData,
 } from "react-router";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { AnalyticsProvider, useAnalytics, useIdentify } from "@slopperday/analytics/react";
 import type { Route } from "./+types/root";
 import {
@@ -31,7 +31,7 @@ import { SurveyCard } from "./components/SurveyCard";
 import { FlashBanner } from "./components/FlashBanner";
 import { LiveProvider } from "./components/Live";
 import { Tiles } from "./components/Tiles";
-import { mayRecordPath, sanitizeAnalyticsPath } from "./lib/analytics";
+import { analyticsTokenSource, mayRecordPath, sanitizeAnalyticsPath } from "./lib/analytics";
 import { withoutRedirectMarker } from "./lib/redirect";
 import "./app.css";
 import bigShouldersLatin from "@fontsource-variable/big-shoulders/files/big-shoulders-latin-standard-normal.woff2?url";
@@ -89,6 +89,8 @@ export const links: Route.LinksFunction = () => [
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
   const location = useLocation();
+  const userId = data?.user?.id;
+  const getAnalyticsToken = useMemo(() => (userId ? analyticsTokenSource() : undefined), [userId]);
   useEffect(() => {
     // Tells the server the visitor's time zone, so clock times show in it
     // and a new account starts in their zone, before anyone has signed in.
@@ -118,6 +120,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             data?.analytics
               ? {
                   ...data.analytics,
+                  getToken: getAnalyticsToken,
                   sanitizePath: sanitizeAnalyticsPath,
                   replay: data.analytics.replay && { ...data.analytics.replay, mayRecord: mayRecordPath },
                 }

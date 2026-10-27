@@ -53,7 +53,7 @@ export async function ingestEvents(
   ctx: MutationCtx,
   events: readonly WireEvent[],
   context: RequestContext | null,
-  options: { identified?: boolean } = {},
+  options: { identified?: boolean; browser?: boolean; accountId?: string } = {},
 ): Promise<IngestResult> {
   const batch = new IngestBatch(ctx, context);
   const moments: number[] = [];
@@ -68,15 +68,18 @@ export async function ingestEvents(
       duplicates += 1;
       continue;
     }
+    // Anonymous aliases can remain after sign-in; possession of one cannot authorize account writes.
+    if (options.browser && !(await batch.mayIngest(event, options.accountId))) continue;
     if (event.name === EVENTS.identify) await batch.identify(event);
     const person = await batch.person(event.distinctId, event.timestamp);
-    if (options.identified && !person.doc.identified) {
+    if ((options.identified || (options.browser && event.distinctId === options.accountId)) && !person.doc.identified) {
       person.doc.identified = true;
       person.dirty = true;
     }
     batch.applyProperties(person, event.set, event.setOnce);
     if (event.sessionId) await batch.session(event, person);
     await ctx.db.insert("events", {
+      source: options.browser ? "browser" : "server",
       uuid: event.uuid,
       name: event.name,
       distinctId: event.distinctId,
@@ -178,6 +181,30 @@ class IngestBatch {
     this.owners.set(distinctId, personId);
   }
 
+  /** Browser events may only touch an identified person when authentication proves their account id. */
+  async mayIngest(event: WireEvent, accountId: string | undefined): Promise<boolean> {
+    if (event.name === EVENTS.identify && event.distinctId !== accountId) return false;
+    const person = await this.lookup(event.distinctId);
+    if (person?.doc.identified && event.distinctId !== accountId) return false;
+    const sessionId = event.sessionId;
+    if (!sessionId) return true;
+    const session =
+      this.sessions.get(sessionId)?.doc ??
+      (await this.ctx.db
+        .query("sessions")
+        .withIndex("by_session_id", (q) => q.eq("sessionId", sessionId))
+        .unique());
+    if (!session) return true;
+    if (!this.sessions.has(sessionId))
+      this.sessions.set(sessionId, { doc: session, dirty: false, storedStart: session.startedAt });
+    const owner = await this.load(session.personId);
+    if (person && (owner?.doc._id === person.doc._id || owner?.doc.mergedInto === person.doc._id)) return true;
+    // A proven sign-in may adopt its anonymous session, but never another account's.
+    return (
+      event.name === EVENTS.identify && !owner?.doc.identified && session.distinctId === event.properties.anonDistinctId
+    );
+  }
+
   /** The person behind `distinctId`, made on first sight, with `at` counted as seen. */
   async person(distinctId: string, at: number): Promise<PersonDraft> {
     const person = (await this.lookup(distinctId)) ?? (await this.create([distinctId], at, false));
@@ -243,10 +270,7 @@ class IngestBatch {
       }
       target = account;
     } else if (account && anonymous && account.doc._id !== anonymous.doc._id && !anonymous.doc.identified) {
-      // The route is public and sends no proof of who it speaks for, so an
-      // account only takes a few merges a day (`lib/limits.ts`): enough for a
-      // person's own browsers, too few to make merging into someone else's
-      // person a tool.
+      // Authentication proves the account; the ceiling bounds the work of merging browser history.
       if (await this.allowsIdentify(accountId)) await this.merge(anonymous, account);
       target = account;
     } else {

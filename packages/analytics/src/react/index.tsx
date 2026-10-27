@@ -74,6 +74,7 @@ export function AnalyticsProvider({
 }) {
   const [client, setClient] = useState<Analytics | null>(null);
   const endpoint = options?.endpoint ?? null;
+  const getToken = options?.getToken;
   useEffect(() => {
     // A page inside a frame (like a heatmap's preview of it) isn't a visit.
     if (!options || window.self !== window.top) return;
@@ -95,10 +96,10 @@ export function AnalyticsProvider({
       instance?.shutdown();
       setClient(null);
     };
-    // One client per endpoint: options arrive as a fresh object with every
-    // loader run, and a new client per navigation would mean a new page view.
+    // Keep one client across navigations. A changed token source starts a new
+    // viewer, so queued observations retain the previous viewer's authentication.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint]);
+  }, [endpoint, getToken]);
   return (
     <AnalyticsContext value={client}>
       <FlagsContext value={flags}>{children}</FlagsContext>

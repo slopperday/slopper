@@ -135,6 +135,7 @@ describe("recordings", () => {
     });
     await t.mutation(api.ingest.batch, { events: [pageview("a", "visitor-1")], context: CONTEXT });
     await t.mutation(api.ingest.batch, {
+      accountId: "user-1",
       events: [pageview("b", "user-1", { name: "$identify", properties: { anonDistinctId: "visitor-1" } })],
       context: CONTEXT,
     });

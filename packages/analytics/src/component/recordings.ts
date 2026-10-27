@@ -29,9 +29,20 @@ const PAGE = 200;
 
 /** Bytes a session's recording can still take. */
 export const room = internalQuery({
-  args: { sessionId: v.string() },
+  args: { sessionId: v.string(), distinctId: v.string(), accountId: v.optional(v.string()) },
   returns: v.number(),
-  handler: async (ctx, { sessionId }) => {
+  handler: async (ctx, { sessionId, distinctId, accountId }) => {
+    const link = await ctx.db
+      .query("distinctIds")
+      .withIndex("by_distinct_id", (q) => q.eq("distinctId", distinctId))
+      .unique();
+    const person = link ? await ctx.db.get(link.personId) : null;
+    if (person?.identified && distinctId !== accountId) return 0;
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_session_id", (q) => q.eq("sessionId", sessionId))
+      .unique();
+    if (session && session.personId !== person?._id) return 0;
     const recording = await ctx.db
       .query("recordings")
       .withIndex("by_session_id", (q) => q.eq("sessionId", sessionId))
@@ -46,9 +57,9 @@ export const room = internalQuery({
  * oversized chunk isn't, nor one past its session's limit.
  */
 export const store = action({
-  args: { ...chunkMeta, data: v.bytes() },
+  args: { ...chunkMeta, data: v.bytes(), accountId: v.optional(v.string()) },
   returns: v.boolean(),
-  handler: async (ctx, { data, ...meta }) => {
+  handler: async (ctx, { data, accountId, ...meta }) => {
     if (data.byteLength === 0 || data.byteLength > REPLAY_LIMITS.chunkBytes) return false;
     // The route is public, so the deployment takes only so much a minute and
     // a day (`lib/limits.ts`): a flood hits the ceiling, not file storage.
@@ -66,7 +77,11 @@ export const store = action({
       windowMs: 86_400_000,
     });
     if (bytes < data.byteLength) return false;
-    const room = await ctx.runQuery(internal.recordings.room, { sessionId: meta.sessionId });
+    const room = await ctx.runQuery(internal.recordings.room, {
+      sessionId: meta.sessionId,
+      distinctId: meta.distinctId,
+      accountId,
+    });
     if (room < data.byteLength) return false;
     const type = meta.encoding === "gzip" ? "application/gzip" : "application/json";
     const storageId = await ctx.storage.store(new Blob([data], { type }));

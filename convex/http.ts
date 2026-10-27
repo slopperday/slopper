@@ -8,6 +8,7 @@ const http = httpRouter();
 // (`<deployment>.convex.site/a/e`), so no app server runs per event.
 const appUrl = process.env.APP_URL;
 analytics.registerRoutes(http, {
+  browserIdentity: async (ctx, ids) => await ctx.runQuery(internal.analytics.browserIdentity, { ids }),
   allowedOrigins: appUrl ? [new URL(appUrl).origin] : "*",
   // Everything on a slop's page counts for that slop (convex/analytics.ts `slopReport`).
   groupsForPaths: async (ctx, paths) => {

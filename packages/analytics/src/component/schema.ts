@@ -72,6 +72,7 @@ export default defineSchema({
     .index("by_person_started", ["personId", "startedAt"]),
 
   events: defineTable({
+    source: v.optional(v.union(v.literal("browser"), v.literal("server"))),
     /** From the sender, to store a batch sent twice only once. */
     uuid: v.string(),
     name: v.string(),

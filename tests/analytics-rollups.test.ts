@@ -45,6 +45,7 @@ async function admin({ t, server }: Setup): Promise<Id<"users">> {
 
 let counter = 0;
 interface Visit {
+  accountId?: string;
   distinctId: string;
   sessionId: string;
   at: number;
@@ -54,7 +55,10 @@ interface Visit {
 }
 
 /** Stores a visit's events the way the endpoint does, with whatever timestamps it's given. */
-async function visit({ t }: Setup, { distinctId, sessionId, at, paths, name, properties }: Visit): Promise<void> {
+async function visit(
+  { t }: Setup,
+  { accountId, distinctId, sessionId, at, paths, name, properties }: Visit,
+): Promise<void> {
   const events = paths.flatMap((path, index) => {
     const base = {
       distinctId,
@@ -70,7 +74,7 @@ async function visit({ t }: Setup, { distinctId, sessionId, at, paths, name, pro
     if (index % 2 === 1) return [view];
     return [view, { ...base, uuid: `click-${counter}`, name: "$autocapture", timestamp: view.timestamp + 1_000 }];
   });
-  await t.mutation(components.analytics.ingest.batch, { events, context: CONTEXT });
+  await t.mutation(components.analytics.ingest.batch, { events, context: CONTEXT, accountId });
 }
 
 /** Forty days of visits by a dozen people, some running past midnight, a few from search or a newsletter. */
@@ -204,6 +208,7 @@ describe("daily rollups", () => {
       identified: true,
     });
     await visit(context, {
+      accountId: "account",
       distinctId: "account",
       sessionId: "signed-in",
       at: NOW + 10 * MINUTE,

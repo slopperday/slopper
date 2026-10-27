@@ -6,7 +6,7 @@ import { api, components } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { analyticsOptedOut, analyticsSetup, countryOf } from "~/.server/analytics";
 import { loadConfig } from "~/.server/config";
-import { mayRecordPath, sanitizeAnalyticsPath } from "~/lib/analytics";
+import { analyticsTokenSource, mayRecordPath, sanitizeAnalyticsPath } from "~/lib/analytics";
 import { convexApp } from "./convexApp";
 
 // convex/http.ts allows browsers from APP_URL, as on the real deployment.
@@ -17,6 +17,27 @@ const CHROME =
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+it("shares token requests, refreshes before expiry, and preserves authentication failures", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const fetchToken = vi
+    .fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json({ token: "first" }))
+    .mockResolvedValueOnce(Response.json({ token: "fresh" }))
+    .mockResolvedValueOnce(new Response(null, { status: 503 }))
+    .mockResolvedValueOnce(new Response(null, { status: 401 }));
+  vi.stubGlobal("fetch", fetchToken);
+  const getToken = analyticsTokenSource();
+  expect(await Promise.all([getToken(), getToken()])).toEqual(["first", "first"]);
+  expect(await getToken()).toBe("first");
+  expect(fetchToken).toHaveBeenCalledTimes(1);
+  vi.advanceTimersByTime(50 * 60_000);
+  expect(await getToken()).toBe("fresh");
+  vi.advanceTimersByTime(50 * 60_000);
+  await expect(getToken()).rejects.toThrow("503");
+  expect(await getToken()).toBeNull();
 });
 
 function setup() {
@@ -151,11 +172,93 @@ describe("the analytics endpoint", () => {
     const preflight = await t.fetch("/a/e", { method: "OPTIONS", headers: { origin: "https://slopper.day" } });
     expect(preflight.status).toBe(204);
     expect(preflight.headers.get("access-control-allow-methods")).toBe("POST");
+    expect(preflight.headers.get("access-control-allow-headers")).toContain("authorization");
     const elsewhere = await t.fetch("/a/e", { method: "OPTIONS", headers: { origin: "https://evil.example" } });
     expect(elsewhere.status).toBe(403);
     const posted = await t.fetch("/a/e", post(batch([{}]), { origin: "https://evil.example" }));
     expect(posted.status).toBe(403);
     expect(await t.query(components.analytics.events.recent, {})).toEqual([]);
+  });
+
+  it("rejects forged product actions and account claims, including another signed-in caller", async () => {
+    const { t, server } = setup();
+    const victim = await makeUser(server, "victim");
+    const attacker = await makeUser(server, "attacker");
+    const before = await t.query(components.analytics.persons.get, { distinctId: victim });
+    for (const client of [t, t.withIdentity({ subject: attacker })]) {
+      const response = await client.fetch(
+        "/a/e",
+        post(
+          batch([
+            ...[
+              "signed up",
+              "slop launched",
+              "upvoted",
+              "downvoted",
+              "unvoted",
+              "pledged",
+              "update posted",
+              "commented",
+              "reviewed",
+              "goal set",
+            ].map((name) => ({ name })),
+            { distinctId: victim, set: { username: "forged" }, setOnce: { plan: "forged" } },
+            { name: "$identify", distinctId: victim, properties: { anonDistinctId: "attacker-browser" } },
+            { name: "$identify", distinctId: attacker, properties: { anonDistinctId: victim } },
+            { name: "$identify", distinctId: attacker, properties: { anonDistinctId: "x".repeat(201) } },
+          ]),
+        ),
+      );
+      expect(await response.json()).toMatchObject({ stored: 0, dropped: 14 });
+    }
+    expect(await t.query(components.analytics.persons.get, { distinctId: victim })).toEqual(before);
+    expect(await t.query(components.analytics.persons.get, { distinctId: "visitor" })).toBeNull();
+    expect(await t.query(components.analytics.persons.get, { distinctId: "attacker-browser" })).toBeNull();
+    expect(
+      (await t.query(components.analytics.events.recent, { distinctId: victim })).map((event) => event.name),
+    ).toEqual(["signed up"]);
+  });
+
+  it("authenticates account observations and rejects later writes through a linked anonymous alias", async () => {
+    const { t, server } = setup();
+    vi.useFakeTimers();
+    const user = await makeUser(server, "observed");
+    const authenticated = t.withIdentity({ subject: user });
+    const response = await authenticated.fetch(
+      "/a/e",
+      post(
+        batch([
+          { distinctId: "own-browser", sessionId: "own-session" },
+          {
+            name: "$identify",
+            distinctId: user,
+            sessionId: "own-session",
+            properties: { anonDistinctId: "own-browser" },
+            set: { username: "observed" },
+          },
+          { distinctId: user, sessionId: "own-session" },
+        ]),
+      ),
+    );
+    expect(await response.json()).toMatchObject({ stored: 3, dropped: 0 });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const before = await t.query(components.analytics.persons.get, { distinctId: user });
+    expect(before).toMatchObject({ identified: true, properties: { username: "observed" } });
+    const forged = await t.fetch(
+      "/a/e",
+      post(batch([{ distinctId: "own-browser", sessionId: "own-session", set: { username: "forged" } }])),
+    );
+    expect(await forged.json()).toMatchObject({ stored: 0 });
+    expect(await t.query(components.analytics.persons.get, { distinctId: user })).toEqual(before);
+    const stolenSession = await t.fetch(
+      "/a/e",
+      post(batch([{ distinctId: "other-browser", sessionId: "own-session" }])),
+    );
+    expect(await stolenSession.json()).toMatchObject({ stored: 0 });
+    const events = await t.query(components.analytics.events.recent, { distinctId: user });
+    expect(events.filter((event) => event.name === "$pageview")).toHaveLength(2);
+    expect(events.find((event) => event.name === "signed up")?.source).toBe("server");
+    expect(events.find((event) => event.name === "$identify")?.source).toBe("browser");
   });
 
   it("throttles a flood rather than storing all of it", async () => {
@@ -179,6 +282,7 @@ describe("the analytics endpoint", () => {
 
   it("refuses what isn't a batch, or is too big to be one", async () => {
     const { t } = setup();
+    expect((await t.fetch("/a/e", post(batch([{}]), { authorization: "Bearer invalid-token" }))).status).toBe(401);
     expect((await t.fetch("/a/e", post("{not json"))).status).toBe(400);
     expect((await t.fetch("/a/e", post("x".repeat(600 * 1024)))).status).toBe(413);
     const empty = await t.fetch("/a/e", post(JSON.stringify({ events: [{ name: "no id" }] })));
@@ -231,7 +335,7 @@ describe("product events", () => {
       headers: { origin: "https://slopper.day", "user-agent": CHROME },
     });
     const userId = await makeUser(server, "newbie");
-    await t.fetch("/a/e", {
+    await t.withIdentity({ subject: userId }).fetch("/a/e", {
       method: "POST",
       body: batch([{ name: "$identify", distinctId: userId, properties: { anonDistinctId: "browser-1" } }]),
       headers: { origin: "https://slopper.day", "user-agent": CHROME },
@@ -250,10 +354,14 @@ describe("analytics for admins", () => {
     return userId;
   }
 
-  async function visit(t: ReturnType<typeof setup>["t"], distinctId: string, events: Record<string, unknown>[]) {
+  async function visit(
+    t: Pick<ReturnType<typeof setup>["t"], "fetch">,
+    distinctId: string,
+    events: Record<string, unknown>[],
+  ) {
     await t.fetch("/a/e", {
       method: "POST",
-      body: batch(events.map((event) => ({ distinctId, ...event }))),
+      body: batch(events.map((event) => ({ distinctId, sessionId: `session-${distinctId}`, ...event }))),
       headers: { origin: "https://slopper.day", "user-agent": CHROME },
     });
   }
@@ -310,7 +418,9 @@ describe("analytics for admins", () => {
     const boss = await admin(t, server);
     const maker = await makeUser(server, "maker");
     await visit(t, "anon", [{ sessionId: "s1" }]);
-    await visit(t, maker, [{ name: "$identify", sessionId: "s2", properties: { anonDistinctId: "anon-2" } }]);
+    await visit(t.withIdentity({ subject: maker }), maker, [
+      { name: "$identify", sessionId: "s2", properties: { anonDistinctId: "anon-2" } },
+    ]);
 
     const { page } = await server.query(api.analytics.people, { adminId: boss, cursor: null });
     expect(new Set(page.map((person) => person.username))).toEqual(new Set([null, "boss", "maker"]));
@@ -369,7 +479,7 @@ describe("flags and experiments", () => {
   async function visit(t: ReturnType<typeof setup>["t"], distinctId: string, events: Record<string, unknown>[]) {
     const response = await t.fetch("/a/e", {
       method: "POST",
-      body: batch(events.map((event) => ({ distinctId, ...event }))),
+      body: batch(events.map((event) => ({ distinctId, sessionId: `session-${distinctId}`, ...event }))),
       headers: { origin: "https://slopper.day", "user-agent": CHROME },
     });
     expect(response.ok).toBe(true);
@@ -452,9 +562,9 @@ describe("flags and experiments", () => {
     await visit(t, "a", [seen("control")]);
     await visit(t, "b", [seen("newest")]);
     // Someone who reached the goal before they saw the flag doesn't count as converted.
-    await visit(t, "c", [{ name: "slop upvoted" }]);
+    await t.mutation(components.analytics.ingest.capture, { distinctId: "c", name: "slop upvoted" });
     vi.advanceTimersByTime(1_000);
-    await visit(t, "a", [{ name: "slop upvoted" }]);
+    await t.mutation(components.analytics.ingest.capture, { distinctId: "a", name: "slop upvoted" });
     await visit(t, "c", [seen("newest")]);
     // A flag someone saw before the experiment started isn't part of it, nor is another flag.
     await visit(t, "d", [
@@ -476,7 +586,7 @@ describe("flags and experiments", () => {
     await server.mutation(api.analytics.stopExperiment, { adminId: boss, key: "newest-first" });
     vi.advanceTimersByTime(1_000);
     // What happens after it stopped isn't counted.
-    await visit(t, "b", [{ name: "slop upvoted" }]);
+    await t.mutation(components.analytics.ingest.capture, { distinctId: "b", name: "slop upvoted" });
     const stopped = await server.action(api.analytics.experimentResults, { adminId: boss, key: "newest-first" });
     expect(stopped?.result?.variants.find((variant) => variant.key === "newest")?.converted).toBe(0);
     expect(await server.mutation(api.analytics.removeExperiment, { adminId: boss, key: "newest-first" })).toBe(true);
@@ -564,6 +674,34 @@ describe("web vitals", () => {
 });
 
 describe("errors", () => {
+  it("requires the verified viewer to attribute server errors to an account or its aliases", async () => {
+    const { t, server } = setup();
+    const userId = await makeUser(server, "error-owner");
+    const longAlias = "a".repeat(200);
+    await t.withIdentity({ subject: userId }).fetch("/a/e", {
+      method: "POST",
+      body: batch(
+        ["error-alias", longAlias].map((anonDistinctId) => ({
+          name: "$identify",
+          distinctId: userId,
+          properties: { anonDistinctId },
+        })),
+      ),
+      headers: { origin: "https://slopper.day", "user-agent": CHROME },
+    });
+    const before = await t.query(components.analytics.persons.get, { distinctId: userId });
+    const error = { type: "Error", message: "failed", stack: null, fingerprint: "cookie-proof", path: "/wall" };
+    for (const distinctId of [userId, "error-alias", `${longAlias}-suffix`]) {
+      await server.mutation(api.analytics.captureServerError, { distinctId, ...error });
+    }
+    expect(await t.query(components.analytics.persons.get, { distinctId: userId })).toEqual(before);
+    expect(await t.query(components.analytics.events.recent, { distinctId: userId, name: "$exception" })).toEqual([]);
+    await server.mutation(api.analytics.captureServerError, { userId, distinctId: "forged-cookie", ...error });
+    expect(await t.query(components.analytics.events.recent, { distinctId: userId, name: "$exception" })).toHaveLength(
+      1,
+    );
+  });
+
   it("keeps server errors with browsers' for admins to read as issues", async () => {
     const { t, server } = setup();
     const boss = await makeUser(server, "boss");
