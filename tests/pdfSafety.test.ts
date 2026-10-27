@@ -27,8 +27,10 @@ function pdf(objects: string | Uint8Array = "", catalog = "", trailer = "<< /Roo
   );
 }
 
-async function deflate(text: string): Promise<Uint8Array> {
-  const stream = new Blob([encoder.encode(text)]).stream().pipeThrough(new CompressionStream("deflate"));
+async function deflate(text: string | Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+  const stream = new Blob([typeof text === "string" ? encoder.encode(text) : text])
+    .stream()
+    .pipeThrough(new CompressionStream("deflate"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
@@ -124,6 +126,122 @@ describe("PDF safety scan", () => {
     expect(scanPdf(plain("/Type /ObjStm /Filter /FlateDecode"))).toMatchObject({ reason: "uninspectable" });
     const bomb = await objectStream(" ".repeat(MAX_INFLATED_BYTES + 1));
     expect(scanPdf(pdf(bomb))).toMatchObject({ reason: "uninspectable" });
+  });
+
+  it("scans unfiltered and repeatedly filtered object streams, including harmless ones", async () => {
+    for (const object of ["<< /S /JavaScript /JS (app.alert(1)) >>", "<< /Type /Example >>"]) {
+      const plain = bytes(`7 0 ${object}`);
+      const twice = await deflate(await deflate(plain));
+
+      for (const [data, filter] of [
+        [plain, ""],
+        [plain, "/Filter null"],
+        [plain, "/Filter []"],
+        [twice, "/Filter [/FlateDecode /FlateDecode]"],
+        [twice, "/F#69lter [ /FlateDecode % first stage\n /Flate#44ecode ]"],
+      ] satisfies [Uint8Array<ArrayBuffer>, string][]) {
+        const packed = bytes(
+          `5 0 obj\n<< /Type /ObjStm /N 1 /First 4 ${filter} /Length ${data.length} >>\nstream\n`,
+          data,
+          "\nendstream\nendobj\n",
+        );
+        const expected = object.includes("JavaScript")
+          ? { safe: false, reason: "active", found: ["JavaScript", "JS"] }
+          : { safe: true };
+
+        expect(scanPdf(pdf(packed))).toEqual(expected);
+      }
+    }
+  });
+
+  it("uses dictionary values, ignoring filter-like text in strings, comments and nested dictionaries", async () => {
+    const data = await objectStream(
+      "7 0 << /Type /Example >>",
+      "/Producer (0 0 obj \\( /Filter /Unknown \\)) /Meta << /Filter /Unknown >> % /Filter /Unknown\n",
+    );
+
+    expect(scanPdf(pdf(data))).toEqual({ safe: true });
+  });
+
+  it("fails closed on unsupported, indirect, ambiguous or incomplete filter pipelines", async () => {
+    const data = await deflate("7 0 << /Type /Example >>");
+
+    for (const filter of [
+      "/Filter /Unknown",
+      "/Filter 9 0 R",
+      "/Filter [/FlateDecode /ASCII85Decode]",
+      "/Filter [/FlateDecode 9 0 R]",
+      "/Filter [/FlateDecode /FlateDecode]",
+      "/Filter /FlateDecode /Filter /FlateDecode",
+      "/Filter [/FlateDecode",
+      `/Filter [${"/FlateDecode ".repeat(9)}]`,
+      "/Filter /FlateDecode /DecodeParms 9 0 R",
+      "/F (external.dat)",
+    ]) {
+      const packed = bytes(
+        `5 0 obj\n<< /Type /ObjStm /N 1 /First 4 ${filter} /Length ${data.length} >>\nstream\n`,
+        data,
+        "\nendstream\nendobj\n",
+      );
+
+      expect(scanPdf(pdf(packed))).toMatchObject({ safe: false, reason: "uninspectable" });
+    }
+
+    const truncated = bytes(
+      `5 0 obj\n<< /Type /ObjStm /N 1 /First 4 /Filter /FlateDecode /Length ${data.length - 4} >>\nstream\n`,
+      data.subarray(0, -4),
+      "\nendstream\nendobj\n",
+    );
+
+    expect(scanPdf(pdf(truncated))).toMatchObject({ reason: "uninspectable" });
+  });
+
+  it("validates object counts, first-byte positions and object offsets", async () => {
+    for (const [dict, data] of [
+      ["/N 1", "7 0 << /Type /Example >>"],
+      ["/N 1 /First 1000", "7 0 << /Type /Example >>"],
+      ["/N 2 /First 4", "7 0 << /Type /Example >>"],
+      ["/N 1 /First 2", "7 0 << /Type /Example >>"],
+      ["/N 1 /First 4", "7 9 << /Type /Example >>"],
+      ["/N 2 /First 8", "7 0 7 2 << >> << >>"],
+      ["/N 2 /First 8", "7 0 8 0 << >> << >>"],
+      ["/N 2 /First 9", "7 0 8 99 << >> << >>"],
+      ["/N 1 /First 4", "7 x << /Type /Example >>"],
+    ]) {
+      expect(
+        scanPdf(
+          pdf(`5 0 obj\n<< /Type /ObjStm ${dict} /Length ${data.length} >>\nstream\n${data}\nendstream\nendobj\n`),
+        ),
+      ).toMatchObject({ reason: "uninspectable" });
+    }
+
+    const objects = "7 0 8 6 << >> << /Type /Example >>";
+
+    expect(
+      scanPdf(
+        pdf(
+          `5 0 obj\n<< /Type /ObjStm /N 2 /First 8 /Length ${objects.length} >>\nstream\n${objects}\nendstream\nendobj\n`,
+        ),
+      ),
+    ).toEqual({ safe: true });
+  });
+
+  it("shares the expansion budget across all object streams", async () => {
+    const objects = `7 0 << /Text (${" ".repeat(MAX_INFLATED_BYTES / 2)}) >>`;
+    const first = await objectStream(objects);
+
+    expect(scanPdf(pdf(bytes(first, first)))).toMatchObject({ reason: "uninspectable" });
+  });
+
+  it("shares the expansion budget across decoding stages", async () => {
+    const twice = await deflate(await deflate(`7 0 << /Text (${" ".repeat(MAX_INFLATED_BYTES - 64)}) >>`));
+    const pipeline = bytes(
+      `5 0 obj\n<< /Type /ObjStm /N 1 /First 4 /Filter [/FlateDecode /FlateDecode] /Length ${twice.length} >>\nstream\n`,
+      twice,
+      "\nendstream\nendobj\n",
+    );
+
+    expect(scanPdf(pdf(pipeline))).toMatchObject({ reason: "uninspectable" });
   });
 
   it("can't be fooled by objects inside a fake stream", async () => {

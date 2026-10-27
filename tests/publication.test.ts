@@ -295,6 +295,15 @@ describe("publication uploads", () => {
       ok: false,
       error: PDF_PROBLEMS.active,
     });
+    const hidden = "7 0 << /S /JavaScript /JS (app.alert(1)) >>";
+    const unfiltered = new TextEncoder().encode(
+      `%PDF-1.7\n5 0 obj\n<< /Type /ObjStm /N 1 /First 4 /Length ${hidden.length} >>\nstream\n${hidden}\nendstream\nendobj\n%%EOF\n`,
+    );
+
+    expect(await uploadPublication(owner, { bytes: unfiltered }, services(server, bucket, check.fetcher))).toEqual({
+      ok: false,
+      error: PDF_PROBLEMS.active,
+    });
     // Junk before the header is how other files pass as PDFs: readers allow it, Slopper doesn't.
     expect(
       await uploadPublication(
