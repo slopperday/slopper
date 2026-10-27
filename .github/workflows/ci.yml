@@ -31,23 +31,23 @@ jobs:
           run-install: false
           cache: true
 
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: "1.4.4"
-
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
-        with:
-          deno-version: "2.9.8"
-
       - name: Install dependencies and package runners
         run: |
           vp install --frozen-lockfile
-          vp env install pnpm@12.9.1 yarn@4.18.1
+          vp env install pnpm@12.9.1 yarn@4.18.1 bun@1.4.4
           # Package smoke tests use fresh HOME directories. Give them real executables,
           # so a manager shim cannot download another toolchain into each private home.
           dirname "$(vp env which yarn | head -n 1)" >> "$GITHUB_PATH"
           dirname "$(vp env which pnpm | head -n 1)" >> "$GITHUB_PATH"
           dirname "$(vp env which node | head -n 1)" >> "$GITHUB_PATH"
+          dirname "$(vp env which bun | head -n 1)" >> "$GITHUB_PATH"
+          # The repository's action allowlist stays intact: install Deno's official binary.
+          curl --fail --location --silent --show-error \
+            https://github.com/denoland/deno/releases/download/v2.9.8/deno-x86_64-unknown-linux-gnu.zip \
+            --output "$RUNNER_TEMP/deno.zip"
+          printf '%s  %s\n' e890975bc2549807bbcc0b584ffafda72cc7c93349dd99c80483dd784f6c4609 "$RUNNER_TEMP/deno.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/deno.zip" -d "$RUNNER_TEMP/deno"
+          echo "$RUNNER_TEMP/deno" >> "$GITHUB_PATH"
 
       - name: Install browser and throwaway backend
         env:
