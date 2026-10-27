@@ -77,11 +77,13 @@ export function ReplayPlayer({
     const root = stage.current;
     if (!root) return;
     let cancelled = false;
+    const controller = new AbortController();
     let made: Replayer | null = null;
     setStatus({ kind: "loading" });
     void (async () => {
       const player = await import("@slopperday/analytics/player");
-      const events = await player.loadRecording(chunks);
+      controller.signal.throwIfAborted();
+      const events = await player.loadRecording(chunks, undefined, controller.signal);
       if (cancelled) return;
       if (events.length < 2) {
         setStatus({ kind: "failed", message: "There's nothing in this recording to play." });
@@ -102,6 +104,7 @@ export function ReplayPlayer({
     });
     return () => {
       cancelled = true;
+      controller.abort();
       made?.destroy();
       replayer.current = null;
       setPlaying(false);
