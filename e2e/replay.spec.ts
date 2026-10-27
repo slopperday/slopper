@@ -118,7 +118,8 @@ test.describe("session replay", () => {
 
     await page.getByRole("banner").getByRole("link", { name: "New slop" }).click();
     await expect(page).toHaveURL(/\/new$/);
-    const privateHeading = await page.locator("main h1").innerText();
+    const privateHeading = "What are you throwing today?";
+    await expect(page.getByRole("heading", { name: privateHeading, level: 1, exact: true })).toBeVisible();
     await page.waitForTimeout(6_500);
     expect(chunks.some((chunk) => chunk.text.includes(privateHeading))).toBe(false);
 
