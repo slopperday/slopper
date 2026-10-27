@@ -832,16 +832,19 @@ export const hot = query({
   },
 });
 
-/** The slopcessful hall of fame, newest breakout first. */
+/** The slopcessful hall of fame, newest breakout first, capped to bound anonymous reads and card expansion. */
 export const slopcessful = query({
   args: { limit: v.optional(v.number()), asUser: v.optional(v.id("users")) },
-  handler: async (ctx, { limit, asUser }) => {
+  handler: async (ctx, { limit = 100, asUser }) => {
+    if (!Number.isFinite(limit)) throw new ConvexError("Limit must be finite.");
+
+    const size = Math.max(0, Math.min(100, Math.floor(limit)));
     const reader = await readerFor(ctx, asUser);
     const slops = await ctx.db
       .query("slops")
       .withIndex("by_slopcessful", (q) => q.gt("slopcessfulAt", 0))
       .order("desc")
-      .take(limit ?? 100);
+      .take(size);
     return await toCards(
       ctx,
       slops.filter((slop) => isVisibleTo(slop, reader) && !slop.hidden),
