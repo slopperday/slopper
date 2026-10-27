@@ -83,11 +83,11 @@ jobs:
       - name: Typegen, check, unit tests, production build and browser journeys
         run: vp run ci
 
-      - name: Browser failure evidence
-        if: failure()
+      - name: Browser evidence
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: browser-failure-evidence
+          name: browser-evidence
           path: |
             playwright-report/
             test-results/
