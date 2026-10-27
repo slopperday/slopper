@@ -106,7 +106,7 @@ describe("scheduled launches", () => {
     ]);
     expect(await server.query(api.schedule.mine, { asUser: fan })).toEqual([]);
     expect(await t.query(api.schedule.mine, {})).toEqual([]);
-    const before = await server.query(api.users.profile, { username: "maker" });
+    const before = await server.query(api.users.profile, { username: "maker", asUser: maker });
     expect(before?.progress?.shipped).toBe(1);
     expect(before?.progress?.days.slice(0, 3).map((day) => day.queued)).toEqual([0, 1, 1]);
     expect(before?.items.map((item) => item.slop.name)).toEqual(["Today"]);
@@ -145,6 +145,52 @@ describe("scheduled launches", () => {
     expect(claimed?.slopId).toBe(slops[1]._id);
     expect(await server.mutation(api.schedule.claim, { id: second.id })).toBeNull();
     expect(await server.mutation(api.schedule.claim, { id: "not-an-id" })).toBeNull();
+  });
+
+  it("shows queued goal dates and counts only to the authenticated owner", async () => {
+    const { t, server } = setup();
+    const maker = await makeUser(server, "maker");
+    const fan = await makeUser(server, "fan");
+    await server.mutation(api.goals.create, {
+      userId: maker,
+      title: "10 in 10",
+      target: 10,
+      days: 10,
+      startDate: "2026-10-15",
+      today: "2026-10-15",
+    });
+    await schedule(server, maker, "First", { kind: "at", at: Date.parse("2026-10-16T09:00:00Z") });
+    await schedule(server, maker, "Second", { kind: "at", at: Date.parse("2026-10-16T15:00:00Z") });
+    await schedule(server, maker, "Third", { kind: "at", at: Date.parse("2026-10-17T09:00:00Z") });
+
+    const other = t.withIdentity({ subject: fan });
+    const publicViews = await Promise.all([
+      t.query(api.users.profile, { username: "maker" }),
+      other.query(api.users.profile, { username: "maker" }),
+      server.query(api.users.profile, { username: "maker" }),
+      server.query(api.users.profile, { username: "maker", asUser: fan }),
+      // A public caller cannot impersonate the owner by supplying their id.
+      t.query(api.users.profile, { username: "maker", asUser: maker }),
+      other.query(api.users.profile, { username: "maker", asUser: maker }),
+    ]);
+
+    for (const profile of publicViews) {
+      expect(profile?.isSelf).toBe(false);
+      expect(profile?.progress?.days.map((day) => day.queued)).toEqual(Array.from({ length: 10 }, () => 0));
+      expect(profile?.progress?.shipped).toBe(0);
+      expect(profile?.items).toEqual([]);
+    }
+
+    const ownerViews = await Promise.all([
+      t.withIdentity({ subject: maker }).query(api.users.profile, { username: "maker" }),
+      server.query(api.users.profile, { username: "maker", asUser: maker }),
+    ]);
+
+    for (const profile of ownerViews) {
+      expect(profile?.isSelf).toBe(true);
+      expect(profile?.progress?.days.map((day) => day.queued)).toEqual([0, 2, 1, 0, 0, 0, 0, 0, 0, 0]);
+      expect(profile?.progress?.shipped).toBe(0);
+    }
   });
 
   it("puts a launch out at a picked time on that moment's UTC day", async () => {
