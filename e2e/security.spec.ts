@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
 import process from "node:process";
+import { api } from "../convex/_generated/api.js";
+import type { Id } from "../convex/_generated/dataModel";
 import { expect, test } from "./fixtures.ts";
 
 /**
@@ -12,6 +14,73 @@ import { expect, test } from "./fixtures.ts";
  */
 
 test.describe("security regressions", () => {
+  test("invalid create, edit and draft forms only resolve the signed-in maker's media", async ({
+    seed,
+    convex,
+    stack,
+  }) => {
+    const maker = await seed.user("forms");
+    const victim = await seed.user("private");
+    const slop = await seed.slop(maker);
+    const victimSlop = await seed.slop(victim);
+    const upload = async (ownerId: Id<"users">, contentType: string) => {
+      const stored = await convex.mutation(api.media.register, {
+        ownerId,
+        location: { backend: "b2", key: `form-private/${ownerId}/${contentType}` },
+        contentType,
+        size: 123,
+        fileName: `secret-${ownerId}.pdf`,
+        check: { verdict: "ok", reason: "Seeded" },
+      });
+
+      if (!stored.url) throw new Error("Seeded media has no URL.");
+
+      return { id: stored.mediaId, url: stored.url };
+    };
+    const image = await upload(maker.id, "image/png");
+    const publication = await upload(maker.id, "application/pdf");
+    const foreign = await Promise.all([
+      upload(victim.id, "image/png"),
+      upload(victim.id, "application/pdf"),
+      upload(victim.id, "video/mp4"),
+    ]);
+    const video = foreign[2];
+    expect(
+      await convex.mutation(api.videos.set, { userId: victim.id, slopId: victimSlop.id, mediaId: video.id }),
+    ).toMatchObject({ status: "pending" });
+    const page = await seed.pageAs(maker);
+
+    for (const target of [
+      { path: "/new", intent: "" },
+      { path: `${slop.path}/edit`, intent: "" },
+      { path: `${slop.path}/edit`, intent: "draft" },
+    ]) {
+      for (const media of [image, ...foreign]) {
+        const response = await page.request.post(`${stack.appUrl}${target.path}`, {
+          headers: { origin: stack.appUrl },
+          form: {
+            name: "",
+            screenshot: media.id,
+            publication: media.id === image.id ? publication.id : media.id,
+            intent: target.intent,
+          },
+        });
+        const body = await response.text();
+        // Drafts may succeed, but every response must apply the same media authorization.
+        expect([200, 422]).toContain(response.status());
+
+        for (const privateMedia of foreign) expect(body).not.toContain(privateMedia.url);
+
+        expect(body).not.toContain(`secret-${victim.id}.pdf`);
+
+        if (media.id === image.id) {
+          expect(body).toContain(image.url);
+          expect(body).toContain(publication.url);
+        }
+      }
+    }
+  });
+
   test("share cards render only their canonical URL, and once per address at most", async ({
     seed,
     request,

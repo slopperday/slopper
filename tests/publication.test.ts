@@ -193,7 +193,7 @@ describe("publication uploads", () => {
     expect(parts.map((part) => part.type)).toEqual(["text", "text"]);
     expect(parts[1].text).toContain("Chapter one Ship it & see.");
 
-    const page = await server.query(api.media.publication, { mediaId: result.ok ? result.id : "" });
+    const page = await server.query(api.media.publication, { ownerId: owner, mediaId: result.ok ? result.id : "" });
     expect(page).toMatchObject({ fileName: "zine.epub", format: "epub", size: book.byteLength });
   });
 

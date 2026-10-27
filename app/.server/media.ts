@@ -291,10 +291,13 @@ export interface FormPublication {
   url: string;
 }
 
-/** A publication as the slop forms show it, or null for none (or an id that isn't one). */
-export async function publicationForForm(id: string | null | undefined): Promise<FormPublication | null> {
+/** A publication owned by the signed-in form user, or null when it isn't available to them. */
+export async function publicationForForm(
+  ownerId: Id<"users">,
+  id: string | null | undefined,
+): Promise<FormPublication | null> {
   if (!id) return null;
-  return await convex.query(api.media.publication, { mediaId: id });
+  return await convex.query(api.media.publication, { ownerId, mediaId: id });
 }
 
 /**
@@ -318,11 +321,14 @@ export async function copyAvatar(userId: Id<"users">, pictureUrl: string): Promi
   }
 }
 
-/** Pairs media ids with their URLs, for re-rendering a form. Unknown ids are dropped. */
-export async function screenshotsWithUrls(ids: readonly string[]): Promise<{ id: string; url: string }[]> {
+/** Re-renders only the signed-in form user's images; inaccessible ids and other media types are dropped. */
+export async function screenshotsWithUrls(
+  ownerId: Id<"users">,
+  ids: readonly string[],
+): Promise<{ id: string; url: string }[]> {
   const shots: { id: string; url: string }[] = [];
   for (const id of ids) {
-    const url = await convex.query(api.media.url, { mediaId: id });
+    const url = await convex.query(api.media.imageForOwner, { ownerId, mediaId: id });
     if (url) shots.push({ id, url });
   }
   return shots;
