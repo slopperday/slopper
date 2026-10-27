@@ -1,7 +1,7 @@
 // @vitest-environment edge-runtime
 import { convexTest } from "convex-test";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { api } from "../src/component/_generated/api";
+import { api, internal } from "../src/component/_generated/api";
 import schema from "../src/component/schema";
 import { REPLAY_LIMITS } from "../src/shared/replay";
 
@@ -24,11 +24,15 @@ function bytes(text: string): ArrayBuffer {
   return new TextEncoder().encode(text).buffer;
 }
 
-async function store(t: Test, overrides: { sessionId?: string; distinctId?: string; at?: number; data?: string } = {}) {
+async function store(
+  t: Test,
+  overrides: { sessionId?: string; distinctId?: string; accountId?: string; at?: number; data?: string } = {},
+) {
   const at = overrides.at ?? Date.now();
   return await t.action(api.recordings.store, {
     sessionId: overrides.sessionId ?? "session-1",
     distinctId: overrides.distinctId ?? "visitor-1",
+    accountId: overrides.accountId,
     startedAt: at,
     endedAt: at + 4_000,
     events: 3,
@@ -42,6 +46,56 @@ afterEach(() => {
 });
 
 describe("recordings", () => {
+  it("keeps a recording's owner even when its session row has not arrived", async () => {
+    const t = setup();
+    expect(await store(t)).toBe(true);
+    expect(await store(t, { distinctId: "other-visitor" })).toBe(false);
+    const found = await t.query(api.recordings.get, { sessionId: "session-1" });
+    expect(found?.recording.chunks).toBe(1);
+    expect(await t.run(async (ctx) => (await ctx.db.system.query("_storage").collect()).length)).toBe(1);
+  });
+
+  it("rechecks account ownership when a chunk is committed after sign-in", async () => {
+    const t = setup();
+    const now = Date.now();
+    expect(await store(t)).toBe(true);
+    const storageId = await t.run(async (ctx) => await ctx.storage.store(new Blob(["[]"])));
+    await t.mutation(api.ingest.batch, {
+      accountId: "user-1",
+      context: CONTEXT,
+      events: [
+        {
+          uuid: "sign-in",
+          name: "$identify",
+          distinctId: "user-1",
+          sessionId: "session-1",
+          timestamp: now,
+          path: "/",
+          properties: { anonDistinctId: "visitor-1" },
+          set: null,
+          setOnce: null,
+          group: null,
+        },
+      ],
+    });
+    await t.mutation(internal.recordings.addChunk, {
+      sessionId: "session-1",
+      distinctId: "visitor-1",
+      startedAt: now,
+      endedAt: now,
+      events: 1,
+      encoding: "identity",
+      storageId,
+      bytes: 2,
+    });
+    expect((await t.query(api.recordings.get, { sessionId: "session-1" }))?.recording.chunks).toBe(1);
+    expect(await store(t, { distinctId: "user-1", accountId: "user-1" })).toBe(true);
+    expect(await store(t, { distinctId: "user-1" })).toBe(false);
+    const found = await t.query(api.recordings.get, { sessionId: "session-1" });
+    expect(found?.recording.chunks).toBe(2);
+    expect(await t.run(async (ctx) => (await ctx.db.system.query("_storage").collect()).length)).toBe(2);
+  });
+
   it("keeps chunks and adds up their session's recording", async () => {
     const t = setup();
     const at = Date.now() - 60_000;
@@ -139,8 +193,8 @@ describe("recordings", () => {
       events: [pageview("b", "user-1", { name: "$identify", properties: { anonDistinctId: "visitor-1" } })],
       context: CONTEXT,
     });
-    await store(t, { sessionId: "s1", distinctId: "visitor-1" });
-    await store(t, { sessionId: "s1", distinctId: "user-1" });
+    expect(await store(t, { sessionId: "s1", distinctId: "visitor-1" })).toBe(false);
+    expect(await store(t, { sessionId: "s1", distinctId: "user-1", accountId: "user-1" })).toBe(true);
     await store(t, { sessionId: "someone-else", distinctId: "visitor-2" });
     expect(await t.mutation(api.persons.forget, { distinctId: "user-1" })).toBe(true);
     await t.finishAllScheduledFunctions(vi.runAllTimers);

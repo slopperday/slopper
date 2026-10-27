@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { REPLAY_LIMITS } from "../shared/replay";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { action, internalMutation, internalQuery, type MutationCtx, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, type MutationCtx, query, type QueryCtx } from "./_generated/server";
 import { INGEST_LIMITS } from "./lib/limits";
 import { pageArgs, pageByKey } from "./lib/paging";
 import { recordingDoc, sessionDoc } from "./shapes";
@@ -27,28 +27,41 @@ const chunkMeta = {
 /** Rows deleted per transaction. */
 const PAGE = 200;
 
+/** Checks ownership both before uploading bytes and in the transaction that commits them. */
+async function recordingRoom(
+  ctx: Pick<QueryCtx, "db">,
+  { sessionId, distinctId, accountId }: { sessionId: string; distinctId: string; accountId?: string },
+): Promise<number> {
+  const link = await ctx.db
+    .query("distinctIds")
+    .withIndex("by_distinct_id", (q) => q.eq("distinctId", distinctId))
+    .unique();
+  const person = link ? await ctx.db.get(link.personId) : null;
+  if (person?.identified && distinctId !== accountId) return 0;
+  const session = await ctx.db
+    .query("sessions")
+    .withIndex("by_session_id", (q) => q.eq("sessionId", sessionId))
+    .unique();
+  if (session && session.personId !== person?._id) return 0;
+  const recording = await ctx.db
+    .query("recordings")
+    .withIndex("by_session_id", (q) => q.eq("sessionId", sessionId))
+    .unique();
+  if (recording && recording.distinctId !== distinctId) {
+    const owner = await ctx.db
+      .query("distinctIds")
+      .withIndex("by_distinct_id", (q) => q.eq("distinctId", recording.distinctId))
+      .unique();
+    if (!person || owner?.personId !== person._id) return 0;
+  }
+  return REPLAY_LIMITS.sessionBytes - (recording?.bytes ?? 0);
+}
+
 /** Bytes a session's recording can still take. */
 export const room = internalQuery({
   args: { sessionId: v.string(), distinctId: v.string(), accountId: v.optional(v.string()) },
   returns: v.number(),
-  handler: async (ctx, { sessionId, distinctId, accountId }) => {
-    const link = await ctx.db
-      .query("distinctIds")
-      .withIndex("by_distinct_id", (q) => q.eq("distinctId", distinctId))
-      .unique();
-    const person = link ? await ctx.db.get(link.personId) : null;
-    if (person?.identified && distinctId !== accountId) return 0;
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("by_session_id", (q) => q.eq("sessionId", sessionId))
-      .unique();
-    if (session && session.personId !== person?._id) return 0;
-    const recording = await ctx.db
-      .query("recordings")
-      .withIndex("by_session_id", (q) => q.eq("sessionId", sessionId))
-      .unique();
-    return REPLAY_LIMITS.sessionBytes - (recording?.bytes ?? 0);
-  },
+  handler: recordingRoom,
 });
 
 /**
@@ -59,7 +72,7 @@ export const room = internalQuery({
 export const store = action({
   args: { ...chunkMeta, data: v.bytes(), accountId: v.optional(v.string()) },
   returns: v.boolean(),
-  handler: async (ctx, { data, accountId, ...meta }) => {
+  handler: async (ctx, { data, accountId, ...meta }): Promise<boolean> => {
     if (data.byteLength === 0 || data.byteLength > REPLAY_LIMITS.chunkBytes) return false;
     // The route is public, so the deployment takes only so much a minute and
     // a day (`lib/limits.ts`): a flood hits the ceiling, not file storage.
@@ -85,15 +98,23 @@ export const store = action({
     if (room < data.byteLength) return false;
     const type = meta.encoding === "gzip" ? "application/gzip" : "application/json";
     const storageId = await ctx.storage.store(new Blob([data], { type }));
-    await ctx.runMutation(internal.recordings.addChunk, { ...meta, storageId, bytes: data.byteLength });
-    return true;
+    return await ctx.runMutation(internal.recordings.addChunk, {
+      ...meta,
+      accountId,
+      storageId,
+      bytes: data.byteLength,
+    });
   },
 });
 
 export const addChunk = internalMutation({
-  args: { ...chunkMeta, storageId: v.id("_storage"), bytes: v.number() },
-  returns: v.null(),
-  handler: async (ctx, chunk) => {
+  args: { ...chunkMeta, accountId: v.optional(v.string()), storageId: v.id("_storage"), bytes: v.number() },
+  returns: v.boolean(),
+  handler: async (ctx, { accountId, ...chunk }) => {
+    if ((await recordingRoom(ctx, { ...chunk, accountId })) < chunk.bytes) {
+      await ctx.storage.delete(chunk.storageId);
+      return false;
+    }
     await ctx.db.insert("recordingChunks", {
       sessionId: chunk.sessionId,
       distinctId: chunk.distinctId,
@@ -126,7 +147,7 @@ export const addChunk = internalMutation({
         events: chunk.events,
       });
     }
-    return null;
+    return true;
   },
 });
 
