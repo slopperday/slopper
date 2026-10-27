@@ -6,8 +6,8 @@ import { internalMutation } from "./_generated/server";
 const PAGE = 500;
 
 /**
- * Expired sessions, OAuth states and rate-limit windows. Deletes a page and,
- * while pages stay full, schedules itself again: a flood of OAuth starts or
+ * Expired sessions, OAuth states, update reservations and rate-limit windows.
+ * Deletes a page and schedules itself again while pages stay full: a flood of OAuth starts or
  * rotating API-quota buckets can make rows faster than one page a day.
  */
 export const sweep = internalMutation({
@@ -15,7 +15,7 @@ export const sweep = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
     let more = false;
-    for (const table of ["sessions", "oauthStates"] as const) {
+    for (const table of ["sessions", "oauthStates", "updateReservations"] as const) {
       const expired = await ctx.db
         .query(table)
         .withIndex("by_expiry", (q) => q.lt("expiresAt", now))

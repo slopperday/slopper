@@ -250,7 +250,14 @@ describe("editing a launch", () => {
 
     vi.setSystemTime(Date.parse("2026-10-18T10:01:00Z"));
     await expect(edit()).rejects.toThrow(EDITING_CLOSED);
-    await server.mutation(api.activity.addUpdate, { userId: owner, slopId, kind: "feature", body: "Level editor" });
+    const reservationId = await server.mutation(api.activity.reserveUpdate, { userId: owner, slopId });
+    await server.mutation(api.activity.addUpdate, {
+      reservationId,
+      userId: owner,
+      slopId,
+      kind: "feature",
+      body: "Level editor",
+    });
     // The promo video and moderators aren't held to the window.
     expect(await server.mutation(api.videos.set, { userId: owner, slopId, mediaId: null })).toMatchObject({
       status: "none",

@@ -2,6 +2,39 @@ import { api } from "../convex/_generated/api.js";
 import { choose, expect, test } from "./fixtures.ts";
 
 test.describe("updates", () => {
+  test("an address that spent its preview budget can still post plain links", async ({ seed, convex }) => {
+    const maker = await seed.user("previewquota");
+    const slop = await seed.slop(maker);
+    const address = `preview-${maker.id}`;
+
+    for (let i = 0; i < 60; i++) {
+      expect(
+        await convex.mutation(api.limits.hit, {
+          key: `update-preview:${address}`,
+          limit: 60,
+          windowMs: 3_600_000,
+        }),
+      ).toBe(true);
+    }
+
+    const page = await seed.pageAs(maker);
+    await page.setExtraHTTPHeaders({ "x-nf-client-connection-ip": address });
+    await page.goto(slop.path);
+    await page.getByRole("textbox", { name: "Update", exact: true }).fill("Release notes.");
+    await page.getByText("Version, images and links").click();
+    await page.getByRole("button", { name: "Add a link" }).click();
+    await page.getByLabel("Link 1 address").fill("https://example.com/notes");
+    await page.getByLabel("Show a preview card").check();
+    await page.getByRole("button", { name: "Post update" }).click();
+    await expect(page.getByRole("alert")).toHaveText("Too many link previews. Try again later.");
+    await expect(page.locator("#updates li").filter({ hasText: "Release notes." })).toHaveCount(0);
+
+    await page.getByLabel("Show a preview card").uncheck();
+    await page.getByRole("button", { name: "Post update" }).click();
+    await expect(page.getByRole("status")).toHaveText("Update posted.");
+    await expect(page.locator("#updates li").filter({ hasText: "Release notes." })).toHaveCount(1);
+  });
+
   test("a maker ships a named feature with its version, an image and a link", async ({ seed }) => {
     const maker = await seed.user("shipper");
     const slop = await seed.slop(maker);
@@ -64,7 +97,9 @@ test.describe("updates", () => {
   test("the maker can take a preview card off, and the link stays", async ({ seed, convex }) => {
     const maker = await seed.user("carder");
     const slop = await seed.slop(maker);
+    const reservationId = await convex.mutation(api.activity.reserveUpdate, { userId: maker.id, slopId: slop.id });
     await convex.mutation(api.activity.addUpdate, {
+      reservationId,
       userId: maker.id,
       slopId: slop.id,
       kind: "update",
