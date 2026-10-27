@@ -45,13 +45,16 @@ async function objectStream(objects: string, extra = ""): Promise<Uint8Array<Arr
 }
 
 describe("PDF safety scan", () => {
-  it("passes a plain PDF, links, pages that open at a view, and binary stream data", async () => {
+  it("passes a plain PDF, clicked links, and binary stream data", async () => {
     expect(scanPdf(pdf())).toEqual({ safe: true });
+    expect(
+      scanPdf(pdf("3 0 obj\n<< /Type /Annot /Subtype /Link /A << /S /URI /URI (https://slopper.day) >> >>\nendobj\n")),
+    ).toEqual({ safe: true });
     expect(
       scanPdf(
         pdf(
-          "3 0 obj\n<< /Type /Annot /Subtype /Link /A << /S /URI /URI (https://slopper.day) >> >>\nendobj\n",
-          "/OpenAction [3 0 R /Fit] ",
+          "3 0 obj\n<< /Type /Annot /Subtype /Link /A 4 0 R >>\nendobj\n" +
+            "4 0 obj\n<< /S /URI /URI (http://example.test) >>\nendobj\n",
         ),
       ),
     ).toEqual({ safe: true });
@@ -73,11 +76,11 @@ describe("PDF safety scan", () => {
     expect(scanPdf(pdf("", `/OpenAction ${js} `))).toEqual({
       safe: false,
       reason: "active",
-      found: ["JavaScript", "JS"],
+      found: ["JavaScript", "JS", "OpenAction"],
     });
     expect(scanPdf(pdf("", "/AA << /O << /S /J#61vaScript /J#53 (x) >> >> "))).toMatchObject({
       reason: "active",
-      found: ["JavaScript", "JS"],
+      found: ["JavaScript", "JS", "AA"],
     });
     for (const action of ["Launch", "SubmitForm", "ImportData", "GoToE", "GoToR"]) {
       expect(scanPdf(pdf(`3 0 obj\n<< /S /${action} /F (x) >>\nendobj\n`))).toMatchObject({
@@ -90,6 +93,47 @@ describe("PDF safety scan", () => {
       reason: "active",
       found: ["URI"],
     });
+  });
+
+  it.each([
+    ["an inline catalog action", "", "/OpenAction << /S /URI /URI (https://example.test) >> ", "OpenAction"],
+    [
+      "an indirect catalog action",
+      "4 0 obj\n<< /S /URI /URI (https://example.test) >>\nendobj\n",
+      "/OpenAction 4 0 R ",
+      "OpenAction",
+    ],
+    ["an escaped catalog hook", "", "/Open#41ction << /S /URI /URI (https://example.test) >> ", "OpenAction"],
+    ["a document additional action", "", "/AA << /WC << /S /URI /URI (https://example.test) >> >> ", "AA"],
+    [
+      "a page additional action",
+      "3 0 obj\n<< /Type /Page /Parent 2 0 R /AA << /O 4 0 R >> >>\nendobj\n" +
+        "4 0 obj\n<< /S /URI /URI (https://example.test) >>\nendobj\n",
+      "",
+      "AA",
+    ],
+    [
+      "an indirect additional-action dictionary",
+      "4 0 obj\n<< /O 5 0 R >>\nendobj\n5 0 obj\n<< /S /URI /URI (https://example.test) >>\nendobj\n",
+      "/AA 4 0 R ",
+      "AA",
+    ],
+    [
+      "an escaped annotation hook",
+      "3 0 obj\n<< /Type /Annot /Subtype /Link /A#41 << /PO << /S /URI /URI (https://example.test) >> >> >>\nendobj\n",
+      "",
+      "AA",
+    ],
+    ["an opening destination", "", "/OpenAction [3 0 R /Fit] ", "OpenAction"],
+  ])("refuses automatic hooks: %s", (_description, objects, catalog, hook) => {
+    expect(scanPdf(pdf(objects, catalog))).toEqual({ safe: false, reason: "active", found: [hook] });
+  });
+
+  it.each(["OpenAction", "AA"])("refuses /%s hooks in compressed objects", async (hook) => {
+    const hidden = await objectStream(`7 0 << /${hook} 8 0 R >>`);
+    const action = "8 0 obj\n<< /S /URI /URI (https://example.test) >>\nendobj\n";
+
+    expect(scanPdf(pdf(bytes(hidden, action)))).toEqual({ safe: false, reason: "active", found: [hook] });
   });
 
   it("finds a script packed inside a compressed object stream", async () => {

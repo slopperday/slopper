@@ -44,6 +44,9 @@ const ACTIVE = new Set([
   "RichMedia",
   "Movie",
   "Sound",
+  // Reject automatic hooks outright, including opening destinations; clicked links use /A.
+  "OpenAction",
+  "AA",
 ]);
 
 /** Names that put other files inside the PDF. */
