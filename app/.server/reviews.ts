@@ -23,9 +23,11 @@ const defaultServices = (): ReviewServices => ({ convex, check: (submission) => 
  * Posts a validated review (`validateReview`). The slop page, the REST API
  * and MCP all post through here.
  *
- * The content check reads it first, with its screenshots: a blocked review
- * is refused and nothing is saved; an ok or mature one goes up at once, with
- * no moderator in between (mature ones are blurred for people who haven't
+ * Each attempt spends the daily budget before any media lookup or content
+ * check, even if it is blocked or fails. The check reads it with its
+ * screenshots: a blocked review is refused and nothing is saved; an ok or
+ * mature one goes up at once, with no moderator in between (mature ones
+ * are blurred for people who haven't
  * opted in to NSFW). When the check can't run, the review goes up as
  * "unchecked", the same tradeoff as uploads (app/.server/media.ts): its
  * screenshots were checked as they were uploaded, and admins can delete it.
@@ -36,6 +38,7 @@ export async function postReview(
   review: ReviewForm,
   services: ReviewServices = defaultServices(),
 ): Promise<PostedReview> {
+  await services.convex.mutation(api.reviews.begin, { userId, slopId: slop.id });
   const urls = await Promise.all(review.images.map((mediaId) => services.convex.query(api.media.url, { mediaId })));
   const result = await services.check(
     reviewSubmission(
