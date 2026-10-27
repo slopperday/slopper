@@ -137,6 +137,7 @@ async function launch(server: Server, owner: Id<"users">, publication: string | 
 
 describe("publication uploads", () => {
   it("charges rejected expanding EPUBs and stops scanning when the upload budget is spent", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_800_000_000_000);
     const { server } = setup();
     const owner = await makeUser(server, "writer");
     const bucket = new MemoryBucket();

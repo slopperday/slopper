@@ -12,6 +12,7 @@ afterEach(() => vi.restoreAllMocks());
 
 /** Runs the browser upload action against the real Convex mutations in memory. */
 async function setup() {
+  vi.spyOn(Date, "now").mockReturnValue(1_800_000_000_000);
   const t = convexApp();
   const server = t.withIdentity({ subject: "server" });
   const mutation: ConvexCaller["mutation"] = async (reference, ...args) =>
