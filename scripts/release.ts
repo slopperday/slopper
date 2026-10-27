@@ -150,7 +150,8 @@ function pr(dryRun: boolean): void {
 
 /**
  * `monochange run publish` pushes tags and deploys, so it only runs in the release workflow, on a release commit
- * that's on main. A dry run (rehearsing a release pull request) skips the last check.
+ * that's on main. The workflow validates provenance before installing dependencies;
+ * a real publish repeats the ancestry check here.
  */
 function ci(dryRun: boolean): void {
   if (process.env.GITHUB_ACTIONS !== "true") {

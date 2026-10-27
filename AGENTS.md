@@ -42,6 +42,16 @@ release. Add a tool name to select part of the graph. For example, run
   `.github/workflows/ci.yml` (also available manually). A command-scoped pre-push bypass is authorized for those
   repairs; green current-head hosted checks and review remain required before merge. The separate
   `.github/workflows/release.yml` only publishes merged release pull requests and skips every other push.
+- **Release authority:** the `production` GitHub environment allows only the `main` branch and owns the Convex and
+  Netlify deployment secrets; do not recreate repository-scoped copies. npm trusted publishers must require that
+  environment too, including replacement connections for older configurations. Historical branch workflows remain
+  callable, so the server-side policies are part of the security boundary, alongside the workflow's SHA validation.
+  `.github/release-authority.json` requires pull requests for main and blocks deletion and force pushes; the independent
+  `.github/release-validation.json` requires GitHub Actions' `ci` check. Neither ruleset has bypass actors.
+  A skipped required check still satisfies GitHub's status rule: security repairs must verify that the labeled
+  current-head job actually ran the complete pipeline successfully, not merely that a check exists.
+  After all current-head checks, review and required approvals pass, use the normal organization pull request merge
+  path. Never add admin/override flags or change protections to permit a merge.
 - **Hosting:** Netlify runs the build (`netlify.toml`): static files from `build/client`, the server as one Netlify
   Function. Releases deploy from the release workflow (`node scripts/release.ts deploy --if-released`), Convex first;
   never connect Netlify to Git. A deploy by hand (`node scripts/release.ts deploy`) must run from the main checkout or
