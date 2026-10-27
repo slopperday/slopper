@@ -51,8 +51,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
           name: source.name,
           values: {
             ...slopValues(source),
-            screenshots: await screenshotsWithUrls(source.screenshots),
-            publication: await publicationForForm(source.publication),
+            screenshots: await screenshotsWithUrls(user._id, source.screenshots),
+            publication: await publicationForForm(user._id, source.publication),
           },
         }
       : null,
@@ -122,8 +122,8 @@ export async function action({ request, context }: Route.ActionArgs) {
         errors,
         values: {
           ...values,
-          screenshots: await screenshotsWithUrls(values.screenshots),
-          publication: await publicationForForm(values.publication),
+          screenshots: await screenshotsWithUrls(user._id, values.screenshots),
+          publication: await publicationForForm(user._id, values.publication),
           launchLabel: label,
           when,
           releaseAt,

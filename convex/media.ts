@@ -4,6 +4,7 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { requireServer } from "./lib/auth";
 import {
+  isImage,
   isPublication,
   mediaPublicBase,
   mediaUrl,
@@ -74,10 +75,8 @@ export const register = mutation({
 });
 
 /**
- * A stored screenshot's URL, for the app server (checks, auto-posting, form
- * re-renders). Browsers get their URLs inside the public shapes: this query
- * answers any media id, and a promo video has no public URL before a
- * moderator approves it, so it stays server-only.
+ * Resolves media from an already-authorized server record for content checks
+ * and auto-posting. Untrusted submitted ids must use `imageForOwner` instead.
  */
 export const url = query({
   args: { mediaId: v.string() },
@@ -89,18 +88,33 @@ export const url = query({
   },
 });
 
-/**
- * A publication as the slop forms show it: its name, size and where to read
- * it. For the app server (like `url` above): it answers any media id, and
- * which publications may be read is the slop page's call, not the caller's.
- */
-export const publication = query({
-  args: { mediaId: v.string() },
-  handler: async (ctx, { mediaId }) => {
+/** Resolves a submitted image only for its owner; server authority alone doesn't authorize a form id. */
+export const imageForOwner = query({
+  args: { ownerId: v.id("users"), mediaId: v.string() },
+  handler: async (ctx, { ownerId, mediaId }) => {
     await requireServer(ctx);
     const id = ctx.db.normalizeId("media", mediaId);
     const media = id ? await ctx.db.get(id) : null;
-    if (!media || !isPublication(media)) return null;
+
+    if (!media || media.ownerId !== ownerId || !isImage(media)) return null;
+
+    return await mediaUrl(ctx, media);
+  },
+});
+
+/**
+ * Resolves a submitted publication for its owner's form, including its
+ * private name and size. The owner comes from the authenticated app session.
+ */
+export const publication = query({
+  args: { ownerId: v.id("users"), mediaId: v.string() },
+  handler: async (ctx, { ownerId, mediaId }) => {
+    await requireServer(ctx);
+    const id = ctx.db.normalizeId("media", mediaId);
+    const media = id ? await ctx.db.get(id) : null;
+
+    if (!media || media.ownerId !== ownerId || !isPublication(media)) return null;
+
     const url = await mediaUrl(ctx, media);
     const format = publicationFormat(media.contentType);
     return url && format ? { id: media._id, fileName: publicationName(media), format, size: media.size, url } : null;

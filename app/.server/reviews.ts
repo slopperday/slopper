@@ -39,7 +39,10 @@ export async function postReview(
   services: ReviewServices = defaultServices(),
 ): Promise<PostedReview> {
   await services.convex.mutation(api.reviews.begin, { userId, slopId: slop.id });
-  const urls = await Promise.all(review.images.map((mediaId) => services.convex.query(api.media.url, { mediaId })));
+
+  const urls = await Promise.all(
+    review.images.map((mediaId) => services.convex.query(api.media.imageForOwner, { ownerId: userId, mediaId })),
+  );
   const result = await services.check(
     reviewSubmission(
       { slopName: slop.name, experience: REVIEW_EXPERIENCES[review.experience].label, body: review.body },

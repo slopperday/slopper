@@ -60,8 +60,8 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
       launchLabel: slop.launchLabel,
       values: {
         ...slopValues(slop),
-        screenshots: await screenshotsWithUrls(slop.screenshots),
-        publication: await publicationForForm(slop.publication),
+        screenshots: await screenshotsWithUrls(user._id, slop.screenshots),
+        publication: await publicationForForm(user._id, slop.publication),
       },
     },
     accounts: accounts.map((account) => ({
@@ -107,8 +107,8 @@ export async function action({ params, request, context }: Route.ActionArgs) {
         errors: parsed.errors,
         values: {
           ...values,
-          screenshots: await screenshotsWithUrls(values.screenshots),
-          publication: await publicationForForm(values.publication),
+          screenshots: await screenshotsWithUrls(user._id, values.screenshots),
+          publication: await publicationForForm(user._id, values.publication),
         },
       },
       { status: 422 },
@@ -193,8 +193,8 @@ async function draft(user: Doc<"users">, form: FormData) {
   const values = slopFormValues(form);
   const echo = {
     ...values,
-    screenshots: await screenshotsWithUrls(values.screenshots),
-    publication: await publicationForForm(values.publication),
+    screenshots: await screenshotsWithUrls(user._id, values.screenshots),
+    publication: await publicationForForm(user._id, values.publication),
   };
   const failed = (notice: string) => data({ errors: {}, values: echo, notice, drafted: null }, { status: 422 });
   if (!config.contentCheck) return failed("AI drafts aren't set up on this server.");
