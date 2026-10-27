@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "@convex/_generated/api";
 import { contentSecurityPolicy } from "~/.server/csp";
 import { convexApp } from "./convexApp";
+import { checkedLaunch } from "./launchFixtures";
 
 /**
  * Security invariants: not proofs, but tripwires. Each one pins a rule the
@@ -161,7 +162,7 @@ describe("uploads nothing attaches to are let go of", () => {
       };
       const shown = await media();
       const forgotten = await media();
-      const created = await server.mutation(api.slops.create, {
+      const created = await checkedLaunch(server, {
         userId,
         input: {
           name: "Sweep me",

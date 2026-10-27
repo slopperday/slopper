@@ -33,10 +33,11 @@ async function clearFlags(ctx: MutationCtx, slopId: Id<"slops">): Promise<void> 
  * posts only once it has passed the content check, with no open flags.
  */
 export function autopostHold(slop: Doc<"slops">, flags: number): string | null {
+  if (slop.publishAfterCheck !== undefined) return "it hasn't been cleared yet";
   if (slop.hidden) return "it's waiting for a moderator";
   if (slop.nsfw) return "it's marked NSFW";
   if (flags > 0) return "someone flagged it";
-  if (!slop.check) return "it hasn't been cleared yet";
+  if (!slop.check || slop.check.source === "moderator") return "it hasn't been cleared yet";
   if (slop.check.verdict !== "ok") return "it wasn't cleared for posting";
   return null;
 }
@@ -48,6 +49,21 @@ export const autopostHoldFor = query({
     const slop = await ctx.db.get(slopId);
     if (!slop) return "it's gone";
     return autopostHold(slop, (await openFlags(ctx, slopId)).length);
+  },
+});
+
+/** The current submission, including its immutable launch note when an edit is rechecked. */
+export const forCheck = query({
+  args: { slopId: v.id("slops") },
+  handler: async (ctx, { slopId }) => {
+    await requireServer(ctx);
+    const slop = await ctx.db.get(slopId);
+    if (!slop) return null;
+    const launch = await ctx.db
+      .query("updates")
+      .withIndex("by_slop", (q) => q.eq("slopId", slopId))
+      .first();
+    return { slop, launchNote: launch?.kind === "launch" ? launch.body : "" };
   },
 });
 
@@ -71,7 +87,11 @@ async function recordCheck(
       ...(verdict === "blocked" ? { hidden: true } : {}),
     });
   } else if (verdict === "blocked") {
-    await ctx.db.patch(slopId, { hidden: true });
+    const slop = await ctx.db.get(slopId);
+    await ctx.db.patch(slopId, {
+      hidden: true,
+      ...(slop?.publishAfterCheck !== undefined ? { publishAfterCheck: false } : {}),
+    });
   }
   if (verdict !== "ok") {
     const what = scope === "slop" ? "Content check" : "Content check on an update";
@@ -87,8 +107,8 @@ export const applyCheck = mutation({
     reason: v.string(),
     /**
      * The fingerprint of the content this verdict was made from
-     * (lib/shape.ts `checkedContentHash`). When it's there, the verdict only
-     * lands if the slop still says the same things: a check that was in
+     * (lib/shape.ts `checkedContentHash`). Required for slop verdicts, which
+     * land only if the slop still says the same things: a check that was in
      * flight while the slop was edited must not clear the way for text the
      * model never saw.
      */
@@ -98,10 +118,16 @@ export const applyCheck = mutation({
     await requireServer(ctx);
     const slop = await ctx.db.get(slopId);
     if (!slop) return { applied: false };
-    if (contentHash !== undefined && scope === "slop" && checkedContentHash(slop) !== contentHash) {
+    if (scope === "slop" && (contentHash === undefined || checkedContentHash(slop) !== contentHash)) {
       return { applied: false };
     }
     await recordCheck(ctx, slopId, scope, verdict, reason);
+    if (scope === "slop") {
+      await ctx.db.patch(slopId, {
+        publishAfterCheck: undefined,
+        ...(slop.publishAfterCheck === true && verdict !== "blocked" ? { hidden: false } : {}),
+      });
+    }
     return { applied: true };
   },
 });
@@ -219,9 +245,20 @@ export const decide = mutation({
     const slop = await ctx.db.get(slopId);
     if (!slop) return;
     requireMayJudge(moderator, slop);
-    if (decision === "fine") await ctx.db.patch(slopId, { nsfw: false, hidden: false });
-    if (decision === "nsfw") await ctx.db.patch(slopId, { nsfw: true, hidden: false });
-    if (decision === "hide") await ctx.db.patch(slopId, { hidden: true });
+    if (decision !== "hide") {
+      await ctx.db.patch(slopId, {
+        nsfw: decision === "nsfw",
+        hidden: false,
+        publishAfterCheck: undefined,
+        check: slop.check ?? {
+          verdict: decision === "fine" ? "ok" : "mature",
+          reason: "Approved by a moderator.",
+          checkedAt: Date.now(),
+          source: "moderator",
+        },
+      });
+    }
+    if (decision === "hide") await ctx.db.patch(slopId, { hidden: true, publishAfterCheck: undefined });
     await clearFlags(ctx, slopId);
     await logStaffAction(ctx, moderatorId, { type: "flags", slopId, decision }, slop);
   },

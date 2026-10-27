@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import { readerFor } from "./lib/auth";
-import { publicUser, toCards } from "./lib/shape";
+import { isHidden, publicUser, toCards } from "./lib/shape";
 import { rankDay, utcToday } from "./race";
 import { rankHot } from "../app/lib/ranking";
 
@@ -18,7 +18,7 @@ export const feed = query({
         .withIndex("by_creation_time", (q) => q.gte("_creationTime", since))
         .order("desc")
         .take(200)
-    ).filter((slop) => !slop.hidden);
+    ).filter((slop) => !isHidden(slop));
 
     const recentUpdates = await ctx.db.query("updates").order("desc").take(40);
     const updates = [];
@@ -30,7 +30,7 @@ export const feed = query({
       if (!owners.has(update.userId)) owners.set(update.userId, await ctx.db.get(update.userId));
       const slop = slops.get(update.slopId);
       const owner = owners.get(update.userId);
-      if (!slop || !owner || slop.hidden || slop.nsfw) continue;
+      if (!slop || !owner || isHidden(slop) || slop.nsfw) continue;
       updates.push({
         update: {
           id: update._id,

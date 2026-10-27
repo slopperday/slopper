@@ -5,6 +5,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { can, permissionsOf } from "@convex/lib/permissions";
 import { EDITING_CLOSED } from "~/lib/editing";
 import { convexApp } from "./convexApp";
+import { checkedLaunch } from "./launchFixtures";
 
 function setup() {
   const t = convexApp();
@@ -48,7 +49,7 @@ const input = {
 };
 
 async function ship(server: Server, userId: Id<"users">, extra: object = {}) {
-  return await server.mutation(api.slops.create, { userId, input, launchNote: "Day 1", ...extra });
+  return await checkedLaunch(server, { userId, input, launchNote: "Day 1", ...extra });
 }
 
 describe("auth roles", () => {
@@ -860,7 +861,7 @@ describe("the moderation team", () => {
     const helper = await makeUser(server, "helper");
     const admin = await makeStaff(t, server, "ada", "admin");
     const { slopId } = await ship(server, owner);
-    const mine = await server.mutation(api.slops.create, {
+    const mine = await checkedLaunch(server, {
       userId: fan,
       input: { ...input, name: "Fan Game" },
       launchNote: "Mine",
@@ -1030,7 +1031,7 @@ describe("promo videos", () => {
       mediaId: approved,
       approve: true,
     });
-    const { slopId } = await server.mutation(api.slops.create, {
+    const { slopId } = await checkedLaunch(server, {
       userId: owner,
       input: { ...input, name: "TiltMaze 2" },
       launchNote: "Day 2",

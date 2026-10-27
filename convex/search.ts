@@ -12,7 +12,7 @@ import {
 } from "./_generated/server";
 import { readerFor, requireServer } from "./lib/auth";
 import { embeddingSettings, embedTexts } from "./lib/embeddings";
-import { type CardItem, isVisibleTo, toCards } from "./lib/shape";
+import { isHidden, type CardItem, isVisibleTo, toCards } from "./lib/shape";
 import { categoryFilter } from "../app/lib/model";
 import { embeddingText, fuseRankings, normalizeQuery, type Ranking, SEARCH_LIMIT } from "../app/lib/search";
 
@@ -144,7 +144,7 @@ export const results = internalQuery({
         .query("slops")
         .withIndex("by_embedding", (q) => q.eq("embeddingId", embeddingId))
         .unique();
-      if (!slop || slop.hidden || (categories.length > 0 && !categories.includes(slop.category))) continue;
+      if (!slop || isHidden(slop) || (categories.length > 0 && !categories.includes(slop.category))) continue;
       found.set(slop._id, slop);
       near.push(slop._id);
     }

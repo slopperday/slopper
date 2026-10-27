@@ -125,7 +125,15 @@ export async function action({ params, request, context }: Route.ActionArgs) {
   }
   if (edited.orphaned > 0) await deleteOrphanedMedia();
   const saved = await convex.query(api.slops.getForServer, { slopId: slop._id });
-  const check = saved && checkedContent(saved) !== checkedContent(slop) ? await checkSlop(slop._id) : null;
+  const needsCheck =
+    saved && (!saved.check || saved.publishAfterCheck !== undefined || checkedContent(saved) !== checkedContent(slop));
+  const check = needsCheck ? await checkSlop(slop._id) : null;
+  if (needsCheck && !check) {
+    return redirectWithFlash(here, {
+      tone: "error",
+      message: "Saved and waiting for a content check. Only you can see it.",
+    });
+  }
   if (check?.verdict === "blocked") {
     return redirectWithFlash(here, {
       tone: "error",

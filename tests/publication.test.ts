@@ -22,6 +22,7 @@ import { fileSize } from "~/lib/display";
 import { LIMITS } from "~/lib/model";
 import { convexApp } from "./convexApp";
 import { epub, epubEntries, zip } from "./epubs";
+import { applyCurrentCheck } from "./launchFixtures";
 
 const MEDIA_URL = "https://media.test/file/slopper-media";
 const CHECK = {
@@ -330,6 +331,7 @@ describe("slops with a publication", () => {
     const pdf = await upload(server, owner);
     const { slopId } = await launch(server, owner, pdf.id);
 
+    await applyCurrentCheck(server, { slopId, scope: "slop", verdict: "ok", reason: "Fixture" });
     const page = await server.query(api.slops.page, { username: "writer", slug: "field-guide" });
     expect(page?.slop).toMatchObject({
       links: [],

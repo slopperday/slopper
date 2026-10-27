@@ -8,6 +8,7 @@ import { analyticsOptedOut, analyticsSetup, countryOf } from "~/.server/analytic
 import { loadConfig } from "~/.server/config";
 import { mayRecordPath, sanitizeAnalyticsPath } from "~/lib/analytics";
 import { convexApp } from "./convexApp";
+import { checkedLaunch } from "./launchFixtures";
 
 // convex/http.ts allows browsers from APP_URL, as on the real deployment.
 process.env.APP_URL = "https://slopper.day";
@@ -191,7 +192,7 @@ describe("product events", () => {
     const { t, server } = setup();
     const owner = await makeUser(server, "maker");
     const fan = await makeUser(server, "fan");
-    const { slopId } = await server.mutation(api.slops.create, {
+    const { slopId } = await checkedLaunch(server, {
       userId: owner,
       input: {
         name: "TiltMaze",
@@ -722,7 +723,7 @@ describe("analytics by slop", () => {
   };
 
   async function launch(server: Server, userId: Id<"users">) {
-    return await server.mutation(api.slops.create, {
+    return await checkedLaunch(server, {
       userId,
       input: SLOP_INPUT,
       launchNote: "Day 1",

@@ -17,6 +17,7 @@ import {
 } from "~/.server/moderation";
 import { FLAGS_TO_BLUR } from "~/lib/model";
 import { convexApp } from "./convexApp";
+import { applyCurrentCheck } from "./launchFixtures";
 
 function setup() {
   const t = convexApp();
@@ -304,10 +305,10 @@ describe("auto-post gate", () => {
     const hold = () => server.query(api.moderation.autopostHoldFor, { slopId });
 
     expect(await hold()).toBe("it hasn't been cleared yet");
-    await server.mutation(api.moderation.applyCheck, { slopId, scope: "slop", verdict: "ok", reason: "Fine." });
+    await applyCurrentCheck(server, { slopId, scope: "slop", verdict: "ok", reason: "Fine." });
     expect(await hold()).toBeNull();
 
-    await server.mutation(api.moderation.applyCheck, {
+    await applyCurrentCheck(server, {
       slopId,
       scope: "update",
       verdict: "mature",
@@ -315,7 +316,7 @@ describe("auto-post gate", () => {
     });
     expect(await hold()).toBe("someone flagged it");
 
-    await server.mutation(api.moderation.applyCheck, { slopId, scope: "slop", verdict: "blocked", reason: "Porn." });
+    await applyCurrentCheck(server, { slopId, scope: "slop", verdict: "blocked", reason: "Porn." });
     const slop = await server.query(api.slops.getForServer, { slopId });
     expect(slop).toMatchObject({ nsfw: true, hidden: true, check: { verdict: "blocked", reason: "Porn." } });
     expect(await hold()).toBe("it's waiting for a moderator");
@@ -325,8 +326,8 @@ describe("auto-post gate", () => {
     const { server } = setup();
     const slopId = await ship(server, await makeUser(server, "maker"));
     expect((await server.query(api.slops.getForServer, { slopId }))?.nsfw).toBe(false);
-    await server.mutation(api.moderation.applyCheck, { slopId, scope: "slop", verdict: "mature", reason: "Gore." });
-    await server.mutation(api.moderation.applyCheck, { slopId, scope: "slop", verdict: "ok", reason: "Edited." });
+    await applyCurrentCheck(server, { slopId, scope: "slop", verdict: "mature", reason: "Gore." });
+    await applyCurrentCheck(server, { slopId, scope: "slop", verdict: "ok", reason: "Edited." });
     expect((await server.query(api.slops.getForServer, { slopId }))?.nsfw).toBe(true);
   });
 });
@@ -336,7 +337,7 @@ describe("flags", () => {
     const { t, server } = setup();
     const owner = await makeUser(server, "maker");
     const slopId = await ship(server, owner);
-    await server.mutation(api.moderation.applyCheck, { slopId, scope: "slop", verdict: "ok", reason: "Fine." });
+    await applyCurrentCheck(server, { slopId, scope: "slop", verdict: "ok", reason: "Fine." });
 
     await expect(server.mutation(api.moderation.flag, { userId: owner, slopId, reason: "Spam" })).rejects.toThrow(
       "your own slop",
@@ -382,8 +383,9 @@ describe("flags", () => {
     const fan = await makeUser(server, "fan");
     const spicy = await ship(server, owner);
     const safe = await ship(server, owner);
+    await applyCurrentCheck(server, { slopId: spicy, scope: "slop", verdict: "ok", reason: "Fixture" });
     await server.mutation(api.slops.vote, { userId: fan, slopId: spicy, value: 1 });
-    await server.mutation(api.moderation.applyCheck, {
+    await applyCurrentCheck(server, {
       slopId: spicy,
       scope: "slop",
       verdict: "mature",

@@ -12,6 +12,29 @@ async function launch(page: Page, name: string, description: string): Promise<vo
 }
 
 test.describe("content check", () => {
+  test("a failed launch check stays private, and an edit can retry it", async ({ seed }) => {
+    const maker = await seed.user("pending");
+    const page = await seed.pageAs(maker);
+    const name = `Waiting ${Date.now().toString(36)}`;
+    await launch(page, name, "Model unavailable [e2e:error]");
+    await expect(page.getByRole("alert")).toHaveText(
+      `${name} is saved and waiting for a content check. Only you can see it.`,
+    );
+    await expect(page.getByText(/Waiting for a content check\. Only you/)).toBeVisible();
+    await expect(page.getByText("It's on the wall. Now tell people:")).toHaveCount(0);
+    await page.screenshot({ path: test.info().outputPath("pending-launch.png"), fullPage: true });
+    const path = new URL(page.url()).pathname;
+    const visitor = await seed.visitorPage();
+    expect((await visitor.goto(path))?.status()).toBe(404);
+
+    await page.goto(`${path}/edit`);
+    await page.getByLabel("Description").fill("The check can read this now");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("status")).toHaveText("Saved.");
+    expect((await visitor.goto(path))?.status()).toBe(200);
+    await expect(visitor.getByRole("heading", { level: 1 })).toContainText(name);
+  });
+
   test("a mature launch goes up blurred, out of the race, and is never auto-posted", async ({ seed }) => {
     const maker = await seed.user("edgy");
     const page = await seed.pageAs(maker);

@@ -4,7 +4,7 @@ import { mutation, type MutationCtx, query, type QueryCtx } from "./_generated/s
 import { captureFor } from "./analytics";
 import { readerFor, requireServer } from "./lib/auth";
 import { firstEmail, nextDigestAt } from "./lib/digest";
-import { publicUser, toCards } from "./lib/shape";
+import { isHidden, publicUser, toCards } from "./lib/shape";
 import { queuedDays } from "./schedule";
 import { currentStreak, isValidTimeZone, utcDate } from "../app/lib/dates";
 import { goalProgress, type Launch } from "../app/lib/goal";
@@ -262,7 +262,7 @@ export const unsubscribe = mutation({
 
 function toLaunches(slops: readonly Doc<"slops">[]): Launch[] {
   return slops
-    .filter((slop) => !slop.hidden)
+    .filter((slop) => !isHidden(slop))
     .map((slop) => ({ id: slop._id, name: slop.name, slug: slop.slug, launchDate: slop.launchDate }));
 }
 
@@ -283,7 +283,7 @@ export const profile = query({
         .withIndex("by_user", (q) => q.eq("userId", owner._id))
         .order("desc")
         .collect()
-    ).filter((slop) => !slop.hidden || isSelf);
+    ).filter((slop) => !isHidden(slop) || isSelf);
     const goals = await ctx.db
       .query("goals")
       .withIndex("by_user", (q) => q.eq("userId", owner._id))

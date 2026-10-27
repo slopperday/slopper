@@ -7,6 +7,7 @@ import { isPushEndpoint, parseSubscription } from "~/.server/push";
 import { notificationText } from "~/lib/notifications";
 import { generateVapidKeys } from "../scripts/server-keys.ts";
 import { convexApp } from "./convexApp";
+import { checkedLaunch } from "./launchFixtures";
 
 function setup() {
   const t = convexApp();
@@ -28,7 +29,7 @@ async function makeUser(server: Server, name: string): Promise<Id<"users">> {
 }
 
 async function ship(server: Server, userId: Id<"users">): Promise<Id<"slops">> {
-  const { slopId } = await server.mutation(api.slops.create, {
+  const { slopId } = await checkedLaunch(server, {
     userId,
     input: {
       name: "TiltMaze",

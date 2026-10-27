@@ -8,6 +8,7 @@ import { validateReview } from "~/.server/forms";
 import type { ContentCheck, Submission } from "~/.server/moderation";
 import { BLOCKED_REVIEW, postReview } from "~/.server/reviews";
 import { convexApp } from "./convexApp";
+import { checkedLaunch } from "./launchFixtures";
 
 const MEDIA_URL = "https://media.test/file/slopper-media";
 
@@ -45,7 +46,7 @@ async function makeUser({ server }: Setup, name: string): Promise<Id<"users">> {
 }
 
 async function ship({ server }: Setup, userId: Id<"users">): Promise<Id<"slops">> {
-  const { slopId } = await server.mutation(api.slops.create, {
+  const { slopId } = await checkedLaunch(server, {
     userId,
     input: {
       name: "TiltMaze",
@@ -243,7 +244,7 @@ describe("reviews", () => {
       check: OK,
     });
     // The reviewer's own launch lets go of nothing a review still shows.
-    const own = await w.server.mutation(api.slops.create, {
+    const own = await checkedLaunch(w.server, {
       userId: w.tester,
       input: {
         name: "Other",

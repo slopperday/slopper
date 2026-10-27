@@ -67,8 +67,8 @@ release. Add a tool name to select part of the graph. For example, run
   in a worktree under `.claude/`, it discovers no packages.
 - **Scheduled launches** wait in `scheduledLaunches` (`convex/schedule.ts`), never in `slops`, so no public query
   needs to hide them. At `releaseAt` Convex puts one out with `insertLaunch` (shared with `slops.create`) and calls
-  `POST /api/scheduled/:id`; the app server claims it once and runs `finishLaunch` (`app/.server/launch.ts`): the
-  content check, then the auto-post.
+  `POST /api/scheduled/:id`; the app server leases it and runs `finishScheduled` (`app/.server/launch.ts`): the
+  content check, then the auto-post. Failed checks retain the row for retry; expired leases recover crashed callers.
 - **Days are UTC days**, the same for everyone (`app/lib/dates.ts`): a launch's `launchDate` (its goal day and the
   streak) is the UTC date it went out, equal to `raceDate`, and `insertLaunch` sets it, never the caller. Count days
   with `utcDate`; a person's `timeZone` is only for showing clock times, reading wall times they type and the 9am
@@ -110,6 +110,9 @@ release. Add a tool name to select part of the graph. For example, run
   open flags. Makers can't mark their own slops NSFW; the check, flags and moderators do. Keep the policy prompt
   stable: it's the cached prefix of every call. The check goes through OpenRouter (`OPENROUTER_MODEL`, DeepSeek V4.1
   Flash by default), so switching models is config only.
+  New launches and content edits are hidden until a matching full check lands. `publishAfterCheck` remembers whether
+  that check may reveal them, preserving moderator hides. Upload verdicts never lift this hold. Public reads use
+  `isHidden`, which also holds legacy rows with no verdict. Rechecks include the original launch note from Convex.
 - **Security invariants** (from the 2026-10 audits; `tests/security.test.ts` and `e2e/security.spec.ts` pin them):
   - Every public Convex function calls an auth gate (`requireServer`, `viewer…`) — a bounded public read is the only
     exception and belongs in that test's `OPEN_FUNCTIONS` list, with a cap on what it returns.

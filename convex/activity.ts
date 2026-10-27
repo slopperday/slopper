@@ -1,3 +1,4 @@
+import { isHidden } from "./lib/shape";
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
@@ -137,7 +138,7 @@ export const addComment = mutation({
   handler: async (ctx, { userId, slopId, kind, body }) => {
     await requireServer(ctx);
     const slop = await ctx.db.get(slopId);
-    if (!slop || slop.hidden) throw new ConvexError("Slop not found.");
+    if (!slop || isHidden(slop)) throw new ConvexError("Slop not found.");
     await consume(ctx, `comment:${userId}`, 30, 3_600_000);
     await ctx.db.patch(slopId, { commentCount: slop.commentCount + 1 });
     const commentId = await ctx.db.insert("comments", { slopId, userId, kind, body });

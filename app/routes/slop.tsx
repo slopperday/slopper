@@ -405,12 +405,17 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
     <>
       {slop.hidden && (
         <p className="bg-hot px-4 py-2.5 text-center font-bold text-hot-ink">
-          {loaderData.heldForReview ? "Held for review" : "Hidden by a moderator"}. Only you
+          {loaderData.heldForCheck
+            ? "Waiting for a content check"
+            : loaderData.heldForReview
+              ? "Held for review"
+              : "Hidden by a moderator"}
+          . Only you
           {loaderData.permissions.includes("slops.viewHidden") ? " and mods" : ""} can see this.
         </p>
       )}
 
-      {search.get("new") === "1" && isOwner && (
+      {search.get("new") === "1" && isOwner && !slop.hidden && (
         <section className="bg-slop text-slop-ink">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-5">
             <p className="text-[1.125rem] font-bold">It's on the wall. Now tell people:</p>

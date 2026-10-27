@@ -7,7 +7,7 @@ import { releaseMedia } from "./lib/media";
 import { notify } from "./lib/notify";
 import { can } from "./lib/permissions";
 import { consume } from "./lib/rate";
-import { screenshotUrls } from "./lib/shape";
+import { isHidden, screenshotUrls } from "./lib/shape";
 import { logStaffAction } from "./lib/staffLog";
 import { reviewCheckValidator, reviewExperienceValidator } from "./schema";
 import { ownedMedia } from "./slops";
@@ -30,7 +30,7 @@ async function reviewOf(ctx: QueryCtx, slopId: Id<"slops">, userId: Id<"users">)
 async function reviewable(ctx: QueryCtx, rawId: string, userId: Id<"users">): Promise<Doc<"slops">> {
   const slopId = ctx.db.normalizeId("slops", rawId);
   const slop = slopId ? await ctx.db.get(slopId) : null;
-  if (!slop || slop.hidden) throw new ConvexError("Slop not found.");
+  if (!slop || isHidden(slop)) throw new ConvexError("Slop not found.");
   if (slop.userId === userId) throw new ConvexError("You can't review your own slop. Post an update instead.");
   return slop;
 }
@@ -121,7 +121,7 @@ export const listForServer = query({
     const slopId = ctx.db.normalizeId("slops", rawId);
     const slop = slopId ? await ctx.db.get(slopId) : null;
     const owner = slop ? await ctx.db.get(slop.userId) : null;
-    if (!slop || slop.hidden || !owner) return null;
+    if (!slop || isHidden(slop) || !owner) return null;
     const rows = await ctx.db
       .query("reviews")
       .withIndex("by_slop_user", (q) => q.eq("slopId", slop._id))

@@ -87,7 +87,8 @@ export async function releaseMedia(
     .query("scheduledLaunches")
     .withIndex("by_user_release", (q) => q.eq("userId", ownerId))
     .collect();
-  for (const launch of [...launches, ...queued]) {
+  // Released entries are retry records; their live slop owns the media now.
+  for (const launch of [...launches, ...queued.filter((entry) => !entry.released)]) {
     for (const id of launch.screenshots) shown.add(id);
     if (launch.publication) shown.add(launch.publication);
   }

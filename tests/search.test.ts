@@ -8,6 +8,7 @@ import { embeddingText, fuseRankings, normalizeQuery } from "~/lib/search";
 import { parseCursor, parseWallView, wallHref } from "~/lib/wall";
 import { fakeEmbedding } from "../e2e/fake-embeddings.ts";
 import { convexApp } from "./convexApp";
+import { applyCurrentCheck, checkedLaunch } from "./launchFixtures";
 
 function setup() {
   const t = convexApp();
@@ -63,7 +64,7 @@ function slopInput({
 }
 
 async function ship(server: Server, userId: Id<"users">, fields: SlopFields): Promise<Id<"slops">> {
-  const { slopId } = await server.mutation(api.slops.create, {
+  const { slopId } = await checkedLaunch(server, {
     userId,
     input: slopInput(fields),
     launchNote: "Day 1",
@@ -341,6 +342,8 @@ describe("search by meaning", () => {
     await embedAll(t);
     expect(requests).toHaveLength(3);
     expect(await names(server, "garden")).toEqual([]);
+    expect(await names(server, "song", ["music"])).toEqual([]);
+    await applyCurrentCheck(server, { slopId, scope: "slop", verdict: "ok", reason: "Fixture" });
     expect(await names(server, "song", ["music"])).toEqual(["Leafy"]);
     const embedding = await t.run(async (ctx) => {
       const slop = await ctx.db.get(slopId);

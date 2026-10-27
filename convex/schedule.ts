@@ -28,6 +28,7 @@ import { nextFreeRelease, releaseProblem } from "../app/lib/schedule";
  */
 
 const RETRIES = 3;
+const CLAIM_MS = 5 * 60_000;
 
 async function queueOf(ctx: QueryCtx, userId: Id<"users">): Promise<Doc<"scheduledLaunches">[]> {
   return await ctx.db
@@ -49,7 +50,7 @@ async function nextRelease(ctx: QueryCtx, user: Doc<"users">, now: number): Prom
     .collect();
   const queued = await queueOf(ctx, user._id);
   const taken = new Set([
-    ...slops.filter((slop) => !slop.hidden).map((slop) => slop.launchDate),
+    ...slops.filter((slop) => !slop.hidden || slop.publishAfterCheck === true).map((slop) => slop.launchDate),
     ...queued.map((entry) => utcDate(entry.releaseAt)),
   ]);
   return nextFreeRelease(taken, utcDate(now), now);
@@ -176,7 +177,7 @@ export const tellApp = internalAction({
   },
 });
 
-/** Releases still out but not finished: the row survives until it's claimed. */
+/** Releases still out but not finished: the row survives until checking succeeds. */
 export const unfinished = internalQuery({
   args: { olderThanMs: v.number(), limit: v.number() },
   handler: async (ctx, { olderThanMs, limit }) => {
@@ -215,8 +216,8 @@ export const tellUnfinished = internalAction({
 });
 
 /**
- * Hands a release that's out to the app server, once: the row goes, so the
- * check and auto-post run exactly once. Null when there's nothing to claim.
+ * Leases a released launch to one app caller. The row survives failed
+ * checks, and an expired lease lets the backstop recover a crashed caller.
  * With `userId`, only that person's release is claimed (their queue's
  * "finish" button).
  */
@@ -227,10 +228,17 @@ export const claim = mutation({
     const id = ctx.db.normalizeId("scheduledLaunches", rawId);
     const entry = id ? await ctx.db.get(id) : null;
     if (!entry?.released || (userId && entry.userId !== userId)) return null;
-    await ctx.db.delete(entry._id);
+    if ((entry.claimedUntil ?? 0) > Date.now()) return null;
     // Its owner deleted the slop before it was finished: nothing to check or post.
-    if (!(await ctx.db.get(entry.released.slopId))) return null;
+    if (!(await ctx.db.get(entry.released.slopId))) {
+      await ctx.db.delete(entry._id);
+      return null;
+    }
+    const claimedUntil = Date.now() + CLAIM_MS;
+    const claimVersion = (entry.claimVersion ?? 0) + 1;
+    await ctx.db.patch(entry._id, { claimedUntil, claimVersion });
     return {
+      claimVersion,
       userId: entry.userId,
       slopId: entry.released.slopId,
       updateId: entry.released.updateId,
@@ -242,6 +250,20 @@ export const claim = mutation({
   },
 });
 
+/** Acknowledges the active lease only; an unsuccessful check stays queued for retry. */
+export const complete = mutation({
+  args: { id: v.string(), claimVersion: v.number(), checked: v.boolean() },
+  handler: async (ctx, { id: rawId, claimVersion, checked }) => {
+    await requireServer(ctx);
+    const id = ctx.db.normalizeId("scheduledLaunches", rawId);
+    const entry = id ? await ctx.db.get(id) : null;
+    if (!entry || entry.claimVersion !== claimVersion) return;
+    const slop = entry.released ? await ctx.db.get(entry.released.slopId) : null;
+    if (!slop || (checked && slop.check && slop.publishAfterCheck === undefined)) await ctx.db.delete(entry._id);
+    else await ctx.db.patch(entry._id, { claimedUntil: undefined });
+  },
+});
+
 /** Puts a queued launch out now, for the app server to check and auto-post inline. */
 export const releaseNow = mutation({
   args: { userId: v.id("users"), id: v.string() },
@@ -250,9 +272,14 @@ export const releaseNow = mutation({
     const entry = await ownEntry(ctx, userId, id);
     if (entry.released) throw new ConvexError("That one is already out.");
     const created = await putOut(ctx, entry);
-    await ctx.db.delete(entry._id);
+    const claimedUntil = Date.now() + CLAIM_MS;
+    await ctx.db.patch(entry._id, {
+      released: { slopId: created.slopId, updateId: created.updateId },
+      claimedUntil,
+      claimVersion: 1,
+    });
     const { launchNote, autopost, name, launchLabel } = entry;
-    return { ...created, launchNote, autopost, name, launchLabel };
+    return { ...created, claimVersion: 1, launchNote, autopost, name, launchLabel };
   },
 });
 

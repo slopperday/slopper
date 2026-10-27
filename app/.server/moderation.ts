@@ -280,9 +280,10 @@ function videoStill(slop: Doc<"slops">): string[] {
 }
 
 /** Checks a slop's text and screenshots and records the verdict. Null if the check couldn't run. */
-export async function checkSlop(slopId: Id<"slops">, launchNote = ""): Promise<ContentCheck | null> {
-  const slop = await convex.query(api.slops.getForServer, { slopId });
-  if (!slop) return null;
+export async function checkSlop(slopId: Id<"slops">): Promise<ContentCheck | null> {
+  const current = await convex.query(api.moderation.forCheck, { slopId });
+  if (!current) return null;
+  const { slop, launchNote } = current;
   const urls = await Promise.all(
     slop.screenshots.slice(0, MAX_IMAGES).map((mediaId) => convex.query(api.media.url, { mediaId })),
   );
@@ -302,12 +303,13 @@ export async function checkSlop(slopId: Id<"slops">, launchNote = ""): Promise<C
   if (result) {
     // The verdict is tied to the content it was made from: if the slop was
     // edited while the model was reading it, this lands on nothing.
-    await convex.mutation(api.moderation.applyCheck, {
+    const { applied } = await convex.mutation(api.moderation.applyCheck, {
       slopId,
       scope: "slop",
       ...result,
       contentHash: checkedContentHash(slop),
     });
+    if (!applied) return null;
   }
   return result;
 }
