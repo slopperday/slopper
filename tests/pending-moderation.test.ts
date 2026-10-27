@@ -346,10 +346,11 @@ describe("only checked launches become public", () => {
     const launch = await server.mutation(api.schedule.releaseNow, { userId, id });
     provider("ok");
     // A transport failure in the announcement phase must not replay that phase later.
-    vi.spyOn(convex, "query").mockImplementation(async (query, ...args) => {
+    const failAnnouncement: ConvexCaller["query"] = async (query, ...args) => {
       if (getFunctionName(query) === "accounts:list") throw new Error("Announcement transport failed");
       return server.query<FunctionReference<"query">>(query, ...args);
-    });
+    };
+    vi.spyOn(convex, "query").mockImplementation(failAnnouncement);
     await expect(finishScheduled({ _id: userId, username: "maker" }, id, launch)).rejects.toThrow(
       "Announcement transport failed",
     );
