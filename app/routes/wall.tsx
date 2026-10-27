@@ -8,6 +8,7 @@ import { categoryFilter, findCategory } from "~/lib/model";
 import { listWords } from "~/lib/display";
 import { seo } from "~/lib/seo";
 import { parseCursor, parseWallView, wallHref, type WallSort, type WallView } from "~/lib/wall";
+import { SEARCHES_PER_HOUR, SEARCH_RATE_LIMIT_MESSAGE } from "~/lib/search";
 import { SlopList } from "~/components/SlopList";
 import { EmptyState } from "~/components/Shared";
 import { Icon } from "~/components/Icon";
@@ -21,17 +22,12 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const { categories } = view;
 
   if (view.query) {
-    // Searching by meaning costs an embedding model call. Signed-in people
-    // get the API's own limit; a visitor's address gets the anonymous API's,
-    // so crawlers can't mint paid calls at request speed.
-    const limited = viewer
-      ? null
-      : (await allowAction(`wall-search:${callerAddress(request)}`, 120, 3_600_000))
-        ? null
-        : { error: "Too many searches. Try again in a while." };
-    if (limited)
-      throw new Response(JSON.stringify(limited), { status: 429, headers: { "content-type": "application/json" } });
+    // An address budget applies even when signed in, so switching accounts can't bypass it.
+    if (!(await allowAction(`wall-search:${callerAddress(request)}`, SEARCHES_PER_HOUR, 3_600_000))) {
+      throw Response.json({ error: SEARCH_RATE_LIMIT_MESSAGE }, { status: 429 });
+    }
     const items = await convex.action(api.search.find, { query: view.query, categories, asUser });
+    if (items === null) throw Response.json({ error: SEARCH_RATE_LIMIT_MESSAGE }, { status: 429 });
     return { view, items, cursor: null };
   }
   if (view.sort === "hot") {

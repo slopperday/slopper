@@ -9,6 +9,11 @@ import { findCategory } from "./model";
 /** The most results one search returns. */
 export const SEARCH_LIMIT = 48;
 
+/** Account searches per clock hour, shared by the wall, REST and MCP. Also the wall's address ceiling. */
+export const SEARCHES_PER_HOUR = 120;
+
+export const SEARCH_RATE_LIMIT_MESSAGE = "Too many searches. Try again in a while.";
+
 /** The longest search read, in characters. */
 export const SEARCH_QUERY_LENGTH = 100;
 

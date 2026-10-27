@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   action,
@@ -14,7 +14,14 @@ import { readerFor, requireServer } from "./lib/auth";
 import { embeddingSettings, embedTexts } from "./lib/embeddings";
 import { type CardItem, isVisibleTo, toCards } from "./lib/shape";
 import { categoryFilter } from "../app/lib/model";
-import { embeddingText, fuseRankings, normalizeQuery, type Ranking, SEARCH_LIMIT } from "../app/lib/search";
+import {
+  embeddingText,
+  fuseRankings,
+  normalizeQuery,
+  type Ranking,
+  SEARCH_LIMIT,
+  SEARCHES_PER_HOUR,
+} from "../app/lib/search";
 
 /**
  * Search over slops, by words and by meaning. Full-text search ranks
@@ -92,7 +99,7 @@ async function nearest(
 /**
  * Slops matching `query` in any of `categories` (all when empty), best
  * first, as cards for `asUser`. The app server calls this for the wall and
- * for agents.
+ * for agents. Null means the account's hourly search budget is spent.
  */
 export const find = action({
   args: {
@@ -101,10 +108,23 @@ export const find = action({
     limit: v.optional(v.number()),
     asUser: v.optional(v.id("users")),
   },
-  handler: async (ctx, args): Promise<CardItem[]> => {
+  handler: async (ctx, args): Promise<CardItem[] | null> => {
     await requireServer(ctx);
     const query = normalizeQuery(args.query);
     if (!query) return [];
+
+    // Reserve before any search work, including paid embedding attempts that fail.
+    // Every signed-in surface shares this account budget; addresses are limited at HTTP entry points.
+    if (
+      args.asUser &&
+      !(await ctx.runMutation(api.limits.hit, {
+        key: `search:${args.asUser}`,
+        limit: SEARCHES_PER_HOUR,
+        windowMs: 3_600_000,
+      }))
+    )
+      return null;
+
     const categories = categoryFilter(args.categories ?? []);
     const limit = Math.min(Math.max(1, Math.floor(args.limit ?? SEARCH_LIMIT)), SEARCH_LIMIT);
     const meaning = await nearest(ctx, query, categories, limit);

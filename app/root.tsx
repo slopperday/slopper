@@ -187,6 +187,7 @@ const ERROR_COPY: Record<number, { title: string; body: string }> = {
   401: { title: "Sign in first", body: "You need an account for that." },
   403: { title: "Not yours", body: "That isn't yours to touch." },
   404: { title: "Slid off the wall", body: "Nothing here. It never existed, or its owner scraped it off." },
+  429: { title: "Slow down a little", body: "Too many requests. Try again in a while." },
 };
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
