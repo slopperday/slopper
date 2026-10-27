@@ -69,6 +69,7 @@ release. Add a tool name to select part of the graph. For example, run
   needs to hide them. At `releaseAt` Convex puts one out with `insertLaunch` (shared with `slops.create`) and calls
   `POST /api/scheduled/:id`; the app server leases it and runs `finishScheduled` (`app/.server/launch.ts`): the
   content check, then the auto-post. Failed checks retain the row for retry; expired leases recover crashed callers.
+  Consume a successful completion before announcing, so a crash after posting cannot make a scheduled retry post again.
 - **Days are UTC days**, the same for everyone (`app/lib/dates.ts`): a launch's `launchDate` (its goal day and the
   streak) is the UTC date it went out, equal to `raceDate`, and `insertLaunch` sets it, never the caller. Count days
   with `utcDate`; a person's `timeZone` is only for showing clock times, reading wall times they type and the 9am

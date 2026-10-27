@@ -257,10 +257,12 @@ export const complete = mutation({
     await requireServer(ctx);
     const id = ctx.db.normalizeId("scheduledLaunches", rawId);
     const entry = id ? await ctx.db.get(id) : null;
-    if (!entry || entry.claimVersion !== claimVersion) return;
+    if (!entry || entry.claimVersion !== claimVersion) return false;
     const slop = entry.released ? await ctx.db.get(entry.released.slopId) : null;
-    if (!slop || (checked && slop.check && slop.publishAfterCheck === undefined)) await ctx.db.delete(entry._id);
+    const completed = checked && slop !== null && slop.check !== undefined && slop.publishAfterCheck === undefined;
+    if (!slop || completed) await ctx.db.delete(entry._id);
     else await ctx.db.patch(entry._id, { claimedUntil: undefined });
+    return completed;
   },
 });
 

@@ -51,7 +51,7 @@ export interface ReleasedLaunch {
   finished: FinishedLaunch;
 }
 
-/** Finishes a leased release, retaining failed checks for Convex's backstop. */
+/** Retains failed checks for retry, then consumes the lease before the at-most-once announcement. */
 export async function finishScheduled(
   owner: Pick<Doc<"users">, "_id" | "username">,
   id: string,
@@ -62,13 +62,16 @@ export async function finishScheduled(
     autopost: boolean;
   },
 ): Promise<FinishedLaunch> {
-  const finished = await finishLaunch(owner, claimed, claimed.autopost);
-  await convex.mutation(api.schedule.complete, {
+  const check = await checkSlop(claimed.slopId);
+  const completed = await convex.mutation(api.schedule.complete, {
     id,
     claimVersion: claimed.claimVersion,
-    checked: finished.check !== null,
+    checked: check !== null,
   });
-  return finished;
+  if (!check || !completed) return { check: null, autopost: null };
+  const posted =
+    claimed.autopost && check.verdict !== "blocked" ? await announce(owner, claimed.slopId, claimed.updateId) : null;
+  return { check, autopost: posted };
 }
 
 /**

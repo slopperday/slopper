@@ -1,5 +1,5 @@
 // @vitest-environment edge-runtime
-import type { FunctionReference } from "convex/server";
+import { type FunctionReference, getFunctionName } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -310,6 +310,52 @@ describe("only checked launches become public", () => {
     await expectPrivate(launch._id);
     await t.finishAllScheduledFunctions(vi.runAllTimers);
     expect(await t.run((ctx) => ctx.db.get(id))).not.toBeNull();
+  });
+
+  it("never announces through a replaced completion lease", async () => {
+    vi.useFakeTimers();
+    const { server, userId } = await setup();
+    const { id } = await server.mutation(api.schedule.add, {
+      userId,
+      input,
+      launchNote: "",
+      when: { kind: "next" },
+      autopost: true,
+    });
+    const first = await server.mutation(api.schedule.releaseNow, { userId, id });
+    vi.advanceTimersByTime(5 * 60_000 + 1);
+    const next = await server.mutation(api.schedule.claim, { id });
+    if (!next) throw new Error("Expired lease did not recover");
+    provider("ok");
+    const owner = { _id: userId, username: "maker" };
+    expect(await finishScheduled(owner, id, first)).toEqual({ check: null, autopost: null });
+    expect(await server.mutation(api.schedule.claim, { id })).toBeNull();
+    expect((await finishScheduled(owner, id, next)).autopost?.status).toBe("posted");
+    expect(await server.query(api.schedule.mine, { asUser: userId })).toEqual([]);
+  });
+
+  it("does not retry an announcement when its terminal completion was consumed", async () => {
+    const { t, server, userId } = await setup();
+    const { id } = await server.mutation(api.schedule.add, {
+      userId,
+      input,
+      launchNote: "",
+      when: { kind: "next" },
+      autopost: true,
+    });
+    const launch = await server.mutation(api.schedule.releaseNow, { userId, id });
+    provider("ok");
+    // A transport failure in the announcement phase must not replay that phase later.
+    vi.spyOn(convex, "query").mockImplementation(async (query, ...args) => {
+      if (getFunctionName(query) === "accounts:list") throw new Error("Announcement transport failed");
+      return server.query<FunctionReference<"query">>(query, ...args);
+    });
+    await expect(finishScheduled({ _id: userId, username: "maker" }, id, launch)).rejects.toThrow(
+      "Announcement transport failed",
+    );
+    expect(await server.mutation(api.schedule.claim, { id })).toBeNull();
+    expect(await server.query(api.schedule.mine, { asUser: userId })).toEqual([]);
+    expect(await t.query(api.slops.publicById, { id: launch.slopId })).not.toBeNull();
   });
 
   it("releases a deleted launch's media while its failed completion is still queued", async () => {
