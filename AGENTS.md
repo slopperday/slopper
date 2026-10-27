@@ -35,8 +35,11 @@ release. Add a tool name to select part of the graph. For example, run
   only on data the test created: the database is shared by parallel workers.
   Each checkout gets its own block of e2e ports from its path (`e2e/ports.ts`), so worktrees can run CI at the same
   time; `E2E_PORT_BASE` moves one by hand.
-- **CI is local only.** The pre-push hook runs `vp run ci`; never add remote CI without asking (cost). The one
-  workflow, `.github/workflows/release.yml`, only publishes merged release pull requests and skips every other push.
+- **CI defaults to local.** The pre-push hook runs `vp run ci`; hosted checks cost money and require explicit
+  authorization. For the authorized security repairs, label the PR `security-ci` to run the same gates through
+  `.github/workflows/ci.yml` (also available manually). A command-scoped pre-push bypass is authorized for those
+  repairs; green current-head hosted checks and review remain required before merge. The separate
+  `.github/workflows/release.yml` only publishes merged release pull requests and skips every other push.
 - **Hosting:** Netlify runs the build (`netlify.toml`): static files from `build/client`, the server as one Netlify
   Function. Releases deploy from the release workflow (`node scripts/release.ts deploy --if-released`), Convex first;
   never connect Netlify to Git. A deploy by hand (`node scripts/release.ts deploy`) must run from the main checkout or

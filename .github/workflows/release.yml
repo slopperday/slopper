@@ -6,8 +6,9 @@
 # deploys Convex and Netlify when the site is in it, and publishes the released
 # npm packages with npm trusted publishing (OIDC, no npm token).
 #
-# CI itself stays local (the pre-push hook): every other push to main skips the
-# job, so it uses no minutes. Run it by hand on chore/release with "dry run" to
+# Every other push to main skips this publishing job. CI defaults to the local
+# pre-push hook; authorized security repairs opt into ci.yml. Run this workflow
+# by hand on chore/release with "dry run" to
 # rehearse a release before merging. To retry a publish, run it on main without
 # "dry run", naming the release commit when it's no longer the newest one.
 name: release

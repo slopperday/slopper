@@ -85,9 +85,13 @@ vp run e2e             # build, then the Playwright journeys
 vp run ci              # everything CI does: typegen, check, test, build, e2e
 ```
 
-CI runs locally, not on GitHub. `vp install` sets up git hooks: pre-commit runs `vp staged` (format and lint the staged
-files) and pre-push runs `vp run ci`, so nothing broken gets pushed. If hooks aren't active in a fresh clone, run
-`vp hooks enable`.
+CI defaults to local. `vp install` sets up git hooks: pre-commit runs `vp staged` (format and lint the staged files)
+and pre-push runs `vp run ci`. If hooks aren't active in a fresh clone, run `vp hooks enable`.
+
+The authorized security repairs can use hosted checks instead: the `security-ci` PR label opts into
+[the security CI workflow](.github/workflows/ci.yml), which runs the same full gate on a fresh runner with every
+supported CLI runtime and package runner installed. It can also run manually. Ordinary PRs skip the hosted job.
+The local pre-push rerun is waived for those repairs; every hosted gate and review must pass before merging.
 
 The Playwright journeys (`e2e/`) run against the production build (the Netlify Function under Node), with a throwaway Convex backend, a
 fake content check and a fake B2 bucket that checks every request's signature, all started by `e2e/stack.ts`. They
@@ -250,7 +254,7 @@ vp exec monochange run release             # on a clean, up-to-date main: open t
 A release is a pull request. `run release` commits the version bumps and both changelogs on `chore/release`, pushes it
 (the pre-push hook runs CI, and a failure pushes nothing) and opens the pull request, or updates the open one.
 
-Merging it runs [`.github/workflows/release.yml`](.github/workflows/release.yml), the repository's only workflow:
+Merging it runs [`.github/workflows/release.yml`](.github/workflows/release.yml), the release workflow:
 it tags the release (`v1.2.3` for the site, `cli/v1.2.3` for the npm packages), deploys Convex and then Netlify when the
 site is in the release, waits until slopper.day answers with the new `x-slopper-version` header, and publishes the
 released npm packages with [npm trusted publishing](https://docs.npmjs.com/trusted-publishers), so there's no npm
