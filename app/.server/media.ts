@@ -230,25 +230,30 @@ export async function uploadPublication(
   { bytes, fileName: rawName }: PublicationUpload,
   services: UploadServices = uploadServices(),
 ): Promise<PublicationUploadResult> {
-  if (bytes.byteLength === 0) return { ok: false, error: "Empty file." };
-  if (bytes.byteLength > LIMITS.publicationBytes) {
-    return { ok: false, error: `Publications must be ${LIMITS.publicationBytes / 1024 / 1024} MB or smaller.` };
-  }
-  const format = sniffPublication(bytes);
-  if (!format) return { ok: false, error: "Use a PDF or an EPUB." };
-  const fileName = publicationFileName(rawName, format);
-  const contentType = PUBLICATION_TYPES[format];
-  // Our own safety scan comes first: nothing that runs, attaches files or hides from it is checked or kept.
-  const refused = safetyScan(format, bytes);
-  if (refused) {
-    console.warn(
-      `Refused a publication from ${ownerId} (${refused.reason}: ${refused.found.join(", ") || "structure"})`,
-    );
-    return { ok: false, error: refused.message };
-  }
-
   try {
+    // Rejected files spend the budget too; decompression must never run after it's exhausted.
     await services.convex.mutation(api.media.beginUpload, { userId: ownerId, backend: services.store.backend });
+
+    if (bytes.byteLength === 0) return { ok: false, error: "Empty file." };
+
+    if (bytes.byteLength > LIMITS.publicationBytes) {
+      return { ok: false, error: `Publications must be ${LIMITS.publicationBytes / 1024 / 1024} MB or smaller.` };
+    }
+
+    const format = sniffPublication(bytes);
+    if (!format) return { ok: false, error: "Use a PDF or an EPUB." };
+    const fileName = publicationFileName(rawName, format);
+    const contentType = PUBLICATION_TYPES[format];
+    // Our own safety scan comes first: nothing that runs, attaches files or hides from it is checked or kept.
+    const refused = safetyScan(format, bytes);
+
+    if (refused) {
+      console.warn(
+        `Refused a publication from ${ownerId} (${refused.reason}: ${refused.found.join(", ") || "structure"})`,
+      );
+      return { ok: false, error: refused.message };
+    }
+
     const result = await tryCheck(
       publicationSubmission({ bytes, fileName, contentType }),
       services.contentCheck,
