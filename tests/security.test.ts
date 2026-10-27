@@ -111,6 +111,7 @@ describe("routes an anonymous visitor can reach have a ceiling", () => {
       ["app/routes/api.cli-login.ts", "cli-login:"],
       ["app/routes/api.cli-token.ts", "cli-token:"],
       ["app/routes/api.scheduled.ts", "scheduled:"],
+      ["app/routes/api.traction.ts", "traction:"],
       ["app/routes/unsubscribe.tsx", "unsubscribe:"],
       ["app/routes/auth.start.ts", "oauth-start:"],
       ["app/routes/wall.tsx", "wall-search:"],
