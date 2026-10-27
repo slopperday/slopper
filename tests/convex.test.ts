@@ -522,8 +522,42 @@ describe("money", () => {
 });
 
 describe("feedback and kudos", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it.each([undefined, "", "false", "TRUE", "1"])(
+    "keeps historical comments out of direct queries when COMMENTS_ENABLED is %s",
+    async (enabled) => {
+      vi.stubEnv("COMMENTS_ENABLED", enabled);
+      const { t, server } = setup();
+      const owner = await makeUser(server, "owner");
+      const fan = await makeUser(server, "fan");
+      const { slopId } = await ship(server, owner);
+      await server.mutation(api.activity.addComment, {
+        userId: fan,
+        slopId,
+        kind: "feedback",
+        body: "Historical feedback",
+      });
+
+      expect((await server.query(api.slops.getForServer, { slopId }))?.commentCount).toBe(1);
+
+      for (const client of [t, t.withIdentity({ subject: fan }), server]) {
+        const page = await client.query(api.slops.page, {
+          username: "owner",
+          slug: "tiltmaze",
+          withComments: true,
+        });
+        expect(page).not.toBeNull();
+        expect(page?.comments).toEqual([]);
+      }
+    },
+  );
+
   // Comments are off in V1 (COMMENTS_ENABLED); the logic stays ready for when they're back.
   it("counts feedback, tells the maker and only sends it when the page asks", async () => {
+    vi.stubEnv("COMMENTS_ENABLED", "true");
     const { t, server } = setup();
     const owner = await makeUser(server, "owner");
     const fan = await makeUser(server, "fan");
@@ -550,6 +584,10 @@ describe("feedback and kudos", () => {
     expect(comments.map((comment) => comment.kind)).toEqual(["feedback", "kudos", "feedback"]);
     expect(comments[0].html).toContain("<strong>tilt</strong>");
     expect(comments.map((comment) => comment.canDelete)).toEqual([true, true, false]);
+
+    const publicPage = await t.query(api.slops.page, { username: "owner", slug: "tiltmaze", withComments: true });
+    expect(publicPage?.comments.map((comment) => comment.html)).toEqual(comments.map((comment) => comment.html));
+    expect(publicPage?.comments.map((comment) => comment.canDelete)).toEqual([false, false, false]);
   });
 
   it("lets the author, the maker and admins delete it, and nobody else", async () => {
