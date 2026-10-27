@@ -1,5 +1,6 @@
 // @vitest-environment edge-runtime
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import type { FunctionReference } from "convex/server";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import type { ConvexCaller } from "~/.server/convex";
@@ -22,6 +23,14 @@ afterEach(() => {
 });
 
 type Setup = ReturnType<typeof setup>;
+
+/** The app server's line to Convex, answered by convex-test. */
+function caller({ server }: Setup): ConvexCaller {
+  return {
+    query: async (query, ...args) => await server.query<FunctionReference<"query">>(query, ...args),
+    mutation: async (mutation, ...args) => await server.mutation<FunctionReference<"mutation">>(mutation, ...args),
+  };
+}
 
 async function makeUser({ server }: Setup, name: string): Promise<Id<"users">> {
   const { userId } = await server.mutation(api.users.upsertFromIdentity, {
@@ -84,6 +93,18 @@ async function world() {
 }
 
 describe("reviews", () => {
+  it("only lets the app server begin a moderation attempt", async () => {
+    const w = await world();
+    const args = { userId: w.tester, slopId: w.slopId };
+
+    await expect(w.t.mutation(api.reviews.begin, args)).rejects.toThrow();
+    await expect(w.t.withIdentity({ subject: w.tester }).mutation(api.reviews.begin, args)).rejects.toThrow();
+    await expect(w.server.mutation(api.reviews.begin, { ...args, slopId: "nope" })).rejects.toThrow("Slop not found");
+    expect(await w.t.run(async (ctx) => await ctx.db.query("rateLimits").collect())).not.toContainEqual(
+      expect.objectContaining({ key: `review:${w.tester}` }),
+    );
+  });
+
   it("go up at once with the reviewer's own screenshots, and tell the maker", async () => {
     const w = await world();
     const mine = await image(w, w.tester, "reviews/mine.png");
@@ -263,6 +284,98 @@ describe("reviews", () => {
 });
 
 describe("postReview", () => {
+  it("charges blocked attempts before moderation, including concurrent submissions", async () => {
+    const w = await world();
+    const check = vi.fn(async (): Promise<ContentCheck> => ({ verdict: "blocked", reason: "Abuse." }));
+    const services = { convex: caller(w), check };
+    const slop = { id: w.slopId, name: "TiltMaze" };
+    const review = { experience: "broken", body: "It crashed.", images: [] } as const;
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    for (let attempt = 0; attempt < 19; attempt++) {
+      expect(await postReview(w.tester, slop, { ...review, images: [] }, services)).toEqual({
+        ok: false,
+        error: BLOCKED_REVIEW,
+      });
+    }
+
+    const remaining = await Promise.allSettled(
+      Array.from({ length: 5 }, () => postReview(w.tester, slop, { ...review, images: [] }, services)),
+    );
+    expect(remaining.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(remaining.filter((result) => result.status === "rejected")).toHaveLength(4);
+
+    for (const result of remaining) {
+      if (result.status === "rejected")
+        expect(result.reason).toHaveProperty("data", "Slow down a little. Try again later.");
+    }
+
+    expect(check).toHaveBeenCalledTimes(20);
+    expect(await w.t.run(async (ctx) => await ctx.db.query("reviews").collect())).toEqual([]);
+  });
+
+  it("rejects an over-quota saved review before looking up screenshots or calling the model", async () => {
+    const w = await world();
+    const check = vi.fn(async () => OK);
+    const convex = caller(w);
+    const query = vi.spyOn(convex, "query");
+    const services = { convex, check };
+    const slop = { id: w.slopId, name: "TiltMaze" };
+    const review = { experience: "works", body: "Works well.", images: [] } as const;
+
+    for (let attempt = 0; attempt < 20; attempt++) {
+      expect(await postReview(w.tester, slop, { ...review, images: [] }, services)).toMatchObject({ ok: true });
+    }
+
+    const shot = await image(w, w.tester, "reviews/quota.png");
+    await expect(postReview(w.tester, slop, { ...review, images: [shot] }, services)).rejects.toThrow("Slow down");
+    expect(check).toHaveBeenCalledTimes(20);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("keeps the attempt charged when a media lookup or content check fails", async () => {
+    const w = await world();
+    const slop = { id: w.slopId, name: "TiltMaze" };
+    const review = { experience: "works", body: "Works well.", images: [] } as const;
+    const check = vi.fn(async (): Promise<ContentCheck | null> => null);
+    const convex = caller(w);
+    vi.spyOn(convex, "query").mockRejectedValue(new Error("Media unavailable"));
+    const services = { convex, check };
+
+    await expect(postReview(w.tester, slop, { ...review, images: ["unavailable"] }, services)).rejects.toThrow(
+      "Media unavailable",
+    );
+    expect(check).not.toHaveBeenCalled();
+
+    check.mockRejectedValueOnce(new Error("Check failed"));
+    await expect(postReview(w.tester, slop, { ...review, images: [] }, services)).rejects.toThrow("Check failed");
+    await expect(postReview(w.tester, slop, { ...review, body: "", images: [] }, services)).rejects.toThrow(
+      "A review is 1 to",
+    );
+
+    for (let attempt = 0; attempt < 17; attempt++) {
+      await postReview(w.tester, slop, { ...review, images: [] }, services);
+    }
+
+    await expect(postReview(w.tester, slop, { ...review, images: [] }, services)).rejects.toThrow("Slow down");
+    expect(check).toHaveBeenCalledTimes(19);
+  });
+
+  it("validates the target before moderation", async () => {
+    const w = await world();
+    const check = vi.fn(async () => OK);
+    const services = { convex: caller(w), check };
+    const review = { experience: "works", body: "Works well.", images: [] } as const;
+    const slop = { id: w.slopId, name: "TiltMaze" };
+
+    await expect(postReview(w.maker, slop, { ...review, images: [] }, services)).rejects.toThrow("your own slop");
+    await w.t.run(async (ctx) => await ctx.db.patch(w.slopId, { hidden: true }));
+    await expect(postReview(w.tester, slop, { ...review, images: [] }, services)).rejects.toThrow("Slop not found");
+    await w.t.run(async (ctx) => await ctx.db.delete(w.slopId));
+    await expect(postReview(w.tester, slop, { ...review, images: [] }, services)).rejects.toThrow("Slop not found");
+    expect(check).not.toHaveBeenCalled();
+  });
+
   function services(verdict: ContentCheck | null) {
     const mutation = vi.fn(async () => ({ reviewId: "r1", created: true, orphaned: 0 }));
     const query = vi.fn(async () => "https://media.test/shot.png");
@@ -303,7 +416,7 @@ describe("postReview", () => {
       ok: false,
       error: BLOCKED_REVIEW,
     });
-    expect(fake.mutation).not.toHaveBeenCalled();
+    expect(fake.mutation).toHaveBeenCalledExactlyOnceWith(api.reviews.begin, { userId: "u1", slopId: "s1" });
   });
 
   it("saves mature reviews as mature, and unchecked ones when the check can't run", async () => {

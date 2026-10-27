@@ -35,11 +35,22 @@ async function reviewable(ctx: QueryCtx, rawId: string, userId: Id<"users">): Pr
   return slop;
 }
 
+/** Charge every moderation attempt, including blocked reviews and failed checks. */
+export const begin = mutation({
+  args: { userId: v.id("users"), slopId: v.string() },
+  handler: async (ctx, { userId, slopId }) => {
+    await requireServer(ctx);
+    await reviewable(ctx, slopId, userId);
+    await consume(ctx, `review:${userId}`, 20, 86_400_000);
+  },
+});
+
 /**
  * Writes the reviewer's review of a slop, or replaces the one they wrote
  * before. Images are kept only if the reviewer uploaded them; a mature image
  * makes the whole review mature. Returns how many dropped images wait for
- * `deleteOrphanedMedia`.
+ * `deleteOrphanedMedia`. Only the app server can save: `postReview` charges
+ * the attempt through `begin` before checking it, so saving doesn't charge twice.
  */
 export const save = mutation({
   args: {
@@ -57,7 +68,6 @@ export const save = mutation({
       throw new ConvexError(`A review is 1 to ${LIMITS.reviewLength} characters.`);
     }
     const slop = await reviewable(ctx, rawId, userId);
-    await consume(ctx, `review:${userId}`, 20, 86_400_000);
     const existing = await reviewOf(ctx, slop._id, userId);
     const kept = await ownedMedia(ctx, userId, images, existing?.images ?? [], LIMITS.reviewImages);
     let verdict = check.verdict;
