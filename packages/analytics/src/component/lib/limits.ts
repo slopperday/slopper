@@ -10,6 +10,11 @@ import type { MutationCtx } from "../_generated/server";
  */
 
 export const INGEST_LIMITS = {
+  /** Attempts across both endpoints, including malformed, empty and refused uploads. */
+  requestsPerMinute: 10_000,
+  requestsPerDay: 1_000_000,
+  /** Shared by browsers at one address; comfortably above the SDK's normal send rate. */
+  requestsPerAddressPerMinute: 600,
   /**
    * Events the whole deployment takes per minute, and per UTC day. An honest
    * busy minute is a few thousand; a flood hits the ceiling and keeps the

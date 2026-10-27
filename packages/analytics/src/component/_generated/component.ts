@@ -321,6 +321,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       >;
     };
     ingest: {
+      admit: FunctionReference<
+        "mutation",
+        "internal",
+        { kind: "events" | "replay" },
+        boolean,
+        Name
+      >;
       batch: FunctionReference<
         "mutation",
         "internal",
