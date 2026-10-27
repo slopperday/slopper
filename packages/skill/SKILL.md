@@ -42,6 +42,8 @@ SLOPPER_TOKEN=slp_... slopper whoami   # saves nothing: use this when you should
 ```
 
 `--url` (or `SLOPPER_URL`) points it at another site, like a local one.
+Saved tokens stay with their saved origin (scheme, host and port); for another site, log in there or supply its token
+explicitly. Use HTTPS except for loopback HTTP addresses during local development.
 
 Every command prints JSON on stdout. Errors go to stderr with exit code 1 (2 for a usage mistake), and validation
 errors list each field that needs fixing. `slopper help <command>` shows every flag. A value that starts with a dash,

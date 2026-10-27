@@ -22,7 +22,7 @@ const GLOBAL_OPTIONS = {
 } satisfies ParseArgsOptionsConfig;
 
 const GLOBAL_FLAGS = {
-  "--token <token>": "API token. Defaults to SLOPPER_TOKEN, then the one `slopper login` saved.",
+  "--token <token>": "API token. Defaults to SLOPPER_TOKEN, then the token saved for this origin.",
   "--url <url>": `Site to talk to. Defaults to SLOPPER_URL, then the saved one, then ${DEFAULT_URL}.`,
   "-h, --help": "Help for a command.",
 };
@@ -96,7 +96,11 @@ async function siteContext(local: LocalContext): Promise<Context> {
   const url = resolveUrl(flag("url") ?? envValue(io.env, "SLOPPER_URL") ?? saved.url ?? DEFAULT_URL);
   const userAgent = `slopper-cli/${manifest.version}`;
   const connect = (token: string | undefined) => createApi({ url, token, fetch: io.fetch, userAgent });
-  const token = flag("token") ?? envValue(io.env, "SLOPPER_TOKEN") ?? saved.token;
+  // A destination override must never carry credentials saved for a different origin.
+  const token =
+    flag("token") ??
+    envValue(io.env, "SLOPPER_TOKEN") ??
+    (saved.url !== undefined && resolveUrl(saved.url) === url ? saved.token : undefined);
   return { ...local, url, userAgent, api: connect(token), connect };
 }
 

@@ -104,6 +104,14 @@ export function resolveUrl(value: string): string {
     throw usageError(`${value} isn't a URL. Pass the site's address, like ${DEFAULT_URL}.`);
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") throw usageError(`${value} isn't an http(s) URL.`);
+
+  const loopback =
+    url.hostname === "localhost" || url.hostname === "[::1]" || /^127\.\d+\.\d+\.\d+$/.test(url.hostname);
+
+  if (url.protocol === "http:" && !loopback) {
+    throw usageError("Use HTTPS for the site's address. HTTP is allowed only on loopback for local development.");
+  }
+
   return url.origin;
 }
 

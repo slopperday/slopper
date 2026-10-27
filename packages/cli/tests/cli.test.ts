@@ -640,12 +640,94 @@ describe("which token and site", () => {
   const used = (cli: Awaited<ReturnType<typeof harness>>) =>
     cli.calls.map((call) => [new URL(call.url).origin, call.authorization]);
 
+  it.each([
+    ["flag", "https://other.test"],
+    ["environment", "https://other.test"],
+    ["flag", "https://saved.test:8443"],
+    ["flag", "http://localhost:5173"],
+  ])("never sends a saved token to another origin selected by %s: %s", async (source, url) => {
+    const cli = await harness(
+      { "GET /api/v1/today": { body: {} }, ...ME },
+      source === "environment" ? { SLOPPER_URL: url } : {},
+    );
+    await cli.save(JSON.stringify({ token: "slp_saved", url: "https://saved.test" }));
+    const flags = source === "flag" ? ["--url", url] : [];
+
+    expect((await cli.run("today", ...flags)).code).toBe(0);
+    expect(used(cli)).toEqual([[url, null]]);
+    expect(await cli.run("whoami", ...flags)).toMatchObject({
+      code: 1,
+      stderr: expect.stringContaining("No API token"),
+    });
+    expect(cli.calls).toHaveLength(1);
+    expect(JSON.parse(await readFile(cli.configFile, "utf8"))).toEqual({
+      token: "slp_saved",
+      url: "https://saved.test",
+    });
+  });
+
+  it("reuses a saved token only when the normalized origins match", async () => {
+    const cli = await harness(ME);
+    await cli.save(JSON.stringify({ token: "slp_saved", url: "https://SAVED.test:443/settings" }));
+
+    expect((await cli.run("whoami", "--url", "https://saved.test/elsewhere")).code).toBe(0);
+    expect(used(cli)).toEqual([["https://saved.test", "Bearer slp_saved"]]);
+  });
+
+  it("does not use a saved token without a saved origin", async () => {
+    const cli = await harness(ME);
+    await cli.save(JSON.stringify({ token: "slp_unbound" }));
+
+    expect(await cli.run("whoami")).toMatchObject({ code: 1, stderr: expect.stringContaining("No API token") });
+    expect(cli.calls).toEqual([]);
+  });
+
+  it.each(["flag", "environment"])("uses an explicit %s token for a different origin", async (source) => {
+    const cli = await harness(ME, source === "environment" ? { SLOPPER_TOKEN: "slp_explicit" } : {});
+    await cli.save(JSON.stringify({ token: "slp_saved", url: "https://saved.test" }));
+
+    expect(
+      (
+        await cli.run(
+          "whoami",
+          "--url",
+          "https://other.test",
+          ...(source === "flag" ? ["--token", "slp_explicit"] : []),
+        )
+      ).code,
+    ).toBe(0);
+    expect(used(cli)).toEqual([["https://other.test", "Bearer slp_explicit"]]);
+  });
+
+  it.each(["http://other.test", "http://localhost.evil.test", "http://127.evil.test", "http://[::2]"])(
+    "rejects non-loopback HTTP before sending credentials: %s",
+    async (url) => {
+      const cli = await harness(ME, TOKEN);
+
+      expect(await cli.run("whoami", "--url", url)).toMatchObject({
+        code: 2,
+        stderr: expect.stringContaining("Use HTTPS"),
+      });
+      expect(cli.calls).toEqual([]);
+    },
+  );
+
+  it.each(["http://localhost:5173", "http://127.0.0.1:5173", "http://127.0.0.2:5173", "http://[::1]:5173"])(
+    "allows loopback HTTP for local development: %s",
+    async (url) => {
+      const cli = await harness(ME, TOKEN);
+
+      expect((await cli.run("whoami", "--url", url)).code).toBe(0);
+      expect(used(cli)).toEqual([[url, "Bearer slp_test"]]);
+    },
+  );
+
   it("takes --token over SLOPPER_TOKEN over the saved one", async () => {
     const saved = await harness(ME);
-    await saved.save(JSON.stringify({ token: "slp_saved" }));
+    await saved.save(JSON.stringify({ token: "slp_saved", url: "https://slopper.day" }));
     await saved.run("whoami");
     const env = await harness(ME, { SLOPPER_TOKEN: "slp_env" });
-    await env.save(JSON.stringify({ token: "slp_saved" }));
+    await env.save(JSON.stringify({ token: "slp_saved", url: "https://slopper.day" }));
     await env.run("whoami");
     await env.run("whoami", "--token", "slp_flag");
     expect([...used(saved), ...used(env)]).toEqual([
@@ -658,25 +740,25 @@ describe("which token and site", () => {
   it("takes --url over SLOPPER_URL over the saved one over slopper.day", async () => {
     const plain = await harness(ME, TOKEN);
     await plain.run("whoami");
-    await plain.save(JSON.stringify({ url: "http://saved.test:5173" }));
+    await plain.save(JSON.stringify({ url: "https://saved.test:5173" }));
     await plain.run("whoami");
-    const env = await harness(ME, { ...TOKEN, SLOPPER_URL: "http://env.test" });
-    await env.save(JSON.stringify({ url: "http://saved.test:5173" }));
+    const env = await harness(ME, { ...TOKEN, SLOPPER_URL: "https://env.test" });
+    await env.save(JSON.stringify({ url: "https://saved.test:5173" }));
     await env.run("whoami");
     await env.run("whoami", "--url", "https://flag.test");
     expect([...used(plain), ...used(env)].map(([origin]) => origin)).toEqual([
       "https://slopper.day",
-      "http://saved.test:5173",
-      "http://env.test",
+      "https://saved.test:5173",
+      "https://env.test",
       "https://flag.test",
     ]);
   });
 
   it("treats an empty SLOPPER_TOKEN or SLOPPER_URL as unset", async () => {
     const cli = await harness(ME, { SLOPPER_TOKEN: "", SLOPPER_URL: "" });
-    await cli.save(JSON.stringify({ token: "slp_saved", url: "http://saved.test" }));
+    await cli.save(JSON.stringify({ token: "slp_saved", url: "https://saved.test" }));
     expect((await cli.run("whoami")).code).toBe(0);
-    expect(used(cli)).toEqual([["http://saved.test", "Bearer slp_saved"]]);
+    expect(used(cli)).toEqual([["https://saved.test", "Bearer slp_saved"]]);
   });
 
   it("drops paths and trailing slashes from the site", async () => {
@@ -816,11 +898,11 @@ describe("login and logout", () => {
       ["http://localhost:5173/api/v1/today", "Bearer slp_env"],
     ]);
 
-    const env = await harness(ME, { SLOPPER_URL: "http://staging.test" });
+    const env = await harness(ME, { SLOPPER_URL: "https://staging.test" });
     await env.run("login", "--token", "slp_staging");
     expect(JSON.parse(await readFile(env.configFile, "utf8"))).toEqual({
       token: "slp_staging",
-      url: "http://staging.test",
+      url: "https://staging.test",
     });
   });
 

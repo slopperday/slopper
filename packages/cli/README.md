@@ -55,6 +55,9 @@ Reading what's public (`profile`, `today`, `search`, `categories`, `tags`, `revi
 `--token` beats `SLOPPER_TOKEN`, which beats the saved token. `--url` beats `SLOPPER_URL`, then the saved site, then
 https://slopper.day. An empty variable counts as unset.
 
+The saved token is used only for its saved origin (scheme, host and port). When switching sites, log in to that site
+or pass its token explicitly. HTTPS is required except for loopback HTTP addresses used for local development.
+
 ## Use it
 
 ```sh
