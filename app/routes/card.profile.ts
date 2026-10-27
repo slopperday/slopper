@@ -6,7 +6,7 @@ import { convex } from "~/.server/convex";
 import { notFound } from "~/.server/http";
 import { allowAction, callerAddress } from "~/.server/tokens";
 import { cardResponse, ProfileCard, renderCard } from "~/.server/cards";
-import { profileCardData, profileCardVersion } from "~/lib/cards";
+import { profileCardData, profileCardPath } from "~/lib/cards";
 
 /**
  * The image a profile's link unfurls with (app/lib/cards.ts): who they are
@@ -21,9 +21,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const profile = await convex.query(api.users.profile, { username: params.handle.slice(1).toLowerCase() });
   if (!profile) notFound();
   const card = profileCardData(profile);
-  const asked = new URL(request.url).searchParams.get("v");
-  if (asked !== null && asked !== profileCardVersion(card)) {
-    return redirect(`/@${card.username}/card.png?v=${profileCardVersion(card)}`, 301);
+  const canonical = profileCardPath(card);
+  const asked = new URL(request.url);
+
+  // Compare the raw path and query: parsing v alone lets cache-busting variants render.
+  if (`${asked.pathname}${asked.search}` !== canonical) {
+    return redirect(canonical, 301);
   }
   return cardResponse(await renderCard(createElement(ProfileCard, card)));
 }
