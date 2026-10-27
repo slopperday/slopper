@@ -30,6 +30,7 @@ import { Footer } from "./components/Footer";
 import { SurveyCard } from "./components/SurveyCard";
 import { FlashBanner } from "./components/FlashBanner";
 import { LiveProvider } from "./components/Live";
+import { RenderTimeProvider } from "./components/RelativeTime";
 import { Tiles } from "./components/Tiles";
 import { mayRecordPath, sanitizeAnalyticsPath } from "./lib/analytics";
 import { withoutRedirectMarker } from "./lib/redirect";
@@ -57,6 +58,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     analytics && !optedOut ? runningSurveys() : Promise.resolve([]),
   ]);
   return {
+    renderedAt: Date.now(),
     user: user
       ? { id: user._id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl }
       : null,
@@ -136,7 +138,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Header user={data?.user ?? null} permissions={data?.permissions ?? []} path={location.pathname} />
             {data?.flash && <FlashBanner key={location.key} flash={data.flash} />}
             <main id="main" className="flex-1">
-              {children}
+              {data ? <RenderTimeProvider renderedAt={data.renderedAt}>{children}</RenderTimeProvider> : children}
             </main>
             <Footer />
             <SurveyCard surveys={data?.surveys ?? []} signedIn={Boolean(data?.user)} />

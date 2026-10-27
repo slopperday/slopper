@@ -1,7 +1,7 @@
 import { Link, useRouteLoaderData } from "react-router";
 import type { CardItem } from "@convex/lib/shape";
 import { dayLabel, plural, slopPath } from "~/lib/display";
-import { timeAgo } from "~/lib/dates";
+import { RelativeTime } from "./RelativeTime";
 import { Avatar } from "./Avatar";
 import { LaunchLabelTag, NsfwTag, Platforms, SlopcessfulTag, SlopCover, SlopOfTheDayTag } from "./SlopBits";
 import { VoteButtons } from "./VoteButtons";
@@ -115,7 +115,7 @@ function SlopRow({
         <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
           <Maker owner={owner} />
           <span>{day ?? "No goal"}</span>
-          <span>{timeAgo(slop.launchedAt)}</span>
+          <RelativeTime at={slop.launchedAt} />
           {counts.map((part) => (
             <span key={part}>{part}</span>
           ))}
