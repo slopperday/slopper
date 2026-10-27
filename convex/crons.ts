@@ -23,10 +23,14 @@ export const sweep = internalMutation({
       for (const row of expired) await ctx.db.delete(row._id);
       if (expired.length === PAGE) more = true;
     }
-    const windows = await ctx.db.query("rateLimits").order("asc").take(PAGE);
-    for (const row of windows) {
-      if (now - row._creationTime > 2 * 86_400_000) await ctx.db.delete(row._id);
-    }
+    // Only eligible rows fill a page; a full live page must not reschedule itself forever.
+    const windows = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_creation_time", (q) => q.lt("_creationTime", now - 2 * 86_400_000))
+      .take(PAGE);
+
+    for (const row of windows) await ctx.db.delete(row._id);
+
     if (windows.length === PAGE) more = true;
     if (more) await ctx.scheduler.runAfter(0, internal.crons.sweep, {});
   },
