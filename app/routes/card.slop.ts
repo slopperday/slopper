@@ -6,7 +6,7 @@ import { convex } from "~/.server/convex";
 import { notFound } from "~/.server/http";
 import { allowAction, callerAddress } from "~/.server/tokens";
 import { cardImage, cardResponse, renderCard, SlopCard } from "~/.server/cards";
-import { slopCardScreenshot, slopCardVersion } from "~/lib/cards";
+import { slopCardPath, slopCardScreenshot } from "~/lib/cards";
 
 /**
  * The image a slop's link unfurls with (app/lib/cards.ts). Hidden slops have
@@ -22,10 +22,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   }
   const page = await convex.query(api.slops.card, { username: params.handle.slice(1), slug: params.slug });
   if (!page) notFound();
-  const canonical = slopCardVersion(page.slop);
-  const asked = new URL(request.url).searchParams.get("v");
-  if (asked !== null && asked !== canonical) {
-    return redirect(`/@${page.owner.username}/${page.slop.slug}/card.png?v=${canonical}`, 301);
+  const canonical = slopCardPath(page.owner.username, page.slop);
+  const asked = new URL(request.url);
+
+  // Compare the raw path and query: parsing v alone lets cache-busting variants render.
+  if (`${asked.pathname}${asked.search}` !== canonical) {
+    return redirect(canonical, 301);
   }
   const cover = slopCardScreenshot(page.slop);
   const screenshot = cover ? await cardImage(cover) : null;

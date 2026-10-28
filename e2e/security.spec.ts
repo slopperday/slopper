@@ -81,28 +81,33 @@ test.describe("security regressions", () => {
     }
   });
 
-  test("share cards render only their canonical URL, and once per address at most", async ({
-    seed,
-    request,
-    stack,
-  }) => {
+  test("share cards render only their canonical URL", async ({ seed, request, stack }) => {
     const maker = await seed.user("cards");
     const slop = await seed.slop(maker);
-    const path = `${slop.path}/card.png`;
-    // No version: the image.
-    const plain = await request.get(path);
-    expect(plain.status()).toBe(200);
-    expect(plain.headers()["content-type"]).toBe("image/png");
-    // A made-up version — the cache-busting flood — is redirected to the one
-    // true URL instead of rendered into the CDN as a fresh entry.
-    const junk = await request.get(`${path}?v=flood${Date.now()}`, { maxRedirects: 0 });
-    expect(junk.status()).toBe(301);
-    const target = new URL(junk.headers()["location"] ?? "", stack.appUrl);
-    expect(target.pathname).toBe(path);
-    expect(target.searchParams.get("v")).toMatch(/^[a-z0-9]+$/);
-    const redrawn = await request.get(target.pathname + target.search);
-    expect(redrawn.status()).toBe(200);
-    expect(redrawn.headers()["content-type"]).toBe("image/png");
+    for (const path of [`${slop.path}/card.png`, `/@${maker.username}/card.png`]) {
+      const plain = await request.get(path, { maxRedirects: 0 });
+      expect(plain.status()).toBe(301);
+      const target = new URL(plain.headers()["location"] ?? "", stack.appUrl);
+      expect(target.pathname).toBe(path);
+      expect(target.search).toMatch(/^\?v=[a-z0-9]+$/);
+
+      for (const search of [
+        "?v=",
+        "?v=flood",
+        "?cache=1",
+        `${target.search}&cache=1`,
+        `${target.search}&${target.search.slice(1)}`,
+      ]) {
+        const junk = await request.get(`${path}${search}`, { maxRedirects: 0 });
+        expect(junk.status()).toBe(301);
+        expect(junk.headers()["location"]).toBe(target.pathname + target.search);
+      }
+
+      const canonical = await request.get(target.pathname + target.search, { maxRedirects: 0 });
+      expect(canonical.status()).toBe(200);
+      expect(canonical.headers()["content-type"]).toBe("image/png");
+      expect((await canonical.body()).subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+    }
   });
 
   test("the MCP endpoint and REST API want a token before doing anything", async ({ request }) => {
