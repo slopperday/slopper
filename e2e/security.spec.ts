@@ -129,19 +129,23 @@ test.describe("security regressions", () => {
   // The per-distinct-id event ceiling (2,000 a day) is crossed by
   // tests/analytics.test.ts in-process: proving it here would mean a burst
   // of thousands of events through the shared backend, whose contention
-  // rocks every test running beside it. The identify test below proves the
-  // ceilings engage through the real HTTP route; the caps themselves are
-  // bounded by tests/security.test.ts.
+  // rocks every test running beside it. The identify test below proves
+  // authentication and merge ceilings through the real HTTP route; the caps
+  // themselves are bounded by tests/security.test.ts.
 
-  test("a forged identity can only merge into an account so often", async ({ stack }) => {
+  test("forged identities cannot merge into accounts and authenticated merges stay bounded", async ({
+    stack,
+    seed,
+  }) => {
     const address = `${stack.convexSiteUrl}/a/e`;
-    const post = (events: object[]) =>
+    const post = (events: object[], token?: string) =>
       fetch(address, {
         method: "POST",
         headers: {
           "content-type": "application/json",
           origin: stack.appUrl,
           "user-agent": "Mozilla/5.0 slopper-e2e",
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ sentAt: Date.now(), events }),
       });
@@ -156,33 +160,44 @@ test.describe("security regressions", () => {
       set: null,
       setOnce: null,
     });
-    // The events endpoint takes whoever's word for who is sending, but an
-    // account takes only ten `$identify` merges a day: enough for a person's
-    // own browsers, too few to make merging into someone else's analytics
-    // person a tool. Twelve forged ones land, ten stick.
-    const account = `victim-${Date.now().toString(36)}`;
+    const user = await seed.user("victim");
+    const account = user.id;
     const seeded = await post([pageview(account, "/today")]);
     expect(seeded.status).toBe(200);
+    expect(await seeded.json()).toMatchObject({ stored: 0, dropped: 1 });
+    const identify = (anon: string) => ({
+      uuid: crypto.randomUUID(),
+      name: "$identify",
+      distinctId: account,
+      sessionId: `${anon}-s`,
+      timestamp: Date.now(),
+      path: "/",
+      properties: { anonDistinctId: anon },
+      set: null,
+      setOnce: null,
+    });
     for (let i = 0; i < 12; i++) {
-      const anon = `anon-${account}-${i}`;
-      const seen = await post([pageview(anon)]);
-      expect(seen.status).toBe(200);
-      const identify = await post([
-        {
-          uuid: crypto.randomUUID(),
-          name: "$identify",
-          distinctId: account,
-          sessionId: `${anon}-s`,
-          timestamp: Date.now(),
-          path: "/",
-          properties: { anonDistinctId: anon },
-          set: null,
-          setOnce: null,
-        },
-      ]);
-      expect(identify.status).toBe(200);
+      const anon = `forged-${account}-${i}`;
+      expect((await post([pageview(anon)])).status).toBe(200);
+      const forged = await post([identify(anon)]);
+      expect(forged.status).toBe(200);
+      expect(await forged.json()).toMatchObject({ stored: 0, dropped: 1 });
     }
-    const person = JSON.parse(
+    const page = await seed.pageAs(user);
+    const response = await page.request.get("/api/convex-token");
+    expect(response.ok()).toBe(true);
+    const body: unknown = await response.json();
+    if (!body || typeof body !== "object" || !("token" in body) || typeof body.token !== "string") {
+      throw new Error("The signed-in browser did not receive a token.");
+    }
+    for (let i = 0; i < 12; i++) {
+      const anon = `own-${account}-${i}`;
+      expect((await post([pageview(anon)])).status).toBe(200);
+      const signedIn = await post([identify(anon)], body.token);
+      expect(signedIn.status).toBe(200);
+      expect(await signedIn.json()).toMatchObject({ stored: 1 });
+    }
+    const person: unknown = JSON.parse(
       execFileSync(
         "node_modules/.bin/convex",
         ["run", "--component", "analytics", "persons:get", JSON.stringify({ distinctId: account })],
@@ -196,9 +211,14 @@ test.describe("security regressions", () => {
           },
         },
       ).toString("utf8"),
-    ) as { distinctIds: string[] };
+    );
+    if (!person || typeof person !== "object" || !("distinctIds" in person) || !Array.isArray(person.distinctIds)) {
+      throw new Error("The account has no analytics person.");
+    }
     // The account itself plus at most ten merged browsers — not twelve.
     expect(person.distinctIds).toHaveLength(11);
-    expect(person.distinctIds).toContain(account);
+    expect(person.distinctIds).toEqual(
+      expect.arrayContaining([account, ...Array.from({ length: 10 }, (_, i) => `own-${account}-${i}`)]),
+    );
   });
 });

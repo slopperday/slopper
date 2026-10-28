@@ -1,4 +1,5 @@
 import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { cookieNames, describeError, errorFingerprint } from "@slopperday/analytics/shared";
 import { sanitizeAnalyticsPath } from "~/lib/analytics";
 import { analyticsOptedOut } from "./analytics";
@@ -12,11 +13,17 @@ import { readCookie } from "./http";
  * analytics off. Reporting never takes the page down with it: a report
  * that fails is logged.
  */
-export async function reportServerError(error: unknown, request: Request): Promise<void> {
+export async function reportServerError(
+  error: unknown,
+  request: Request,
+  userId: Id<"users"> | null = null,
+): Promise<void> {
   const { type, message, stack } = describeError(error);
+  const optedOut = analyticsOptedOut(request);
   try {
     await convex.mutation(api.analytics.captureServerError, {
-      distinctId: analyticsOptedOut(request) ? null : (readCookie(request, cookieNames().distinctId) ?? null),
+      distinctId: optedOut ? null : (readCookie(request, cookieNames().distinctId) ?? null),
+      ...(!optedOut && userId ? { userId } : {}),
       path: sanitizeAnalyticsPath(new URL(request.url).pathname),
       type,
       message,

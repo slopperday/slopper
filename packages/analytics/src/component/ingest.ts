@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { BATCH_LIMITS } from "../shared/events";
+import { BATCH_LIMITS, isBrowserEvent } from "../shared/events";
 import { normalizeProperties } from "../shared/properties";
 import { internalMutation, mutation } from "./_generated/server";
 import { ingestEvents } from "./lib/ingest";
@@ -18,10 +18,10 @@ const DAY_MS = 86_400_000;
  * ingest ceilings (`lib/limits.ts`) still allow.
  */
 export const batch = mutation({
-  args: { events: v.array(wireEventValidator), context: requestContextValidator },
+  args: { events: v.array(wireEventValidator), context: requestContextValidator, accountId: v.optional(v.string()) },
   returns: resultValidator,
-  handler: async (ctx, { events, context }) => {
-    const valid = events.slice(0, BATCH_LIMITS.events);
+  handler: async (ctx, { events, context, accountId }) => {
+    const valid = events.slice(0, BATCH_LIMITS.events).filter((event) => isBrowserEvent(event.name));
     const minute = await take(ctx, "events:minute", valid.length, INGEST_LIMITS.eventsPerMinute, MINUTE_MS);
     const day = await take(ctx, "events:day", minute, INGEST_LIMITS.eventsPerDay, DAY_MS);
     let kept = valid.slice(0, day);
@@ -34,7 +34,7 @@ export const batch = mutation({
       let left = allowed;
       kept = kept.filter((event) => event.distinctId !== distinctId || left-- > 0);
     }
-    const result = await ingestEvents(ctx, kept, context);
+    const result = await ingestEvents(ctx, kept, context, { browser: true, accountId });
     return { ...result, throttled: valid.length - result.stored - result.duplicates };
   },
 });

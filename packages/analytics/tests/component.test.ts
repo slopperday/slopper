@@ -42,8 +42,8 @@ function setup() {
 
 type Test = ReturnType<typeof setup>;
 
-async function send(t: Test, events: WireEvent[]) {
-  return await t.mutation(api.ingest.batch, { events, context: CONTEXT });
+async function send(t: Test, events: WireEvent[], accountId: string | undefined = "user-1") {
+  return await t.mutation(api.ingest.batch, { events, context: CONTEXT, accountId });
 }
 
 async function all(t: Test) {
@@ -241,9 +241,13 @@ describe("identify", () => {
   it("never merges two accounts that shared a browser", async () => {
     vi.useFakeTimers();
     const t = setup();
-    await send(t, [event({ distinctId: "shared" }), identify("alice", "shared")]);
+    await send(t, [event({ distinctId: "shared" }), identify("alice", "shared")], "alice");
     // Bob signs in on the same browser without it being reset.
-    await send(t, [identify("bob", "alice"), event({ distinctId: "bob" })]);
+    await send(
+      t,
+      [identify("bob", "alice", { sessionId: "bob-session" }), event({ distinctId: "bob", sessionId: "bob-session" })],
+      "bob",
+    );
     await t.finishAllScheduledFunctions(vi.runAllTimers);
     const { persons, distinctIds } = await all(t);
     expect(persons).toHaveLength(2);

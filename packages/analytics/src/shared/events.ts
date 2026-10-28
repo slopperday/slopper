@@ -28,6 +28,11 @@ export const EVENTS = {
   surveyDismissed: "$surveyDismissed",
 } as const;
 
+/** Only SDK observations may enter through the public browser channel. Product actions use server capture. */
+export function isBrowserEvent(name: string): boolean {
+  return Object.values(EVENTS).some((event) => event === name);
+}
+
 /** One event as the SDK sends it. */
 export interface WireEvent {
   /** Made by the sender (a UUIDv7), so a batch sent twice is stored once. */

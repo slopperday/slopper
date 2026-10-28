@@ -50,6 +50,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             string | number | boolean | null | Array<string>
           >;
           sessionId: string | null;
+          source?: "browser" | "server";
           timestamp: number;
           uuid: string;
         }>,
@@ -324,6 +325,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
+          accountId?: string;
           context: {
             device: {
               browser: string | null;
@@ -580,6 +582,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "action",
         "internal",
         {
+          accountId?: string;
           data: ArrayBuffer;
           distinctId: string;
           encoding: "gzip" | "identity";
@@ -1044,6 +1047,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               string | number | boolean | null | Array<string>
             >;
             sessionId: string | null;
+            source?: "browser" | "server";
             timestamp: number;
             uuid: string;
           }>;

@@ -1,6 +1,6 @@
 import { devices, type APIRequestContext } from "@playwright/test";
 import { uuidv7 } from "@slopperday/analytics/shared";
-import { analyticsEvents, expect, test } from "./fixtures.ts";
+import { analyticsEvents, captureAnalyticsEvent, expect, test } from "./fixtures.ts";
 import type { Stack } from "./ports.ts";
 
 /**
@@ -77,7 +77,7 @@ test.describe("flags and experiments", () => {
       { name: "$featureFlagCalled", distinctId: first, properties: { flag: key, variant: "control" } },
       { name: "$featureFlagCalled", distinctId: second, properties: { flag: key, variant: "test" } },
     ]);
-    await sendEvents(request, stack, [{ name: "e2e goal", distinctId: first, properties: {} }]);
+    captureAnalyticsEvent(stack, "e2e goal", first);
     await expect.poll(() => analyticsEvents(stack, first).length, { timeout: 20_000 }).toBe(2);
 
     await admin.reload();

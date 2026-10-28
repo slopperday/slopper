@@ -163,6 +163,11 @@ export function analyticsEvents(stack: Stack, distinctId: string): AnalyticsEven
   return JSON.parse(convexCli(stack, ["run", "--component", "analytics", "events:recent", args])) as AnalyticsEvent[];
 }
 
+/** Seeds a product conversion through trusted server capture, never the public browser channel. */
+export function captureAnalyticsEvent(stack: Stack, name: string, distinctId: string): void {
+  convexCli(stack, ["run", "--component", "analytics", "ingest:capture", JSON.stringify({ name, distinctId })]);
+}
+
 /** What the fake content check has been asked so far. */
 export async function checkRequests(stack: Stack): Promise<FakeCheckRequest[]> {
   return (await (await fetch(`${stack.checkUrl}/__requests`)).json()) as FakeCheckRequest[];

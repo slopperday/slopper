@@ -1,4 +1,5 @@
 import { analyticsEvents, analyticsIdOf, expect, test } from "./fixtures.ts";
+import { randomUUID } from "node:crypto";
 
 /**
  * First-party analytics (packages/analytics): the browser posts straight to
@@ -7,6 +8,61 @@ import { analyticsEvents, analyticsIdOf, expect, test } from "./fixtures.ts";
  */
 
 test.describe("analytics", () => {
+  test("requires a valid account token and keeps product actions server-only", async ({ seed, stack }) => {
+    const user = await seed.user("ingest-proof");
+    const page = await seed.pageAs(user);
+    const tokenResponse = await page.request.get("/api/convex-token");
+    const body: unknown = await tokenResponse.json();
+    if (typeof body !== "object" || body === null || !("token" in body) || typeof body.token !== "string") {
+      throw new Error("The signed-in browser did not receive a token.");
+    }
+    const token = body.token;
+    const sessionId = randomUUID();
+    const post = (name: string, authorization?: string) =>
+      page.request.post(`${stack.convexSiteUrl}/a/e`, {
+        headers: { origin: stack.issuer, "content-type": "text/plain", ...(authorization ? { authorization } : {}) },
+        data: JSON.stringify({
+          sentAt: Date.now(),
+          events: [
+            {
+              uuid: randomUUID(),
+              name,
+              distinctId: user.id,
+              sessionId,
+              timestamp: Date.now(),
+              path: "/wall",
+              properties: {},
+            },
+          ],
+        }),
+      });
+    expect(await (await post("$pageview")).json()).toMatchObject({ stored: 0, dropped: 1 });
+    const invalid = await post("$pageview", "Bearer invalid-token");
+    expect(invalid.status()).toBe(401);
+    expect(await (await post("upvoted", `Bearer ${token}`)).json()).toMatchObject({ stored: 0, dropped: 1 });
+    expect(await (await post("$pageview", `Bearer ${token}`)).json()).toMatchObject({ stored: 1, dropped: 0 });
+    expect(
+      analyticsEvents(stack, user.id)
+        .filter((event) => event.sessionId === sessionId)
+        .map((event) => event.name),
+    ).toEqual(["$pageview"]);
+    const now = Date.now();
+    const params = new URLSearchParams({
+      s: sessionId,
+      d: user.id,
+      from: String(now),
+      to: String(now),
+      n: "1",
+      z: "0",
+      t: String(now),
+    });
+    const recording = await page.request.post(`${stack.convexSiteUrl}/a/r?${params}`, {
+      headers: { origin: stack.issuer, "content-type": "text/plain" },
+      data: "[]",
+    });
+    expect(recording.status()).toBe(403);
+  });
+
   test("records a visit: where it came from, the pages seen and what was clicked", async ({ seed, stack }) => {
     const page = await seed.visitorPage();
     const sent = page.waitForRequest((request) => request.url() === `${stack.convexSiteUrl}/a/e`);

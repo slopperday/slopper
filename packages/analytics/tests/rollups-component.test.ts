@@ -45,7 +45,7 @@ function setup() {
 type Test = ReturnType<typeof setup>;
 
 async function send(t: Test, events: WireEvent[]) {
-  return await t.mutation(api.ingest.batch, { events, context: CONTEXT });
+  return await t.mutation(api.ingest.batch, { events, context: CONTEXT, accountId: "account" });
 }
 
 async function markers(t: Test) {

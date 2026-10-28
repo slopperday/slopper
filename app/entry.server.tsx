@@ -5,6 +5,7 @@ import { ServerRouter } from "react-router";
 import { config } from "./.server/config";
 import { contentSecurityPolicy } from "./.server/csp";
 import { reportServerError } from "./.server/errors";
+import { viewerContext } from "./.server/session";
 import { APP_VERSION } from "./lib/version";
 import { VIDEO_FRAME_SOURCES } from "~/lib/video";
 
@@ -31,10 +32,10 @@ function convexSources(): string[] {
  * Errors in loaders, actions and rendering: logged, and recorded in
  * analytics. A request the visitor walked away from isn't an error.
  */
-export const handleError: HandleErrorFunction = (error, { request }) => {
+export const handleError: HandleErrorFunction = (error, { request, context }) => {
   if (request.signal.aborted) return;
   console.error(error);
-  void reportServerError(error, request);
+  void reportServerError(error, request, context.get(viewerContext).user?._id ?? null);
 };
 
 export default async function handleRequest(

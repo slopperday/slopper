@@ -55,6 +55,17 @@ Render the provider once, near the root, and identify signed-in people:
 useIdentify(user ? { distinctId: user.id, set: { username: user.username } } : null);
 ```
 
+The public channel accepts only the SDK's `EVENTS` observations. Product actions belong in server capture, even
+when a browser is authenticated. Each newly stored event carries `source: "browser" | "server"`; older events
+have no provenance and cannot be assumed trustworthy.
+
+To identify people, supply a stable `getToken` callback in the provider options, returning the app's short-lived
+Convex JWT. Set `browserIdentity` in `registerRoutes` to resolve the authenticated account through Convex's auth
+context and return anonymous ids from a namespace disjoint from account ids. Slopper does this in `convex/http.ts`
+and `analytics.browserIdentity`. Without that callback, only anonymous UUIDv7 ids are accepted. The SDK refreshes
+tokens through `getToken` for both events and recordings; authenticated page-hide sends use keepalive fetch.
+Anonymous aliases cannot write to an account after being linked, and sessions cannot be reassigned to another person.
+
 Capture what matters from server code, in the same transaction as the write it describes:
 
 ```ts

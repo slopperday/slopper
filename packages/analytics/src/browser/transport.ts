@@ -6,8 +6,8 @@ import type { WireBatch, WireEvent } from "../shared/events";
  * a page being hidden sends what's left with `sendBeacon`, which outlives
  * the page.
  *
- * Bodies go as text/plain: a "simple" cross-origin request needs no CORS
- * preflight, and `sendBeacon` can't make one at all.
+ * Anonymous bodies use text/plain so beacons need no CORS preflight.
+ * Authenticated sends include Authorization and use keepalive fetch.
  */
 
 export interface TransportOptions {
@@ -17,6 +17,8 @@ export interface TransportOptions {
   /** Events kept while sends fail; past this, the oldest go. */
   maxQueue: number;
   fetch: typeof fetch;
+  /** A fresh short-lived app token for identified browser events. */
+  getToken?: () => Promise<string | null>;
 }
 
 /** Tries per event before it's given up on. */
@@ -86,10 +88,11 @@ export class Transport {
   private async send(events: WireEvent[]): Promise<boolean> {
     const body = JSON.stringify({ sentAt: Date.now(), events } satisfies WireBatch);
     try {
+      const token = await this.options.getToken?.();
       const response = await this.options.fetch(this.options.url, {
         method: "POST",
         body,
-        headers: { "content-type": "text/plain" },
+        headers: { "content-type": "text/plain", ...(token ? { authorization: `Bearer ${token}` } : {}) },
         credentials: "omit",
         keepalive: body.length < KEEPALIVE_BYTES,
       });
@@ -109,7 +112,7 @@ export class Transport {
       clearTimeout(this.timer);
       this.timer = null;
     }
-    if (typeof navigator.sendBeacon !== "function") {
+    if (this.options.getToken || typeof navigator.sendBeacon !== "function") {
       void this.flush();
       return;
     }

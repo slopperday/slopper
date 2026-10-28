@@ -13,6 +13,7 @@ import {
   surveyTargetValidator,
 } from "@slopperday/analytics/convex";
 import { bucketsIn, type GroupReport, type GroupRow, type GroupsResult } from "@slopperday/analytics/shared/insights";
+import { BATCH_LIMITS } from "@slopperday/analytics/shared";
 import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { components, internal } from "./_generated/api";
@@ -27,7 +28,7 @@ import {
   query,
   type QueryCtx,
 } from "./_generated/server";
-import { readerFor, requireServer } from "./lib/auth";
+import { readerFor, requireServer, viewer } from "./lib/auth";
 import { can, requirePermission } from "./lib/permissions";
 import { logStaffAction } from "./lib/staffLog";
 import { normalizeUsername } from "../app/lib/username";
@@ -39,6 +40,16 @@ import { normalizeUsername } from "../app/lib/username";
  * (`analytics.view`), through the functions below.
  */
 export const analytics = new Analytics(components.analytics);
+
+/** Authenticates HTTP ingestion and keeps anonymous ids out of the account namespace, even before signup capture. */
+export const browserIdentity = internalQuery({
+  args: { ids: v.array(v.string()) },
+  returns: v.object({ accountId: v.union(v.string(), v.null()), anonymousIds: v.array(v.string()) }),
+  handler: async (ctx, { ids }) => ({
+    accountId: (await viewer(ctx))?._id ?? null,
+    anonymousIds: ids.filter((id) => ctx.db.normalizeId("users", id) === null),
+  }),
+});
 
 /** Raw events and sessions are kept a year; people not seen for a year go with them. */
 export const RETENTION = { eventDays: 365, personDays: 365 } as const;
@@ -817,6 +828,8 @@ export const removeExperiment = mutation({
  */
 export const captureServerError = mutation({
   args: {
+    /** Verified by the app's session middleware; the distinct id below comes from an untrusted cookie. */
+    userId: v.optional(v.id("users")),
     distinctId: v.union(v.string(), v.null()),
     path: v.string(),
     type: v.string(),
@@ -824,12 +837,17 @@ export const captureServerError = mutation({
     stack: v.union(v.string(), v.null()),
     fingerprint: v.string(),
   },
-  handler: async (ctx, { distinctId, path, ...error }) => {
+  handler: async (ctx, { userId, distinctId, path, ...error }) => {
     await requireServer(ctx);
+    // Check the exact id capture will store; truncating an unchecked cookie could resolve to an account's alias.
+    const cookieId = !userId && distinctId && distinctId.length <= BATCH_LIMITS.idLength ? distinctId : null;
+    const person = cookieId ? await ctx.runQuery(components.analytics.persons.get, { distinctId: cookieId }) : null;
+    const anonymousId = cookieId && !ctx.db.normalizeId("users", cookieId) && !person?.identified ? cookieId : null;
     await analytics.capture(ctx, {
       name: "$exception",
       // Errors with nobody to pin them on (a crawler, someone who turned analytics off) go to one id.
-      distinctId: distinctId ?? "server",
+      distinctId: userId ?? anonymousId ?? "server",
+      identified: userId !== undefined,
       path,
       properties: { ...error, source: "server" },
     });
