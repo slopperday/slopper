@@ -5,7 +5,7 @@
  *
  *   vp build && node --env-file-if-exists=.env.local scripts/serve.ts
  */
-import { createRequestListener } from "@remix-run/node-fetch-server";
+import { createRequestListener } from "./request-listener.ts";
 import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, resolve } from "node:path";
