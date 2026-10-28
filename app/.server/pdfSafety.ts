@@ -1,4 +1,4 @@
-import { constants, inflateSync } from "node:zlib";
+import { inflateSync } from "node:zlib";
 
 /**
  * Slopper's own safety scan for publications, run on every PDF before it's
@@ -75,15 +75,158 @@ function latin1(bytes: Uint8Array): string {
 
 /**
  * Inflates zlib data, stopping where the stream ends (deflate marks its own
- * end, so the bytes after it are ignored). A stream cut short gives what it
- * holds. Null when it isn't zlib data, or would inflate past `limit`.
+ * end, so the bytes after it are ignored). Null when it isn't complete zlib
+ * data, or would inflate past `limit`.
  */
 function inflate(bytes: Uint8Array, limit: number): Uint8Array | null {
+  if (limit <= 0) return null;
+
   try {
-    return inflateSync(bytes, { finishFlush: constants.Z_SYNC_FLUSH, maxOutputLength: Math.max(1, limit) });
+    return inflateSync(bytes, { maxOutputLength: limit });
   } catch {
     return null;
   }
+}
+
+/** Tokenizes a stream header without mistaking strings or comments for dictionary entries. */
+function headerTokens(text: string): string[] | null {
+  const tokens: string[] = [];
+  const token =
+    /[\0\t\n\f\r ]+|%[^\r\n]*|\/[^\0\t\n\f\r /<>[\]()%{}]*|<<|>>|<[^>]*>|[[\](){}]|[^\0\t\n\f\r /<>[\]()%{}]+/gy;
+  let position = 0;
+
+  while (position < text.length) {
+    token.lastIndex = position;
+    const match = token.exec(text);
+
+    if (!match) return null;
+
+    const value = match[0];
+    position = token.lastIndex;
+
+    if (/^[\0\t\n\f\r %]/.test(value)) continue;
+
+    if (value === "(") {
+      let depth = 1;
+      let end = token.lastIndex;
+
+      while (end < text.length && depth > 0) {
+        const char = text[end++];
+
+        if (char === "\\") end++;
+        else if (char === "(") depth++;
+        else if (char === ")") depth--;
+      }
+
+      if (depth !== 0) return null;
+
+      position = end;
+      tokens.push("(string)");
+      continue;
+    }
+
+    tokens.push(value.startsWith("/") ? `/${decodeName(value.slice(1))}` : value);
+  }
+
+  return tokens;
+}
+
+/** The final dictionary before stream, with each value kept in order; ambiguous headers fail closed. */
+function streamDictionary(text: string): Map<string, string[]> | null {
+  const tokens = headerTokens(text);
+
+  if (!tokens || tokens.at(-1) !== ">>") return null;
+
+  let start = tokens.length - 1;
+  let depth = 1;
+
+  while (--start >= 0) {
+    if (tokens[start] === ">>") depth++;
+    else if (tokens[start] === "<<" && --depth === 0) break;
+  }
+
+  if (start < 0) return null;
+
+  const entries = new Map<string, string[]>();
+
+  for (let index = start + 1; index < tokens.length - 1;) {
+    const key = tokens[index++];
+
+    if (!key.startsWith("/") || entries.has(key)) return null;
+
+    const valueStart = index;
+    const closing: string[] = [];
+
+    do {
+      const value = tokens[index++];
+
+      if (value === "[") closing.push("]");
+      else if (value === "<<") closing.push(">>");
+      else if ((value === "]" || value === ">>") && closing.pop() !== value) return null;
+
+      if (index >= tokens.length && closing.length > 0) return null;
+    } while (closing.length > 0);
+
+    if (/^\d+$/.test(tokens[valueStart]) && /^\d+$/.test(tokens[index] ?? "") && tokens[index + 1] === "R") {
+      index += 2;
+    }
+
+    entries.set(key, tokens.slice(valueStart, index));
+  }
+
+  return entries;
+}
+
+/** Object-stream filter order is significant, including repeated filters. Unsupported values stay unreadable. */
+function objectFilters(dict: Map<string, string[]>): string[] | null {
+  const value = dict.get("/Filter") ?? ["null"];
+  const filters = value[0] === "[" && value.at(-1) === "]" ? value.slice(1, -1) : value;
+
+  // Even a supported filter can transform bytes through parameters we don't implement.
+  if (dict.has("/DecodeParms") || dict.has("/F") || dict.has("/FFilter")) return null;
+
+  if (value.length === 1 && value[0] === "null") return [];
+  if (filters.length > 8 || filters.some((filter) => filter !== "/FlateDecode")) return null;
+
+  return filters;
+}
+
+/** Checks the object count and offsets before accepting a fully decoded object stream. */
+function validObjectHeader(dict: Map<string, string[]>, objects: string): boolean {
+  const countValue = dict.get("/N") ?? [];
+  const firstValue = dict.get("/First") ?? [];
+
+  if (countValue.length !== 1 || firstValue.length !== 1) return false;
+  if (!/^\d+$/.test(countValue[0]) || !/^\d+$/.test(firstValue[0])) return false;
+
+  const count = Number(countValue[0]);
+  const first = Number(firstValue[0]);
+
+  if (!Number.isSafeInteger(count) || count < 1 || !Number.isSafeInteger(first) || first >= objects.length)
+    return false;
+
+  const header = objects
+    .slice(0, first)
+    .trim()
+    .split(/[\0\t\n\f\r ]+/);
+
+  if (header.length !== count * 2 || header.some((number) => !/^\d+$/.test(number))) return false;
+
+  const ids = new Set<number>();
+  let previous = -1;
+
+  for (let index = 0; index < header.length; index += 2) {
+    const id = Number(header[index]);
+    const offset = Number(header[index + 1]);
+
+    if (!Number.isSafeInteger(id) || id < 1 || ids.has(id)) return false;
+    if (!Number.isSafeInteger(offset) || offset <= previous || offset >= objects.length - first) return false;
+
+    ids.add(id);
+    previous = offset;
+  }
+
+  return Number(header[1]) === 0;
 }
 
 /** Every plain integer object (`12 0 obj 3451 endobj`), which is how many PDFs give a stream's /Length. */
@@ -139,16 +282,42 @@ export function scanPdf(bytes: Uint8Array): PdfVerdict {
     // An object stream is inflated whatever its /Length says: deflate ends itself, so a wrong one can't cut
     // objects off. Filters or predictors that would scramble its names make it one Slopper can't read.
     if (names.has("ObjStm")) {
-      const filters = [...names].filter((name) => name.endsWith("Decode") || name === "Crypt");
-      if (filters.some((name) => name !== "FlateDecode") || names.has("Predictor")) {
-        return { safe: false, reason: "uninspectable", found: ["ObjStm", ...filters] };
-      }
-      const objects = filters.length > 0 ? inflate(bytes.subarray(dataStart), MAX_INFLATED_BYTES - inflated) : null;
-      if (filters.length > 0 && !objects) return { safe: false, reason: "uninspectable", found: ["ObjStm"] };
-      if (objects) {
+      const dict = streamDictionary(before);
+      const filters = dict ? objectFilters(dict) : null;
+
+      if (!dict || !filters) return { safe: false, reason: "uninspectable", found: ["ObjStm"] };
+
+      // Decode from the file, rather than trusting /Length to cut a compressed stream short.
+      // Raw streams need a trustworthy end so no object can be omitted from the scan.
+      const length = streamLength(`/Length ${dict.get("/Length")?.join(" ") ?? ""}`, integers);
+      const end = length === null ? -1 : dataStart + length;
+      let objects = bytes.subarray(dataStart);
+
+      if (filters.length === 0) {
+        if (end < dataStart || end > text.length || !/^\s*endstream\b/.test(text.slice(end, end + 32))) {
+          return { safe: false, reason: "uninspectable", found: ["ObjStm"] };
+        }
+
+        objects = bytes.subarray(dataStart, end);
         inflated += objects.byteLength;
-        packed.push(latin1(objects));
       }
+
+      for (const _filter of filters) {
+        const decoded = inflate(objects, MAX_INFLATED_BYTES - inflated);
+
+        if (!decoded) return { safe: false, reason: "uninspectable", found: ["ObjStm"] };
+
+        inflated += decoded.byteLength;
+        objects = decoded;
+      }
+
+      const readable = latin1(objects);
+
+      if (inflated > MAX_INFLATED_BYTES || !validObjectHeader(dict, readable)) {
+        return { safe: false, reason: "uninspectable", found: ["ObjStm"] };
+      }
+
+      packed.push(readable);
     }
 
     // Skip the data only where /Length lands on its endstream; otherwise it's all read as text.
