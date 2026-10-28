@@ -92,14 +92,42 @@ test.describe("session replay", () => {
     await expect(admin.getByRole("button", { name: "Play", exact: true })).toHaveCount(0);
   });
 
-  test("never records pages that are private to you", async ({ seed }) => {
-    const page = await seed.pageAs(await seed.user("unrecorded"));
+  for (const surface of ["keys", "launch", "goal", "edit"] as const) {
+    test(`never records the owner's ${surface} page`, async ({ seed }) => {
+      const owner = await seed.user("unrecorded");
+      const path =
+        surface === "edit"
+          ? `${(await seed.slop(owner)).path}/edit`
+          : { keys: "/settings/api", launch: "/new", goal: "/goal" }[surface];
+      const page = await seed.pageAs(owner);
+      const chunks = chunksFrom(page);
+      await page.goto(path);
+      await expect(page.locator("main h1")).toBeVisible();
+      await analyticsIdOf(page);
+      // Longer than the recorder waits between sends.
+      await page.waitForTimeout(6_500);
+      expect(chunks).toEqual([]);
+    });
+  }
+
+  test("pauses on a launch page during navigation and resumes on public pages", async ({ seed }) => {
+    const page = await seed.pageAs(await seed.user("replaynavigation"));
     const chunks = chunksFrom(page);
-    await page.goto("/settings/api");
-    await analyticsIdOf(page);
-    await page.getByLabel("Token name").fill("a token for nobody to see");
-    // Longer than the recorder waits between sends.
+    await page.goto("/wall");
+    await expect.poll(() => chunks.length, { timeout: 20_000 }).toBeGreaterThan(0);
+
+    await page.getByRole("banner").getByRole("link", { name: "New slop" }).click();
+    await expect(page).toHaveURL(/\/new$/);
+    const privateHeading = "What are you throwing today?";
+    await expect(page.getByRole("heading", { name: privateHeading, level: 1, exact: true })).toBeVisible();
     await page.waitForTimeout(6_500);
-    expect(chunks).toEqual([]);
+    expect(chunks.some((chunk) => chunk.text.includes(privateHeading))).toBe(false);
+
+    await page.getByRole("banner").getByRole("link", { name: "Streaks", exact: true }).click();
+    await expect(page).toHaveURL(/\/streaks$/);
+    await expect
+      .poll(() => chunks.some((chunk) => chunk.text.includes("Everyone with a goal running")), { timeout: 20_000 })
+      .toBe(true);
+    expect(chunks.some((chunk) => chunk.text.includes(privateHeading))).toBe(false);
   });
 });

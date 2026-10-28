@@ -6,15 +6,23 @@ export function sanitizeAnalyticsPath(path: string): string {
   return path.replace(/^\/unsubscribe\/[^/]+/, "/unsubscribe/:token");
 }
 
-/** Pages only you or the staff see: settings, keys, sign-in codes, notifications, moderation and analytics. */
-const UNRECORDED = /^\/(settings|cli|notifications|mod|analytics)(\/|$)|\/analytics$/;
+/** Owner and staff pages can show unpublished launches, accounts and integration details outside masked inputs. */
+const UNRECORDED =
+  /^\/(new|goal|settings|cli|notifications|mod|analytics)(\/|$)|^\/@[^/]+\/[^/]+\/edit(\/|$)|\/analytics\/?$/i;
 
 /**
  * Whether session replay may record a page. Private pages never are, and
  * neither are pages whose path holds a secret (the SDK skips those itself).
+ * Owner page containers also carry `data-no-replay`: navigation can change
+ * the address before React removes the outgoing private page's contents.
  */
 export function mayRecordPath(path: string): boolean {
-  return !UNRECORDED.test(path);
+  // Match the router's decoded paths, including encoded names and trailing slashes.
+  try {
+    return !UNRECORDED.test(decodeURIComponent(path));
+  } catch {
+    return false;
+  }
 }
 
 /** One token source per signed-in viewer. Refresh before the app's one-hour tokens expire. */

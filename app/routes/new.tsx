@@ -190,7 +190,7 @@ export default function NewSlop({ loaderData, actionData }: Route.ComponentProps
   const submitLabel =
     when === "now" ? { idle: "Throw it at the wall", busy: "Throwing…" } : { idle: "Schedule it", busy: "Scheduling…" };
   return (
-    <section className="mx-auto max-w-3xl px-4 pt-14">
+    <section data-no-replay className="mx-auto max-w-3xl px-4 pt-14">
       <h1 className="title-1">{relaunch ? `Launch ${relaunch.name} again` : "What are you throwing today?"}</h1>
       <p className="mt-4 font-bold">
         {goal ? (

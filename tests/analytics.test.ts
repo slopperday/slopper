@@ -128,18 +128,31 @@ describe("analytics on the app server", () => {
   });
 
   it("never records private pages for replay", () => {
-    for (const path of ["/", "/wall", "/@ifiok/tiltmaze", "/new", "/goal", "/analyticsfans"]) {
+    for (const path of ["/", "/wall", "/@maker/tiltmaze", "/@maker/edit", "/newest", "/goals", "/analyticsfans"]) {
       expect(mayRecordPath(path), path).toBe(true);
     }
     for (const path of [
       "/settings",
       "/settings/api",
+      "/settings/autopost",
+      "/new",
+      "/new/",
+      "/NEW",
+      "/n%65w",
+      "/goal",
+      "/goal/",
+      "/@maker/tiltmaze/edit",
+      "/@maker/tiltmaze/edit/",
+      "/@maker/tiltmaze/EDIT",
+      "/@maker/tiltmaze/%65dit",
       "/cli",
       "/notifications",
       "/mod/team",
       "/analytics",
       "/analytics/sessions/abc",
       "/@ifiok/tiltmaze/analytics",
+      "/@maker/tiltmaze/analytics/",
+      "/%",
     ]) {
       expect(mayRecordPath(path), path).toBe(false);
     }

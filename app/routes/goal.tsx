@@ -59,7 +59,7 @@ export default function GoalPage({ loaderData, actionData }: Route.ComponentProp
 
   if (!progress || !share) {
     return (
-      <section className="mx-auto max-w-4xl px-4 pt-14 pb-10">
+      <section data-no-replay className="mx-auto max-w-4xl px-4 pt-14 pb-10">
         <h1 className="title-1">{loaderData.firstGoal ? "First, a goal." : "Set a goal"}</h1>
         <p className="lede mt-4">Pick the days, then the pace. Every day you ship flips a tile.</p>
         <GoalSetup today={today} timeZone={loaderData.timeZone} errors={errors} />
@@ -73,7 +73,7 @@ export default function GoalPage({ loaderData, actionData }: Route.ComponentProp
   // Until the first slop is out, sharing is the next step; after that it's a footnote.
   const fresh = progress.shipped === 0 && (progress.status === "upcoming" || progress.status === "active");
   return (
-    <section className="mx-auto max-w-4xl px-4 pt-14">
+    <section data-no-replay className="mx-auto max-w-4xl px-4 pt-14">
       <h1 className="title-1">Your goal</h1>
       <p className="lede mt-4">Every day you ship flips a tile. Miss one and the dot stays.</p>
       <div className="mt-10 grid gap-8">

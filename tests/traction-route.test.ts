@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "@convex/_generated/api";
 import { viewerContext } from "~/.server/session";
 import { convexApp } from "./convexApp";
+import { checkedLaunch } from "./launchFixtures";
 
 const { query, mutation } = vi.hoisted(() => ({
   query: vi.fn<ReturnType<typeof convexApp>["query"]>(),
@@ -91,7 +92,7 @@ describe("traction refresh admission", () => {
       avatarUrl: null,
       timeZone: "UTC",
     });
-    const { slopId } = await server.mutation(api.slops.create, {
+    const { slopId } = await checkedLaunch(server, {
       userId,
       input: {
         name: "TiltMaze",

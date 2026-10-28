@@ -249,7 +249,7 @@ export default function EditSlop({ loaderData, actionData }: Route.ComponentProp
   const formData = actionData && "values" in actionData ? actionData : null;
   const drafted = actionData && "drafted" in actionData ? actionData.drafted : null;
   return (
-    <section className="mx-auto max-w-3xl px-4 pt-10">
+    <section data-no-replay className="mx-auto max-w-3xl px-4 pt-10">
       <Link to={path} className="inline-flex min-h-11 items-center gap-1.5 font-bold text-muted hover:text-ink">
         <Icon name="left" className="size-4" /> {slop.name}
       </Link>
