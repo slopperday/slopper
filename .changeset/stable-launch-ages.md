@@ -3,4 +3,4 @@ slopper:
   type: user_fix
 ---
 
-# Launch ages stay consistent while pages open, including when a minute, hour or day changes.
+# Launch ages stay consistent while pages open, even across time boundaries and time zones.
