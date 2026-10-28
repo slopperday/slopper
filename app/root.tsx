@@ -23,7 +23,7 @@ import { flagProperties, flagsFor } from "./.server/flags";
 import { runningSurveys } from "./.server/surveys";
 import { readCookie, redirectQueryMiddleware } from "./.server/http";
 import { MOTION_COOKIE, parseMotion } from "./lib/motion";
-import { csrfMiddleware, viewerContext, viewerMiddleware } from "./.server/session";
+import { csrfMiddleware, flashRenderedContext, viewerContext, viewerMiddleware } from "./.server/session";
 import { permissionsOf } from "@convex/lib/permissions";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
@@ -57,6 +57,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     // Answers are analytics: nobody who turned it off is asked.
     analytics && !optedOut ? runningSurveys() : Promise.resolve([]),
   ]);
+  context.set(flashRenderedContext, viewer.flash !== null);
+
   return {
     renderedAt: Date.now(),
     user: user

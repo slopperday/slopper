@@ -152,9 +152,20 @@ test.describe("settings", () => {
       maxRedirects: 0,
     });
     expect(refused.status()).toBe(302);
+
+    // Background requests can finish before the redirect's page gets its one-shot message.
+    for (const path of ["/api/convex-token", "/settings.data?_routes=routes%2Fsettings"]) {
+      const background = await page.request.get(path);
+      expect(background.status()).toBe(200);
+      expect(background.headers()["set-cookie"] ?? "").not.toContain("slopper_flash=");
+    }
+
     await page.reload();
     await expect(page.getByRole("alert")).toHaveText("Facebook is your only way in. Link another first.");
     await expect(methods.getByRole("listitem").filter({ hasText: "Facebook" })).toContainText("Your only way in");
+
+    await page.reload();
+    await expect(page.getByRole("alert")).toHaveCount(0);
   });
 
   test("linking and connecting need an account; connecting keeps its posting scopes", async ({ seed, request }) => {

@@ -39,6 +39,9 @@ export const viewerContext = createContext<Viewer>({
   flash: null,
 });
 
+/** Only the root loader delivers flash messages; resource requests must leave them for the page. */
+export const flashRenderedContext = createContext(false);
+
 const SESSION_TTL_MS = 30 * 86_400_000;
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -73,7 +76,7 @@ export const viewerMiddleware: MiddlewareFunction<Response> = async ({ request, 
 
   const response = await next();
   const isRedirect = response.status >= 300 && response.status < 400;
-  if (flash && !isRedirect) clearCookie(response.headers, FLASH_COOKIE);
+  if (flash && context.get(flashRenderedContext) && !isRedirect) clearCookie(response.headers, FLASH_COOKIE);
   return response;
 };
 
