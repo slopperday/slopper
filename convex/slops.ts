@@ -611,8 +611,8 @@ export const listForServer = query({
 /**
  * Everything the slop page shows, live: votes, pledges, updates and
  * feedback reach every open copy of the page as they happen. Feedback is
- * left out unless `withComments` asks for it: the app turns comments on
- * and off (COMMENTS_ENABLED), and while they're off none is sent anywhere.
+ * left out unless Convex enables COMMENTS_ENABLED and `withComments` asks
+ * for it. A caller cannot turn the feature on for the deployment.
  */
 export const page = query({
   args: {
@@ -643,12 +643,13 @@ export const page = query({
       .withIndex("by_slop", (q) => q.eq("slopId", slop._id))
       .order("desc")
       .take(500);
-    const comments = withComments
-      ? await ctx.db
-          .query("comments")
-          .withIndex("by_slop", (q) => q.eq("slopId", slop._id))
-          .take(500)
-      : [];
+    const comments =
+      withComments && process.env.COMMENTS_ENABLED?.trim() === "true"
+        ? await ctx.db
+            .query("comments")
+            .withIndex("by_slop", (q) => q.eq("slopId", slop._id))
+            .take(500)
+        : [];
     const productId = productIdOf(slop);
     const product = await ctx.db.get(productId);
     const later = await ctx.db

@@ -14,7 +14,7 @@ it to people, and keep slopping until one of them is **slopcessful**.
   shot at slop of the day, linked to the product.
 - **Updates, feature drops, re-promotes and field tests.** Field tests log real people trying it, and count extra.
 - **Votes** with private downvotes and **live notifications**. **Feedback** and **kudos** are built but off for V1:
-  they come back with heavier moderation (`COMMENTS_ENABLED=true` turns them on).
+  they come back with heavier moderation (`COMMENTS_ENABLED=true` on both the app server and Convex turns them on).
 - **Safe for work.** Every launch, screenshot and auto-posted update gets an automated content check. Screenshots are
   checked as they're uploaded: explicit or hateful images (text in them included) are refused and never stored, and a
   mature one blurs any slop that shows it. Mature slops are blurred, anything worse is held for a moderator, and nothing
@@ -113,7 +113,8 @@ need Playwright's Chromium (`node_modules/.bin/playwright install chromium`), an
    content check; without it nothing is ever auto-posted). Put a service account token that can read the item in
    `.env.monosecret` as `OP_SERVICE_ACCOUNT_TOKEN=...`, then `vp run env:netlify` sets them all on Netlify (secrets as
    Netlify secrets, production only). `vp run env:netlify --dry-run` lists them without reading 1Password. Leave
-   `COMMENTS_ENABLED` unset: comments are off for V1.
+   `COMMENTS_ENABLED` unset on both Netlify and Convex: comments are off for V1. Enabling them later requires
+   `COMMENTS_ENABLED=true` in both deployments; a page query cannot enable comments on its own.
 4. **Backblaze B2** for screenshots (see below).
 5. **Deploy.** Add a Convex production deploy key (dashboard → Settings → Deploy keys) to the item's "deploy" section as
    `CONVEX_DEPLOY_KEY`. `node scripts/release.ts deploy` deploys Convex with it, then builds here and deploys Netlify.

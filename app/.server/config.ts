@@ -119,7 +119,7 @@ export interface Config {
   /**
    * Feedback and kudos on slops (`COMMENTS_ENABLED=true`). Off for V1: they
    * come back with heavier moderation. The data and code stay, so turning
-   * it on brings back everything already posted.
+   * it on in both the app and Convex brings back everything already posted.
    */
   commentsEnabled: boolean;
   /** Screenshot storage. Without it, screenshots go to Convex file storage. */
