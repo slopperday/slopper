@@ -295,6 +295,8 @@ export const profile = query({
     const current = goals.find((goal) => goal.abandonedAt === null) ?? null;
     const chronological = [...slops].reverse();
     const firstHit = chronological.findIndex((slop) => slop.slopcessfulAt !== null);
+    // Queued launches' dates and counts are private to their owner.
+    const queued = current && isSelf ? await queuedDays(ctx, owner) : [];
 
     return {
       owner: publicUser(owner),
@@ -309,7 +311,7 @@ export const profile = query({
       upvotes: slops.reduce((sum, slop) => sum + slop.upvotes, 0),
       daysWon: slops.filter((slop) => slop.slopOfTheDay !== null).length,
       slopcessfulOnTry: firstHit === -1 ? null : firstHit + 1,
-      progress: current ? goalProgress(current, launches, today, await queuedDays(ctx, owner)) : null,
+      progress: current ? goalProgress(current, launches, today, queued) : null,
       pastGoals: goals
         .filter((goal) => goal._id !== current?._id)
         .map((goal) => {

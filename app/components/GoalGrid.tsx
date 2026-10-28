@@ -17,7 +17,7 @@ const STATUS_COPY = {
  * The goal as a board of days. Every day you ship flips its tile to a lime
  * check (with a count when you shipped more than once); a missed day keeps a
  * full stop; today waits on the lime "now" bar; a day with a launch
- * scheduled shows a clock, so everyone can see something's coming.
+ * scheduled shows a clock in its owner's view.
  */
 export function GoalGrid({
   progress,

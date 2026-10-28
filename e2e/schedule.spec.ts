@@ -46,10 +46,14 @@ test.describe("scheduled launches", () => {
     await expect(scheduled.getByText(first)).toBeVisible();
     await expect(scheduled.getByText(second)).toBeVisible();
 
-    // Everyone sees that something's coming on the goal, but not what.
+    // Only the maker's goal grid reveals queued dates, including their counts.
+    const ownerProfile = await seed.pageAs(maker);
+    await ownerProfile.goto(`/@${maker.username}`);
+    await expect(ownerProfile.getByLabel(/: upcoming, 1 scheduled$/)).toHaveCount(2);
     const visitor = await seed.visitorPage();
     await visitor.goto(`/@${maker.username}`);
-    await expect(visitor.getByLabel(/: upcoming, 1 scheduled$/)).toHaveCount(2);
+    await expect(visitor.getByRole("heading", { name: "10 slops in 10 days" })).toBeVisible();
+    await expect(visitor.getByLabel(/scheduled$/)).toHaveCount(0);
     await expect(visitor.getByText(first)).toHaveCount(0);
     await visitor.goto("/wall");
     await expect(visitor.getByText(first)).toHaveCount(0);
