@@ -60,8 +60,6 @@ describe("MCP rejection transport", () => {
         new URL(request.url).pathname === "/mcp" ? await handleMcp(request) : new Response("ready"),
       ),
     );
-    // Surface a wedged keep-alive socket before the test's outer watchdog.
-    server.keepAliveTimeout = 1_000;
     let connections = 0;
     server.on("connection", () => connections++);
     const agent = new Agent({ keepAlive: true, maxSockets: 1 });
