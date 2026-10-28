@@ -13,6 +13,8 @@ const UNRECORDED =
 /**
  * Whether session replay may record a page. Private pages never are, and
  * neither are pages whose path holds a secret (the SDK skips those itself).
+ * Owner page containers also carry `data-no-replay`: navigation can change
+ * the address before React removes the outgoing private page's contents.
  */
 export function mayRecordPath(path: string): boolean {
   // Match the router's decoded paths, including encoded names and trailing slashes.
