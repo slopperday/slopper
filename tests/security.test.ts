@@ -127,6 +127,9 @@ describe("routes an anonymous visitor can reach have a ceiling", () => {
 describe("the analytics ingest ceilings stay ceilings", () => {
   it("keeps the caps within an order of the audited values", async () => {
     const limits = (await import("../packages/analytics/src/component/lib/limits.ts")).INGEST_LIMITS;
+    expect(limits.requestsPerMinute).toBeLessThanOrEqual(10_000);
+    expect(limits.requestsPerDay).toBeLessThanOrEqual(1_000_000);
+    expect(limits.requestsPerAddressPerMinute).toBeLessThanOrEqual(600);
     expect(limits.eventsPerMinute).toBeLessThanOrEqual(50_000);
     expect(limits.eventsPerDay).toBeLessThanOrEqual(5_000_000);
     expect(limits.eventsPerDistinctIdPerDay).toBeLessThanOrEqual(10_000);

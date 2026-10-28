@@ -12,6 +12,58 @@ const MINUTE_MS = 60_000;
 const DAY_MS = 86_400_000;
 
 /**
+ * Admission before the HTTP route reads a body or resolves paths. Rejected
+ * payloads spend attempts too; later event and storage caps still apply.
+ */
+export const admit = mutation({
+  args: { kind: v.union(v.literal("events"), v.literal("replay")) },
+  returns: v.boolean(),
+  handler: async (ctx, { kind }) => {
+    if ((await take(ctx, "requests:minute", 1, INGEST_LIMITS.requestsPerMinute, MINUTE_MS)) === 0) return false;
+    if ((await take(ctx, "requests:day", 1, INGEST_LIMITS.requestsPerDay, DAY_MS)) === 0) return false;
+
+    // Convex supplies the address; client-controlled forwarding headers and
+    // distinct ids cannot evade it. Persist only a digest, rotated daily.
+    const { ip } = await ctx.meta.getRequestMetadata();
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(`${Math.floor(Date.now() / DAY_MS)}:${ip ?? "unknown"}`),
+    );
+    const address = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+
+    if (
+      (await take(ctx, `requests:address:${address}`, 1, INGEST_LIMITS.requestsPerAddressPerMinute, MINUTE_MS)) === 0
+    ) {
+      return false;
+    }
+
+    // Once accepted-volume caps are full, stop before parsing or starting a
+    // storage action. These reads reserve nothing; the later caps stay atomic.
+    const ceilings =
+      kind === "events"
+        ? ([
+            ["events:minute", INGEST_LIMITS.eventsPerMinute, MINUTE_MS],
+            ["events:day", INGEST_LIMITS.eventsPerDay, DAY_MS],
+          ] as const)
+        : ([
+            ["replay:chunks:minute", INGEST_LIMITS.replayChunksPerMinute, MINUTE_MS],
+            ["replay:bytes:day", INGEST_LIMITS.replayBytesPerDay, DAY_MS],
+          ] as const);
+
+    for (const [key, cap, windowMs] of ceilings) {
+      const row = await ctx.db
+        .query("counters")
+        .withIndex("by_key_window", (q) => q.eq("key", key).eq("window", Math.floor(Date.now() / windowMs)))
+        .unique();
+
+      if ((row?.count ?? 0) >= cap) return false;
+    }
+
+    return true;
+  },
+});
+
+/**
  * A batch from the SDK, already validated by `parseBatch` (shared/events.ts)
  * in the HTTP endpoint, with what the endpoint learned from the request.
  * The route is public, so the batch is trimmed to what the deployment's

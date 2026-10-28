@@ -179,6 +179,10 @@ export class Analytics {
         const userAgent = request.headers.get("user-agent") ?? "";
         // Crawlers get a success they won't retry, and nothing is stored.
         if (isBot(userAgent)) return new Response(null, { status: 204, headers });
+        if (!(await ctx.runMutation(this.component.ingest.admit, { kind: "events" }))) {
+          return new Response(null, { status: 429, headers });
+        }
+
         const body = await request.text();
         if (body.length > BATCH_LIMITS.bytes) return new Response(null, { status: 413, headers });
         let input: unknown;
@@ -239,6 +243,10 @@ export class Analytics {
         if (!allowed(origin)) return new Response(null, { status: 403 });
         const headers = corsHeaders(origin);
         if (isBot(request.headers.get("user-agent") ?? "")) return new Response(null, { status: 204, headers });
+        if (!(await ctx.runMutation(this.component.ingest.admit, { kind: "replay" }))) {
+          return new Response(null, { status: 429, headers });
+        }
+
         const meta = parseReplayChunkParams(new URL(request.url).searchParams);
         if (!meta) return new Response(null, { status: 400, headers });
         const identity = await resolveIdentity(ctx, [meta.distinctId]);
