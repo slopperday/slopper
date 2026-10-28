@@ -15,6 +15,26 @@ import { LIMITS } from "../app/lib/model";
 
 /** Updates (fixes, features, field tests, re-promotes) and feedback. */
 
+/** Charges an attempt before outbound previews; failures must not refund this work. */
+export const reserveUpdate = mutation({
+  args: { userId: v.id("users"), slopId: v.id("slops") },
+  handler: async (ctx, { userId, slopId }) => {
+    await requireServer(ctx);
+    const slop = await ctx.db.get(slopId);
+
+    if (!slop || slop.userId !== userId) throw new ConvexError("That slop isn't yours.");
+
+    await consume(ctx, `update:${userId}`, 30, 86_400_000);
+
+    return await ctx.db.insert("updateReservations", {
+      userId,
+      slopId,
+      expiresAt: Date.now() + 10 * 60_000,
+      updateId: null,
+    });
+  },
+});
+
 /**
  * Posts an update. The app server has validated it (app/.server/forms.ts)
  * and read any link cards the maker asked for; images are kept only if the
@@ -22,6 +42,7 @@ import { LIMITS } from "../app/lib/model";
  */
 export const addUpdate = mutation({
   args: {
+    reservationId: v.id("updateReservations"),
     userId: v.id("users"),
     slopId: v.id("slops"),
     kind: v.union(v.literal("update"), v.literal("feature"), v.literal("field"), v.literal("repromote")),
@@ -32,13 +53,25 @@ export const addUpdate = mutation({
     links: v.optional(v.array(updateLinkValidator)),
     details: v.optional(v.union(updateDetailsValidator, v.null())),
   },
-  handler: async (ctx, { userId, slopId, kind, body, version = null, images = [], links = [], details = null }) => {
+  handler: async (
+    ctx,
+    { reservationId, userId, slopId, kind, body, version = null, images = [], links = [], details = null },
+  ) => {
     await requireServer(ctx);
     const slop = await ctx.db.get(slopId);
     if (!slop || slop.userId !== userId) throw new ConvexError("That slop isn't yours.");
     if (details && details.kind !== kind) throw new ConvexError(`Those details are for a ${details.kind} update.`);
     if (links.length > LIMITS.updateLinks) throw new ConvexError(`Up to ${LIMITS.updateLinks} links.`);
-    await consume(ctx, `update:${userId}`, 30, 86_400_000);
+    const reservation = await ctx.db.get(reservationId);
+
+    if (!reservation || reservation.userId !== userId || reservation.slopId !== slopId) {
+      throw new ConvexError("Reserve an update before posting it.");
+    }
+
+    // A retried final write must neither create another update nor spend another attempt.
+    if (reservation.updateId) return reservation.updateId;
+    if (reservation.expiresAt <= Date.now()) throw new ConvexError("That update attempt expired. Please try again.");
+
     const kept = await ownedMedia(ctx, userId, images, [], LIMITS.updateImages);
     const cards = links.flatMap((link) => (link.preview?.imageId ? [link.preview.imageId] : []));
     const ownedCards = new Set(await ownedMedia(ctx, userId, cards, [], LIMITS.updateLinks));
@@ -65,6 +98,7 @@ export const addUpdate = mutation({
     });
     await checkScreenshots(ctx, slopId, [...kept, ...ownedCards], slop.screenshots);
     await captureFor(ctx, userId, { name: "update posted", slopId, properties: { kind } });
+    await ctx.db.patch(reservationId, { updateId });
     return updateId;
   },
 });

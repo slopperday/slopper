@@ -12,6 +12,7 @@ import { deleteOrphanedMedia } from "~/.server/media";
 import { announce, retryFailed, summarize } from "~/.server/social/announce";
 import { missedPreviewsNote, postUpdate } from "~/.server/updates";
 import { postReview } from "~/.server/reviews";
+import { allowAction, callerAddress } from "~/.server/tokens";
 import { modeFor } from "~/.server/social/crosspost";
 import { shareIntents } from "~/lib/compose";
 import { formatDay, localDate, timeAgo } from "~/lib/dates";
@@ -211,6 +212,16 @@ export async function action({ params, request, context }: Route.ActionArgs) {
             message: Object.values(parsed.errors).join(" "),
           });
         }
+        if (
+          parsed.value.links.some((link) => link.preview) &&
+          !(await allowAction(`update-preview:${callerAddress(request)}`, 60, 3_600_000))
+        ) {
+          return redirectWithFlash(`${here}#updates`, {
+            tone: "error",
+            message: "Too many link previews. Try again later.",
+          });
+        }
+
         const { updateId, missedPreviews } = await postUpdate(user._id, slop.id, parsed.value);
         const autoposted = form.get("autopost") === "on" ? summarize(await announce(ownerRef, slop.id, updateId)) : "";
         return redirectWithFlash(`${here}#update-${updateId}`, {

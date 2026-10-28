@@ -1,12 +1,15 @@
 // @vitest-environment edge-runtime
-import type { FunctionReference } from "convex/server";
+import type { FunctionArgs, FunctionReference } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { api } from "@convex/_generated/api";
+import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import type { ConvexCaller } from "~/.server/convex";
+import { convex } from "~/.server/convex";
+import type { UpdateForm } from "~/.server/forms";
 import { uploadImage } from "~/.server/media";
 import { type Fetched, linkPreview, type PreviewServices } from "~/.server/preview";
 import type { MediaKind, MediaLocation, MediaStore } from "~/.server/storage";
+import { postUpdate } from "~/.server/updates";
 import { convexApp } from "./convexApp";
 
 const MEDIA_URL = "https://media.test/file/slopper-media";
@@ -24,6 +27,16 @@ afterEach(() => {
 });
 
 type Setup = ReturnType<typeof setup>;
+
+/** Seed an update through the same quota reservation as the app server. */
+async function addUpdate({ server }: Setup, args: Omit<FunctionArgs<typeof api.activity.addUpdate>, "reservationId">) {
+  const reservationId = await server.mutation(api.activity.reserveUpdate, {
+    userId: args.userId,
+    slopId: args.slopId,
+  });
+
+  return await server.mutation(api.activity.addUpdate, { ...args, reservationId });
+}
 
 async function makeUser({ server }: Setup, name: string): Promise<Id<"users">> {
   const { userId } = await server.mutation(api.users.upsertFromIdentity, {
@@ -78,7 +91,6 @@ async function slopPage({ server }: Setup) {
 describe("update metadata", () => {
   it("keeps the version, details, owned images and link cards, and shows them as URLs", async () => {
     const setupResult = setup();
-    const { server } = setupResult;
     const owner = await makeUser(setupResult, "maker");
     const stranger = await makeUser(setupResult, "stranger");
     const slopId = await ship(setupResult, owner);
@@ -86,7 +98,7 @@ describe("update metadata", () => {
     const card = await image(setupResult, owner, "screenshots/card.png");
     const theirs = await image(setupResult, stranger, "screenshots/theirs.png");
 
-    await server.mutation(api.activity.addUpdate, {
+    await addUpdate(setupResult, {
       userId: owner,
       slopId,
       kind: "feature",
@@ -131,12 +143,11 @@ describe("update metadata", () => {
 
   it("drops a card image someone else uploaded, keeping the card's text", async () => {
     const setupResult = setup();
-    const { server } = setupResult;
     const owner = await makeUser(setupResult, "maker");
     const stranger = await makeUser(setupResult, "stranger");
     const slopId = await ship(setupResult, owner);
     const theirs = await image(setupResult, stranger, "screenshots/theirs.png");
-    await server.mutation(api.activity.addUpdate, {
+    await addUpdate(setupResult, {
       userId: owner,
       slopId,
       kind: "update",
@@ -158,7 +169,7 @@ describe("update metadata", () => {
     const owner = await makeUser(setupResult, "maker");
     const slopId = await ship(setupResult, owner);
     await expect(
-      setupResult.server.mutation(api.activity.addUpdate, {
+      addUpdate(setupResult, {
         userId: owner,
         slopId,
         kind: "update",
@@ -174,7 +185,7 @@ describe("update metadata", () => {
     const owner = await makeUser(setupResult, "maker");
     const slopId = await ship(setupResult, owner);
     const mature = await image(setupResult, owner, "screenshots/gore.png", "mature");
-    await server.mutation(api.activity.addUpdate, {
+    await addUpdate(setupResult, {
       userId: owner,
       slopId,
       kind: "update",
@@ -195,7 +206,7 @@ describe("letting go of update images", () => {
     const owner = await makeUser(setupResult, "maker");
     const slopId = await ship(setupResult, owner);
     const card = await image(setupResult, owner, "screenshots/card.png");
-    const updateId = await server.mutation(api.activity.addUpdate, {
+    const updateId = await addUpdate(setupResult, {
       userId: owner,
       slopId,
       kind: "update",
@@ -236,7 +247,7 @@ describe("letting go of update images", () => {
     const cover = await image(setupResult, owner, "screenshots/cover.png");
     const shot = await image(setupResult, owner, "screenshots/shot.png");
     const slopId = await ship(setupResult, owner, [cover]);
-    const updateId = await server.mutation(api.activity.addUpdate, {
+    const updateId = await addUpdate(setupResult, {
       userId: owner,
       slopId,
       kind: "update",
@@ -256,7 +267,7 @@ describe("letting go of update images", () => {
     const shot = await image(setupResult, owner, "screenshots/shot.png");
     const slopId = await ship(setupResult, owner);
     const post = (body: string) =>
-      server.mutation(api.activity.addUpdate, { userId: owner, slopId, kind: "update", body, images: [shot] });
+      addUpdate(setupResult, { userId: owner, slopId, kind: "update", body, images: [shot] });
     const first = await post("One.");
     await post("Two.");
 
@@ -276,6 +287,139 @@ function caller({ server }: Setup): ConvexCaller {
     mutation: async (mutation, ...args) => await server.mutation<FunctionReference<"mutation">>(mutation, ...args),
   };
 }
+
+describe("update attempt quota", () => {
+  const update: UpdateForm = {
+    kind: "update",
+    body: "Release notes.",
+    version: null,
+    images: [],
+    links: [{ kind: "website", url: "https://example.com/notes", preview: true }],
+    details: null,
+  };
+
+  it("does no preview work once the maker's daily quota is spent", async () => {
+    const app = setup();
+    const owner = await makeUser(app, "maker");
+    const slopId = await ship(app, owner);
+    vi.spyOn(convex, "mutation").mockImplementation(caller(app).mutation);
+    const preview = vi.fn(async () => null);
+
+    for (let i = 0; i < 30; i++) await postUpdate(owner, slopId, update, preview);
+
+    preview.mockClear();
+    await expect(postUpdate(owner, slopId, update, preview)).rejects.toThrow("Slow down");
+    expect(preview).not.toHaveBeenCalled();
+    expect((await slopPage(app)).updates.filter((entry) => entry.kind !== "launch")).toHaveLength(30);
+  });
+
+  it("checks ownership before doing preview work", async () => {
+    const app = setup();
+    const owner = await makeUser(app, "maker");
+    const stranger = await makeUser(app, "stranger");
+    const slopId = await ship(app, owner);
+    vi.spyOn(convex, "mutation").mockImplementation(caller(app).mutation);
+    const preview = vi.fn(async () => null);
+
+    await expect(postUpdate(stranger, slopId, update, preview)).rejects.toThrow("That slop isn't yours.");
+    expect(preview).not.toHaveBeenCalled();
+  });
+
+  it("charges attempts whose previews fail without saving an update", async () => {
+    const app = setup();
+    const owner = await makeUser(app, "maker");
+    const slopId = await ship(app, owner);
+    vi.spyOn(convex, "mutation").mockImplementation(caller(app).mutation);
+    const preview = vi.fn(async () => {
+      throw new Error("Preview processing failed.");
+    });
+
+    for (let i = 0; i < 30; i++) {
+      await expect(postUpdate(owner, slopId, update, preview)).rejects.toThrow("Preview processing failed.");
+    }
+
+    preview.mockClear();
+    await expect(postUpdate(owner, slopId, update, preview)).rejects.toThrow("Slow down");
+    expect(preview).not.toHaveBeenCalled();
+    expect((await slopPage(app)).updates.filter((entry) => entry.kind !== "launch")).toHaveLength(0);
+  });
+
+  it("keeps the charge when the final write is rejected", async () => {
+    const app = setup();
+    const owner = await makeUser(app, "maker");
+    const slopId = await ship(app, owner);
+    vi.spyOn(convex, "mutation").mockImplementation(caller(app).mutation);
+    const preview = vi.fn(async () => null);
+
+    await expect(
+      postUpdate(owner, slopId, { ...update, details: { kind: "field", outcome: "worked", who: null } }, preview),
+    ).rejects.toThrow("Those details are for a field update.");
+
+    expect(preview).toHaveBeenCalledOnce();
+    const charges = await app.t.run(async (ctx) => await ctx.db.query("rateLimits").collect());
+    expect(charges.find((row) => row.key === `update:${owner}`)?.count).toBe(1);
+    expect((await slopPage(app)).updates.filter((entry) => entry.kind !== "launch")).toHaveLength(0);
+  });
+});
+
+describe("update reservations", () => {
+  it("requires the server to reserve and post, and binds a reservation to its maker and slop", async () => {
+    const app = setup();
+    const owner = await makeUser(app, "maker");
+    const stranger = await makeUser(app, "stranger");
+    const slopId = await ship(app, owner);
+    const otherSlop = await ship(app, owner);
+    const theirs = await ship(app, stranger);
+    const reservationId = await app.server.mutation(api.activity.reserveUpdate, { userId: owner, slopId });
+    const args = { reservationId, userId: owner, slopId, kind: "update", body: "Notes." } as const;
+
+    await expect(app.t.mutation(api.activity.reserveUpdate, { userId: owner, slopId })).rejects.toThrow();
+    await expect(app.t.withIdentity({ subject: owner }).mutation(api.activity.addUpdate, args)).rejects.toThrow();
+    await expect(app.server.mutation(api.activity.addUpdate, { ...args, slopId: otherSlop })).rejects.toThrow(
+      "Reserve an update before posting it.",
+    );
+    await expect(
+      app.server.mutation(api.activity.addUpdate, { ...args, userId: stranger, slopId: theirs }),
+    ).rejects.toThrow("Reserve an update before posting it.");
+  });
+
+  it("retries the final write without creating another update or spending more quota", async () => {
+    const app = setup();
+    const owner = await makeUser(app, "maker");
+    const slopId = await ship(app, owner);
+    const reservationId = await app.server.mutation(api.activity.reserveUpdate, { userId: owner, slopId });
+    const args = { reservationId, userId: owner, slopId, kind: "field", body: "Tried it." } as const;
+    const first = await app.server.mutation(api.activity.addUpdate, args);
+
+    expect(await app.server.mutation(api.activity.addUpdate, args)).toBe(first);
+    expect(await app.server.query(api.slops.getForServer, { slopId })).toMatchObject({ updateCount: 2, fieldTests: 1 });
+    const charges = await app.t.run(async (ctx) => await ctx.db.query("rateLimits").collect());
+    expect(charges.find((row) => row.key === `update:${owner}`)?.count).toBe(1);
+  });
+
+  it("refuses expired reservations and sweeps them without refunding the attempt", async () => {
+    const app = setup();
+    const owner = await makeUser(app, "maker");
+    const slopId = await ship(app, owner);
+    const reservationId = await app.server.mutation(api.activity.reserveUpdate, { userId: owner, slopId });
+    await app.t.run(async (ctx) => await ctx.db.patch(reservationId, { expiresAt: Date.now() - 1 }));
+
+    await expect(
+      app.server.mutation(api.activity.addUpdate, {
+        reservationId,
+        userId: owner,
+        slopId,
+        kind: "update",
+        body: "Notes.",
+      }),
+    ).rejects.toThrow("That update attempt expired.");
+
+    await app.t.mutation(internal.crons.sweep, {});
+    expect(await app.t.run(async (ctx) => await ctx.db.get(reservationId))).toBeNull();
+    const charges = await app.t.run(async (ctx) => await ctx.db.query("rateLimits").collect());
+    expect(charges.find((row) => row.key === `update:${owner}`)?.count).toBe(1);
+  });
+});
 
 class MemoryBucket implements MediaStore {
   readonly backend = "b2";

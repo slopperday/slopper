@@ -483,6 +483,15 @@ export default defineSchema({
     .index("by_user_release", ["userId", "releaseAt"])
     .index("by_product", ["productId"]),
 
+  /** Short-lived, server-only quota receipts; abandoned attempts remain charged. */
+  updateReservations: defineTable({
+    userId: v.id("users"),
+    slopId: v.id("slops"),
+    expiresAt: v.number(),
+    /** Set atomically with the final write so a retry returns the same update. */
+    updateId: v.union(v.id("updates"), v.null()),
+  }).index("by_expiry", ["expiresAt"]),
+
   updates: defineTable({
     slopId: v.id("slops"),
     userId: v.id("users"),

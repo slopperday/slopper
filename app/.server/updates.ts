@@ -13,7 +13,7 @@ export interface PostedUpdate {
 /**
  * Posts a validated update (`validateUpdate`). The composer, the REST API
  * and MCP all post through here. Cards are read only for the links the maker
- * asked for, all at once, before the update is written.
+ * asked for, all at once, after reserving the maker's daily attempt.
  */
 export async function postUpdate(
   ownerId: Id<"users">,
@@ -21,10 +21,12 @@ export async function postUpdate(
   update: UpdateForm,
   preview: (ownerId: Id<"users">, url: string) => Promise<StoredPreview | null> = linkPreview,
 ): Promise<PostedUpdate> {
+  const reservationId = await convex.mutation(api.activity.reserveUpdate, { userId: ownerId, slopId });
   const cards = await Promise.all(
     update.links.map(async (link) => (link.preview ? await preview(ownerId, link.url) : null)),
   );
   const updateId = await convex.mutation(api.activity.addUpdate, {
+    reservationId,
     userId: ownerId,
     slopId,
     kind: update.kind,
