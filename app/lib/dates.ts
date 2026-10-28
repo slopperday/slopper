@@ -150,6 +150,7 @@ export function timeAgo(at: string | number, now: Date = new Date()): string {
   return new Date(ms).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
+    timeZone: "UTC",
   });
 }
 
