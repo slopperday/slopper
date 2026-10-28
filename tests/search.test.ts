@@ -95,6 +95,7 @@ async function embedAll(t: Test) {
 
 async function names(server: Server, query: string, categories: string[] = [], asUser?: Id<"users">) {
   const items = await server.action(api.search.find, { query, categories, asUser });
+  if (items === null) throw new Error("Search budget unexpectedly spent.");
   return items.map((item) => item.slop.name);
 }
 
@@ -260,6 +261,7 @@ describe("search by words", () => {
     expect((await names(server, "maze", [], maker)).sort()).toEqual(["Plain Maze", "Spicy Maze"]);
     await t.run((ctx) => ctx.db.patch(reader, { showNsfw: true }));
     const opted = await server.action(api.search.find, { query: "maze", asUser: reader });
+    if (opted === null) throw new Error("Search budget unexpectedly spent.");
     expect(opted.map((item) => item.slop.name).sort()).toEqual(["Plain Maze", "Spicy Maze"]);
     // Public shapes only: what Convex keeps to itself never leaves.
     expect(opted[0].slop).not.toHaveProperty("downvotes");
@@ -280,6 +282,50 @@ describe("search by words", () => {
 });
 
 describe("search by meaning", () => {
+  it("stops a signed-in account before more model, vector or word searches, then resets next hour", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-27T12:00:00Z"));
+    const { t, server } = setup();
+    const reader = await makeUser(server, "reader");
+    await t.run((ctx) =>
+      ctx.db.insert("rateLimits", { key: `search:${reader}`, window: Math.floor(Date.now() / 3_600_000), count: 119 }),
+    );
+    const requests = fakeEmbeddings();
+
+    expect(await server.action(api.search.find, { query: "last allowed", asUser: reader })).toEqual([]);
+
+    expect(requests).toHaveLength(1);
+    expect(await server.action(api.search.find, { query: "one more", asUser: reader })).toBeNull();
+    expect(requests).toHaveLength(1);
+    // Disabling embeddings must not bypass the account's search-work budget.
+    vi.stubEnv("OPENROUTER_API_KEY", "");
+    expect(await server.action(api.search.find, { query: "words only", asUser: reader })).toBeNull();
+    expect(await server.action(api.search.find, { query: "   ", asUser: reader })).toEqual([]);
+
+    vi.setSystemTime(new Date("2026-10-27T13:00:00Z"));
+    expect(await server.action(api.search.find, { query: "fresh hour", asUser: reader })).toEqual([]);
+  });
+
+  it("keeps accounts independent and counts failed embedding attempts", async () => {
+    const { t, server } = setup();
+    const first = await makeUser(server, "first");
+    await t.run((ctx) =>
+      ctx.db.insert("rateLimits", { key: `search:${first}`, window: Math.floor(Date.now() / 3_600_000), count: 119 }),
+    );
+    const second = await makeUser(server, "second");
+    vi.stubEnv("OPENROUTER_API_KEY", "or_test");
+    const provider = vi.fn(async () => new Response("overloaded", { status: 529 }));
+    vi.stubGlobal("fetch", provider);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(await server.action(api.search.find, { query: "last allowed", asUser: first })).toEqual([]);
+
+    expect(await server.action(api.search.find, { query: "one more", asUser: first })).toBeNull();
+    expect(provider).toHaveBeenCalledTimes(1);
+    expect(await server.action(api.search.find, { query: "my first", asUser: second })).toEqual([]);
+    expect(provider).toHaveBeenCalledTimes(2);
+  });
+
   it("embeds each launch through OpenRouter and finds it by meaning", async () => {
     vi.useFakeTimers();
     const requests = fakeEmbeddings();

@@ -151,8 +151,11 @@ test.describe("finding slop", () => {
     const maze = await seed.slop(maker, { name: `Marble Maze ${id}`, tagline: "Tilt to roll", category: "games" });
     const held = await seed.slop(maker, { name: `Held ${id}`, tagline: "Track every expense", verdict: "blocked" });
     // Embeddings are made just after each launch: wait until search can see them.
-    const finds = async (query: string, slop: { name: string }) =>
-      (await convex.action(api.search.find, { query })).some((item) => item.slop.name === slop.name);
+    const finds = async (query: string, slop: { name: string }) => {
+      const items = await convex.action(api.search.find, { query });
+      if (items === null) throw new Error("Search budget unexpectedly spent.");
+      return items.some((item) => item.slop.name === slop.name);
+    };
     await expect.poll(async () => (await finds("budget", jar)) && (await finds("puzzle", maze))).toBe(true);
 
     const page = await seed.visitorPage();

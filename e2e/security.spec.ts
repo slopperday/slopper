@@ -3,6 +3,7 @@ import process from "node:process";
 import { api } from "../convex/_generated/api.js";
 import type { Id } from "../convex/_generated/dataModel";
 import { expect, test } from "./fixtures.ts";
+import { SEARCHES_PER_HOUR, SEARCH_RATE_LIMIT_MESSAGE } from "../app/lib/search.ts";
 
 /**
  * Attack regressions: the exploits the security audits proved against a
@@ -79,6 +80,62 @@ test.describe("security regressions", () => {
         }
       }
     }
+  });
+
+  test("one account's search budget covers the browser, REST and MCP", async ({ seed, request, convex }) => {
+    const user = await seed.user("searchbudget");
+    const token = await seed.apiToken(user);
+    const headers = { authorization: `Bearer ${token}` };
+
+    // Seed only this account's used searches; the shared address bucket stays available to parallel tests.
+    for (let n = 0; n < SEARCHES_PER_HOUR - 1; n++) {
+      expect(
+        await convex.mutation(api.limits.hit, {
+          key: `search:${user.id}`,
+          limit: SEARCHES_PER_HOUR,
+          windowMs: 3_600_000,
+        }),
+      ).toBe(true);
+    }
+
+    const page = await seed.pageAs(user);
+    const allowed = await page.goto("/wall?q=last+allowed");
+    expect(allowed?.status()).toBe(200);
+    await expect(page.getByRole("heading", { name: "The wall", exact: true })).toBeVisible();
+
+    const rest = await request.get("/api/v1/search?q=another+query", { headers });
+    expect(rest.status()).toBe(429);
+    expect(await rest.json()).toMatchObject({ error: SEARCH_RATE_LIMIT_MESSAGE });
+
+    const mcp = await request.post("/mcp", {
+      headers,
+      data: {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: {
+          name: "search_slops",
+          arguments: { query: "a different query" },
+        },
+      },
+    });
+    expect(await mcp.json()).toMatchObject({
+      result: {
+        isError: true,
+        content: [{ type: "text", text: SEARCH_RATE_LIMIT_MESSAGE }],
+      },
+    });
+
+    const wall = await page.goto("/wall?q=one+more");
+    expect(wall?.status()).toBe(429);
+    await expect(page.getByRole("heading", { name: "Slow down a little" })).toBeVisible();
+
+    const other = await seed.user("othersearcher");
+    const otherToken = await seed.apiToken(other);
+    const independent = await request.get("/api/v1/search?q=my+first", {
+      headers: { authorization: `Bearer ${otherToken}` },
+    });
+    expect(independent.status()).toBe(200);
   });
 
   test("share cards render only their canonical URL", async ({ seed, request, stack }) => {

@@ -15,7 +15,7 @@ import {
 } from "~/lib/model";
 import { localDate, utcDate } from "~/lib/dates";
 import { editableUntil } from "~/lib/editing";
-import { normalizeQuery, SEARCH_LIMIT, SEARCH_QUERY_LENGTH } from "~/lib/search";
+import { normalizeQuery, SEARCH_LIMIT, SEARCH_QUERY_LENGTH, SEARCH_RATE_LIMIT_MESSAGE } from "~/lib/search";
 import { formatRelease, parseRelease, releaseProblem } from "~/lib/schedule";
 import { listWords, slopPath } from "~/lib/display";
 import { CURRENCIES } from "~/lib/money";
@@ -1036,6 +1036,7 @@ export const OPERATIONS: Operation[] = [
         throw new ApiError(400, `limit must be a whole number from 1 to ${SEARCH_LIMIT}.`);
       }
       const items = await convex.action(api.search.find, { query, categories, limit, asUser: user?._id });
+      if (items === null) throw new ApiError(429, SEARCH_RATE_LIMIT_MESSAGE);
       return {
         query,
         results: items.map((item, index) => ({
