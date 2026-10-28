@@ -2,6 +2,7 @@ import type { ConvexHttpClient } from "convex/browser";
 import type { Page } from "@playwright/test";
 import { api } from "../convex/_generated/api.js";
 import type { Id } from "../convex/_generated/dataModel.js";
+import { checkedContentHash } from "../convex/lib/shape.ts";
 import { addDays, formatDay } from "../app/lib/dates.ts";
 import { expect, runInternal, type SeededUser, test } from "./fixtures.ts";
 import type { Stack } from "./ports.ts";
@@ -23,7 +24,15 @@ async function launchOn(stack: Stack, convex: ConvexHttpClient, owner: SeededUse
     },
     launchNote: "Day one",
   });
-  await convex.mutation(api.moderation.applyCheck, { slopId, scope: "slop", verdict: "ok", reason: "Seeded" });
+  const slop = await convex.query(api.slops.getForServer, { slopId });
+  if (!slop) throw new Error("Missing seeded launch");
+  await convex.mutation(api.moderation.applyCheck, {
+    slopId,
+    scope: "slop",
+    verdict: "ok",
+    reason: "Seeded",
+    contentHash: checkedContentHash(slop),
+  });
   runInternal(stack, "launchDays:moveLaunch", { slopId, date });
   return { id: slopId as Id<"slops">, slug, name, path: `/@${owner.username}/${slug}` };
 }

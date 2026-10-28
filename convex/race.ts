@@ -3,7 +3,7 @@ import type { Doc } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, query, type QueryCtx } from "./_generated/server";
 import { readerFor } from "./lib/auth";
 import { notify } from "./lib/notify";
-import { toCards } from "./lib/shape";
+import { isHidden, toCards } from "./lib/shape";
 import { addDays, formatDay, utcDate } from "../app/lib/dates";
 import { plural } from "../app/lib/display";
 import { LIMITS } from "../app/lib/model";
@@ -90,7 +90,7 @@ export async function rankDay(ctx: QueryCtx, date: string): Promise<Doc<"slops">
     .withIndex("by_race_date", (q) => q.eq("raceDate", date))
     .collect();
   return slops
-    .filter((slop) => !slop.hidden)
+    .filter((slop) => !isHidden(slop))
     .sort(
       (a, b) =>
         net(b) - net(a) ||
@@ -130,7 +130,7 @@ export const champion = query({
     const recent = await ctx.db.query("dailyWinners").withIndex("by_date").order("desc").take(14);
     for (const winner of recent) {
       const slop = winner.slopId ? await ctx.db.get(winner.slopId) : null;
-      if (!slop || slop.hidden) continue;
+      if (!slop || isHidden(slop)) continue;
       const [card] = await toCards(ctx, [slop], reader);
       if (card) return { date: winner.date, item: card };
     }

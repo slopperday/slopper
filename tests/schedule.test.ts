@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { convexApp } from "./convexApp";
+import { applyCurrentCheck, checkedLaunch } from "./launchFixtures";
 
 const APP = "https://app.test";
 
@@ -88,7 +89,7 @@ describe("scheduled launches", () => {
       startDate: "2026-10-15",
       today: "2026-10-15",
     });
-    await server.mutation(api.slops.create, {
+    await checkedLaunch(server, {
       userId: maker,
       input: input("Today"),
       launchNote: "",
@@ -116,6 +117,11 @@ describe("scheduled launches", () => {
     await advanceTo(t, "2026-10-17T00:00:00Z");
     await t.finishAllScheduledFunctions(vi.runAllTimers);
 
+    const slops = await server.query(api.slops.listForServer, { userId: maker });
+    expect((await server.query(api.race.day, { date: "2026-10-16" })).items).toEqual([]);
+    for (const slop of slops) {
+      await applyCurrentCheck(server, { slopId: slop._id, scope: "slop", verdict: "ok", reason: "Fixture" });
+    }
     const after = await server.query(api.users.profile, { username: "maker" });
     expect(after?.progress?.shipped).toBe(3);
     expect(after?.progress?.days.slice(0, 3).map((day) => [day.state, day.queued])).toEqual([
@@ -123,7 +129,6 @@ describe("scheduled launches", () => {
       ["shipped", 0],
       ["shipped", 0],
     ]);
-    const slops = await server.query(api.slops.listForServer, { userId: maker });
     expect(slops.map((slop) => [slop.name, slop.launchDate, slop.raceDate, slop.goalDay, slop.number])).toEqual([
       ["Third", "2026-10-17", "2026-10-17", 3, 3],
       ["Second", "2026-10-16", "2026-10-16", 2, 2],
@@ -250,6 +255,8 @@ describe("scheduled launches", () => {
     );
     const out = await server.mutation(api.schedule.releaseNow, { userId: maker, id: now.id });
     expect(out).toMatchObject({ slug: "now", name: "Now", autopost: true });
+    await applyCurrentCheck(server, { slopId: out.slopId, scope: "slop", verdict: "ok", reason: "Fixture" });
+    await server.mutation(api.schedule.complete, { id: now.id, claimVersion: out.claimVersion, checked: true });
     await expect(server.mutation(api.schedule.cancel, { userId: fan, id: dropped.id })).rejects.toThrow(
       "That scheduled launch isn't yours.",
     );
@@ -279,7 +286,7 @@ describe("scheduled launches", () => {
   it("keeps a product with launches scheduled, and lets go of a dropped launch's screenshots", async () => {
     const { t, server } = setup();
     const maker = await makeUser(server, "maker");
-    const first = await server.mutation(api.slops.create, {
+    const first = await checkedLaunch(server, {
       userId: maker,
       input: input("Marbles"),
       launchNote: "",
@@ -314,7 +321,7 @@ describe("scheduled launches", () => {
     stubApp();
     const { t, server } = setup();
     const maker = await makeUser(server, "maker");
-    const first = await server.mutation(api.slops.create, {
+    const first = await checkedLaunch(server, {
       userId: maker,
       input: input("Marbles"),
       launchNote: "",
@@ -329,6 +336,10 @@ describe("scheduled launches", () => {
       launchLabel: "iOS app",
     });
     await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const slops = await server.query(api.slops.listForServer, { userId: maker });
+    for (const slop of slops) {
+      await applyCurrentCheck(server, { slopId: slop._id, scope: "slop", verdict: "ok", reason: "Fixture" });
+    }
     const page = await server.query(api.slops.page, { username: "maker", slug: "marbles" });
     expect(page?.launches.map((launch) => [launch.title, launch.launchDate])).toEqual([
       ["First launch", "2026-10-15"],

@@ -4,6 +4,7 @@ import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { cleanTags, exactTag, matchTags, tagKind, tagOptions } from "~/lib/tags";
 import { convexApp } from "./convexApp";
+import { checkedLaunch } from "./launchFixtures";
 
 describe("made-with tags", () => {
   it("spells known tags our way, splits commas and drops repeats in any case", () => {
@@ -71,7 +72,7 @@ describe("tag counts", () => {
     const counts = async () =>
       Object.fromEntries((await t.query(api.tags.popular, {})).map(({ name, uses }) => [name, uses]));
     const ship = async (madeWith: string[]) =>
-      await server.mutation(api.slops.create, {
+      await checkedLaunch(server, {
         userId,
         input: { ...input, madeWith },
         launchNote: "",
@@ -96,7 +97,7 @@ describe("tag counts", () => {
 
   it("backfills counts and spellings for slops from before tags were counted", async () => {
     const { t, server, userId } = await setup();
-    const { slopId } = await server.mutation(api.slops.create, {
+    const { slopId } = await checkedLaunch(server, {
       userId,
       input: { ...input, madeWith: [] },
       launchNote: "",

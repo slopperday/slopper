@@ -158,7 +158,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       launchNote: launchNote || input.tagline,
       ...relaunch,
     });
-    const finished = await finishLaunch(user, created, launchNote, autopost);
+    const finished = await finishLaunch(user, created, autopost);
     const here = slopPath(user.username, created.slug);
     const flash = launchFlash(title, finished, created.blurred);
     return redirectWithFlash(flash.tone === "error" ? here : `${here}?new=1`, flash);

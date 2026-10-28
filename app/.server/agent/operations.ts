@@ -666,7 +666,7 @@ export const OPERATIONS: Operation[] = [
         launchNote: launchNote || fields.tagline,
         ...relaunch,
       });
-      const finished = await finishLaunch(user, created, launchNote, autopost);
+      const finished = await finishLaunch(user, created, autopost);
       return {
         slop: summarizeSlop(await slopById(created.slopId), user),
         autopost: finished.autopost,

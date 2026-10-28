@@ -370,8 +370,17 @@ export default defineSchema({
     /** On a product's first launch: show its money publicly. */
     moneyPublic: v.boolean(),
     hidden: v.boolean(),
-    /** The latest automated content check; absent until one has run. */
-    check: v.optional(v.object({ verdict: checkVerdictValidator, reason: v.string(), checkedAt: v.number() })),
+    /** Pending content check: whether a matching verdict may lift this temporary hide. */
+    publishAfterCheck: v.optional(v.boolean()),
+    /** The latest check. A moderator's approval alone never clears automatic posting. */
+    check: v.optional(
+      v.object({
+        verdict: checkVerdictValidator,
+        reason: v.string(),
+        checkedAt: v.number(),
+        source: v.optional(v.literal("moderator")),
+      }),
+    ),
     /** Its vector for search by meaning (convex/search.ts); absent until one is made. */
     embeddingId: v.optional(v.id("slopEmbeddings")),
   })
@@ -479,6 +488,9 @@ export default defineSchema({
      * and auto-posted it (`schedule.claim`), which deletes the row.
      */
     released: v.optional(v.object({ slopId: v.id("slops"), updateId: v.id("updates") })),
+    /** A completion lease; failures and crashed callers leave the release retryable. */
+    claimedUntil: v.optional(v.number()),
+    claimVersion: v.optional(v.number()),
   })
     .index("by_user_release", ["userId", "releaseAt"])
     .index("by_product", ["productId"]),

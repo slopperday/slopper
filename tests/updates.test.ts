@@ -11,6 +11,7 @@ import { type Fetched, linkPreview, type PreviewServices } from "~/.server/previ
 import type { MediaKind, MediaLocation, MediaStore } from "~/.server/storage";
 import { postUpdate } from "~/.server/updates";
 import { convexApp } from "./convexApp";
+import { checkedLaunch } from "./launchFixtures";
 
 const MEDIA_URL = "https://media.test/file/slopper-media";
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
@@ -51,7 +52,7 @@ async function makeUser({ server }: Setup, name: string): Promise<Id<"users">> {
 }
 
 async function ship({ server }: Setup, userId: Id<"users">, screenshots: string[] = []): Promise<Id<"slops">> {
-  const { slopId } = await server.mutation(api.slops.create, {
+  const { slopId } = await checkedLaunch(server, {
     userId,
     input: {
       name: "TiltMaze",

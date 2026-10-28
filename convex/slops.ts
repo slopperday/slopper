@@ -10,6 +10,7 @@ import { consume, nextCounter, spent } from "./lib/rate";
 import { reviewsFor } from "./lib/reviews";
 import {
   checkedContentOf,
+  isHidden,
   isVisibleTo,
   productIdOf,
   publicSlop,
@@ -183,7 +184,8 @@ export async function insertLaunch(ctx: MutationCtx, draft: LaunchDraft) {
     slopcessfulNote: null,
     crosspost: {},
     moneyPublic: false,
-    hidden: false,
+    hidden: true,
+    publishAfterCheck: true,
   });
   const updateId = await ctx.db.insert("updates", {
     slopId,
@@ -259,14 +261,17 @@ export const edit = mutation({
     // whose check failed — instead of showing a stale "ok" over new text.
     // A verdict already in flight for the old text won't land either
     // (moderation.applyCheck ties verdicts to the content they judged).
-    const rechecked = checkedContentOf({ ...fields, publication }) !== checkedContentOf(slop);
+    const rechecked =
+      checkedContentOf({ ...slop, ...fields, madeWith, screenshots, publication }) !== checkedContentOf(slop);
     // An undefined field is removed by the patch.
     await ctx.db.patch(slopId, {
       ...fields,
       madeWith,
       screenshots,
       publication: publication ?? undefined,
-      ...(rechecked ? { check: undefined } : {}),
+      ...(rechecked
+        ? { check: undefined, hidden: true, publishAfterCheck: slop.publishAfterCheck ?? !slop.hidden }
+        : {}),
     });
     if (embeddingText(fields) !== embeddingText(slop)) await scheduleEmbedding(ctx, slopId);
     const shown = (ids: Id<"media">[], pdf: Id<"media"> | null | undefined) => (pdf ? [...ids, pdf] : ids);
@@ -304,7 +309,10 @@ export const setHidden = mutation({
     await requirePermission(ctx, adminId, "slops.hide");
     const slop = await ctx.db.get(slopId);
     if (!slop) throw new ConvexError("That slop is gone.");
-    await ctx.db.patch(slopId, { hidden });
+    await ctx.db.patch(slopId, {
+      hidden: hidden || slop.publishAfterCheck !== undefined,
+      ...(slop.publishAfterCheck !== undefined ? { publishAfterCheck: !hidden } : {}),
+    });
     if (slop.hidden !== hidden) await logStaffAction(ctx, adminId, { type: "hidden", slopId, hidden }, slop);
     if (hidden) {
       const reports = await ctx.db
@@ -446,7 +454,7 @@ export const vote = mutation({
     await requireServer(ctx);
     const slopId = ctx.db.normalizeId("slops", rawId);
     const slop = slopId ? await ctx.db.get(slopId) : null;
-    if (!slop || slop.hidden) throw new ConvexError("Slop not found.");
+    if (!slop || isHidden(slop)) throw new ConvexError("Slop not found.");
     if (slop.userId === userId) throw new ConvexError("You can't vote on your own slop.");
     const voter = await ctx.db.get(userId);
     if (!voter) throw new ConvexError("Sign in again to vote.");
@@ -516,7 +524,7 @@ export const pledge = mutation({
     }
     const slopId = ctx.db.normalizeId("slops", rawId);
     const slop = slopId ? await ctx.db.get(slopId) : null;
-    if (!slop || slop.hidden) throw new ConvexError("Slop not found.");
+    if (!slop || isHidden(slop)) throw new ConvexError("Slop not found.");
     if (slop.userId === userId) throw new ConvexError("You can't pledge to your own slop.");
     await consume(ctx, `pledge:${userId}`, 60, 3_600_000);
     const existing = await ctx.db
@@ -545,7 +553,7 @@ export const publicById = query({
   handler: async (ctx, { id }) => {
     const slopId = ctx.db.normalizeId("slops", id);
     const slop = slopId ? await ctx.db.get(slopId) : null;
-    if (!slop || slop.hidden) return null;
+    if (!slop || isHidden(slop)) return null;
     const owner = await ctx.db.get(slop.userId);
     return owner ? { slop: await publicSlop(ctx, slop), owner: publicUser(owner) } : null;
   },
@@ -568,7 +576,7 @@ export const card = query({
       .query("slops")
       .withIndex("by_user_slug", (q) => q.eq("userId", owner._id).eq("slug", slug))
       .unique();
-    if (!slop || slop.hidden) return null;
+    if (!slop || isHidden(slop)) return null;
     return { slop: await publicSlop(ctx, slop), owner: publicUser(owner) };
   },
 });
@@ -635,7 +643,7 @@ export const page = query({
     const reader = await readerFor(ctx, asUser);
     const isOwner = reader?._id === owner._id;
     // Moderators see hidden slops too, to judge them.
-    if (slop.hidden && !isOwner && !can(reader, "slops.viewHidden")) return null;
+    if (isHidden(slop) && !isOwner && !can(reader, "slops.viewHidden")) return null;
 
     // Bounded reads: the query is public, and no slop honestly reaches these.
     const updates = await ctx.db
@@ -711,7 +719,7 @@ export const page = query({
         };
       }),
       launches: launches
-        .filter((launch) => !launch.hidden || isOwner)
+        .filter((launch) => !isHidden(launch) || isOwner)
         .map((launch) => ({
           id: launch._id,
           title: launch.launchLabel ?? "First launch",
@@ -745,6 +753,7 @@ export const page = query({
       flaggedByMe,
       // Only the owner and moderators ever load a hidden slop.
       heldForReview: slop.hidden && slop.check?.verdict === "blocked",
+      heldForCheck: slop.publishAfterCheck !== undefined || !slop.check,
       isOwner,
       reveal: !slop.nsfw || isOwner || reader?.showNsfw === true,
     };
@@ -792,7 +801,7 @@ export const recent = query({
     return {
       items: await toCards(
         ctx,
-        page.filter((slop) => !slop.hidden),
+        page.filter((slop) => !isHidden(slop)),
         reader,
       ),
       cursor: newest.length > size ? page[page.length - 1]._creationTime : null,
@@ -828,7 +837,7 @@ export const hot = query({
           .take(share),
       ),
     );
-    const pool = ranges.flat().filter((slop) => !slop.hidden);
+    const pool = ranges.flat().filter((slop) => !isHidden(slop));
     return await toCards(ctx, rankHot(pool, new Date()).slice(0, limit), reader);
   },
 });
@@ -848,7 +857,7 @@ export const slopcessful = query({
       .take(size);
     return await toCards(
       ctx,
-      slops.filter((slop) => isVisibleTo(slop, reader) && !slop.hidden),
+      slops.filter((slop) => isVisibleTo(slop, reader) && !isHidden(slop)),
       reader,
     );
   },

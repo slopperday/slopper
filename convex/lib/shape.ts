@@ -156,7 +156,7 @@ export async function publicSlop(ctx: QueryCtx, slop: Doc<"slops">): Promise<Pub
     slopOfTheDay: slop.slopOfTheDay,
     slopcessfulAt: slop.slopcessfulAt,
     slopcessfulNote: slop.slopcessfulNote,
-    hidden: slop.hidden,
+    hidden: isHidden(slop),
   };
 }
 
@@ -255,10 +255,15 @@ export interface CardItem {
   blur: boolean;
 }
 
+/** Unchecked legacy rows are held too; new writes also set hidden atomically. */
+export function isHidden(slop: Doc<"slops">): boolean {
+  return slop.hidden || slop.publishAfterCheck !== undefined || !slop.check;
+}
+
 /** Hidden slops never show in feeds; NSFW ones only for people who opted in. */
 export function isVisibleTo(slop: Doc<"slops">, reader: Doc<"users"> | null): boolean {
   if (reader?._id === slop.userId) return true;
-  if (slop.hidden) return false;
+  if (isHidden(slop)) return false;
   return !slop.nsfw || reader?.showNsfw === true;
 }
 

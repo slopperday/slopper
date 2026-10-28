@@ -10,6 +10,7 @@ import { importJWK, type JWK, SignJWT } from "jose";
 import { cookieNames, stateKey } from "@slopperday/analytics/shared";
 import { api } from "../convex/_generated/api.js";
 import type { Id } from "../convex/_generated/dataModel";
+import { checkedContentHash } from "../convex/lib/shape.ts";
 import { hashToken, randomToken } from "../app/.server/encoding.ts";
 import type { CategoryId } from "../app/lib/model.ts";
 import type { FakeObject } from "./fake-s3.ts";
@@ -283,11 +284,14 @@ export const test = base.extend<{ seed: Seed }, { stack: Stack; convex: ConvexHt
           launchNote: tagline,
         });
         if (verdict) {
+          const slop = await convex.query(api.slops.getForServer, { slopId: created.slopId });
+          if (!slop) throw new Error("Missing seeded launch");
           await convex.mutation(api.moderation.applyCheck, {
             slopId: created.slopId,
             scope: "slop",
             verdict,
             reason: "Seeded",
+            contentHash: checkedContentHash(slop),
           });
         }
         return { id: created.slopId, slug: created.slug, name: title, path: `/@${owner.username}/${created.slug}` };

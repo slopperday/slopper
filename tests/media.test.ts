@@ -155,7 +155,7 @@ describe("upload check", () => {
       nsfw: true,
       check: { verdict: "mature", reason: "A screenshot: Looks mature." },
     });
-    expect(await server.query(api.moderation.autopostHoldFor, { slopId })).toBe("it's marked NSFW");
+    expect(await server.query(api.moderation.autopostHoldFor, { slopId })).toBe("it hasn't been cleared yet");
     const [queued] = await server.query(api.moderation.queue, {});
     expect(queued.flags.map((flag) => flag.reason)).toEqual(["Content check (mature): A screenshot: Looks mature."]);
 

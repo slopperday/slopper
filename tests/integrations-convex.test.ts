@@ -5,6 +5,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { addDays } from "~/lib/dates";
 import { SYNC_EVERY_MS, SYNC_LOCK_MS, TRACTION_DAYS } from "~/lib/integrations";
 import { convexApp } from "./convexApp";
+import { checkedLaunch } from "./launchFixtures";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -34,7 +35,7 @@ async function ship(
   userId: Id<"users">,
   options: { relaunchOf?: Id<"slops">; launchLabel?: string } = {},
 ): Promise<Id<"slops">> {
-  const { slopId } = await server.mutation(api.slops.create, {
+  const { slopId } = await checkedLaunch(server, {
     userId,
     input: {
       name: "TiltMaze",

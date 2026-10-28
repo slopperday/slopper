@@ -8,6 +8,7 @@ import { render } from "react-email";
 import { DigestEmail, type DigestEmailProps } from "~/emails/digest";
 import { type DigestItem, digestHeadline, digestLine, summariseDigest } from "~/lib/digest";
 import { convexApp } from "./convexApp";
+import { checkedLaunch } from "./launchFixtures";
 
 const HOUR = 3_600_000;
 
@@ -32,7 +33,7 @@ async function signIn(server: Server, name: string, email: string | null = `${na
 }
 
 async function ship(server: Server, userId: Id<"users">): Promise<Id<"slops">> {
-  const { slopId } = await server.mutation(api.slops.create, {
+  const { slopId } = await checkedLaunch(server, {
     userId,
     input: {
       name: "TiltMaze",

@@ -4,7 +4,7 @@ import { mutation, query, type QueryCtx } from "./_generated/server";
 import { captureFor } from "./analytics";
 import { requireServer } from "./lib/auth";
 import { LIMITS } from "../app/lib/model";
-import { publicUser } from "./lib/shape";
+import { isHidden, publicUser } from "./lib/shape";
 import { currentStreak, utcDate } from "../app/lib/dates";
 import { goalEndDate, goalProgress, isGoalOpen } from "../app/lib/goal";
 
@@ -93,7 +93,7 @@ export const standings = query({
         .withIndex("by_user", (q) => q.eq("userId", user._id))
         .take(2_000);
       const launches = slops
-        .filter((slop) => !slop.hidden)
+        .filter((slop) => !isHidden(slop))
         .map((slop) => ({ id: slop._id, name: slop.name, slug: slop.slug, launchDate: slop.launchDate }));
       if (!isGoalOpen(goal, today)) continue;
       rows.push({
