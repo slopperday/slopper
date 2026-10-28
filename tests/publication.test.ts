@@ -364,8 +364,31 @@ describe("publication uploads", () => {
     expect(check.bodies).toEqual([]);
     expect(bucket.objects.size).toBe(0);
     expect(await t.run(async (ctx) => await ctx.db.query("media").collect())).toEqual([]);
-    expect(warn).toHaveBeenCalledWith(`Refused a publication from ${owner} (active: JavaScript, JS)`);
+    expect(warn).toHaveBeenCalledWith(`Refused a publication from ${owner} (active: JavaScript, JS, OpenAction)`);
   });
+
+  it.each(["/OpenAction 4 0 R", "/AA << /WC 4 0 R >>"])(
+    "refuses an automatic URI hook (%s) before content checking or storage",
+    async (hook) => {
+      const { t, server } = setup();
+      const owner = await makeUser(server, "writer");
+      const bucket = new MemoryBucket();
+      const check = contentCheck("ok");
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const automatic = new TextEncoder().encode(
+        `%PDF-1.7\n1 0 obj\n<< /Type /Catalog ${hook} >>\nendobj\n` +
+          "4 0 obj\n<< /S /URI /URI (https://example.test) >>\nendobj\n%%EOF\n",
+      );
+
+      expect(await uploadPublication(owner, { bytes: automatic }, services(server, bucket, check.fetcher))).toEqual({
+        ok: false,
+        error: PDF_PROBLEMS.active,
+      });
+      expect(check.bodies).toEqual([]);
+      expect(bucket.objects.size).toBe(0);
+      expect(await t.run(async (ctx) => await ctx.db.query("media").collect())).toEqual([]);
+    },
+  );
 
   it("names files fit to show", () => {
     expect(publicationFileName("/home/me/zine.pdf")).toBe("zine.pdf");
