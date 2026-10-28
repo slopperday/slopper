@@ -155,6 +155,7 @@ export class Recorder {
     const json = JSON.stringify(pending.events, (key, value: unknown) =>
       URL_KEYS.has(key) && typeof value === "string" ? this.cleanUrl(value) : value,
     );
+    if (new Blob([json]).size > REPLAY_LIMITS.expandedChunkBytes) return;
     const compress = !keepalive && typeof CompressionStream === "function";
     const body = compress ? await gzip(json) : json;
     const encoding: ReplayEncoding = compress ? "gzip" : "identity";

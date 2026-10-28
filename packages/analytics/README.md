@@ -148,7 +148,9 @@ is seeded by the experiment's key, so the same counts always read the same.
 With `replay: { sampleRate }`, the SDK records that share of sessions with rrweb (picked by session id, so every page
 of one agrees). The recorder is its own chunk, loaded only for recorded sessions, after the SDK. Every few seconds it
 sends what it has to `ROUTES.recordings` as one gzipped chunk, and the component stores chunks as they came, in its
-file storage (`recordings.get` hands out their URLs). Fields are masked; hidden inputs, `[data-no-capture]` and
+file storage (`recordings.get` hands out their URLs). The player limits expanded bytes, event counts, JSON depth
+and structure before parsing. It loads chunks sequentially and applies aggregate session budgets to every
+recording, including older uploads. Fields are masked; hidden inputs, `[data-no-capture]` and
 `[data-no-replay]` are blocked out; `[data-sensitive]` text is masked; scripts are left out; query strings are cut
 from every link, form and page address; and pages whose path `sanitizePath` rewrites, or that `replay.mayRecord`
 rules out, pause the recording. Recordings go after 30 days (`retention.recordingDays`) and with `forget`.

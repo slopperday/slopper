@@ -1,6 +1,7 @@
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 import type { Page, Request } from "@playwright/test";
 import { analyticsEvents, analyticsIdOf, expect, test } from "./fixtures.ts";
+import { REPLAY_LIMITS } from "../packages/analytics/src/shared/replay.ts";
 
 /**
  * Session replay: a visit is recorded in chunks with what's typed masked,
@@ -73,6 +74,22 @@ test.describe("session replay", () => {
     await expect
       .poll(async () => Number(await admin.getByRole("slider", { name: "Position in the recording" }).inputValue()))
       .toBeGreaterThan(0);
+
+    // Stored recording bytes are untrusted, including when the metadata is valid.
+    const oversized = JSON.stringify([
+      { type: 5, timestamp: 1, data: { tag: "oversized", payload: "x".repeat(REPLAY_LIMITS.expandedChunkBytes) } },
+    ]);
+    await admin.route("**/api/storage/**", async (route) => {
+      const response = await route.fetch();
+      const gzip = response.headers()["content-type"]?.startsWith("application/gzip") ?? false;
+      await route.fulfill({
+        headers: { "access-control-allow-origin": "*", "content-type": gzip ? "application/gzip" : "application/json" },
+        body: gzip ? gzipSync(oversized) : oversized,
+      });
+    });
+    await admin.reload();
+    await expect(admin.getByRole("alert")).toHaveText("The recording exceeds its expanded byte limit.");
+    await expect(admin.getByRole("button", { name: "Play", exact: true })).toHaveCount(0);
   });
 
   test("never records pages that are private to you", async ({ seed }) => {

@@ -345,10 +345,55 @@ describe("Recorder", () => {
 });
 
 describe("loadRecording", () => {
+  it("rejects dense JSON before it can allocate too many objects", async () => {
+    const json = `[{"type":5,"timestamp":1,"data":{"tag":"dense","payload":[${Array.from({ length: 110_000 }, () => "{}").join(",")}]}}]`;
+    expect(new TextEncoder().encode(json).byteLength).toBeLessThan(400_000);
+    const fetcher: typeof fetch = async () => new Response(json);
+    await expect(
+      loadRecording([{ url: "https://storage/dense", encoding: "identity" }], fetcher).then((events) => events.length),
+    ).rejects.toThrow("JSON structure limit");
+  });
+
+  it("bounds JSON allocations across individually valid chunks", async () => {
+    const json = `[{"type":5,"timestamp":1,"data":{"tag":"dense","payload":[${Array.from({ length: 60_000 }, () => "{}").join(",")}]}}]`;
+    const fetcher = vi.fn<typeof fetch>(async () => new Response(json));
+    const chunks = Array.from({ length: 10 }, (_, n) => ({
+      url: `https://storage/${n}`,
+      encoding: "identity" as const,
+    }));
+    await expect(loadRecording(chunks, fetcher).then((events) => events.length)).rejects.toThrow(
+      "JSON structure limit",
+    );
+    expect(fetcher).toHaveBeenCalledTimes(9);
+  }, 30_000);
+
+  it.each(["gzip", "identity"] as const)("rejects invalid %s input without fetching later chunks", async (encoding) => {
+    const fetcher = vi.fn<typeof fetch>(async () => new Response("not a recording"));
+    await expect(
+      loadRecording(
+        [
+          { url: "https://storage/invalid", encoding },
+          { url: "https://storage/later", encoding },
+        ],
+        fetcher,
+      ),
+    ).rejects.toThrow();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a small gzip chunk whose expanded output is too large", async () => {
+    const bomb = gzipSync(JSON.stringify([{ ...meta(1), padding: "x".repeat(REPLAY_LIMITS.expandedChunkBytes) }]));
+    expect(bomb.byteLength).toBeLessThan(10_000);
+    const fetcher: typeof fetch = async () => new Response(new Uint8Array(bomb));
+    await expect(loadRecording([{ url: "https://storage/bomb", encoding: "gzip" }], fetcher)).rejects.toThrow(
+      "The recording exceeds its expanded byte limit.",
+    );
+  });
+
   it("reads every chunk, gzipped or not, into one list in time order", async () => {
     const bodies: Record<string, Uint8Array> = {
       "https://storage/1": gzipSync(JSON.stringify([move(30), move(10)])),
-      "https://storage/2": Buffer.from(JSON.stringify([meta(5), { not: "an event" }, snapshot(6)])),
+      "https://storage/2": Buffer.from(JSON.stringify([meta(5), snapshot(6)])),
     };
     const fetcher: typeof fetch = async (input) => {
       const body = bodies[typeof input === "string" ? input : input instanceof URL ? input.href : input.url];
@@ -365,5 +410,98 @@ describe("loadRecording", () => {
     await expect(loadRecording([{ url: "https://storage/gone", encoding: "gzip" }], fetcher)).rejects.toThrow(
       "A part of the recording didn't load (404).",
     );
+  });
+
+  it("decodes split UTF-8 and ignores escaped quotes and brackets inside strings", async () => {
+    const event = meta(1, '/😺/"quoted\\path/[,{,}]');
+    const bytes = new TextEncoder().encode(JSON.stringify([event]));
+    const fetcher: typeof fetch = async () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            for (const byte of bytes) controller.enqueue(new Uint8Array([byte]));
+            controller.close();
+          },
+        }),
+      );
+    expect(await loadRecording([{ url: "https://storage/utf8", encoding: "identity" }], fetcher)).toEqual([event]);
+  });
+
+  it.each([
+    ["[]", "nonempty event list"],
+    ["{}", "nonempty event list"],
+    ["[1]", "invalid event"],
+    ['[{"type":4,"timestamp":1}]', "invalid event"],
+    [JSON.stringify(Array.from({ length: REPLAY_LIMITS.chunkEvents + 1 }, () => meta(1))), "event limit"],
+    [
+      `[{"type":4,"timestamp":1,"data":{"nested":${"[".repeat(REPLAY_LIMITS.jsonDepth)}0${"]".repeat(REPLAY_LIMITS.jsonDepth)}}}]`,
+      "JSON depth limit",
+    ],
+  ])("refuses malformed or excessive replay JSON (%#)", async (json, message) => {
+    const fetcher: typeof fetch = async () => new Response(json);
+    await expect(loadRecording([{ url: "https://storage/invalid", encoding: "identity" }], fetcher)).rejects.toThrow(
+      message,
+    );
+  });
+
+  it("cancels oversized streams and never fetches subsequent chunks", async () => {
+    const cancel = vi.fn();
+    let pulls = 0;
+    const fetcher = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          new ReadableStream({
+            pull(controller) {
+              pulls += 1;
+              controller.enqueue(new Uint8Array(1_000_000));
+            },
+            cancel,
+          }),
+        ),
+    );
+    await expect(
+      loadRecording(
+        [
+          { url: "https://storage/oversized", encoding: "identity" },
+          { url: "https://storage/later", encoding: "identity" },
+        ],
+        fetcher,
+      ),
+    ).rejects.toThrow("expanded byte limit");
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(pulls).toBeLessThanOrEqual(10);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("enforces the expanded session budget across small gzip chunks", async () => {
+    const body = gzipSync(JSON.stringify([{ ...meta(1), padding: "x".repeat(7_500_000) }]));
+    const fetcher = vi.fn<typeof fetch>(async () => new Response(new Uint8Array(body)));
+    const chunks = Array.from({ length: 8 }, (_, n) => ({ url: `https://storage/${n}`, encoding: "gzip" as const }));
+    await expect(loadRecording(chunks, fetcher)).rejects.toThrow("expanded byte limit");
+    expect(fetcher).toHaveBeenCalledTimes(7);
+  }, 30_000);
+
+  it("enforces the actual session event count and stops fetching", async () => {
+    const body = JSON.stringify(Array.from({ length: REPLAY_LIMITS.chunkEvents }, () => meta(1)));
+    const fetcher = vi.fn<typeof fetch>(async () => new Response(body));
+    const chunks = Array.from({ length: REPLAY_LIMITS.sessionEvents / REPLAY_LIMITS.chunkEvents + 2 }, (_, n) => ({
+      url: `https://storage/${n}`,
+      encoding: "identity" as const,
+    }));
+    await expect(loadRecording(chunks, fetcher)).rejects.toThrow("event limit");
+    expect(fetcher).toHaveBeenCalledTimes(REPLAY_LIMITS.sessionEvents / REPLAY_LIMITS.chunkEvents);
+  });
+
+  it("bounds chunk counts and honors cancellation before fetching", async () => {
+    const fetcher = vi.fn<typeof fetch>();
+    const chunks = Array.from({ length: REPLAY_LIMITS.sessionChunks + 1 }, () => ({
+      url: "https://storage/1",
+      encoding: "identity" as const,
+    }));
+    await expect(loadRecording(chunks, fetcher)).rejects.toThrow("chunk limit");
+    const controller = new AbortController();
+    controller.abort();
+    await expect(loadRecording(chunks.slice(0, 1), fetcher, controller.signal)).rejects.toThrow();
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });

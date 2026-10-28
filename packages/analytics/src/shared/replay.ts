@@ -3,15 +3,28 @@
  * sends what it recorded every few seconds as one chunk: a JSON array of
  * rrweb events, gzipped when the browser can, posted to `ROUTES.recordings`
  * with what the server needs to file it in the query string. The server
- * stores a chunk as it came and never reads inside it; the player does.
+ * stores a chunk as it came. The player bounds decoding and parsing for
+ * every recording, including older uploads.
  */
 
 export const REPLAY_LIMITS = {
   /** Bytes one chunk may take on the wire, compressed or not. */
   chunkBytes: 2_000_000,
-  /** Bytes one session's recording may take in all; later chunks are dropped. */
+  /** Stored bytes per session; playback also caps expanded bytes at this size. */
   sessionBytes: 50_000_000,
-  /** Events the SDK holds before it sends them. */
+  /** Expanded JSON bytes per chunk, checked while streaming before JSON.parse. */
+  expandedChunkBytes: 8_000_000,
+  /** Total events the player may retain for a session. */
+  sessionEvents: 50_000,
+  /** Playback requests per session, including tiny chunks. */
+  sessionChunks: 3_600,
+  /** Nested JSON containers, including rrweb's serialized DOM. */
+  jsonDepth: 100,
+  /** JSON opening containers and separators per chunk, bounding parsed allocations. */
+  chunkStructure: 200_000,
+  /** Total JSON structure the player may retain across chunks. */
+  sessionStructure: 1_000_000,
+  /** Events per chunk: the SDK flushes when it holds this many. */
   chunkEvents: 400,
   /** How often the SDK sends what it holds. */
   flushIntervalMs: 5_000,

@@ -1,7 +1,8 @@
 import { Replayer } from "@rrweb/replay";
 import "@rrweb/replay/dist/style.css";
 import type { eventWithTime } from "@rrweb/types";
-import type { ReplayEncoding } from "../shared/replay";
+import { REPLAY_LIMITS, type ReplayEncoding } from "../shared/replay";
+import { readReplayChunk, type ReplayBudget } from "./chunk";
 
 /**
  * Plays session recordings back, for an app's own admin pages. It brings
@@ -26,22 +27,45 @@ function isEvent(value: unknown): value is eventWithTime {
   );
 }
 
-async function chunkEvents(chunk: RecordingChunk, fetcher: typeof fetch): Promise<eventWithTime[]> {
-  const response = await fetcher(chunk.url);
+async function chunkEvents(chunk: RecordingChunk, fetcher: typeof fetch, budget: ReplayBudget, signal?: AbortSignal) {
+  const response = await fetcher(chunk.url, { signal });
   if (!response.ok || !response.body) throw new Error(`A part of the recording didn't load (${response.status}).`);
-  const body = chunk.encoding === "gzip" ? response.body.pipeThrough(new DecompressionStream("gzip")) : response.body;
-  const parsed: unknown = JSON.parse(await new Response(body).text());
-  if (!Array.isArray(parsed)) throw new Error("A part of the recording isn't a list of events.");
-  return parsed.filter(isEvent);
+  return readReplayChunk(response.body, chunk.encoding, budget);
 }
 
 /** A recording's events, from all its chunks, in order. */
 export async function loadRecording(
   chunks: readonly RecordingChunk[],
   fetcher: typeof fetch = (input, init) => fetch(input, init),
+  signal?: AbortSignal,
 ): Promise<eventWithTime[]> {
-  const parts = await Promise.all(chunks.map((chunk) => chunkEvents(chunk, fetcher)));
-  return parts.flat().sort((a, b) => a.timestamp - b.timestamp);
+  if (chunks.length > REPLAY_LIMITS.sessionChunks) throw new Error("The recording exceeds its chunk limit.");
+  const events: eventWithTime[] = [];
+  let bytes = 0;
+  let structure = 0;
+
+  // Keep just one expanded chunk alive at a time, and stop before fetching another after a failure.
+  for (const chunk of chunks) {
+    signal?.throwIfAborted();
+    if (bytes >= REPLAY_LIMITS.sessionBytes) throw new Error("The recording exceeds its expanded byte limit.");
+    if (events.length >= REPLAY_LIMITS.sessionEvents) throw new Error("The recording exceeds its event limit.");
+    if (structure >= REPLAY_LIMITS.sessionStructure) throw new Error("The recording exceeds its JSON structure limit.");
+    const part = await chunkEvents(
+      chunk,
+      fetcher,
+      {
+        bytes: REPLAY_LIMITS.sessionBytes - bytes,
+        events: REPLAY_LIMITS.sessionEvents - events.length,
+        structure: REPLAY_LIMITS.sessionStructure - structure,
+      },
+      signal,
+    );
+    bytes += part.bytes;
+    structure += part.structure;
+    for (const event of part.events) if (isEvent(event)) events.push(event);
+  }
+
+  return events.sort((a, b) => a.timestamp - b.timestamp);
 }
 
 /**
