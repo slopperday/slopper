@@ -15,6 +15,7 @@ import {
   uploadPublication,
 } from "~/.server/media";
 import { EPUB_PROBLEMS } from "~/.server/epubSafety";
+import * as epubSafety from "~/.server/epubSafety";
 import { checkedContent, publicationSubmission } from "~/.server/moderation";
 import { PDF_PROBLEMS } from "~/.server/pdfSafety";
 import type { MediaKind, MediaLocation, MediaStore } from "~/.server/storage";
@@ -135,6 +136,50 @@ async function launch(server: Server, owner: Id<"users">, publication: string | 
 }
 
 describe("publication uploads", () => {
+  it("charges rejected expanding EPUBs and stops scanning when the upload budget is spent", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_800_000_000_000);
+    const { server } = setup();
+    const owner = await makeUser(server, "writer");
+    const bucket = new MemoryBucket();
+    const check = contentCheck("ok");
+    const scan = vi.spyOn(epubSafety, "scanEpub");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const book = epub({ body: `<p>${"hello ".repeat(50_000)}</p><script>alert(1)</script>` });
+    const send = () => uploadPublication(owner, { bytes: book }, services(server, bucket, check.fetcher));
+
+    for (let attempt = 0; attempt < 60; attempt++) {
+      expect(await send()).toEqual({ ok: false, error: EPUB_PROBLEMS.active });
+    }
+
+    expect(scan).toHaveBeenCalledTimes(60);
+    expect(await send()).toEqual({ ok: false, error: "Slow down a little. Try again later." });
+    expect(scan).toHaveBeenCalledTimes(60);
+    expect(check.bodies).toEqual([]);
+    expect(bucket.objects.size).toBe(0);
+  });
+
+  it.each([
+    ["empty", new Uint8Array(), "Empty file."],
+    ["wrong format", PNG, "Use a PDF or an EPUB."],
+    ["oversized", new Uint8Array(LIMITS.publicationBytes + 1), "Publications must be 4 MB or smaller."],
+    ["malformed PDF", new TextEncoder().encode("%PDF-1.7\n"), PDF_PROBLEMS.broken],
+  ])("charges a %s publication against the shared upload budget", async (_label, bytes, error) => {
+    const { t, server } = setup();
+    const owner = await makeUser(server, "writer");
+    const bucket = new MemoryBucket();
+    const check = contentCheck("ok");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(await uploadPublication(owner, { bytes }, services(server, bucket, check.fetcher))).toEqual({
+      ok: false,
+      error,
+    });
+    const rows = await t.run(async (ctx) => await ctx.db.query("rateLimits").collect());
+    expect(rows.find((row) => row.key === `upload:${owner}`)?.count).toBe(1);
+    expect(check.bodies).toEqual([]);
+    expect(bucket.objects.size).toBe(0);
+  });
+
   it("checks the PDF's text, then stores it with its name", async () => {
     const { t, server } = setup();
     const owner = await makeUser(server, "writer");
@@ -252,6 +297,8 @@ describe("publication uploads", () => {
       services(server, bucket, contentCheck("blocked").fetcher),
     );
     expect(result).toEqual({ ok: false, error: BLOCKED_PUBLICATION });
+    const attempts = await t.run(async (ctx) => await ctx.db.query("rateLimits").collect());
+    expect(attempts.find((row) => row.key === `upload:${owner}`)?.count).toBe(1);
     expect(bucket.objects.size).toBe(0);
     expect(await t.run(async (ctx) => await ctx.db.query("media").collect())).toEqual([]);
   });
