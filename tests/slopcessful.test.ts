@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { convexApp } from "./convexApp";
+import { checkedLaunch } from "./launchFixtures";
 
 /** Winners with distinct breakout times. */
 async function hallOfFame(count = 5) {
@@ -16,7 +17,7 @@ async function hallOfFame(count = 5) {
     avatarUrl: null,
     timeZone: "UTC",
   });
-  const { slopId } = await server.mutation(api.slops.create, {
+  const { slopId } = await checkedLaunch(server, {
     userId,
     input: {
       name: "Winner",
