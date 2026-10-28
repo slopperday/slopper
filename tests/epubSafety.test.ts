@@ -1,10 +1,134 @@
 import { describe, expect, it } from "vite-plus/test";
 import { decodeEntities, MAX_UNPACKED_BYTES, scanEpub, sniffEpub, startTags } from "~/.server/epubSafety";
-import { epub, epubEntries, zip } from "./epubs";
+import { CONTAINER, epub, epubEntries, zip } from "./epubs";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d]);
 
+/** Change real package metadata while preserving the ZIP's integrity. */
+function editPackage(edit: (xml: string) => string): Uint8Array<ArrayBuffer> {
+  return zip(
+    epubEntries().map((entry) =>
+      entry.name.endsWith(".opf") && typeof entry.data === "string" ? { ...entry, data: edit(entry.data) } : entry,
+    ),
+  );
+}
+
 describe("EPUB safety scan", () => {
+  it.each(["png", "txt", "css"])("refuses a spine document disguised as .%s", (extension) => {
+    const book = zip(
+      epubEntries({ body: "<script>alert(1)</script>" }).map((entry) => ({
+        ...entry,
+        name: entry.name.replace("chapter1.xhtml", `chapter1.${extension}`),
+        data:
+          typeof entry.data === "string"
+            ? entry.data.replaceAll("chapter1.xhtml", `chapter1.${extension}`)
+            : entry.data,
+      })),
+    );
+    expect(scanEpub(book)).toMatchObject({ safe: false });
+  });
+
+  it.each([
+    ["CSS declared SVG", 'media-type="text/css"', 'media-type="image/svg+xml"'],
+    ["CSS declared script", 'media-type="text/css"', 'media-type="application/javascript"'],
+    ["XHTML declared plain text", 'media-type="application/xhtml+xml"', 'media-type="text/plain"'],
+    ["missing resource", 'href="chapter1.xhtml"', 'href="missing.xhtml"'],
+    ["remote resource", 'href="chapter1.xhtml"', 'href="https://evil.example/chapter.xhtml"'],
+    ["escaping resource", 'href="chapter1.xhtml"', 'href="../../chapter.xhtml"'],
+    ["ambiguous resource", 'href="chapter1.xhtml"', 'href="chapter1.xhtml?type=html"'],
+    ["double-encoded resource", 'href="chapter1.xhtml"', 'href="%2563hapter1.xhtml"'],
+    ["invalid encoded path", 'href="chapter1.xhtml"', 'href="%xx.xhtml"'],
+    ["ambiguous id", 'id="ch1"', 'id="ch1 "'],
+    ["duplicate id", 'id="ch1"', 'id="nav"'],
+    ["duplicate attribute", 'id="ch1"', 'id="ch1" id="other"'],
+    ["fallback", 'id="ch1"', 'id="ch1" fallback="nav"'],
+    ["media overlay", 'id="ch1"', 'id="ch1" media-overlay="nav"'],
+    ["base override", "<manifest>", '<manifest xml:base="https://evil.example/">'],
+    ["missing spine reference", 'idref="ch1"', 'idref="missing"'],
+    ["inert spine resource", 'idref="ch1"', 'idref="css"'],
+    ["inert navigation document", 'id="css"', 'id="css" properties="nav"'],
+    ["inert NCX navigation", "<spine>", '<spine toc="css">'],
+    ["missing NCX navigation", "<spine>", '<spine toc="missing">'],
+    ["malformed XML", "</manifest>", "</other>"],
+    ["missing manifest", "<manifest>", "<other>"],
+    ["empty spine", '<itemref idref="ch1"/>', ""],
+    [
+      "misplaced declaration",
+      "</metadata>",
+      '<item id="hidden" href="chapter1.xhtml" media-type="text/plain"/></metadata>',
+    ],
+    ["nested manifest", "</metadata>", "<manifest/></metadata>"],
+    ["long metadata name", "</metadata>", `<${"n".repeat(1025)}/></metadata>`],
+    [
+      "long ancestry",
+      "</metadata>",
+      `${`<${"n".repeat(100)}>`.repeat(12)}${`</${"n".repeat(100)}>`.repeat(12)}</metadata>`,
+    ],
+    ["deep metadata", "<manifest>", `${"<group>".repeat(65)}${"</group>".repeat(65)}<manifest>`],
+    [
+      "duplicate path",
+      "</manifest>",
+      '<item id="alias" href="./%63hapter1.xhtml" media-type="application/xhtml+xml"/></manifest>',
+    ],
+  ])("refuses ambiguous package semantics: %s", (_label, before, after) => {
+    expect(scanEpub(editPackage((xml) => xml.replace(before, after)))).toMatchObject({ safe: false });
+  });
+
+  it.each([
+    CONTAINER.replace("content.opf", "missing.opf"),
+    CONTAINER.replace("application/oebps-package+xml", "text/plain"),
+    CONTAINER.replace(
+      "</rootfiles>",
+      '<rootfile full-path="other.opf" media-type="application/oebps-package+xml"/></rootfiles>',
+    ),
+    CONTAINER.replace("full-path=", 'xml:base="https://evil.example/" full-path='),
+    CONTAINER.replace("</rootfiles>", "</other>"),
+    CONTAINER.replace("</rootfiles>", '<group><rootfile full-path="hidden.opf"/></group></rootfiles>'),
+    CONTAINER.replace("urn:oasis:names:tc:opendocument:xmlns:container", "https://evil.example/ns"),
+  ])("refuses an ambiguous or missing package selected by container.xml", (container) => {
+    const book = zip(
+      epubEntries().map((entry) => (entry.name === "META-INF/container.xml" ? { ...entry, data: container } : entry)),
+    );
+    expect(scanEpub(book)).toMatchObject({ safe: false });
+  });
+
+  it("resolves local encoded paths, XML character references and namespace prefixes", () => {
+    const book = editPackage((xml) =>
+      xml
+        .replace('href="chapter1.xhtml"', 'href="./%63hapter1.xhtml"')
+        .replace('media-type="application/xhtml+xml"', 'media-type="application/xhtml&#x2b;xml"')
+        .replace('xmlns="http://www.idpf.org/2007/opf"', 'xmlns:p="http://www.idpf.org/2007/opf"')
+        .replace(/<(\/?)(package|metadata|manifest|item|spine|itemref)(?=[\s/>])/g, "<$1p:$2"),
+    );
+    expect(scanEpub(book)).toMatchObject({ safe: true });
+  });
+
+  it("accepts legacy NCX navigation when the spine selects a declared NCX resource", () => {
+    const book = zip(
+      epubEntries({
+        files: [
+          {
+            name: "OEBPS/toc.ncx",
+            data: '<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head/><docTitle><text>A zine</text></docTitle><navMap><navPoint id="one" playOrder="1"><navLabel><text>One</text></navLabel><content src="chapter1.xhtml"/></navPoint></navMap></ncx>',
+          },
+        ],
+      }).map((entry) =>
+        entry.name.endsWith(".opf") && typeof entry.data === "string"
+          ? {
+              ...entry,
+              data: entry.data
+                .replace(
+                  "</manifest>",
+                  '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/></manifest>',
+                )
+                .replace("<spine>", '<spine toc="ncx">'),
+            }
+          : entry,
+      ),
+    );
+    expect(scanEpub(book)).toMatchObject({ safe: true });
+  });
+
   it("passes a plain book with images, fonts, web links and obfuscated fonts, and reads out its text", () => {
     const book = epub({
       body: `<h1>Ship it</h1><p>Read &amp; <a href="https://slopper.day">try</a> it. <img src="cover.png" alt="JavaScript: a cover"/></p><p><a href="javascript-guide.xhtml">Next</a> <a href="file1.xhtml">Notes</a></p>`,

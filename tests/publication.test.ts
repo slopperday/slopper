@@ -21,7 +21,7 @@ import type { MediaKind, MediaLocation, MediaStore } from "~/.server/storage";
 import { fileSize } from "~/lib/display";
 import { LIMITS } from "~/lib/model";
 import { convexApp } from "./convexApp";
-import { epub } from "./epubs";
+import { epub, epubEntries, zip } from "./epubs";
 
 const MEDIA_URL = "https://media.test/file/slopper-media";
 const CHECK = {
@@ -216,6 +216,29 @@ describe("publication uploads", () => {
     expect(check.bodies).toEqual([]);
     expect(bucket.objects.size).toBe(0);
     expect(warn).toHaveBeenCalledWith(`Refused a publication from ${owner} (active: script)`);
+  });
+
+  it("refuses a manifest-disguised EPUB before moderation, storage or registration", async () => {
+    const { t, server } = setup();
+    const owner = await makeUser(server, "writer");
+    const bucket = new MemoryBucket();
+    const check = contentCheck("ok");
+    const book = zip(
+      epubEntries({ body: "<script>alert(1)</script>" }).map((entry) => ({
+        ...entry,
+        name: entry.name.replace("chapter1.xhtml", "chapter1.png"),
+        data: typeof entry.data === "string" ? entry.data.replaceAll("chapter1.xhtml", "chapter1.png") : entry.data,
+      })),
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(await uploadPublication(owner, { bytes: book }, services(server, bucket, check.fetcher))).toEqual({
+      ok: false,
+      error: EPUB_PROBLEMS.uninspectable,
+    });
+    expect(check.bodies).toEqual([]);
+    expect(bucket.objects.size).toBe(0);
+    expect(await t.run((ctx) => ctx.db.query("media").collect())).toEqual([]);
   });
 
   it("refuses a blocked PDF before anything is stored", async () => {

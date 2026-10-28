@@ -1,4 +1,5 @@
 import { crc32, inflateRawSync } from "node:zlib";
+import { decodeEpubText as decodeText, epubPackageProblem } from "./epubPackage";
 
 /**
  * Slopper's own safety scan for EPUB publications, the EPUB side of
@@ -242,13 +243,6 @@ function extension(name: string): string {
 
 function startsWith(bytes: Uint8Array, magic: readonly number[]): boolean {
   return magic.every((byte, index) => bytes[index] === byte);
-}
-
-/** Text as a reader decodes it: UTF-16 when it says so, else UTF-8. */
-function decodeText(bytes: Uint8Array): string {
-  if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder("utf-16le").decode(bytes);
-  if (bytes[0] === 0xfe && bytes[1] === 0xff) return new TextDecoder("utf-16be").decode(bytes);
-  return new TextDecoder("utf-8").decode(bytes);
 }
 
 const NAMED_ENTITIES: Readonly<Record<string, string>> = {
@@ -522,5 +516,9 @@ function scan(bytes: Uint8Array): EpubVerdict {
     if (!MEDIA.has(type)) return refuse("attachments", name);
     if (PROGRAM_MAGIC.some((magic) => startsWith(data, magic))) return refuse("disguised", name);
   }
+  const packageProblem = epubPackageProblem(files);
+
+  if (packageProblem) return refuse("uninspectable", packageProblem);
+
   return { safe: true, text: text.join("\n").slice(0, MAX_TEXT_CHARS) };
 }
