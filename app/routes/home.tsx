@@ -1,7 +1,7 @@
-import { Link } from "react-router";
+import { data, Link } from "react-router";
 import type { Route } from "./+types/home";
 import { api } from "@convex/_generated/api";
-import { viewerContext } from "~/.server/session";
+import { requireUser, viewerContext } from "~/.server/session";
 import { convex } from "~/.server/convex";
 import { goalProgress, type Goal } from "~/lib/goal";
 import { formatDay } from "~/lib/dates";
@@ -17,6 +17,27 @@ import { listWords } from "~/lib/display";
 import { Icon } from "~/components/Icon";
 import { useLive } from "~/components/Live";
 
+import { readCookie, setCookie, redirectWithFlash } from "~/.server/http";
+import { HACKER_HOUSE, hackerHouseActive, hackerHouseMode } from "~/lib/hackerHouse";
+import { HackerHouse } from "~/components/HackerHouse";
+
+const CHALLENGE_COOKIE = "slopper_hacker_house_2026";
+
+export async function action({ request, context }: Route.ActionArgs) {
+  requireUser(context.get(viewerContext), request);
+  if (!hackerHouseActive(Date.now())) return data({ error: "The hacker house challenge has ended." }, { status: 410 });
+  const form = await request.formData();
+  const mode = hackerHouseMode(form.get("mode"));
+  if (!mode) return data({ error: "Pick a challenge mode." }, { status: 422 });
+  const headers = new Headers();
+  setCookie(headers, CHALLENGE_COOKIE, mode.id, Math.ceil((HACKER_HOUSE.end - Date.now()) / 1000));
+  return redirectWithFlash(
+    "/#hacker-house",
+    { tone: "success", message: `${mode.label}: ship ${mode.target} apps by November 12.` },
+    headers,
+  );
+}
+
 const DAY_MS = 86_400_000;
 
 /** A week back, rounded to the hour so the live query's arguments stay stable. */
@@ -24,7 +45,7 @@ function weekAgo(): number {
   return Math.floor(Date.now() / 3_600_000) * 3_600_000 - 7 * DAY_MS;
 }
 
-export async function loader({ context }: Route.LoaderArgs) {
+export async function loader({ request, context }: Route.LoaderArgs) {
   const viewer = context.get(viewerContext).user;
   const asUser = viewer?._id;
   const since = weekAgo();
@@ -35,7 +56,17 @@ export async function loader({ context }: Route.LoaderArgs) {
     convex.query(api.slops.slopcessful, { limit: 3, asUser }),
     viewer ? convex.query(api.users.profile, { username: viewer.username, asUser }) : Promise.resolve(null),
   ]);
-  return { since, feed, champion, streaks, slopcessful, profile, username: viewer?.username ?? null };
+  return {
+    now: Date.now(),
+    hackerHouseMode: hackerHouseMode(readCookie(request, CHALLENGE_COOKIE))?.id ?? null,
+    since,
+    feed,
+    champion,
+    streaks,
+    slopcessful,
+    profile,
+    username: viewer?.username ?? null,
+  };
 }
 
 export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { path: "/" });
@@ -54,6 +85,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       ) : (
         <Hero />
       )}
+      <HackerHouse
+        now={loaderData.now}
+        shipped={feed.hackerHouse?.shipped ?? 0}
+        mode={loaderData.hackerHouseMode}
+        signedIn={signedIn}
+      />
       {feed.ticker.length > 0 && <JustSlopped items={feed.ticker} />}
 
       <section

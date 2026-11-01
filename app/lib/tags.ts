@@ -1,3 +1,4 @@
+import { HACKER_HOUSE, hackerHouseActive } from "./hackerHouse";
 import { LIMITS } from "./model";
 
 /**
@@ -110,6 +111,7 @@ export const KNOWN_TAGS: readonly KnownTag[] = [
   platform("Railway"),
   platform("Stripe"),
   platform("Solana"),
+  { name: HACKER_HOUSE.tag, kind: "other", aliases: HACKER_HOUSE.aliases },
   platform("Ethereum"),
   platform("Chrome extension"),
 ];
@@ -160,14 +162,16 @@ export function cleanTags(raw: readonly string[]): string[] {
 export const SUGGEST_AFTER_USES = 2;
 
 /** Known tags and counted ones in one list, most used first, known before unknown on a tie. */
-export function tagOptions(counted: readonly { name: string; uses: number }[]): TagOption[] {
+export function tagOptions(counted: readonly { name: string; uses: number }[], now = Date.now()): TagOption[] {
   const uses = new Map(counted.map((row) => [tagKey(row.name), row]));
-  const options: TagOption[] = KNOWN_TAGS.map((tag) => ({
-    name: tag.name,
-    kind: tag.kind,
-    uses: uses.get(tagKey(tag.name))?.uses ?? 0,
-    aliases: tag.aliases ?? [],
-  }));
+  const options: TagOption[] = KNOWN_TAGS.filter((tag) => tag.name !== HACKER_HOUSE.tag || hackerHouseActive(now)).map(
+    (tag) => ({
+      name: tag.name,
+      kind: tag.kind,
+      uses: uses.get(tagKey(tag.name))?.uses ?? 0,
+      aliases: tag.aliases ?? [],
+    }),
+  );
   for (const row of counted) {
     if (knownTag(row.name) || row.uses < SUGGEST_AFTER_USES) continue;
     options.push({ name: row.name, kind: "other", uses: row.uses, aliases: [] });
