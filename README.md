@@ -13,8 +13,10 @@ it to people, and keep slopping until one of them is **slopcessful**.
 - **Launches, not just products.** The website, then the iOS beta, then 2.0: each launch is its own entry and its own
   shot at slop of the day, linked to the product.
 - **Updates, feature drops, re-promotes and field tests.** Field tests log real people trying it, and count extra.
-- **Votes** with private downvotes and **live notifications**. **Feedback** and **kudos** are built but off for V1:
-  they come back with heavier moderation (`COMMENTS_ENABLED=true` on both the app server and Convex turns them on).
+- **Votes** with private downvotes and **live notifications**. **Feedback** and **kudos** on every slop, with moderation:
+  each comment passes the content check, blocked ones are refused, anything mature or unchecked waits for a moderator,
+  and people can flag comments. A moderator approving someone's comment trusts them, so their later comments skip the
+  check and the hourly cap. `COMMENTS_ENABLED` turns it on (`true` in production).
 - **Safe for work.** Every launch, screenshot and auto-posted update gets an automated content check. Screenshots are
   checked as they're uploaded: explicit or hateful images (text in them included) are refused and never stored, and a
   mature one blurs any slop that shows it. Mature slops are blurred, anything worse is held for a moderator, and nothing
@@ -112,9 +114,9 @@ need Playwright's Chromium (`node_modules/.bin/playwright install chromium`), an
    `SLOPPER_SECRET_KEY`, `B2_KEY_ID`, `B2_APPLICATION_KEY`, the OAuth client secrets, and `OPENROUTER_API_KEY` (the
    content check; without it nothing is ever auto-posted). Put a service account token that can read the item in
    `.env.monosecret` as `OP_SERVICE_ACCOUNT_TOKEN=...`, then `vp run env:netlify` sets them all on Netlify (secrets as
-   Netlify secrets, production only). `vp run env:netlify --dry-run` lists them without reading 1Password. Leave
-   `COMMENTS_ENABLED` unset on both Netlify and Convex: comments are off for V1. Enabling them later requires
-   `COMMENTS_ENABLED=true` in both deployments; a page query cannot enable comments on its own.
+   Netlify secrets, production only). `vp run env:netlify --dry-run` lists them without reading 1Password. `COMMENTS_ENABLED` is `true` by default in
+   `monosecret.toml`; set it on Convex too (`npx convex env set --prod COMMENTS_ENABLED true`), because the page query
+   reads Convex's own environment. Both deployments must agree: a page query cannot enable comments on its own.
 4. **Backblaze B2** for screenshots (see below).
 5. **Deploy.** Add a Convex production deploy key (dashboard → Settings → Deploy keys) to the item's "deploy" section as
    `CONVEX_DEPLOY_KEY`. `node scripts/release.ts deploy` deploys Convex with it, then builds here and deploys Netlify.

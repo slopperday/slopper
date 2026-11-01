@@ -344,6 +344,7 @@ async function main(): Promise<void> {
   setEnv("RESEND_BASE_URL", CHECK_URL);
   setEnv("OPENROUTER_API_KEY", "e2e-key");
   setEnv("OPENROUTER_BASE_URL", CHECK_URL);
+  setEnv("COMMENTS_ENABLED", "true");
   const vapid = await generateVapidKeys();
   setEnv("VAPID_PUBLIC_KEY", vapid.publicKey);
   setEnv("VAPID_PRIVATE_KEY", vapid.privateKey);
@@ -392,7 +393,7 @@ async function main(): Promise<void> {
       LINKEDIN_CLIENT_SECRET: "e2e-linkedin-secret",
       FACEBOOK_CLIENT_ID: "e2e-facebook-client",
       FACEBOOK_CLIENT_SECRET: "e2e-facebook-secret",
-      // Comments stay off, as in production (COMMENTS_ENABLED unset).
+      COMMENTS_ENABLED: "true",
     },
   });
   children.push(app);

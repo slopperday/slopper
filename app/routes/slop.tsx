@@ -12,6 +12,7 @@ import { deleteOrphanedMedia } from "~/.server/media";
 import { announce, retryFailed, summarize } from "~/.server/social/announce";
 import { missedPreviewsNote, postUpdate } from "~/.server/updates";
 import { postReview } from "~/.server/reviews";
+import { postComment } from "~/.server/comments";
 import { allowAction, callerAddress } from "~/.server/tokens";
 import { modeFor } from "~/.server/social/crosspost";
 import { shareIntents } from "~/lib/compose";
@@ -126,7 +127,7 @@ async function attempt(here: string, run: () => Promise<Response>): Promise<Resp
 }
 
 /** Feedback and kudos: they don't exist while comments are off (COMMENTS_ENABLED). */
-const COMMENT_INTENTS: ReadonlySet<string> = new Set(["comment", "delete-comment"]);
+const COMMENT_INTENTS: ReadonlySet<string> = new Set(["comment", "delete-comment", "flag-comment"]);
 
 export async function action({ params, request, context }: Route.ActionArgs) {
   const viewer = context.get(viewerContext);
@@ -156,15 +157,15 @@ export async function action({ params, request, context }: Route.ActionArgs) {
             message: `Feedback is 1 to ${LIMITS.commentLength} characters.`,
           });
         }
-        const commentId = await convex.mutation(api.activity.addComment, {
-          userId: user._id,
-          slopId: slop.id,
-          kind,
-          body,
-        });
-        return redirectWithFlash(`${here}#comment-${commentId}`, {
+        const posted = await postComment(user._id, { id: slop.id, name: slop.name }, { kind, body });
+        if (!posted.ok) return redirectWithFlash(`${here}#feedback`, { tone: "error", message: posted.error });
+        return redirectWithFlash(`${here}#comment-${posted.commentId}`, {
           tone: "success",
-          message: kind === "kudos" ? "Kudos sent. 🔥" : "Feedback posted.",
+          message: posted.held
+            ? "Sent. A moderator will check it before it appears."
+            : kind === "kudos"
+              ? "Kudos sent. 🔥"
+              : "Feedback posted.",
         });
       }
 
@@ -174,6 +175,18 @@ export async function action({ params, request, context }: Route.ActionArgs) {
           commentId: formText(form, "id"),
         });
         return redirectWithFlash(`${here}#feedback`, { tone: "info", message: "Removed." });
+      }
+
+      case "flag-comment": {
+        await convex.mutation(api.comments.flag, {
+          userId: user._id,
+          commentId: formText(form, "id"),
+          reason: formText(form, "reason"),
+        });
+        return redirectWithFlash(`${here}#feedback`, {
+          tone: "info",
+          message: "Thanks. A moderator will look at it.",
+        });
       }
 
       case "review": {
@@ -1199,14 +1212,27 @@ function Feedback({ loaderData, path }: { loaderData: LoaderData; path: string }
               <span className="ml-auto text-sm text-muted">{timeAgo(comment.createdAt)}</span>
             </div>
             <Markdown html={comment.html} className="mt-2" />
-            {comment.canDelete && (
-              <Form method="post" className="text-right">
-                <input type="hidden" name="intent" value="delete-comment" />
-                <input type="hidden" name="id" value={comment.id} />
-                <button type="submit" className="min-h-11 text-sm text-muted underline hover:text-ink">
-                  Delete
-                </button>
-              </Form>
+            {(comment.canDelete || comment.canFlag) && (
+              <div className="mt-2 flex flex-wrap justify-end gap-x-5">
+                {comment.canFlag && (
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="flag-comment" />
+                    <input type="hidden" name="id" value={comment.id} />
+                    <button type="submit" className="min-h-11 text-sm text-muted underline hover:text-hot">
+                      Report
+                    </button>
+                  </Form>
+                )}
+                {comment.canDelete && (
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="delete-comment" />
+                    <input type="hidden" name="id" value={comment.id} />
+                    <button type="submit" className="min-h-11 text-sm text-muted underline hover:text-ink">
+                      Delete
+                    </button>
+                  </Form>
+                )}
+              </div>
             )}
           </li>
         ))}

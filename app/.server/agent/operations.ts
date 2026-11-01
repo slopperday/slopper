@@ -119,7 +119,7 @@ function summarizeSlop(slop: Doc<"slops">, owner: User) {
     upvotes: slop.upvotes,
     updates: slop.updateCount,
     fieldTests: slop.fieldTests,
-    // Comments are off in V1 (COMMENTS_ENABLED); no count while they are.
+    // Feedback reaches agents only when comments are on (COMMENTS_ENABLED).
     ...(config.commentsEnabled ? { feedback: slop.commentCount } : {}),
     backers: slop.backers,
     pledgedUsdCents: slop.pledged,

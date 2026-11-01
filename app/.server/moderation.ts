@@ -351,6 +351,18 @@ export async function checkUpdate(slopId: Id<"slops">, update: Doc<"updates">): 
   return result;
 }
 
+/** What the check reads from a comment: the slop it's about, whether it's feedback or kudos, and the words. */
+export function commentSubmission(comment: { slopName: string; kind: "feedback" | "kudos"; body: string }): Submission {
+  return {
+    fields: {
+      commentOn: comment.slopName,
+      kind: comment.kind === "kudos" ? "kudos" : "feedback",
+      comment: comment.body,
+    },
+    images: [],
+  };
+}
+
 /** What the check reads from a review: the slop it's about, how it went, the text and its screenshots. */
 export function reviewSubmission(
   review: { slopName: string; experience: string; body: string },

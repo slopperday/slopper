@@ -653,10 +653,12 @@ export const page = query({
       .take(500);
     const comments =
       withComments && process.env.COMMENTS_ENABLED?.trim() === "true"
-        ? await ctx.db
-            .query("comments")
-            .withIndex("by_slop", (q) => q.eq("slopId", slop._id))
-            .take(500)
+        ? (
+            await ctx.db
+              .query("comments")
+              .withIndex("by_slop", (q) => q.eq("slopId", slop._id))
+              .take(500)
+          ).filter((comment) => comment.hidden !== true)
         : [];
     const productId = productIdOf(slop);
     const product = await ctx.db.get(productId);
@@ -693,6 +695,16 @@ export const page = query({
     for (const comment of comments) {
       if (!authors.has(comment.userId)) authors.set(comment.userId, await ctx.db.get(comment.userId));
     }
+    const flaggedByReader = new Set(
+      reader
+        ? (
+            await ctx.db
+              .query("commentFlags")
+              .withIndex("by_reporter", (q) => q.eq("reporterId", reader._id))
+              .take(500)
+          ).map((flag) => flag.commentId)
+        : [],
+    );
 
     return {
       owner: publicUser(owner),
@@ -716,6 +728,7 @@ export const page = query({
           createdAt: comment._creationTime,
           author: author ? publicUser(author) : null,
           canDelete: reader !== null && (reader._id === comment.userId || isOwner || can(reader, "comments.deleteAny")),
+          canFlag: reader !== null && reader._id !== comment.userId && !flaggedByReader.has(comment._id),
         };
       }),
       launches: launches

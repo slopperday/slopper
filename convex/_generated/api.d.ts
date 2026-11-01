@@ -12,6 +12,7 @@ import type * as accounts from "../accounts.js";
 import type * as activity from "../activity.js";
 import type * as analytics from "../analytics.js";
 import type * as cliLogins from "../cliLogins.js";
+import type * as comments from "../comments.js";
 import type * as crons from "../crons.js";
 import type * as digest from "../digest.js";
 import type * as digestSend from "../digestSend.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   activity: typeof activity;
   analytics: typeof analytics;
   cliLogins: typeof cliLogins;
+  comments: typeof comments;
   crons: typeof crons;
   digest: typeof digest;
   digestSend: typeof digestSend;
