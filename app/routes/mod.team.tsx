@@ -205,6 +205,10 @@ function describe({ action, target }: StaffLogEntry): string {
       return `deleted ${target}`;
     case "deleteComment":
       return `deleted a comment on ${target}`;
+    case "moderateComment":
+      return action.decision === "approve"
+        ? `approved a comment on ${target}${action.trusted ? " and trusted its author" : ""}`
+        : `removed a comment on ${target}`;
     case "deleteReview":
       return `deleted a review of ${target}`;
     case "forgetPerson":

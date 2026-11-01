@@ -217,8 +217,13 @@ release. Add a tool name to select part of the graph. For example, run
   turned down: `useReducedMotion` (`app/lib/motion.ts`) follows Settings → Motion (the `slopper_motion` cookie, rendered
   as `<html data-motion>`) or the device's `prefers-reduced-motion`; app.css stills everything else the same way.
   Lines compare with the period before (trends `compare`, web and slop reports' `previousSeries`).
-- **Comments are off for V1** (`COMMENTS_ENABLED`, `config.commentsEnabled`). Keep their code and unit tests working, and
-  gate anything that shows or writes comments on the switch.
+- **Comments are on** (`COMMENTS_ENABLED`, `config.commentsEnabled`, set in `monosecret.toml` and on Convex). Keep
+  anything that shows or writes comments behind the switch. A new comment runs the content check in `postComment`
+  (`app/.server/comments.ts`): blocked is refused and never saved, only `ok` shows at once, and `mature`/`unchecked`
+  wait hidden for a moderator. Three flags by different people hide one too. Moderators decide at /mod
+  (`convex/comments.ts`): approving clears it and trusts its author (`commentTrust`), whose later comments skip the
+  check and the hourly cap; removing deletes it. Every decision is logged. Comments from before the check have no
+  `check` and show as they always did.
 - **Releases:** every change worth releasing gets a changeset, made with `vp exec monochange create` and named with
   `--output .changeset/<name>.md` (the global `monochange` is older). `user_feat` (minor), `user_fix` (patch), `user_change`
   (minor: works differently, nothing to do) and `user_breaking` (major: people must act) are for what people using the

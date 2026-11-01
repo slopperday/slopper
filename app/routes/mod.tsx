@@ -47,18 +47,26 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     team: can(user, "team.manage"),
     analytics: can(user, "analytics.view"),
   };
-  const [items, videos, checks, trust] = await Promise.all([
+  const [items, comments, videos, checks, trust] = await Promise.all([
     convex.query(api.moderation.queue, {}),
+    convex.query(api.comments.queue, {}),
     convex.query(api.videos.queue, {}),
     allowed.takeDown || allowed.trust ? convex.query(api.videos.checks, {}) : [],
     allowed.trust ? convex.query(api.videos.trustList, {}) : [],
   ]);
-  // Someone else decides on a moderator's own slops.
+  // Someone else decides on a moderator's own slops and comments.
   const judged = <T extends { ownerId: Id<"users"> }>({ ownerId, ...item }: T) => ({
     ...item,
     decidable: mayJudge(user, ownerId),
   });
-  return { items: items.map(judged), videos: videos.map(judged), checks, trust, allowed };
+  return {
+    items: items.map(judged),
+    comments: comments.map(({ authorId, ...item }) => ({ ...item, decidable: mayJudge(user, authorId) })),
+    videos: videos.map(judged),
+    checks,
+    trust,
+    allowed,
+  };
 }
 
 /** Runs one decision, turning a Convex business-rule error into a flash. */
@@ -111,6 +119,29 @@ async function decideFlag(user: User, form: FormData): Promise<Response> {
   return redirectWithFlash("/mod", { tone: "success", message: `${item.name}: ${DECISIONS[decision].message}` });
 }
 
+/** A moderator approves or removes a comment the check or people held back. */
+async function decideComment(user: User, form: FormData): Promise<Response> {
+  const decision = formText(form, "decision");
+  if (decision !== "approve" && decision !== "remove") return outOfDateForm("/mod");
+  const commentId = formText(form, "id");
+  const item = (await convex.query(api.comments.queue, {})).find((entry) => entry.id === commentId);
+  if (!item) return handled();
+  const result = await convex.mutation(api.comments.decide, {
+    moderatorId: user._id,
+    commentId: item.id,
+    decision,
+  });
+  if (!result.decided) return handled();
+  const who = item.author ? `@${item.author}` : "A deleted account";
+  return redirectWithFlash("/mod", {
+    tone: "success",
+    message:
+      decision === "approve"
+        ? `${who}'s comment is up.${result.trusted ? ` ${who} is trusted now.` : ""}`
+        : `${who}'s comment is gone.`,
+  });
+}
+
 /** An admin takes off a video the check let through. */
 async function takeDown(user: User, form: FormData): Promise<Response> {
   const slopId = formText(form, "id");
@@ -155,6 +186,8 @@ export async function action({ request, context }: Route.ActionArgs) {
         return await decideVideo(user, form);
       case "flag":
         return await decideFlag(user, form);
+      case "comment":
+        return await decideComment(user, form);
       case "takedown":
         if (!can(user, "videos.takeDown")) forbidden();
         return await takeDown(user, form);
@@ -172,7 +205,7 @@ export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "
 type LoaderData = Route.ComponentProps["loaderData"];
 
 export default function Moderation({ loaderData }: Route.ComponentProps) {
-  const { items, videos, checks, trust, allowed } = loaderData;
+  const { items, comments, videos, checks, trust, allowed } = loaderData;
   return (
     <section className="mx-auto max-w-4xl px-4 pt-14">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -200,6 +233,17 @@ export default function Moderation({ loaderData }: Route.ComponentProps) {
           {items.length === 0 && <EmptyState>Nothing flagged. The wall is clean.</EmptyState>}
           {items.map((item) => (
             <FlaggedSlop key={item.id} item={item} />
+          ))}
+        </div>
+      </section>
+      <section className="mt-12" aria-labelledby="comments-title">
+        <h2 id="comments-title" className="title-2">
+          Comments to review
+        </h2>
+        <div className="mt-6 grid gap-4">
+          {comments.length === 0 && <EmptyState>Nothing held. Comments go up as they pass the check.</EmptyState>}
+          {comments.map((comment) => (
+            <HeldComment key={comment.id} comment={comment} />
           ))}
         </div>
       </section>
@@ -309,6 +353,61 @@ function FlaggedSlop({ item }: { item: LoaderData["items"][number] }) {
         </Form>
       ) : (
         <YourOwn />
+      )}
+    </article>
+  );
+}
+
+function HeldComment({ comment }: { comment: LoaderData["comments"][number] }) {
+  return (
+    <article className="panel sm:p-6" aria-labelledby={`comment-${comment.id}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 id={`comment-${comment.id}`} className="font-display text-[1.5rem] leading-none font-extrabold">
+            <Link to={slopPath(comment.owner, comment.slug)} className="hover:underline">
+              {comment.slopName}
+            </Link>
+          </h3>
+          <p className="mt-1.5 text-muted">
+            {comment.author ? `@${comment.author}` : "Deleted account"} · {timeAgo(comment.createdAt)}
+          </p>
+        </div>
+        <p className="flex flex-wrap gap-1.5">
+          {comment.hidden && <span className="tag tag-hot">Held</span>}
+          {comment.flags.length > 0 && <span className="tag tag-hot">{comment.flags.length} flagged</span>}
+          {comment.check && (
+            <span className={`tag ${comment.check.verdict === "ok" ? "tag-slop" : "tag-hot"}`}>
+              Check: {VERDICTS[comment.check.verdict]}
+            </span>
+          )}
+        </p>
+      </div>
+      <p className="mt-4 whitespace-pre-wrap">{comment.body}</p>
+      {comment.check && <p className="mt-2 text-sm text-muted">{comment.check.reason}</p>}
+      {comment.flags.length > 0 && (
+        <ul className="mt-4 divide-y divide-line border-y border-line">
+          {comment.flags.map((flag) => (
+            <li key={flag.id} className="py-2.5">
+              <span className="font-bold">{flag.by ? `@${flag.by}` : "Someone"}</span>
+              <span className="ml-2 text-sm text-muted">{timeAgo(flag.at)}</span>
+              <span className="block">{flag.reason}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {comment.decidable ? (
+        <Form method="post" className="mt-5 flex flex-wrap gap-2">
+          <input type="hidden" name="intent" value="comment" />
+          <input type="hidden" name="id" value={comment.id} />
+          <button type="submit" name="decision" value="approve" className="btn btn-sm btn-slop">
+            Approve comment
+          </button>
+          <button type="submit" name="decision" value="remove" className="btn btn-sm bg-raised">
+            Remove comment
+          </button>
+        </Form>
+      ) : (
+        <p className="mt-5 font-bold text-muted">It's your comment, so another moderator decides on it.</p>
       )}
     </article>
   );

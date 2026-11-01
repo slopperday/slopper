@@ -37,8 +37,6 @@ own badge, separate from slop of the day.
 
 ## Product
 
-- **Comments back on.** Feedback and kudos are built but off for V1 (`COMMENTS_ENABLED`). They return with heavier
-  moderation: the content check on every comment, flags, and a moderator queue for them.
 - Follow people and launches; notify followers when they ship.
 - Weekly digest email of slop of the day winners.
 - Embeddable "slopped on Slopper" badges and a live goal grid widget for READMEs.

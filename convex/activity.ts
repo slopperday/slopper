@@ -1,7 +1,7 @@
 import { isHidden } from "./lib/shape";
 import { ConvexError, v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { mutation, query, type QueryCtx } from "./_generated/server";
 import { captureFor } from "./analytics";
 import { requireServer } from "./lib/auth";
 import { releaseMedia, updateMedia } from "./lib/media";
@@ -10,7 +10,12 @@ import { logStaffAction } from "./lib/staffLog";
 import { notify } from "./lib/notify";
 import { consume } from "./lib/rate";
 import { checkScreenshots } from "./moderation";
-import { crosspostResultValidator, updateDetailsValidator, updateLinkValidator } from "./schema";
+import {
+  commentCheckInputValidator,
+  crosspostResultValidator,
+  updateDetailsValidator,
+  updateLinkValidator,
+} from "./schema";
 import { ownedMedia } from "./slops";
 import { LIMITS } from "../app/lib/model";
 
@@ -162,21 +167,85 @@ export const removePreview = mutation({
   },
 });
 
+/** Whether a moderator has already trusted this person's comments. */
+async function commentTrusted(ctx: QueryCtx, userId: Id<"users">): Promise<boolean> {
+  const row = await ctx.db
+    .query("commentTrust")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .unique();
+  return row?.trusted === true;
+}
+
+/**
+ * Starts a comment: the slop must be there, and everyone untrusted spends one
+ * of their hourly attempts. The app server runs the content check between this
+ * and `addComment`, unless this says the commenter is trusted.
+ */
+export const beginComment = mutation({
+  args: { userId: v.id("users"), slopId: v.id("slops") },
+  handler: async (ctx, { userId, slopId }): Promise<{ trusted: boolean }> => {
+    await requireServer(ctx);
+    // The app server and Convex must agree; otherwise pages and writes disagree.
+    if (process.env.COMMENTS_ENABLED?.trim() !== "true") throw new ConvexError("Comments are off.");
+    const slop = await ctx.db.get(slopId);
+    if (!slop || isHidden(slop)) throw new ConvexError("Slop not found.");
+    const trusted = await commentTrusted(ctx, userId);
+    // A moderator already read their words: no hourly cap.
+    if (!trusted) await consume(ctx, `comment:${userId}`, 30, 3_600_000);
+    return { trusted };
+  },
+});
+
+type CommentCheck = {
+  verdict: "ok" | "mature" | "unchecked";
+  reason: string;
+  source: "check" | "moderator" | "trust";
+  checkedAt: number;
+};
+
+/**
+ * Saves a comment the app server has started (`beginComment`) and checked
+ * (`app/.server/comments.ts`). A trusted commenter's words skip the check, as
+ * a moderator already trusted them; anyone else brings the verdict. Only an
+ * "ok" comment shows at once: the rest wait hidden for a moderator.
+ */
 export const addComment = mutation({
   args: {
     userId: v.id("users"),
     slopId: v.id("slops"),
     kind: v.union(v.literal("feedback"), v.literal("kudos")),
     body: v.string(),
+    /** The verdict from the content check; trusted commenters don't need one. */
+    check: v.optional(commentCheckInputValidator),
   },
-  handler: async (ctx, { userId, slopId, kind, body }) => {
+  handler: async (ctx, { userId, slopId, kind, body, check }) => {
     await requireServer(ctx);
     const slop = await ctx.db.get(slopId);
     if (!slop || isHidden(slop)) throw new ConvexError("Slop not found.");
-    await consume(ctx, `comment:${userId}`, 30, 3_600_000);
-    await ctx.db.patch(slopId, { commentCount: slop.commentCount + 1 });
-    const commentId = await ctx.db.insert("comments", { slopId, userId, kind, body });
-    if (slop.userId !== userId) {
+    if (!body.trim() || body.length > LIMITS.commentLength) {
+      throw new ConvexError(`Feedback is 1 to ${LIMITS.commentLength} characters.`);
+    }
+    const trusted = await commentTrusted(ctx, userId);
+    const recorded: CommentCheck = trusted
+      ? { verdict: "ok", reason: "A commenter a moderator already trusted.", source: "trust", checkedAt: Date.now() }
+      : check
+        ? { ...check, source: "check", checkedAt: Date.now() }
+        : (() => {
+            throw new ConvexError("This comment hasn't been checked yet.");
+          })();
+    const visible = recorded.verdict === "ok";
+    const notified = visible && slop.userId !== userId;
+    await ctx.db.patch(slopId, { commentCount: slop.commentCount + (visible ? 1 : 0) });
+    const commentId = await ctx.db.insert("comments", {
+      slopId,
+      userId,
+      kind,
+      body,
+      check: recorded,
+      hidden: !visible,
+      notified,
+    });
+    if (notified) {
       await notify(ctx, { userId: slop.userId, kind, slopId, actorId: userId, amount: null });
     }
     await captureFor(ctx, userId, { name: "commented", slopId, properties: { kind } });
@@ -199,7 +268,16 @@ export const deleteComment = mutation({
         await logStaffAction(ctx, userId, { type: "deleteComment", slopId: slop._id, authorId: comment.userId }, slop);
       }
     }
-    if (slop) await ctx.db.patch(slop._id, { commentCount: Math.max(0, slop.commentCount - 1) });
+    // Only a shown comment was counted; a held one never was.
+    if (slop && comment.hidden !== true) {
+      await ctx.db.patch(slop._id, { commentCount: Math.max(0, slop.commentCount - 1) });
+    }
+    for (const flag of await ctx.db
+      .query("commentFlags")
+      .withIndex("by_comment", (q) => q.eq("commentId", comment._id))
+      .collect()) {
+      await ctx.db.delete(flag._id);
+    }
     await ctx.db.delete(comment._id);
   },
 });

@@ -117,9 +117,10 @@ export interface Config {
    */
   videoCheck: ContentCheckConfig | null;
   /**
-   * Feedback and kudos on slops (`COMMENTS_ENABLED=true`). Off for V1: they
-   * come back with heavier moderation. The data and code stay, so turning
-   * it on in both the app and Convex brings back everything already posted.
+   * Feedback and kudos on slops (`COMMENTS_ENABLED`). On in production; the
+   * switch must agree with Convex, which reads its own environment. New
+   * comments run the content check (app/.server/comments.ts); the rest waits
+   * for a moderator.
    */
   commentsEnabled: boolean;
   /** Screenshot storage. Without it, screenshots go to Convex file storage. */

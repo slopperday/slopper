@@ -42,8 +42,8 @@ persistence, where launch sites are built around one big day.
 ## Capabilities and Constraints
 
 Goals and streaks, the daily race, the wall (all slops, by category, freshest or sticking), the Slopcessful hall of
-fame, launches and relaunches, updates and field tests, upvotes with private downvotes, feedback and kudos (off for V1,
-back with heavier moderation), "take my money" pledges (non-binding, no money moves), a per-product money ledger
+fame, launches and relaunches, updates and field tests, upvotes with private downvotes, feedback and kudos (checked,
+flagged and moderated), "take my money" pledges (non-binding, no money moves), a per-product money ledger
 (private unless shared), product pages (demo video, what it does, who it's for, drafted by AI), traction read from
 connected sources (Google Analytics, PostHog, Stripe, Solana wallets; each number says where it came from), auto-posting
 to LinkedIn and Bluesky (X is built but off: its API is pay per use), live notifications, flags and a moderator queue, API

@@ -1,4 +1,3 @@
-import { api } from "../convex/_generated/api.js";
 import { expect, runInternal, test } from "./fixtures.ts";
 
 test.describe("people reacting, live", () => {
@@ -49,43 +48,62 @@ test.describe("people reacting, live", () => {
     await expect(page.locator('form[action$="/vote"]')).toContainText("1");
   });
 
-  test("comments are off: no feedback, no counts, and nothing that writes them", async ({ seed, convex }) => {
+  test("comments are on: feedback posts at once, and a mature one waits for a moderator", async ({ seed }) => {
     const maker = await seed.user("maker");
     const fan = await seed.user("fan");
     const slop = await seed.slop(maker);
-    // Feedback posted before comments went off stays stored, and unseen.
-    await convex.mutation(api.activity.addComment, {
-      userId: fan.id,
-      slopId: slop.id,
-      kind: "feedback",
-      body: "Stored, never shown.",
-    });
 
     const page = await seed.pageAs(fan);
-    await page.goto(slop.path);
-    await expect(page.getByRole("heading", { level: 1 })).toContainText(slop.name);
-    await expect(page.getByRole("heading", { name: "Updates" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Feedback", exact: true })).toHaveCount(0);
-    await expect(page.locator("#feedback")).toHaveCount(0);
-    await expect(page.getByLabel("Your feedback")).toHaveCount(0);
-    await expect(page.getByText("Stored, never shown.")).toHaveCount(0);
+    await page.goto(`${slop.path}#feedback`);
+    await page.getByLabel("Your feedback").fill("The **tilt** is smooth.");
+    await page.getByRole("button", { name: "Leave feedback" }).click();
+    await expect(page.getByRole("status")).toHaveText("Feedback posted.");
+    await expect(page.locator("#feedback")).toContainText("The tilt is smooth.");
 
-    for (const path of ["/today", `/@${maker.username}`]) {
-      await page.goto(path);
-      const row = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: slop.name, exact: true }) });
-      await expect(row).toBeVisible();
-      await expect(row).not.toContainText("feedback");
-    }
+    // The maker reads it, and the profile counts it.
+    const makerPage = await seed.pageAs(maker);
+    await makerPage.goto(slop.path);
+    await expect(makerPage.locator("#feedback")).toContainText(`@${fan.username}`);
+    await makerPage.goto(`/@${maker.username}`);
+    const row = makerPage
+      .getByRole("listitem")
+      .filter({ has: makerPage.getByRole("link", { name: slop.name, exact: true }) });
+    await expect(row).toContainText("1 feedback");
 
-    const writes: Record<string, string>[] = [
-      { intent: "comment", kind: "feedback", body: "Let me in." },
-      { intent: "delete-comment", id: "anything" },
-    ];
-    for (const form of writes) {
-      const response = await page.request.post(slop.path, { form, maxRedirects: 0 });
-      expect(response.status()).toBe(404);
-    }
-    expect((await convex.query(api.slops.getForServer, { slopId: slop.id }))?.commentCount).toBe(1);
+    // Blocked words are refused and never saved.
+    const rudePage = await seed.pageAs(await seed.user("rude"));
+    await rudePage.goto(`${slop.path}#feedback`);
+    await rudePage.getByLabel("Your feedback").fill("Not fit to print [e2e:blocked]");
+    await rudePage.getByRole("button", { name: "Leave feedback" }).click();
+    await expect(rudePage.getByRole("alert")).toHaveText(
+      "This comment can't go on Slopper. Keep it about the slop, and keep it civil.",
+    );
+    await expect(page.locator("#feedback")).not.toContainText("Not fit to print");
+
+    // A mature comment waits hidden, then a moderator approves it and trusts its author.
+    const spicy = await seed.user("spicy");
+    const spicyPage = await seed.pageAs(spicy);
+    await spicyPage.goto(`${slop.path}#feedback`);
+    await spicyPage.getByLabel("Your feedback").fill("Too spicy [e2e:mature]");
+    await spicyPage.getByRole("button", { name: "Leave feedback" }).click();
+    await expect(spicyPage.getByRole("status")).toHaveText("Sent. A moderator will check it before it appears.");
+    await expect(page.locator("#feedback")).not.toContainText("Too spicy");
+
+    const modPage = await seed.pageAs(await seed.admin());
+    await modPage.goto("/mod");
+    const held = modPage.locator("article").filter({ hasText: "Too spicy" });
+    await expect(held).toContainText("Held");
+    await held.getByRole("button", { name: "Approve comment" }).click();
+    await expect(modPage.getByRole("status")).toContainText(`@${spicy.username} is trusted now.`);
+    await page.reload();
+    await expect(page.locator("#feedback")).toContainText("Too spicy");
+
+    // Trusted now: their next comment skips the check, even with a mature marker.
+    await spicyPage.goto(`${slop.path}#feedback`);
+    await spicyPage.getByLabel("Your feedback").fill("Still spicy [e2e:mature]");
+    await spicyPage.getByRole("button", { name: "Leave feedback" }).click();
+    await expect(spicyPage.getByRole("status")).toHaveText("Feedback posted.");
+    await expect(page.locator("#feedback")).toContainText("Still spicy");
   });
 
   test("visitors are asked to sign in before voting or pledging", async ({ seed }) => {

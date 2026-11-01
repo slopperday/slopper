@@ -136,6 +136,15 @@ export const staffActionValidator = v.union(
   v.object({ type: v.literal("hidden"), slopId: v.id("slops"), hidden: v.boolean() }),
   v.object({ type: v.literal("deleteSlop"), slopId: v.id("slops"), ownerId: v.id("users") }),
   v.object({ type: v.literal("deleteComment"), slopId: v.id("slops"), authorId: v.id("users") }),
+  /** A moderator approved a held or flagged comment, or removed it. */
+  v.object({
+    type: v.literal("moderateComment"),
+    slopId: v.id("slops"),
+    authorId: v.id("users"),
+    decision: v.union(v.literal("approve"), v.literal("remove")),
+    /** Whether approving it trusted the author (convex/comments.ts). */
+    trusted: v.boolean(),
+  }),
   v.object({ type: v.literal("deleteReview"), slopId: v.id("slops"), authorId: v.id("users") }),
   /** Deleted everything analytics had on someone (the target is their username, or the id they had). */
   v.object({ type: v.literal("forgetPerson") }),
@@ -185,6 +194,25 @@ export const reviewExperienceValidator = v.union(v.literal("works"), v.literal("
  * reviews are never saved; "unchecked" means the check couldn't run.
  */
 export const reviewCheckValidator = v.object({
+  verdict: v.union(v.literal("ok"), v.literal("mature"), v.literal("unchecked")),
+  reason: v.string(),
+});
+
+/**
+ * What a comment's content check decided (convex/activity.ts). A comment is
+ * shown only when it has an "ok" verdict; "unchecked" and "mature" wait for a
+ * moderator. `source` says who said so: the model, a moderator, or the trust a
+ * moderator granted the commenter.
+ */
+export const commentCheckValidator = v.object({
+  verdict: v.union(v.literal("ok"), v.literal("mature"), v.literal("unchecked")),
+  reason: v.string(),
+  source: v.union(v.literal("check"), v.literal("moderator"), v.literal("trust")),
+  checkedAt: v.number(),
+});
+
+/** What the app server sends when it saves a comment it checked. */
+export const commentCheckInputValidator = v.object({
   verdict: v.union(v.literal("ok"), v.literal("mature"), v.literal("unchecked")),
   reason: v.string(),
 });
@@ -521,12 +549,49 @@ export default defineSchema({
     // Which of an owner's images updates still show (`releaseMedia`).
     .index("by_user", ["userId"]),
 
+  /**
+   * Feedback and kudos on a slop. A new comment runs the content check
+   * (app/.server/comments.ts); anything but "ok" waits in `hidden` for a
+   * moderator, and so does a comment people flag. Comments from before the
+   * check have no `check` and show as they always did.
+   */
   comments: defineTable({
     slopId: v.id("slops"),
     userId: v.id("users"),
     kind: v.union(v.literal("feedback"), v.literal("kudos")),
     body: v.string(),
-  }).index("by_slop", ["slopId"]),
+    /** Server-side: only whether it's shown reaches the page. */
+    check: v.optional(commentCheckValidator),
+    /** Held from the page until a moderator clears it. */
+    hidden: v.optional(v.boolean()),
+    /** Whether the maker was told it went up (it waits when the comment does). */
+    notified: v.optional(v.boolean()),
+  })
+    .index("by_slop", ["slopId"])
+    .index("by_hidden", ["hidden"]),
+
+  /** People flagging comments, one row each (convex/comments.ts). */
+  commentFlags: defineTable({
+    commentId: v.id("comments"),
+    reporterId: v.id("users"),
+    reason: v.string(),
+  })
+    .index("by_comment", ["commentId"])
+    .index("by_comment_reporter", ["commentId", "reporterId"])
+    .index("by_reporter", ["reporterId"]),
+
+  /**
+   * Whose comments skip the content check and the hourly cap. A moderator
+   * approving someone's held or flagged comment trusts them; there is no
+   * revoke yet, so a row only ever says trusted (convex/comments.ts).
+   */
+  commentTrust: defineTable({
+    userId: v.id("users"),
+    trusted: v.boolean(),
+    /** The moderator who trusted them, and when. */
+    by: v.id("users"),
+    at: v.number(),
+  }).index("by_user", ["userId"]),
 
   /**
    * Reviews from people who tried a slop: how it went for them, in their

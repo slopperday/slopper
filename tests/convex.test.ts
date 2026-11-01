@@ -4,6 +4,7 @@ import { api, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { can, permissionsOf } from "@convex/lib/permissions";
 import { EDITING_CLOSED } from "~/lib/editing";
+import { FLAGS_TO_BLUR } from "~/lib/model";
 import { convexApp } from "./convexApp";
 import { checkedLaunch } from "./launchFixtures";
 
@@ -547,6 +548,7 @@ describe("feedback and kudos", () => {
         slopId,
         kind: "feedback",
         body: "Historical feedback",
+        check: { verdict: "ok", reason: "Fine." },
       });
 
       expect((await server.query(api.slops.getForServer, { slopId }))?.commentCount).toBe(1);
@@ -563,7 +565,6 @@ describe("feedback and kudos", () => {
     },
   );
 
-  // Comments are off in V1 (COMMENTS_ENABLED); the logic stays ready for when they're back.
   it("counts feedback, tells the maker and only sends it when the page asks", async () => {
     vi.stubEnv("COMMENTS_ENABLED", "true");
     const { t, server } = setup();
@@ -571,15 +572,29 @@ describe("feedback and kudos", () => {
     const fan = await makeUser(server, "fan");
     const { slopId } = await ship(server, owner);
 
+    const OK = { verdict: "ok" as const, reason: "Fine." };
     await server.mutation(api.activity.addComment, {
       userId: fan,
       slopId,
       kind: "feedback",
       body: "The **tilt** lags.",
+      check: OK,
     });
-    await server.mutation(api.activity.addComment, { userId: fan, slopId, kind: "kudos", body: "Played for an hour." });
+    await server.mutation(api.activity.addComment, {
+      userId: fan,
+      slopId,
+      kind: "kudos",
+      body: "Played for an hour.",
+      check: OK,
+    });
     // Talking to yourself doesn't notify you.
-    await server.mutation(api.activity.addComment, { userId: owner, slopId, kind: "feedback", body: "Fixed it." });
+    await server.mutation(api.activity.addComment, {
+      userId: owner,
+      slopId,
+      kind: "feedback",
+      body: "Fixed it.",
+      check: OK,
+    });
     expect((await server.query(api.slops.getForServer, { slopId }))?.commentCount).toBe(3);
     const kinds = (await t.withIdentity({ subject: owner }).query(api.notifications.mine, {})).map((item) => item.kind);
     expect(kinds.sort()).toEqual(["feedback", "kudos"]);
@@ -606,7 +621,14 @@ describe("feedback and kudos", () => {
     const moderator = await makeStaff(t, server, "mia", "moderator");
     const admin = await makeStaff(t, server, "ada", "admin");
     const { slopId } = await ship(server, owner);
-    const add = () => server.mutation(api.activity.addComment, { userId: fan, slopId, kind: "feedback", body: "Hm." });
+    const add = () =>
+      server.mutation(api.activity.addComment, {
+        userId: fan,
+        slopId,
+        kind: "feedback",
+        body: "Hm.",
+        check: { verdict: "ok" as const, reason: "Fine." },
+      });
     const [first, second, third] = [await add(), await add(), await add()];
 
     await expect(server.mutation(api.activity.deleteComment, { userId: stranger, commentId: first })).rejects.toThrow(
@@ -622,6 +644,82 @@ describe("feedback and kudos", () => {
     // Gone, or never an id at all: nothing to do.
     await server.mutation(api.activity.deleteComment, { userId: fan, commentId: first });
     await server.mutation(api.activity.deleteComment, { userId: fan, commentId: "not-an-id" });
+    expect((await server.query(api.slops.getForServer, { slopId }))?.commentCount).toBe(0);
+  });
+
+  it("holds a comment that isn't ok, and a moderator approving it trusts the author", async () => {
+    vi.stubEnv("COMMENTS_ENABLED", "true");
+    const { t, server } = setup();
+    const owner = await makeUser(server, "owner");
+    const fan = await makeUser(server, "fan");
+    const moderator = await makeStaff(t, server, "mia", "moderator");
+    const { slopId } = await ship(server, owner);
+    const add = (check?: { verdict: "ok" | "mature" | "unchecked"; reason: string }) =>
+      server.mutation(api.activity.addComment, { userId: fan, slopId, kind: "feedback", body: "Spicy.", check });
+    const page = () => server.query(api.slops.page, { username: "owner", slug: "tiltmaze", withComments: true });
+
+    // The app server always brings a verdict unless the commenter is trusted.
+    await expect(add()).rejects.toThrow("hasn't been checked");
+    const held = await add({ verdict: "mature", reason: "A bit much." });
+    expect((await page())?.comments).toEqual([]);
+    expect((await server.query(api.slops.getForServer, { slopId }))?.commentCount).toBe(0);
+
+    const queue = await server.query(api.comments.queue, {});
+    expect(queue).toMatchObject([{ id: held, hidden: true, check: { verdict: "mature", reason: "A bit much." } }]);
+    await server.mutation(api.comments.decide, {
+      moderatorId: moderator,
+      commentId: held,
+      decision: "approve",
+    });
+    const shown = (await page())?.comments ?? [];
+    expect(shown).toHaveLength(1);
+    expect(shown[0].html).toContain("Spicy.");
+    expect((await server.query(api.slops.getForServer, { slopId }))?.commentCount).toBe(1);
+
+    // A moderator already trusted them: a verdict that would hold it is ignored.
+    await add({ verdict: "mature", reason: "Still spicy." });
+    expect((await page())?.comments).toHaveLength(2);
+    expect((await server.query(api.slops.getForServer, { slopId }))?.commentCount).toBe(2);
+  });
+
+  it("hides a comment enough people flag, and a moderator can remove it", async () => {
+    vi.stubEnv("COMMENTS_ENABLED", "true");
+    const { t, server } = setup();
+    const owner = await makeUser(server, "owner");
+    const fan = await makeUser(server, "fan");
+    const moderator = await makeStaff(t, server, "mia", "moderator");
+    const flaggers = [await makeUser(server, "f1"), await makeUser(server, "f2"), await makeUser(server, "f3")];
+    const { slopId } = await ship(server, owner);
+    const commentId = await server.mutation(api.activity.addComment, {
+      userId: fan,
+      slopId,
+      kind: "feedback",
+      body: "Rude enough to report.",
+      check: { verdict: "ok", reason: "Fine." },
+    });
+    const page = () => server.query(api.slops.page, { username: "owner", slug: "tiltmaze", withComments: true });
+    const flag = (userId: Id<"users">) => server.mutation(api.comments.flag, { userId, commentId, reason: "Rude." });
+
+    await expect(flag(fan)).rejects.toThrow("your own comment");
+    for (const flagger of flaggers.slice(0, FLAGS_TO_BLUR - 1)) await flag(flagger);
+    expect((await page())?.comments).toHaveLength(1);
+    // Flagging twice changes nothing.
+    await flag(flaggers[0]);
+    await flag(flaggers[FLAGS_TO_BLUR - 1]);
+
+    expect((await page())?.comments).toEqual([]);
+    expect((await server.query(api.slops.getForServer, { slopId }))?.commentCount).toBe(0);
+    const [queued] = await server.query(api.comments.queue, {});
+    expect(queued).toMatchObject({ id: commentId, hidden: true });
+    expect(new Set(queued.flags.map((flag) => flag.by))).toEqual(new Set(["f1", "f2", "f3"]));
+
+    await server.mutation(api.comments.decide, {
+      moderatorId: moderator,
+      commentId,
+      decision: "remove",
+    });
+    expect(await t.run(async (ctx) => await ctx.db.query("comments").collect())).toEqual([]);
+    expect(await t.run(async (ctx) => await ctx.db.query("commentFlags").collect())).toEqual([]);
     expect((await server.query(api.slops.getForServer, { slopId }))?.commentCount).toBe(0);
   });
 
@@ -924,6 +1022,7 @@ describe("the moderation team", () => {
       slopId,
       kind: "feedback",
       body: "Nice.",
+      check: { verdict: "ok", reason: "Fine." },
     });
     await server.mutation(api.activity.deleteComment, { userId: admin, commentId });
     // Owners deleting their own slops are no staff business.
