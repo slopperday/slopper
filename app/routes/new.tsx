@@ -21,6 +21,7 @@ import { seo } from "~/lib/seo";
 import { Field, SlopFields } from "~/components/SlopFields";
 import { AgentPrompt } from "~/components/AgentPrompt";
 import { useLive } from "~/components/Live";
+import { HACKER_HOUSE, hackerHouseActive } from "~/lib/hackerHouse";
 import { Icon } from "~/components/Icon";
 
 const LAUNCH_LABEL_IDEAS = ["iOS app", "Android app", "iOS beta", "Android beta", "Desktop app", "2.0", "API"];
@@ -66,6 +67,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       })),
     schedule: { timeZone: user.timeZone, nextFree, queue },
     tags,
+    hackerHouse:
+      hackerHouseActive(Date.now()) && new URL(request.url).searchParams.get("challenge") === "solana-hacker-house",
   };
 }
 
@@ -185,7 +188,8 @@ export default function NewSlop({ loaderData, actionData }: Route.ComponentProps
     (navigation.formAction ?? "").startsWith("/new") &&
     !navigation.formData?.has("intent");
   const errors: Record<string, string> = actionData?.errors ?? {};
-  const values = actionData?.values ?? relaunch?.values ?? {};
+  const values =
+    actionData?.values ?? relaunch?.values ?? (loaderData.hackerHouse ? { madeWith: [HACKER_HOUSE.tag] } : {});
   const [when, setWhen] = useState(actionData?.values.when ?? "now");
   const submitLabel =
     when === "now" ? { idle: "Throw it at the wall", busy: "Throwing…" } : { idle: "Schedule it", busy: "Scheduling…" };

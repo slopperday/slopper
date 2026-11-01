@@ -4,6 +4,7 @@ import { query } from "./_generated/server";
 import { readerFor } from "./lib/auth";
 import { isHidden, publicUser, toCards } from "./lib/shape";
 import { rankDay, utcToday } from "./race";
+import { HACKER_HOUSE, hackerHouseActive, countsForHackerHouse } from "../app/lib/hackerHouse";
 import { rankHot } from "../app/lib/ranking";
 
 /** The live home page: today's race, the ticker and recent updates. */
@@ -44,7 +45,26 @@ export const feed = query({
       });
     }
 
+    const hackerHouse = hackerHouseActive(Date.now())
+      ? {
+          shipped: reader
+            ? (
+                await ctx.db
+                  .query("slops")
+                  .withIndex("by_user", (q) =>
+                    q
+                      .eq("userId", reader._id)
+                      .gte("_creationTime", HACKER_HOUSE.start)
+                      .lt("_creationTime", HACKER_HOUSE.end),
+                  )
+                  .collect()
+              ).filter((slop) => !isHidden(slop) && countsForHackerHouse(slop)).length
+            : 0,
+        }
+      : null;
+
     return {
+      hackerHouse,
       race: await toCards(ctx, race.slice(0, 10), reader),
       // An empty race still leaves something to look at: the week's best.
       wall: race.length > 0 ? [] : await toCards(ctx, rankHot(week, new Date()).slice(0, 6), reader),
