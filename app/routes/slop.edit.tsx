@@ -295,8 +295,8 @@ export default function EditSlop({ loaderData, actionData }: Route.ComponentProp
       ) : (
         <div className="panel mt-8 grid justify-items-start gap-4">
           <p className="text-[1.125rem]">
-            <span className="font-bold">Locked.</span> Launches can be edited on their launch day and for at least 12
-            hours. Post an update to share what's new.
+            <span className="font-bold">Locked.</span> Launches can be edited until the end of the day after launch, at
+            least 24 hours after they go out. Post an update to share what's new.
           </p>
           <Link to={`${path}#updates`} className="btn btn-slop">
             Post an update

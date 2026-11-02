@@ -133,7 +133,7 @@ tried it and what they said), `repromote` (bump it back up). An update can carry
 and who tried it (`--who`). `--preview` shows a card read from each linked page: only pass it when the user wants one.
 `<slop>` is one of the user's slops, by id or slug (see
 `slopper slops`). `edit` changes only the flags passed; `--link` and `--screenshot` replace the whole list. Editing
-closes at the end of the launch day, or 12 hours after launch if that's later (`editableUntil` in `slopper slops`).
+closes at the end of the day after launch, at least 24 hours after it goes out (`editableUntil` in `slopper slops`).
 After that the original post is locked (its `video` isn't): share what's new with `slopper post`.
 `video` puts a promo (MP4 or WebM, up to 4 MB) on a slop, replacing its last. It says `pending` while it waits for a
 moderator, then `live`. Once one of the user's videos has been approved, later ones can say `live` straight away. `video <slop> --remove` takes it off.

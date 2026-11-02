@@ -7,8 +7,8 @@ import { addDays, dayStart, formatClock, formatDay, localDate } from "./dates";
  * updates, which stay open.
  */
 
-/** The shortest edit window: 12 hours from launch. */
-export const EDIT_WINDOW_MS = 12 * 3_600_000;
+/** The shortest edit window: 24 hours from launch. */
+export const EDIT_WINDOW_MS = 24 * 3_600_000;
 
 /** Why an edit was refused once the window has closed. */
 export const EDITING_CLOSED = "Editing has closed for this slop. Post an update instead.";
@@ -21,13 +21,13 @@ export interface Launched {
 }
 
 /**
- * When editing closes: 12 hours after launch or the end of the launch day,
- * whichever is later. A launch early in the (UTC) day stays open until
- * midnight UTC; a late one gets its full 12 hours into the next day.
+ * When editing closes: 24 hours after launch or the end of the day after the
+ * launch day, whichever is later. The 24-hour floor covers legacy rows whose
+ * launch date and timestamp disagree.
  */
 export function editableUntil(slop: Launched): number {
-  const endOfLaunchDay = dayStart(addDays(slop.launchDate, 1));
-  return Math.max(slop.launchedAt + EDIT_WINDOW_MS, endOfLaunchDay);
+  const endOfNextDay = dayStart(addDays(slop.launchDate, 2));
+  return Math.max(slop.launchedAt + EDIT_WINDOW_MS, endOfNextDay);
 }
 
 /** What the owner is told: how long editing stays open, or that it's locked. */

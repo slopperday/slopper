@@ -13,7 +13,7 @@ test.describe("the edit window", () => {
     await expect(page.getByLabel("Tagline")).toBeVisible();
   });
 
-  test("locks the original post after launch day, while updates still post", async ({ seed, request }) => {
+  test("locks the original post after the next day, while updates still post", async ({ seed, request }) => {
     const maker = await seed.user("late");
     const slop = await seed.pastSlop(maker, Date.now() - 2 * 86_400_000);
     const page = await seed.pageAs(maker);

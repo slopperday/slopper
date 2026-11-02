@@ -237,7 +237,7 @@ describe("editing a launch", () => {
 
   const edited = { ...input, tagline: "Tilt harder" };
 
-  it("stays open 12 hours after a late launch, then only takes updates", async () => {
+  it("stays open through the next day, then only takes updates", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(Date.parse("2026-10-17T22:00:00Z"));
     const { t, server } = setup();
@@ -247,10 +247,10 @@ describe("editing a launch", () => {
     const { slopId } = await ship(server, owner);
     const edit = () => server.mutation(api.slops.edit, { userId: owner, slopId, input: edited });
 
-    vi.setSystemTime(Date.parse("2026-10-18T09:59:00Z"));
+    vi.setSystemTime(Date.parse("2026-10-18T23:59:00Z"));
     await expect(edit()).resolves.toEqual({ blurred: false, orphaned: 0 });
 
-    vi.setSystemTime(Date.parse("2026-10-18T10:01:00Z"));
+    vi.setSystemTime(Date.parse("2026-10-19T00:01:00Z"));
     await expect(edit()).rejects.toThrow(EDITING_CLOSED);
     const reservationId = await server.mutation(api.activity.reserveUpdate, { userId: owner, slopId });
     await server.mutation(api.activity.addUpdate, {
@@ -272,8 +272,8 @@ describe("editing a launch", () => {
     expect(page?.slop).toMatchObject({ tagline: "Tilt harder", updateCount: 2, nsfw: true, hidden: true });
   });
 
-  it("stays open to the end of the UTC launch day after a morning launch, wherever the owner is", async () => {
-    // 6am in Lagos, 05:00 UTC; the day ends at midnight UTC, 1am in Lagos.
+  it("stays open to the end of the next UTC day after a morning launch, wherever the owner is", async () => {
+    // 6am in Lagos, 05:00 UTC; the next day ends at midnight UTC, 1am in Lagos.
     vi.useFakeTimers();
     vi.setSystemTime(Date.parse("2026-10-17T05:00:00Z"));
     const { server } = setup();
@@ -281,9 +281,9 @@ describe("editing a launch", () => {
     const { slopId } = await ship(server, owner);
     const edit = () => server.mutation(api.slops.edit, { userId: owner, slopId, input: edited });
 
-    vi.setSystemTime(Date.parse("2026-10-17T23:59:00Z"));
+    vi.setSystemTime(Date.parse("2026-10-18T23:59:00Z"));
     await expect(edit()).resolves.toEqual({ blurred: false, orphaned: 0 });
-    vi.setSystemTime(Date.parse("2026-10-18T00:00:00Z"));
+    vi.setSystemTime(Date.parse("2026-10-19T00:00:00Z"));
     await expect(edit()).rejects.toThrow(EDITING_CLOSED);
   });
 });
