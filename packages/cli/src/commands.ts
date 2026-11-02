@@ -516,7 +516,7 @@ export const COMMANDS: Command[] = [
     name: "edit",
     args: "<slop>",
     summary:
-      "Change one of your slops, until the end of its launch day (at least 12 hours after launch); then post updates instead. Only the flags you pass change; --link and --screenshot replace the lists.",
+      "Change one of your slops, until the end of the day after its launch (at least 24 hours after launch); then post updates instead. Only the flags you pass change; --link and --screenshot replace the lists.",
     flags: { ...SLOP_FLAGS, "--remove-publication": "Take the slop's PDF or EPUB off." },
     options: { ...SLOP_OPTIONS, "remove-publication": { type: "boolean" } },
     async run(context) {
