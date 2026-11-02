@@ -394,6 +394,9 @@ async function main(): Promise<void> {
       FACEBOOK_CLIENT_ID: "e2e-facebook-client",
       FACEBOOK_CLIENT_SECRET: "e2e-facebook-secret",
       COMMENTS_ENABLED: "true",
+      // Keep local TLS trust identical to the shell; the content check fetches
+      // a demo video's poster from its host.
+      ...(process.env.NODE_EXTRA_CA_CERTS ? { NODE_EXTRA_CA_CERTS: process.env.NODE_EXTRA_CA_CERTS } : {}),
     },
   });
   children.push(app);
