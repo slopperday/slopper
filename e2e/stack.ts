@@ -184,7 +184,13 @@ function startFakeCheck(): void {
         .end(JSON.stringify(calls.map(fakeSolana).reverse()));
       return;
     }
-    const body = JSON.parse(await readBody(request)) as {
+    // Only the content check's posts are left. Anything else (a stray probe) gets a 404, not a crash of the stack.
+    const raw = request.method === "POST" ? await readBody(request) : "";
+    if (!raw) {
+      response.writeHead(404).end();
+      return;
+    }
+    const body = JSON.parse(raw) as {
       model: string;
       messages: {
         role: string;

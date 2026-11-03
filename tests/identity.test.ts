@@ -222,9 +222,18 @@ describe("flows", () => {
   it("keeps bare /auth/x and /auth/linkedin connecting, and lets everyone sign in", () => {
     expect(parseIntent("x", null)).toBe("connect");
     expect(parseIntent("linkedin", null)).toBe("connect");
+    // Google and Facebook sign in by default; they connect (YouTube, Pages and Instagram) only when asked.
     for (const provider of ["github", "google", "facebook"] as const) {
       expect(parseIntent(provider, null)).toBe("login");
-      expect(parseIntent(provider, "connect")).toBeNull();
+    }
+    expect(parseIntent("github", "connect")).toBeNull();
+    expect(parseIntent("google", "connect")).toBe("connect");
+    expect(parseIntent("facebook", "connect")).toBe("connect");
+    // TikTok and Threads only connect: they never sign anyone in.
+    for (const provider of ["tiktok", "threads"] as const) {
+      expect(parseIntent(provider, null)).toBe("connect");
+      expect(parseIntent(provider, "login")).toBeNull();
+      expect(parseIntent(provider, "link")).toBeNull();
     }
     for (const provider of OAUTH_PROVIDERS) {
       expect(parseIntent(provider, "login")).toBe("login");
@@ -247,7 +256,7 @@ describe("flows", () => {
     expect(login.params.get("state")).toBe("the-state");
 
     const connect = await authorize("x", "connect");
-    expect(connect.params.get("scope")).toBe("tweet.read tweet.write users.read offline.access");
+    expect(connect.params.get("scope")).toBe("tweet.read tweet.write users.read media.write offline.access");
     // One registered redirect URI whatever the flow.
     expect(connect.params.get("redirect_uri")).toBe(login.params.get("redirect_uri"));
     expect((await authorize("x", "link")).params.get("scope")).toBe("users.read tweet.read");
@@ -269,7 +278,25 @@ describe("flows", () => {
     expect(params.get("client_id")).toBe("client-id");
     expect(params.get("redirect_uri")).toBe(absoluteUrl("/auth/facebook/callback"));
     expect(params.get("code_challenge")).toMatch(/^[\w-]{43}$/);
-    await expect(authorizationUrl("facebook", client, "connect", "s", "v")).rejects.toThrow("can't connect");
+    // Connecting asks for the Pages and Instagram accounts to post as, at the same redirect URI.
+    const connect = (await authorize("facebook", "connect")).params;
+    expect(connect.get("scope")).toContain("pages_manage_posts");
+    expect(connect.get("scope")).toContain("instagram_content_publish");
+    expect(connect.get("redirect_uri")).toBe(params.get("redirect_uri"));
+    await expect(authorizationUrl("github", client, "connect", "s", "v")).rejects.toThrow("can't do that");
+  });
+
+  it("connects YouTube with offline access, and TikTok with its client key and commas", async () => {
+    const youtube = (await authorize("google", "connect")).params;
+    expect(youtube.get("scope")).toContain("https://www.googleapis.com/auth/youtube.upload");
+    expect(youtube.get("access_type")).toBe("offline");
+    expect(youtube.get("prompt")).toBe("consent select_account");
+    expect((await authorize("google", "login")).params.get("access_type")).toBeNull();
+
+    const tiktok = (await authorizationUrl("tiktok", client, "connect", "s", "v")).searchParams;
+    expect(tiktok.get("client_key")).toBe("client-id");
+    expect(tiktok.has("client_id")).toBe(false);
+    expect(tiktok.get("scope")).toBe("user.info.basic,video.publish,video.upload,video.list");
   });
 
   it("trades a Facebook code with the secret in the body, never the URL", async () => {

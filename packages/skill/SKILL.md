@@ -116,6 +116,21 @@ slopper unschedule <scheduled>               # drop it
 
 Nobody else sees a scheduled launch until it goes out. `--autopost` posts it then.
 
+## Post to social accounts
+
+The user's connected accounts (X, LinkedIn, Bluesky, Threads, Facebook Pages, Instagram, TikTok, YouTube) can all post
+one message at once, each copy fitted to its network and checked first:
+
+```sh
+slopper social-accounts                                         # ids, networks and brands
+slopper social-post "Tiltmaze 2.0 is out" --account <id> --account <id> --link https://tiltmaze.app \
+  --thread "40 new levels" --first-comment "#indiegames" --at queue --key launch-2-0
+slopper social-posts                                            # drafts, scheduled and sent
+slopper social-status <post>                                    # each copy's link and stats
+```
+
+Ask before posting as the user. `--at draft` saves it for them to look at in the studio first.
+
 ## Keep it alive
 
 ```sh

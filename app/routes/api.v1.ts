@@ -35,10 +35,15 @@ import { findOperation, missingToken, runOperation } from "~/.server/agent/opera
  *   GET    /api/v1/scheduled
  *   POST   /api/v1/scheduled/:scheduled/release
  *   DELETE /api/v1/scheduled/:scheduled
+ *   GET    /api/v1/social/accounts
+ *   GET    /api/v1/social/posts
+ *   POST   /api/v1/social/posts
+ *   GET    /api/v1/social/posts/:post
  */
 
 interface Match {
   operation: string;
+  post?: string;
   slop?: string;
   scheduled?: string;
   username?: string;
@@ -66,6 +71,16 @@ function route(method: string, path: string): Match | null {
       return { operation: "release_scheduled", scheduled: ref };
     }
     if (method === "DELETE" && parts.length === 2) return { operation: "cancel_scheduled", scheduled: ref };
+    return null;
+  }
+  if (resource === "social") {
+    if (method === "GET" && parts.length === 2 && ref === "accounts") return { operation: "list_social_accounts" };
+    if (parts.length === 2 && ref === "posts") {
+      if (method === "GET") return { operation: "list_social_posts" };
+      if (method === "POST") return { operation: "create_social_post" };
+    }
+    if (method === "GET" && parts.length === 3 && ref === "posts")
+      return { operation: "get_social_post", post: action };
     return null;
   }
   if (resource !== "slops") return null;
@@ -190,6 +205,7 @@ async function handle(request: Request, path: string): Promise<Response> {
     if (match.slop) input = { ...input, slop: decodeURIComponent(match.slop) };
     if (match.scheduled) input = { ...input, scheduled: decodeURIComponent(match.scheduled) };
     if (match.username) input = { ...input, username: decodeURIComponent(match.username) };
+    if (match.post) input = { ...input, post: decodeURIComponent(match.post) };
 
     const result = await runOperation(operation, { user, now: new Date() }, input);
     return Response.json(result, { status: request.method === "POST" ? 201 : 200 });

@@ -1,3 +1,5 @@
+import { NETWORKS, type SocialProvider } from "./networks";
+
 /**
  * Turns a Slopper moment (launch, update, re-serve) into text that fits each
  * network's limits. Links always survive truncation: the person's words give
@@ -61,20 +63,33 @@ export function fitText(text: string, budget: number, measure: (value: string) =
   return parts.slice(0, low).join("").trimEnd() + "…";
 }
 
-export type Network = "x" | "bluesky" | "linkedin";
+export type Network = SocialProvider;
 
-const LIMITS: Record<Network, { budget: number; measure: (text: string) => number }> = {
-  x: { budget: 280, measure: xWeightedLength },
-  bluesky: { budget: 300, measure: graphemeLength },
-  linkedin: { budget: 3000, measure: (text) => text.length },
-};
+/** How each network counts its characters: X weighs them, Bluesky counts graphemes, the rest UTF-16 units. */
+export function measureFor(network: Network): (text: string) => number {
+  if (network === "x") return xWeightedLength;
+  if (network === "bluesky") return graphemeLength;
+  return (text) => text.length;
+}
+
+/** Networks where a link in the words can't be clicked, so it isn't added for you. */
+const UNCLICKABLE_LINKS: ReadonlySet<Network> = new Set(["instagram", "tiktok"]);
+
+/**
+ * The words as `network` gets them: cut to its budget, with the link on its
+ * own line where links work. Links always survive the cut.
+ */
+export function fitPost(network: Network, text: string, link: string | null): string {
+  const measure = measureFor(network);
+  const budget = NETWORKS[network].textLimit;
+  const suffix = link && !UNCLICKABLE_LINKS.has(network) ? `\n\n${link}` : "";
+  const room = budget - measure(suffix);
+  return fitText(text.trim(), room, measure) + suffix;
+}
 
 /** The final text for `network`, with the link appended on its own line. */
 export function composeFor(network: Network, content: PostContent): string {
-  const { budget, measure } = LIMITS[network];
-  const suffix = `\n\n${content.url}`;
-  const room = budget - measure(suffix);
-  return fitText(content.text.trim(), room, measure) + suffix;
+  return fitPost(network, content.text, content.url);
 }
 
 /** Strips Markdown to readable plain text for social posts. */

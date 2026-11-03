@@ -47,6 +47,7 @@ const EXTENSIONS: Readonly<Record<string, string>> = {
   "image/gif": "gif",
   "video/mp4": "mp4",
   "video/webm": "webm",
+  "video/quicktime": "mov",
   "application/pdf": "pdf",
   "application/epub+zip": "epub",
 };
@@ -88,7 +89,7 @@ export class S3Bucket implements MediaStore {
   }
 
   async put(bytes: Uint8Array<ArrayBuffer>, contentType: string, kind: MediaKind): Promise<MediaLocation> {
-    const key = `${FOLDERS[kind]}/${randomToken(18)}.${EXTENSIONS[contentType] ?? "bin"}`;
+    const key = this.newKey(kind, contentType);
     const request = await this.#client.sign(this.objectUrl(key), {
       method: "PUT",
       headers: {
@@ -103,6 +104,39 @@ export class S3Bucket implements MediaStore {
     const response = await this.#fetcher(request);
     if (!response.ok) throw new Error(`The bucket refused ${key} (${response.status}): ${await response.text()}`);
     return { backend: "b2", key };
+  }
+
+  /** A fresh key for an object of this kind and type. */
+  newKey(kind: MediaKind, contentType: string): string {
+    return `${FOLDERS[kind]}/${randomToken(18)}.${EXTENSIONS[contentType] ?? "bin"}`;
+  }
+
+  /**
+   * A URL the browser can PUT one object to for the next `seconds`, for
+   * uploads too big to pass through the app server. The bucket needs a CORS
+   * rule allowing PUT from the site's origin.
+   */
+  async presignPut(key: string, contentType: string, seconds = 3600): Promise<string> {
+    const url = new URL(this.objectUrl(key));
+    url.searchParams.set("X-Amz-Expires", String(seconds));
+    const signed = await this.#client.sign(url.href, {
+      method: "PUT",
+      headers: { "content-type": contentType },
+      aws: { signQuery: true },
+    });
+    return signed.url;
+  }
+
+  /** The stored size of an object, or null when it isn't there. */
+  async size(key: string): Promise<number | null> {
+    const request = await this.#client.sign(this.objectUrl(key), {
+      method: "HEAD",
+      headers: { "x-amz-content-sha256": EMPTY_PAYLOAD_SHA256 },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const response = await this.#fetcher(request);
+    if (!response.ok) return null;
+    return Number(response.headers.get("content-length") ?? NaN);
   }
 
   /** Deletes an object. One that's already gone counts as deleted, so retrying is safe. */

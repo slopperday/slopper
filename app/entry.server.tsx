@@ -21,6 +21,8 @@ function convexSources(): string[] {
     sources.push(url.origin, `${websocket}//${url.host}`);
   }
   if (config.analyticsEndpoint) sources.push(new URL(config.analyticsEndpoint).origin);
+  // Studio videos go from the browser straight to the bucket (app/.server/social/uploads.ts).
+  if (config.b2) sources.push(new URL(config.b2.endpoint).origin);
   return sources;
 }
 

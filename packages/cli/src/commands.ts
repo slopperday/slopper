@@ -495,6 +495,66 @@ export const COMMANDS: Command[] = [
     },
   },
   {
+    name: "social-accounts",
+    summary:
+      "The social accounts you can post as (X, LinkedIn, Bluesky, Threads, Facebook, Instagram, TikTok, YouTube), with their brands.",
+    run: ({ api }) => api.get("/social/accounts"),
+  },
+  {
+    name: "social-post",
+    args: "<text>",
+    summary:
+      "Post once as several accounts, each copy fitted to its network. Checked first. --at now|queue|draft|2026-11-24T09:30.",
+    flags: {
+      "--account <id>": "An account id from social-accounts. Repeat for each.",
+      "--link <url>": "The link, last in each copy.",
+      "--image <id>": "An uploaded picture id (upload). Repeat for more.",
+      "--thread <text>": "A post that follows as a thread on X, Bluesky and Threads. Repeat for more.",
+      "--first-comment <text>": "Posted under it where the network takes comments.",
+      "--at <when>": "now (default), queue (next free queue time), draft, or a date-time in your time zone.",
+      "--tag <tag>": "A tag for the calendar and analytics. Repeat for more.",
+      "--track-links": "Send the link as a per-network short link with UTM tags, counting clicks.",
+      "--key <key>": "An idempotency key: the same key again returns the same post.",
+    },
+    options: {
+      account: { type: "string", multiple: true },
+      link: { type: "string" },
+      image: { type: "string", multiple: true },
+      thread: { type: "string", multiple: true },
+      "first-comment": { type: "string" },
+      at: { type: "string" },
+      tag: { type: "string", multiple: true },
+      "track-links": { type: "boolean" },
+      key: { type: "string" },
+    },
+    run(context) {
+      const { api, values } = context;
+      return api.post("/social/posts", {
+        text: positional(context, 0, "text"),
+        accounts: required(list(values, "account"), "--account <id>"),
+        link: text(values, "link"),
+        media: list(values, "image"),
+        thread: list(values, "thread"),
+        firstComment: text(values, "first-comment"),
+        at: text(values, "at"),
+        tags: list(values, "tag"),
+        trackLinks: values["track-links"] === true,
+        idempotencyKey: text(values, "key"),
+      });
+    },
+  },
+  {
+    name: "social-posts",
+    summary: "Your social posts, newest first: drafts, scheduled and sent, with each account's status and stats.",
+    run: ({ api }) => api.get("/social/posts"),
+  },
+  {
+    name: "social-status",
+    args: "<post>",
+    summary: "Where one social post went, each copy's link, and its latest likes, comments, shares and views.",
+    run: (context) => context.api.get(`/social/posts/${encodeURIComponent(positional(context, 0, "post"))}`),
+  },
+  {
     name: "scheduled",
     summary: "Your scheduled launches, soonest first. Nobody else sees them until they go out.",
     run: ({ api }) => api.get("/scheduled"),

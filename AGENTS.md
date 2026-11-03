@@ -191,6 +191,16 @@ release. Add a tool name to select part of the graph. For example, run
 - **Speed:** the SDK measures the landing page's Core Web Vitals with `web-vitals` (its own lazy chunk) and sends them as
   `$webVitals` when the page is hidden. `/analytics/speed` shows each vital's 75th percentile with Google's ratings, and
   per page; agents read it with `slopper admin analytics vitals`. Check it after changing what a page loads.
+- **Studio** (`/studio`, docs/social-posting.md lists every feature): one post sent as many connected accounts on
+  many networks. Convex keeps `socialPosts` and one `socialDeliveries` row per account (`convex/social.ts`); the app
+  server claims due rows (leased, staggered by `notBefore`, reposts after their original), sends through the
+  network's adapter (`app/.server/social/`), then the thread and first comment as replies (`followUps`). Never resend
+  a delivery marked `uncertain`. Network limits and capabilities live in one table, `app/lib/networks.ts`; add a
+  network there, then its adapter (`send`, optional `resume`/`metrics`/`reply`/`remove`/`comments`). Nothing public
+  goes out without an `ok` content check: posts, threads, first comments, auto-plug text and comment replies. Drafts
+  skip the check until they're posted. Settings, snippets, brand voices, tracked links (`/go/:code`), preview links
+  (`/review/:token`, public, ceilinged) and RSS feeds are in `convex/studio.ts`. Webhook and feed addresses are typed
+  by people, so they go through the pinned transport. Agents use `create_social_post` (with idempotency keys).
 - **Traction:** sources are one client each in `app/.server/integrations/` (registered in `index.ts`), read only.
   Syncs run on the app server (it holds the sealing key); Convex stores days in `metrics` and hands due sources out
   with `integrations.claim`. Numbers on the page always say where they came from; typed-in money stays in the ledger.

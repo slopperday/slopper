@@ -68,7 +68,8 @@ export function Header({
                   <p className="px-3 pt-2 pb-1 text-sm text-muted">Signed in as @{user.username}</p>
                   <MenuLink to={`/@${user.username}`}>Your slops</MenuLink>
                   <MenuLink to="/goal">Your goal</MenuLink>
-                  <MenuLink to="/settings/autopost">Auto-post</MenuLink>
+                  <MenuLink to="/studio">Studio</MenuLink>
+                  <MenuLink to="/settings/autopost">Accounts</MenuLink>
                   <MenuLink to="/settings">Settings</MenuLink>
                   {permissions.includes("queue.decide") && <MenuLink to="/mod">Moderation</MenuLink>}
                   {permissions.includes("team.manage") && <MenuLink to="/mod/team">Moderation team</MenuLink>}
