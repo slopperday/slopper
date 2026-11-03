@@ -8,7 +8,7 @@ export function sanitizeAnalyticsPath(path: string): string {
 
 /** Owner and staff pages can show unpublished launches, accounts and integration details outside masked inputs. */
 const UNRECORDED =
-  /^\/(new|goal|settings|studio|review|cli|notifications|mod|analytics)(\/|$)|^\/@[^/]+\/[^/]+\/edit(\/|$)|\/analytics\/?$/i;
+  /^\/(new|goal|login|settings|studio|review|cli|notifications|mod|analytics)(\/|$)|^\/@[^/]+\/[^/]+\/edit(\/|$)|\/analytics\/?$/i;
 
 /**
  * Whether session replay may record a page. Private pages never are, and

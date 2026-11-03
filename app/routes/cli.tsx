@@ -2,6 +2,7 @@ import { Form, redirect } from "react-router";
 import type { Route } from "./+types/cli";
 import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
+import { requireRecentAuth } from "~/.server/auth/twoFactor";
 import { convex } from "~/.server/convex";
 import { normalizeUserCode } from "~/.server/cliLogin";
 import { formText } from "~/.server/forms";
@@ -44,6 +45,10 @@ export async function action({ request, context }: Route.ActionArgs) {
   const user = requireUser(context.get(viewerContext), request);
   const form = await request.formData();
   const code = normalizeUserCode(formText(form, "code"));
+  // Approving hands the CLI a token: whoever approves proves it's them first.
+  if (code && formText(form, "intent") === "approve") {
+    await requireRecentAuth(context.get(viewerContext), request, `/cli?code=${encodeURIComponent(code)}`);
+  }
   if (code) {
     await convex.mutation(api.cliLogins.decide, {
       userId: user._id,

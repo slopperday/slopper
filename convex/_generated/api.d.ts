@@ -44,6 +44,7 @@ import type * as race from "../race.js";
 import type * as reviews from "../reviews.js";
 import type * as schedule from "../schedule.js";
 import type * as search from "../search.js";
+import type * as security from "../security.js";
 import type * as slops from "../slops.js";
 import type * as social from "../social.js";
 import type * as studio from "../studio.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   reviews: typeof reviews;
   schedule: typeof schedule;
   search: typeof search;
+  security: typeof security;
   slops: typeof slops;
   social: typeof social;
   studio: typeof studio;

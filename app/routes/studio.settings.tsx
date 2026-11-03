@@ -2,6 +2,7 @@ import { Form, Link } from "react-router";
 import type { Route } from "./+types/studio.settings";
 import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
+import { requireRecentAuth } from "~/.server/auth/twoFactor";
 import { absoluteUrl } from "~/.server/config";
 import { convex, convexMessage } from "~/.server/convex";
 import { formText, parseWebUrl } from "~/.server/forms";
@@ -77,6 +78,10 @@ export async function action({ request, context }: Route.ActionArgs) {
   const form = await request.formData();
   const userId = user._id;
   const intent = formText(form, "intent");
+  // These send posts or data somewhere on their own: whoever sets them proves it's them first.
+  if (["feed", "webhook", "calendar-create", "csv"].includes(intent)) {
+    await requireRecentAuth(context.get(viewerContext), request, HERE);
+  }
   try {
     switch (intent) {
       case "queue": {

@@ -15,6 +15,7 @@ import {
   type TokenSet,
 } from "~/.server/auth/oauth";
 import { avatarExpires, fetchIdentity } from "~/.server/auth/identity";
+import { secondFactorGate } from "~/.server/auth/twoFactor";
 import { copyAvatar } from "~/.server/media";
 import { fetchLinkedInProfile, fetchXProfile, sealCredentials } from "~/.server/social/adapters";
 import { connectExtraNetwork } from "~/.server/social/connect";
@@ -100,6 +101,9 @@ async function completeLogin(
   });
   if (created && picture) await copyAvatar(userId, picture);
   await grantListedAdmin(profile);
+  // Someone with an authenticator app or a passkey proves it's them again before the session starts.
+  const gate = await secondFactorGate(userId, pending.returnTo);
+  if (gate) return gate;
   const user = await convex.query(api.users.get, { userId });
   const response = created
     ? redirectWithFlash("/goal", {
@@ -107,7 +111,7 @@ async function completeLogin(
         message: `Welcome, @${user?.username ?? "slopper"}. Set a goal and start slopping.`,
       })
     : redirectWithFlash(pending.returnTo);
-  await startSession(userId, response.headers);
+  await startSession(userId, response.headers, { verified: true, userAgent: request.headers.get("user-agent") });
   return response;
 }
 

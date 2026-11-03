@@ -4,6 +4,7 @@ import { config } from "~/.server/config";
 import { convex } from "~/.server/convex";
 import { grantListedAdmin, startSession } from "~/.server/session";
 import { safeReturnTo } from "~/.server/auth/oauth";
+import { secondFactorGate } from "~/.server/auth/twoFactor";
 import { formText } from "~/.server/forms";
 import { notFound, readCookie, redirectWithFlash, TZ_COOKIE } from "~/.server/http";
 
@@ -24,7 +25,10 @@ export async function action({ request }: Route.ActionArgs) {
     timeZone: decodeURIComponent(readCookie(request, TZ_COOKIE) ?? "UTC"),
   });
   await grantListedAdmin({ provider: "dev", providerId: username });
-  const response = redirectWithFlash(safeReturnTo(formText(form, "returnTo")));
-  await startSession(userId, response.headers);
+  const returnTo = safeReturnTo(formText(form, "returnTo"));
+  const gate = await secondFactorGate(userId, returnTo);
+  if (gate) return gate;
+  const response = redirectWithFlash(returnTo);
+  await startSession(userId, response.headers, { verified: true, userAgent: request.headers.get("user-agent") });
   return response;
 }

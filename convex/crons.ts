@@ -15,7 +15,7 @@ export const sweep = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
     let more = false;
-    for (const table of ["sessions", "oauthStates", "updateReservations"] as const) {
+    for (const table of ["sessions", "oauthStates", "updateReservations", "authChallenges"] as const) {
       const expired = await ctx.db
         .query(table)
         .withIndex("by_expiry", (q) => q.lt("expiresAt", now))

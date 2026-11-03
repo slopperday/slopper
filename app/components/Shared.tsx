@@ -89,6 +89,7 @@ export function SettingsNav() {
   const tabs = [
     { to: "/settings", label: "Profile" },
     { to: "/settings/autopost", label: "Accounts" },
+    { to: "/settings/security", label: "Security" },
     { to: "/settings/api", label: "API & MCP" },
   ];
   return (

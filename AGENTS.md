@@ -132,6 +132,13 @@ release. Add a tool name to select part of the graph. For example, run
     `/\t//evil.com` would leave the site.
   - Content-check verdicts are cleared when the checked content changes (`convex/slops.ts` `edit`): a failed re-check
     must leave a slop held, never a stale "ok".
+- **Two-step sign-in** (`app/.server/auth/twoFactor.ts`, `convex/security.ts`): anyone with a confirmed authenticator
+  app or a passkey passes `/login/verify` after OAuth; `secondFactorGate` runs before every `startSession`. Sessions
+  carry `verifiedAt`, and anything that hands out access or posts on the person's behalf calls `requireRecentAuth`
+  first (API tokens, CLI approval, linking and connecting accounts, credential forms, studio feeds, webhooks, the
+  calendar feed and the security page itself): add it to new actions like those. TOTP secrets are sealed, each step
+  and recovery code works once, and tries are capped per step and per person. Passkeys need a real domain: WebAuthn
+  refuses IP addresses, so e2e covers the app and recovery codes only.
 - **Sign-in:** every OAuth provider is one spec in `app/.server/auth/oauth.ts` with one redirect URI; the flow (`login`,
   `link`, `connect`) is stored with the pending authorization, never put in the URL. Linking rules live in
   `convex/users.ts` (`linkIdentity`/`unlinkIdentity`): one identity per provider, never the last one removed.
