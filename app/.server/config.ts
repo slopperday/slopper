@@ -108,6 +108,10 @@ export interface Config {
   x: OAuthClientCredentials | null;
   linkedin: OAuthClientCredentials | null;
   facebook: OAuthClientCredentials | null;
+  /** TikTok's client key and secret (TIKTOK_CLIENT_ID, TIKTOK_CLIENT_SECRET), for connecting accounts to post as. */
+  tiktok: OAuthClientCredentials | null;
+  /** A Threads app id and secret (THREADS_CLIENT_ID, THREADS_CLIENT_SECRET), for connecting Threads profiles. */
+  threads: OAuthClientCredentials | null;
   /** Automated content check. Without it, nothing is ever auto-posted. */
   contentCheck: ContentCheckConfig | null;
   /**
@@ -256,6 +260,8 @@ export function loadConfig(env: Env = process.env): Config {
     x: credentials(env, "X"),
     linkedin: credentials(env, "LINKEDIN"),
     facebook: credentials(env, "FACEBOOK"),
+    tiktok: credentials(env, "TIKTOK"),
+    threads: credentials(env, "THREADS"),
     contentCheck: env.OPENROUTER_API_KEY?.trim()
       ? {
           apiKey: env.OPENROUTER_API_KEY.trim(),

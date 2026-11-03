@@ -11,7 +11,7 @@ import {
 } from "~/.server/auth/oauth";
 import { randomToken } from "~/.server/encoding";
 import { loginUrl, notFound, OAUTH_COOKIE, redirectWithFlash, setCookie } from "~/.server/http";
-import { isOAuthProvider, OAUTH_LABELS } from "~/lib/model";
+import { AUTH_LABELS, isAuthProvider } from "~/lib/model";
 
 /**
  * Starts an OAuth flow: `/auth/<provider>?intent=login|link|connect`.
@@ -20,7 +20,7 @@ import { isOAuthProvider, OAUTH_LABELS } from "~/lib/model";
  */
 export async function loader({ params, request, context }: Route.LoaderArgs) {
   const provider = params.provider;
-  if (!isOAuthProvider(provider)) notFound();
+  if (!isAuthProvider(provider)) notFound();
   const search = new URL(request.url).searchParams;
   const intent = parseIntent(provider, search.get("intent"));
   if (!intent) notFound();
@@ -29,7 +29,10 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
   if (!client) {
     return redirectWithFlash(home, {
       tone: "error",
-      message: `Signing in with ${OAUTH_LABELS[provider]} isn't available right now.`,
+      message:
+        intent === "connect"
+          ? `Connecting ${AUTH_LABELS[provider]} isn't available right now.`
+          : `Signing in with ${AUTH_LABELS[provider]} isn't available right now.`,
     });
   }
   const viewer = context.get(viewerContext);

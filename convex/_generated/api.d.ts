@@ -45,6 +45,8 @@ import type * as reviews from "../reviews.js";
 import type * as schedule from "../schedule.js";
 import type * as search from "../search.js";
 import type * as slops from "../slops.js";
+import type * as social from "../social.js";
+import type * as studio from "../studio.js";
 import type * as tags from "../tags.js";
 import type * as team from "../team.js";
 import type * as tokens from "../tokens.js";
@@ -95,6 +97,8 @@ declare const fullApi: ApiFromModules<{
   schedule: typeof schedule;
   search: typeof search;
   slops: typeof slops;
+  social: typeof social;
+  studio: typeof studio;
   tags: typeof tags;
   team: typeof team;
   tokens: typeof tokens;

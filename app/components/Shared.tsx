@@ -88,7 +88,7 @@ export function ShareBox({ intents, url }: { intents: ReturnType<typeof shareInt
 export function SettingsNav() {
   const tabs = [
     { to: "/settings", label: "Profile" },
-    { to: "/settings/autopost", label: "Auto-post" },
+    { to: "/settings/autopost", label: "Accounts" },
     { to: "/settings/api", label: "API & MCP" },
   ];
   return (

@@ -183,14 +183,21 @@ test.describe("settings", () => {
     await expect(page.getByRole("link", { name: "Connect X" })).toHaveAttribute("href", "/auth/x?intent=connect");
     // Links from before X could sign in still connect.
     for (const [path, scope] of [
-      ["/auth/x", "tweet.read tweet.write users.read offline.access"],
-      ["/auth/x?intent=connect", "tweet.read tweet.write users.read offline.access"],
+      ["/auth/x", "tweet.read tweet.write users.read media.write offline.access"],
+      ["/auth/x?intent=connect", "tweet.read tweet.write users.read media.write offline.access"],
       ["/auth/linkedin", "openid profile w_member_social"],
     ]) {
       const response = await page.request.get(path, { maxRedirects: 0 });
       expect(new URL(response.headers().location ?? "").searchParams.get("scope")).toBe(scope);
     }
     // Sign-in-only providers have no connect flow.
-    expect((await page.request.get("/auth/facebook?intent=connect", { maxRedirects: 0 })).status()).toBe(404);
+    expect((await page.request.get("/auth/github?intent=connect", { maxRedirects: 0 })).status()).toBe(404);
+    // Facebook connects Pages and Instagram accounts, and the card says so.
+    await expect(page.getByRole("link", { name: "Connect Facebook & Instagram" })).toHaveAttribute(
+      "href",
+      "/auth/facebook?intent=connect",
+    );
+    const facebook = await page.request.get("/auth/facebook?intent=connect", { maxRedirects: 0 });
+    expect(new URL(facebook.headers().location ?? "").searchParams.get("scope")).toContain("pages_manage_posts");
   });
 });

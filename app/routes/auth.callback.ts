@@ -17,8 +17,17 @@ import {
 import { avatarExpires, fetchIdentity } from "~/.server/auth/identity";
 import { copyAvatar } from "~/.server/media";
 import { fetchLinkedInProfile, fetchXProfile, sealCredentials } from "~/.server/social/adapters";
+import { connectExtraNetwork } from "~/.server/social/connect";
 import { clearCookie, notFound, OAUTH_COOKIE, readCookie, redirectWithFlash, TZ_COOKIE } from "~/.server/http";
-import { type Flash, isOAuthProvider, OAUTH_LABELS, type OAuthProviderId } from "~/lib/model";
+import {
+  AUTH_LABELS,
+  type AuthProviderId,
+  type Flash,
+  isAuthProvider,
+  isOAuthProvider,
+  OAUTH_LABELS,
+  type OAuthProviderId,
+} from "~/lib/model";
 
 const EXPIRED: Flash = { tone: "error", message: "That sign-in link expired. Try again." };
 
@@ -33,7 +42,7 @@ function cancelled(intent: OAuthIntent, label: string): Flash {
 
 export async function loader({ params, request, context }: Route.LoaderArgs) {
   const provider = params.provider;
-  if (!isOAuthProvider(provider)) notFound();
+  if (!isAuthProvider(provider)) notFound();
   const search = new URL(request.url).searchParams;
   const state = search.get("state") ?? "";
   // The state must match the cookie set on this browser when the flow began.
@@ -45,12 +54,12 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
 
 async function finish(
   request: Request,
-  provider: OAuthProviderId,
+  provider: AuthProviderId,
   search: URLSearchParams,
   pending: PendingAuthorization | null,
   currentUserId: Id<"users"> | undefined,
 ): Promise<Response> {
-  const label = OAUTH_LABELS[provider];
+  const label = AUTH_LABELS[provider];
   const home = pending ? INTENT_HOME[pending.intent] : "/login";
   if (search.has("error")) return redirectWithFlash(home, cancelled(pending?.intent ?? "login", label));
 
@@ -60,14 +69,12 @@ async function finish(
 
   try {
     const tokens = await exchangeCode(provider, client, code, pending.codeVerifier);
-    switch (pending.intent) {
-      case "login":
-        return await completeLogin(request, provider, client, tokens, pending);
-      case "link":
-        return await completeLink(provider, client, tokens, pending, currentUserId);
-      case "connect":
-        return await completeConnect(provider, tokens, pending, currentUserId);
-    }
+    if (pending.intent === "connect") return await completeConnect(provider, client, tokens, pending, currentUserId);
+    // Connect-only providers never get this far with another intent (`parseIntent`).
+    if (!isOAuthProvider(provider)) return redirectWithFlash(home, EXPIRED);
+    return pending.intent === "login"
+      ? await completeLogin(request, provider, client, tokens, pending)
+      : await completeLink(provider, client, tokens, pending, currentUserId);
   } catch (error) {
     console.error(`OAuth ${pending.intent} failed for ${provider}`, error);
     return redirectWithFlash(home, {
@@ -142,7 +149,8 @@ async function completeLink(
 }
 
 async function completeConnect(
-  provider: OAuthProviderId,
+  provider: AuthProviderId,
+  client: OAuthClientCredentials,
   tokens: TokenSet,
   pending: PendingAuthorization,
   currentUserId: Id<"users"> | undefined,
@@ -171,7 +179,11 @@ async function completeConnect(
     return redirectWithFlash("/settings/autopost", { tone: "success", message: `Connected @${account.handle} on X.` });
   }
 
-  if (provider !== "linkedin") throw new OAuthError(`${OAUTH_LABELS[provider]} can't connect for auto-posting.`);
+  if (provider !== "linkedin") {
+    const flash = await connectExtraNetwork(provider, client, tokens, pending.userId);
+    if (!flash) throw new OAuthError(`${AUTH_LABELS[provider]} can't connect for auto-posting.`);
+    return redirectWithFlash("/settings/autopost", flash);
+  }
   const profile = await fetchLinkedInProfile(tokens.accessToken);
   const account = await convex.mutation(api.accounts.connect, {
     userId: pending.userId,

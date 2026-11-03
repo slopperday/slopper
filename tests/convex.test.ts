@@ -1343,3 +1343,39 @@ describe("promo videos", () => {
     expect((await setVideo()).check).not.toBeNull();
   });
 });
+
+describe("brand account connections", () => {
+  it("keeps multiple X accounts separate, starts own-app accounts off and preserves choices on reconnect", async () => {
+    const { t, server } = setup();
+    const userId = await makeUser(server, "brands");
+    const connect = (remoteId: string, sealedCredentials = "sealed") =>
+      server.mutation(api.accounts.connect, {
+        userId,
+        provider: "x",
+        remoteId,
+        handle: `brand${remoteId}`,
+        displayName: "Brand",
+        avatarUrl: null,
+        sealedCredentials,
+        expiresAt: null,
+        initialMode: "off",
+      });
+    const a = await connect("111");
+    const b = await connect("222");
+    expect(a.defaultMode).toBe("off");
+    expect(b.defaultMode).toBe("off");
+    expect(a._id).not.toBe(b._id);
+    await server.mutation(api.accounts.setDefaultMode, { userId, accountId: a._id, mode: "post" });
+    const refreshed = await connect("111", "new-sealed");
+    expect(refreshed._id).toBe(a._id);
+    expect(refreshed.defaultMode).toBe("post");
+    expect(refreshed.sealedCredentials).toBe("new-sealed");
+    expect(await server.query(api.accounts.list, { userId })).toHaveLength(2);
+    await expect(t.query(api.accounts.list, { userId })).rejects.toThrow("Only the Slopper server");
+    const stranger = await makeUser(server, "stranger");
+    await server.mutation(api.accounts.disconnect, { userId: stranger, accountId: a._id });
+    expect(await server.query(api.accounts.list, { userId })).toHaveLength(2);
+    await server.mutation(api.accounts.disconnect, { userId, accountId: a._id });
+    expect((await server.query(api.accounts.list, { userId })).map((row) => row._id)).toEqual([b._id]);
+  });
+});

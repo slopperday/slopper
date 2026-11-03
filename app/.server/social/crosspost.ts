@@ -4,8 +4,9 @@ import type { CrosspostMode, CrosspostResult, SocialProvider, UpdateDetails, Upd
 import { FIELD_OUTCOMES, UPDATE_KINDS } from "~/lib/model";
 import { slopPath } from "~/lib/display";
 import { markdownToPlain, type PostContent } from "~/lib/compose";
+import { NETWORKS } from "~/lib/networks";
 import { absoluteUrl } from "../config";
-import { type ConnectedAccount, type PublishedPost, type SocialAdapter, SocialError } from "./adapters";
+import { type ConnectedAccount, type LaunchAdapter, type PublishedPost, SocialError } from "./adapters";
 
 export interface CrosspostPlan {
   account: ConnectedAccount;
@@ -82,40 +83,63 @@ function describeError(error: unknown): string {
 export async function runCrossposts(
   plans: readonly CrosspostPlan[],
   content: PostContent,
-  adapters: Record<SocialProvider, SocialAdapter>,
+  adapters: Partial<Record<SocialProvider, LaunchAdapter>>,
 ): Promise<CrosspostResult[]> {
   const results: CrosspostResult[] = [];
   const firstPost = new Map<SocialProvider, PublishedPost>();
 
-  for (const { account, mode } of plans) {
-    const base = { accountId: account._id, provider: account.provider, handle: account.handle, mode };
-    const adapter = adapters[account.provider];
-    const at = () => new Date().toISOString();
-
-    if (mode === "post") {
+  // Publish independently, keeping plan order even if networks finish in a different order.
+  const posts = plans.filter((plan) => plan.mode === "post");
+  const published = await Promise.all(
+    posts.map(async ({ account, mode }): Promise<{ receipt: CrosspostResult; post?: PublishedPost }> => {
+      const base = { accountId: account._id, provider: account.provider, handle: account.handle, mode };
+      if (NETWORKS[account.provider].needs === "video") {
+        const message = `${NETWORKS[account.provider].label} needs a video. Post one from the studio.`;
+        return { receipt: { ...base, status: "skipped", url: null, message, at: new Date().toISOString() } };
+      }
+      const adapter = adapters[account.provider];
+      if (!adapter) {
+        return {
+          receipt: { ...base, status: "skipped", url: null, message: "Not available.", at: new Date().toISOString() },
+        };
+      }
       try {
         const post = await adapter.publish(account, content);
-        if (!firstPost.has(account.provider)) firstPost.set(account.provider, post);
-        results.push({ ...base, status: "ok", url: post.url, message: null, at: at() });
+        return { receipt: { ...base, status: "ok", url: post.url, message: null, at: new Date().toISOString() }, post };
       } catch (error) {
-        results.push({ ...base, status: "error", url: null, message: describeError(error), at: at() });
+        return {
+          receipt: { ...base, status: "error", url: null, message: describeError(error), at: new Date().toISOString() },
+        };
       }
-      continue;
-    }
-
-    const original = firstPost.get(account.provider);
-    if (!adapter.amplify) {
-      results.push({ ...base, status: "skipped", url: null, message: "This network doesn't do reposts.", at: at() });
-    } else if (!original) {
-      results.push({ ...base, status: "skipped", url: null, message: "No post on this network to repost.", at: at() });
-    } else {
-      try {
-        await adapter.amplify(account, original);
-        results.push({ ...base, status: "ok", url: original.url, message: null, at: at() });
-      } catch (error) {
-        results.push({ ...base, status: "error", url: null, message: describeError(error), at: at() });
-      }
-    }
+    }),
+  );
+  for (const { receipt, post } of published) {
+    if (post && !firstPost.has(receipt.provider)) firstPost.set(receipt.provider, post);
+    results.push(receipt);
   }
+
+  const reposted = await Promise.all(
+    plans
+      .filter((plan) => plan.mode === "amplify")
+      .map(async ({ account, mode }): Promise<CrosspostResult> => {
+        const base = { accountId: account._id, provider: account.provider, handle: account.handle, mode };
+        const adapter = adapters[account.provider];
+        const at = () => new Date().toISOString();
+        const original = firstPost.get(account.provider);
+        if (!adapter?.amplify) {
+          return { ...base, status: "skipped", url: null, message: "This network doesn't do reposts.", at: at() };
+        }
+        if (!original) {
+          return { ...base, status: "skipped", url: null, message: "No post on this network to repost.", at: at() };
+        }
+        try {
+          await adapter.amplify(account, original);
+          return { ...base, status: "ok", url: original.url, message: null, at: at() };
+        } catch (error) {
+          return { ...base, status: "error", url: null, message: describeError(error), at: at() };
+        }
+      }),
+  );
+  results.push(...reposted);
   return results;
 }

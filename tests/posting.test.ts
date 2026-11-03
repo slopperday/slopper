@@ -14,7 +14,7 @@ import {
   escapeLittleText,
   linkFacets,
   type PublishedPost,
-  type SocialAdapter,
+  type LaunchAdapter,
   SocialError,
 } from "~/.server/social/adapters";
 import { buildPostContent, planCrossposts, runCrossposts } from "~/.server/social/crosspost";
@@ -138,7 +138,7 @@ function account(id: string, provider: SocialProvider, defaultMode: ConnectedAcc
  */
 function fakeAdapters(failing: ReadonlySet<string> = new Set(), broken: ReadonlySet<string> = new Set()) {
   const calls: string[] = [];
-  const make = (provider: SocialProvider, canAmplify: boolean): SocialAdapter => ({
+  const make = (provider: SocialProvider, canAmplify: boolean): LaunchAdapter => ({
     publish(acct): Promise<PublishedPost> {
       calls.push(`publish:${acct.handle}`);
       if (failing.has(acct.handle)) return Promise.reject(new SocialError(`${acct.handle} is down`, 503));
@@ -201,6 +201,34 @@ describe("auto-posting", () => {
     ]);
     expect(logged).toHaveBeenCalledWith("Posting failed", expect.any(TypeError));
     logged.mockRestore();
+  });
+
+  it("starts independent posts together and waits for them before reposting", async () => {
+    let release!: () => void;
+    const waiting = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { calls, adapters } = fakeAdapters();
+    const originalPublish = adapters.x.publish.bind(adapters.x);
+    adapters.x.publish = async (acct, post) => {
+      const result = await originalPublish(acct, post);
+      await waiting;
+      return result;
+    };
+    const pending = runCrossposts(
+      planCrossposts({ crosspost: {} }, [
+        account("app", "x", "post"),
+        account("sky", "bluesky", "post"),
+        account("fan", "x", "amplify"),
+      ]),
+      content("Hi"),
+      adapters,
+    );
+    expect(calls).toEqual(["publish:app", "publish:sky"]);
+    release();
+    const results = await pending;
+    expect(calls).toEqual(["publish:app", "publish:sky", "amplify:fan->post-app"]);
+    expect(results.map((result) => result.status)).toEqual(["ok", "ok", "ok"]);
   });
 
   it("skips LinkedIn reposts, which have no API", async () => {

@@ -1,3 +1,5 @@
+import type { SocialProvider } from "./networks";
+
 /**
  * Shared vocabulary for the app and the Convex functions: categories, link
  * kinds, limits and small shared types. Stored records are Convex documents
@@ -141,6 +143,19 @@ export function isOAuthProvider(value: string): value is OAuthProviderId {
   return (OAUTH_PROVIDERS as readonly string[]).includes(value);
 }
 
+/** Providers that only connect accounts to post as, never sign anyone in. */
+export const CONNECT_PROVIDERS = ["tiktok", "threads"] as const;
+export type ConnectProviderId = (typeof CONNECT_PROVIDERS)[number];
+
+/** Everything `/auth/<provider>` can start: sign-in providers and connect-only ones. */
+export type AuthProviderId = OAuthProviderId | ConnectProviderId;
+
+export const AUTH_LABELS: Record<AuthProviderId, string> = { ...OAUTH_LABELS, tiktok: "TikTok", threads: "Threads" };
+
+export function isAuthProvider(value: string): value is AuthProviderId {
+  return isOAuthProvider(value) || (CONNECT_PROVIDERS as readonly string[]).includes(value);
+}
+
 /** Every way into an account: the OAuth providers, plus the local dev login. */
 export type LoginProvider = OAuthProviderId | "dev";
 
@@ -193,13 +208,7 @@ export interface LinkPreview {
   siteName: string;
 }
 
-export type SocialProvider = "x" | "linkedin" | "bluesky";
-
-export const NETWORK_LABELS: Record<SocialProvider, string> = {
-  x: "X",
-  linkedin: "LinkedIn",
-  bluesky: "Bluesky",
-};
+export { NETWORK_LABELS, type SocialProvider } from "./networks";
 
 export interface CrosspostResult {
   accountId: string;
@@ -263,6 +272,8 @@ export const LIMITS = {
   mediaBytes: 4 * 1024 * 1024,
   /** Under Netlify's request cap, like images: a 20 s 1080p promo at CRF 23 is about 2 MB. */
   videoBytes: 4 * 1024 * 1024,
+  /** Studio videos go from the browser straight to storage, so they can be big: a 10-minute 1080p video fits. */
+  socialVideoBytes: 512 * 1024 * 1024,
   /** A publication (a book, zine, guide or paper) as one PDF or EPUB, under the same request cap. */
   publicationBytes: 4 * 1024 * 1024,
   /** The file name a publication is shown by. */

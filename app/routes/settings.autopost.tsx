@@ -4,10 +4,12 @@ import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
 import { convex } from "~/.server/convex";
 import { config } from "~/.server/config";
+import { canConnect } from "~/.server/auth/oauth";
 import { formText } from "~/.server/forms";
 import { redirectWithFlash } from "~/.server/http";
 import { MissingSecretKeyError } from "~/.server/crypto";
-import { createBlueskySession, sealCredentials, SocialError } from "~/.server/social/adapters";
+import { createBlueskySession, fetchXProfile, sealCredentials, SocialError } from "~/.server/social/adapters";
+import type { XOwnCredentials } from "~/.server/social/x-credentials";
 import { type CrosspostMode, NETWORK_LABELS } from "~/lib/model";
 import { seo } from "~/lib/seo";
 import { ModePicker } from "~/components/Autopost";
@@ -20,17 +22,26 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   return {
     // Sealed credentials never leave the server.
     accounts: (await convex.query(api.accounts.list, { userId: user._id })).map(
-      ({ _id, provider, handle, avatarUrl, expiresAt, defaultMode }) => ({
+      ({ _id, provider, handle, displayName, avatarUrl, expiresAt, defaultMode, brand }) => ({
         id: _id,
         provider,
         handle,
+        displayName,
         avatarUrl,
         expiresAt,
         defaultMode,
+        brand: brand ?? "",
       }),
     ),
     xEnabled: config.x !== null,
     linkedinEnabled: config.linkedin !== null,
+    // The studio's networks, offered only where this server has their app keys.
+    connectable: {
+      meta: canConnect("facebook"),
+      threads: canConnect("threads"),
+      tiktok: canConnect("tiktok"),
+      youtube: canConnect("google"),
+    },
   };
 }
 
@@ -49,8 +60,12 @@ export async function action({ request, context }: Route.ActionArgs) {
         if (isMode(mode) && mode !== account.defaultMode) {
           await convex.mutation(api.accounts.setDefaultMode, { userId: user._id, accountId: account._id, mode });
         }
+        const brand = form.get(`brand-${account._id}`);
+        if (typeof brand === "string" && brand.trim() !== (account.brand ?? "")) {
+          await convex.mutation(api.accounts.setBrand, { userId: user._id, accountId: account._id, brand });
+        }
       }
-      return redirectWithFlash(HERE, { tone: "success", message: "Defaults saved." });
+      return redirectWithFlash(HERE, { tone: "success", message: "Saved." });
     }
 
     case "disconnect": {
@@ -59,6 +74,53 @@ export async function action({ request, context }: Route.ActionArgs) {
         accountId: formText(form, "id"),
       });
       return redirectWithFlash(HERE, { tone: "info", message: "Disconnected." });
+    }
+
+    case "x-own-app": {
+      const credentials: XOwnCredentials = {
+        kind: "own-app",
+        apiKey: formText(form, "apiKey"),
+        apiSecret: formText(form, "apiSecret"),
+        accessToken: formText(form, "accessToken"),
+        accessTokenSecret: formText(form, "accessTokenSecret"),
+      };
+      if (
+        [credentials.apiKey, credentials.apiSecret, credentials.accessToken, credentials.accessTokenSecret].some(
+          (value) => !value || value.length > 2048 || /\s/.test(value),
+        )
+      ) {
+        return redirectWithFlash(HERE, { tone: "error", message: "X needs all four credentials, with no spaces." });
+      }
+      try {
+        // Seal first: don't send credentials anywhere when encrypted storage is unavailable.
+        const sealedCredentials = await sealCredentials(credentials);
+        const profile = await fetchXProfile(credentials);
+        const account = await convex.mutation(api.accounts.connect, {
+          userId: user._id,
+          provider: "x",
+          remoteId: profile.id,
+          handle: profile.username,
+          displayName: profile.name,
+          avatarUrl: profile.profile_image_url ?? null,
+          sealedCredentials,
+          expiresAt: null,
+          initialMode: "off",
+        });
+        return redirectWithFlash(HERE, {
+          tone: "success",
+          message: `Connected @${account.handle} on X using your developer app. Choose Post for this account on the products it represents.`,
+        });
+      } catch (error) {
+        if (error instanceof MissingSecretKeyError) {
+          return redirectWithFlash(HERE, { tone: "error", message: error.message });
+        }
+        // Never log or reflect supplied credentials, including an upstream error body.
+        return redirectWithFlash(HERE, {
+          tone: "error",
+          message:
+            "Couldn't connect X. Check your credentials, Read and write permissions, and API credits, then try again.",
+        });
+      }
     }
 
     case "bluesky": {
@@ -98,16 +160,20 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
 }
 
-export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "Auto-post", noindex: true });
+export const meta: Route.MetaFunction = ({ matches }) => seo(matches, { title: "Accounts", noindex: true });
 
 export default function Autopost({ loaderData }: Route.ComponentProps) {
   const { accounts } = loaderData;
   return (
     <section className="mx-auto max-w-3xl px-4 pt-10">
       <SettingsNav />
-      <h1 className="title-1 mt-10">Auto-post</h1>
+      <h1 className="title-1 mt-10">Accounts</h1>
       <p className="lede mt-4 max-w-2xl">
-        Connected accounts post your launches and updates. Give each app its own account to{" "}
+        Connect every account you post as, on every network. Name the brand each one speaks for, and the{" "}
+        <Link to="/studio" className="link">
+          studio
+        </Link>{" "}
+        picks a brand’s accounts in one tap. Launches and updates auto-post too: give each app its own account to{" "}
         <strong className="text-ink">post</strong>, and let your personal one{" "}
         <strong className="text-ink">repost</strong>. Each slop can override these.
       </p>
@@ -137,6 +203,14 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
                     )}
                   </p>
                 </div>
+                <input
+                  name={`brand-${account.id}`}
+                  defaultValue={account.brand}
+                  maxLength={40}
+                  placeholder="Brand"
+                  aria-label={`Brand for ${account.displayName || account.handle}`}
+                  className="input min-h-9 w-32 py-1 text-sm"
+                />
                 <ModePicker name={`mode-${account.id}`} provider={account.provider} value={account.defaultMode} />
                 <button type="submit" form={`disconnect-${account.id}`} className="btn btn-quiet btn-sm text-muted">
                   Disconnect
@@ -145,7 +219,7 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
             );
           })}
           <button type="submit" className="btn btn-slop mt-2 justify-self-start">
-            Save defaults
+            Save
           </button>
         </Form>
       )}
@@ -157,13 +231,95 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
       ))}
 
       <h2 className="title-2 mt-16">Connect</h2>
+      <Form method="post" className="panel mt-5" data-no-replay data-no-capture>
+        <input type="hidden" name="intent" value="x-own-app" />
+        <h3 className="font-display text-[1.6rem] leading-none font-extrabold">X · use your own API credentials</h3>
+        <p className="mt-2 text-[0.9375rem] text-muted">
+          Connect each brand separately. X charges your developer app for verification, posts and reposts. We encrypt
+          your credentials. New accounts start Off; choose Post on each product they represent in its edit page.
+          Reconnecting the same account keeps its posting choices.
+        </p>
+        <ol className="mt-4 list-decimal space-y-2 pl-5 text-[0.9375rem] text-muted">
+          <li>
+            Sign in as the brand in the{" "}
+            <a href="https://console.x.com" target="_blank" rel="noopener" className="underline">
+              X Developer Console
+            </a>{" "}
+            and create an app.
+          </li>
+          <li>Enable OAuth 1.0a with Read and write permissions in the app’s user authentication settings.</li>
+          <li>
+            Copy the API Key and API Key Secret, then generate the brand’s Access Token and Access Token Secret.
+            Regenerate user tokens if you changed permissions.
+          </li>
+          <li>Add API credits and a spending limit in X. An app-only Bearer Token cannot post on your behalf.</li>
+        </ol>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {(
+            [
+              ["apiKey", "API Key"],
+              ["apiSecret", "API Key Secret"],
+              ["accessToken", "Access Token"],
+              ["accessTokenSecret", "Access Token Secret"],
+            ] as const
+          ).map(([name, label]) => (
+            <label key={name} className="grid gap-1 text-sm font-bold">
+              {label}
+              <input
+                name={name}
+                type="password"
+                className="input font-mono"
+                required
+                maxLength={2048}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+          ))}
+        </div>
+        <button type="submit" className="btn btn-slop mt-4">
+          Connect X with my credentials
+        </button>
+        <p className="mt-3 text-sm text-muted">
+          Connecting verifies the account without publishing a post. Disconnect here to remove the stored credentials;
+          revoke the tokens in X to invalidate them.
+        </p>
+      </Form>
       {/* Only networks this server has keys for; the rest stay hidden rather than shown as broken. */}
-      {(loaderData.xEnabled || loaderData.linkedinEnabled) && (
+      {(loaderData.xEnabled || loaderData.linkedinEnabled || Object.values(loaderData.connectable).some(Boolean)) && (
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          {loaderData.connectable.meta && (
+            <ConnectCard
+              title="Facebook & Instagram"
+              body="Pick the Pages to post as in Facebook’s window. Each Page’s linked Instagram professional account comes with it."
+              href="/auth/facebook?intent=connect"
+            />
+          )}
+          {loaderData.connectable.youtube && (
+            <ConnectCard
+              title="YouTube"
+              body="Choose a channel (each brand account is its own). Uploads videos and Shorts, and reads channel analytics."
+              href="/auth/google?intent=connect"
+            />
+          )}
+          {loaderData.connectable.tiktok && (
+            <ConnectCard
+              title="TikTok"
+              body="Posts videos to the account you sign in with. You choose who can see each one."
+              href="/auth/tiktok?intent=connect"
+            />
+          )}
+          {loaderData.connectable.threads && (
+            <ConnectCard
+              title="Threads"
+              body="Posts words, pictures and videos to your Threads profile, and reads their stats."
+              href="/auth/threads?intent=connect"
+            />
+          )}
           {loaderData.xEnabled && (
             <ConnectCard
-              title="X"
-              body="To add another account, switch accounts on x.com, then connect again."
+              title="X · Slopper app"
+              body="Connect through Slopper’s developer app. To use your own API credits, use the credentials form above."
               href="/auth/x?intent=connect"
             />
           )}
@@ -221,7 +377,8 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
       </Form>
 
       <p className="mt-10 max-w-2xl text-muted">
-        TikTok, Instagram, Threads and YouTube Shorts are coming. Until then, every slop page has share buttons.{" "}
+        Accounts connected through Facebook, YouTube, TikTok and Threads start Off for launches, so a new brand never
+        gets another product’s posts. The studio can post with them at once.{" "}
         <Link to="/rules" className="link">
           Rules
         </Link>{" "}

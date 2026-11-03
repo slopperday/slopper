@@ -26,6 +26,91 @@ export const snapshotValidator = v.object({
 
 const crosspostMode = v.union(v.literal("post"), v.literal("amplify"), v.literal("off"));
 
+/** Every network an account can be connected on (app/lib/networks.ts). */
+export const socialProviderValidator = v.union(
+  v.literal("x"),
+  v.literal("linkedin"),
+  v.literal("bluesky"),
+  v.literal("threads"),
+  v.literal("facebook"),
+  v.literal("instagram"),
+  v.literal("tiktok"),
+  v.literal("youtube"),
+);
+
+/** Post stats as a network reports them; a network that doesn't count something leaves it out. */
+export const socialMetricsValidator = v.object({
+  views: v.optional(v.number()),
+  likes: v.optional(v.number()),
+  comments: v.optional(v.number()),
+  shares: v.optional(v.number()),
+  saves: v.optional(v.number()),
+  reposts: v.optional(v.number()),
+});
+
+/** What the composer asks only when that network is picked (app/lib/networks.ts `NetworkOptions`). */
+export const networkOptionsValidator = v.object({
+  youtube: v.optional(
+    v.object({
+      title: v.string(),
+      privacy: v.union(v.literal("public"), v.literal("unlisted"), v.literal("private")),
+      madeForKids: v.boolean(),
+    }),
+  ),
+  tiktok: v.optional(
+    v.object({
+      privacy: v.union(
+        v.literal("PUBLIC_TO_EVERYONE"),
+        v.literal("MUTUAL_FOLLOW_FRIENDS"),
+        v.literal("FOLLOWER_OF_CREATOR"),
+        v.literal("SELF_ONLY"),
+        v.null(),
+      ),
+      allowComments: v.boolean(),
+      allowDuet: v.boolean(),
+      allowStitch: v.boolean(),
+      brandedContent: v.boolean(),
+      yourBrand: v.boolean(),
+    }),
+  ),
+  instagram: v.optional(
+    v.object({
+      format: v.union(v.literal("feed"), v.literal("story")),
+      /** Up to three usernames invited as collaborators on a feed post or Reel. */
+      collaborators: v.optional(v.array(v.string())),
+    }),
+  ),
+  /** The document's title on LinkedIn. */
+  linkedin: v.optional(v.object({ documentTitle: v.string() })),
+});
+
+export const socialPostMediaValidator = v.object({
+  mediaId: v.id("media"),
+  /** A document is a PDF, posted as a LinkedIn document (a swipeable carousel). */
+  kind: v.union(v.literal("image"), v.literal("video"), v.literal("document")),
+  /** What a picture shows, for people who can't see it. */
+  alt: v.optional(v.string()),
+  /** The second of a video its cover is taken from (Instagram, TikTok). */
+  coverAt: v.optional(v.number()),
+  /** Seconds, for a video. */
+  duration: v.optional(v.number()),
+  width: v.optional(v.number()),
+  height: v.optional(v.number()),
+});
+
+export const socialDeliveryStatusValidator = v.union(
+  v.literal("queued"),
+  v.literal("sending"),
+  v.literal("processing"),
+  v.literal("ok"),
+  v.literal("error"),
+  v.literal("skipped"),
+  /** Taken down from the network from the studio. */
+  v.literal("removed"),
+);
+
+export const socialActivityValidator = v.object({ at: v.number(), kind: v.string(), detail: v.string() });
+
 const linkKindValidator = v.union(
   v.literal("website"),
   v.literal("app_store"),
@@ -78,7 +163,7 @@ export const featureValidator = v.object({ title: v.string(), body: v.string() }
 
 export const crosspostResultValidator = v.object({
   accountId: v.string(),
-  provider: v.union(v.literal("x"), v.literal("linkedin"), v.literal("bluesky")),
+  provider: socialProviderValidator,
   handle: v.string(),
   mode: v.union(v.literal("post"), v.literal("amplify")),
   status: v.union(v.literal("ok"), v.literal("error"), v.literal("skipped")),
@@ -653,7 +738,7 @@ export default defineSchema({
 
   accounts: defineTable({
     userId: v.id("users"),
-    provider: v.union(v.literal("x"), v.literal("linkedin"), v.literal("bluesky")),
+    provider: socialProviderValidator,
     remoteId: v.string(),
     handle: v.string(),
     displayName: v.string(),
@@ -662,6 +747,15 @@ export default defineSchema({
     sealedCredentials: v.string(),
     expiresAt: v.union(v.string(), v.null()),
     defaultMode: crosspostMode,
+    /**
+     * The brand this account speaks for ("Tiltmaze", "Me"), so the composer
+     * can pick a brand's accounts on every network at once.
+     */
+    brand: v.optional(v.string()),
+    /** Why posting as it stopped working (a revoked or expired token); cleared by reconnecting. */
+    broken: v.optional(v.string()),
+    /** An X account with Premium: posts up to 25,000 characters. */
+    longPosts: v.optional(v.boolean()),
   })
     .index("by_user", ["userId"])
     .index("by_user_remote", ["userId", "provider", "remoteId"]),
@@ -799,4 +893,185 @@ export default defineSchema({
   })
     .index("by_key", ["key"])
     .index("by_uses", ["uses"]),
+
+  /**
+   * A post written once in the studio (/studio) for several connected
+   * accounts. Each account's copy is a `socialDeliveries` row, so one
+   * network failing never holds up another, and a retry only resends what
+   * failed. Checked before it's saved (app/.server/social/studio.ts).
+   */
+  socialPosts: defineTable({
+    userId: v.id("users"),
+    /** The product it's about, when it's about one: its first launch. */
+    productId: v.union(v.id("slops"), v.null()),
+    text: v.string(),
+    link: v.union(v.string(), v.null()),
+    media: v.array(socialPostMediaValidator),
+    /** Words written for one network instead of the shared ones, by provider. */
+    overrides: v.record(v.string(), v.string()),
+    options: networkOptionsValidator,
+    /** When it goes out; null once it's been sent (or for "post now"). */
+    scheduledAt: v.union(v.number(), v.null()),
+    cancelled: v.optional(v.boolean()),
+    /** Saved, not sent: nothing is checked or scheduled until it's posted. */
+    draft: v.optional(v.boolean()),
+    /** Its time came and its deliveries were handed out (so a repeat is made once). */
+    released: v.optional(v.boolean()),
+    /** More posts after the first, as a thread, on networks that thread (X, Bluesky, Threads). */
+    thread: v.optional(v.array(v.string())),
+    /** A comment posted under it right after, where the network takes comments. */
+    firstComment: v.optional(v.string()),
+    /** For its owner only. */
+    note: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
+    /** Goes out again every `everyDays`, `remaining` more times. */
+    repeat: v.optional(v.object({ everyDays: v.number(), remaining: v.number() })),
+    /** Minutes between one account's copy and the next. */
+    staggerMinutes: v.optional(v.number()),
+    /** Once a copy reaches `likes`, reply under it with `text` (thread networks). */
+    plug: v.optional(v.object({ likes: v.number(), text: v.string() })),
+    /** The link goes out as a Slopper short link per network, with UTM tags, so clicks are counted. */
+    trackLinks: v.optional(v.boolean()),
+    /** A YouTube custom thumbnail (a checked picture). */
+    coverMediaId: v.optional(v.id("media")),
+    /** An API caller's key: sending the same key again returns the same post. */
+    idempotencyKey: v.optional(v.string()),
+    source: v.optional(v.union(v.literal("web"), v.literal("api"), v.literal("rss"), v.literal("csv"))),
+    /** Who did what to it, newest last, capped. */
+    activity: v.optional(v.array(socialActivityValidator)),
+  })
+    .index("by_user", ["userId"])
+    .index("by_scheduled", ["scheduledAt"])
+    .index("by_user_key", ["userId", "idempotencyKey"]),
+
+  socialDeliveries: defineTable({
+    postId: v.id("socialPosts"),
+    userId: v.id("users"),
+    accountId: v.id("accounts"),
+    /** Copied from the account, so receipts survive a disconnect. */
+    provider: socialProviderValidator,
+    handle: v.string(),
+    status: socialDeliveryStatusValidator,
+    /** A sending or processing row belongs to one app caller until then. */
+    leaseUntil: v.optional(v.number()),
+    /** When a processing upload should be asked about again. */
+    nextAttemptAt: v.optional(v.number()),
+    /** The network's handle on an upload still processing (a container, a publish id). Not secret. */
+    pending: v.optional(v.string()),
+    attempts: v.number(),
+    remoteId: v.optional(v.string()),
+    url: v.optional(v.string()),
+    message: v.optional(v.string()),
+    /** An error where the network may have taken the post anyway: retrying could post it twice. */
+    uncertain: v.optional(v.boolean()),
+    sentAt: v.optional(v.number()),
+    metrics: v.optional(socialMetricsValidator),
+    metricsAt: v.optional(v.number()),
+    /** When to read its stats again; absent once they've settled (a month on). */
+    nextMetricsAt: v.optional(v.number()),
+    /** Not sent before this (staggered accounts). */
+    notBefore: v.optional(v.number()),
+    /** Reposts another account's copy on the same network instead of posting its own. */
+    repost: v.optional(v.boolean()),
+    /** Bluesky's content id for the post, which replies and reposts need. */
+    cid: v.optional(v.string()),
+    /** Remote ids of the thread's later posts and the first comment, in order. */
+    parts: v.optional(v.array(v.string())),
+    /** Sent, but something after it didn't go (a thread stopped, the comment failed). */
+    warning: v.optional(v.string()),
+    /** The auto-plug reply went out. */
+    plugged: v.optional(v.boolean()),
+  })
+    .index("by_post", ["postId"])
+    .index("by_user", ["userId"])
+    .index("by_account", ["accountId"])
+    .index("by_next_attempt", ["nextAttemptAt"])
+    .index("by_next_metrics", ["nextMetricsAt"])
+    .index("by_lease", ["status", "leaseUntil"]),
+
+  /** A person's studio settings: the posting queue, the pause switch, the calendar feed, the webhook. */
+  socialSettings: defineTable({
+    userId: v.id("users"),
+    paused: v.optional(v.boolean()),
+    /** Weekly queue times: day 0 (Sunday) to 6, minutes after midnight in the person's time zone. */
+    slots: v.array(v.object({ day: v.number(), minute: v.number() })),
+    /** The secret in the calendar feed's address. */
+    calendarToken: v.optional(v.string()),
+    /** Where post events are sent, signed with `secret`. */
+    webhook: v.optional(
+      v.object({
+        url: v.string(),
+        secret: v.string(),
+        lastStatus: v.optional(v.string()),
+        lastAt: v.optional(v.number()),
+      }),
+    ),
+  })
+    .index("by_user", ["userId"])
+    .index("by_calendar_token", ["calendarToken"]),
+
+  /** Reusable words: hashtag groups, signatures (one may add itself), templates and saved replies. */
+  socialSnippets: defineTable({
+    userId: v.id("users"),
+    kind: v.union(v.literal("hashtags"), v.literal("signature"), v.literal("template"), v.literal("reply")),
+    name: v.string(),
+    text: v.string(),
+    autoAdd: v.optional(v.boolean()),
+  }).index("by_user", ["userId"]),
+
+  /** How a brand sounds, for the writing assistant. Brands themselves are names on accounts. */
+  socialBrands: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    voice: v.string(),
+  }).index("by_user_name", ["userId", "name"]),
+
+  /** Short links a studio post went out with, one per network, counting clicks (`/go/:code`). */
+  socialLinks: defineTable({
+    code: v.string(),
+    userId: v.id("users"),
+    postId: v.id("socialPosts"),
+    provider: socialProviderValidator,
+    /** Where it goes, UTM tags included. */
+    url: v.string(),
+    clicks: v.number(),
+  })
+    .index("by_code", ["code"])
+    .index("by_post", ["postId"]),
+
+  /** A preview link anyone can open to see a post before it goes out, and say what they think. */
+  socialReviews: defineTable({
+    postId: v.id("socialPosts"),
+    userId: v.id("users"),
+    token: v.string(),
+    expiresAt: v.number(),
+    revoked: v.optional(v.boolean()),
+    feedback: v.array(
+      v.object({
+        at: v.number(),
+        name: v.string(),
+        verdict: v.union(v.literal("approve"), v.literal("changes")),
+        note: v.string(),
+      }),
+    ),
+  })
+    .index("by_token", ["token"])
+    .index("by_post", ["postId"]),
+
+  /** RSS or Atom feeds whose new items become studio posts. */
+  socialFeeds: defineTable({
+    userId: v.id("users"),
+    url: v.string(),
+    accountIds: v.array(v.id("accounts")),
+    /** With {title} and {link}. */
+    template: v.string(),
+    mode: v.union(v.literal("now"), v.literal("queue")),
+    active: v.boolean(),
+    /** Item ids already posted (or there when the feed was added), newest first, capped. */
+    seen: v.array(v.string()),
+    checkedAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_checked", ["active", "checkedAt"]),
 });

@@ -29,6 +29,9 @@ import { deleteOrphanedMedia, uploadImage, uploadPublication, uploadVideo } from
 import { checkedContent, checkSlop, checkVideo } from "../moderation";
 import { finishLaunch, releaseScheduled } from "../launch";
 import { announce } from "../social/announce";
+import { saveStudioPost } from "../social/studio";
+import { wallTime } from "~/lib/csv";
+import { NETWORK_LABELS } from "~/lib/networks";
 import { postUpdate } from "../updates";
 import { postReview } from "../reviews";
 import type { User } from "../session";
@@ -295,6 +298,41 @@ async function reviewsOf(context: ViewerContext, ref: string) {
   const listed = await convex.query(api.reviews.listForServer, { slopId: own?._id ?? ref.trim() });
   if (!listed) throw new ApiError(404, "Slop not found.");
   return listed;
+}
+
+type SocialPostShape = NonNullable<FunctionReturnType<typeof api.social.get>>;
+
+function shapeSocialPost(post: Omit<SocialPostShape, "editable"> & { editable?: boolean }) {
+  return {
+    id: post.id,
+    url: absoluteUrl(`/studio/posts/${post.id}`),
+    text: post.text,
+    status: post.draft
+      ? "draft"
+      : post.cancelled
+        ? "cancelled"
+        : post.scheduledAt !== null && !post.released
+          ? "scheduled"
+          : "sent",
+    scheduledAt: post.scheduledAt === null ? null : new Date(post.scheduledAt).toISOString(),
+    tags: post.tags,
+    copies: post.deliveries.map((row) => ({
+      network: row.provider,
+      account: row.handle,
+      status: row.status,
+      repost: row.repost,
+      url: row.url,
+      message: row.message ?? row.warning,
+      stats: row.metrics,
+    })),
+    clicks: post.links.reduce((total, row) => total + row.clicks, 0),
+  };
+}
+
+async function socialPostSummary(user: User, postId: string) {
+  const post = await convex.query(api.social.get, { userId: user._id, postId });
+  if (!post) throw new ApiError(404, "No such post.");
+  return shapeSocialPost(post);
 }
 
 export const OPERATIONS: Operation[] = [
@@ -939,6 +977,123 @@ export const OPERATIONS: Operation[] = [
       });
       if (cancelled.orphaned > 0) await deleteOrphanedMedia();
       return { cancelled: cancelled.name };
+    },
+  },
+  {
+    name: "list_social_accounts",
+    title: "List connected social accounts",
+    description:
+      "The social accounts the user connected to post as (X, LinkedIn, Bluesky, Threads, Facebook Pages, Instagram, TikTok, YouTube), with the brand each speaks for. Use their ids with create_social_post.",
+    inputSchema: { type: "object", properties: {} },
+    readOnly: true,
+    async run({ user }) {
+      const accounts = await convex.query(api.accounts.list, { userId: user._id });
+      return {
+        accounts: accounts.map((account) => ({
+          id: account._id,
+          network: account.provider,
+          networkName: NETWORK_LABELS[account.provider],
+          handle: account.handle,
+          name: account.displayName,
+          brand: account.brand ?? null,
+          needsReconnecting: account.broken ?? null,
+        })),
+      };
+    },
+  },
+  {
+    name: "create_social_post",
+    title: "Post to social accounts",
+    description:
+      "Write one social post and send it as several connected accounts at once, each copy fitted to its network, or schedule it, queue it at the user's next free queue time, or save it as a draft. Everything public is checked first, like posts written in the studio. Pass the same idempotencyKey again and you get the same post back instead of a second one. Words may use {spintax|variations} and the variables {date} {day} {time} {product} {link} {network}.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        accounts: { type: "array", items: { type: "string" }, description: "Account ids from list_social_accounts." },
+        text: { type: "string", description: "The post. Each network gets it cut to fit, link last." },
+        link: { type: "string" },
+        media: { type: "array", items: { type: "string" }, description: "Uploaded picture ids (upload_screenshot)." },
+        thread: {
+          type: "array",
+          items: { type: "string" },
+          description: "Posts that follow as a thread on X, Bluesky and Threads.",
+        },
+        firstComment: { type: "string", description: "Posted under it where the network takes comments." },
+        perNetwork: {
+          type: "object",
+          description:
+            "Other words for one network, by network name (x, linkedin, bluesky, threads, facebook, instagram).",
+        },
+        at: {
+          type: "string",
+          description:
+            "When it goes out: “now” (the default), “queue” for the next free queue time, “draft” to save it, or a date-time like 2026-11-24T09:30 (the user's time zone unless it has an offset).",
+        },
+        tags: { type: "array", items: { type: "string" } },
+        trackLinks: {
+          type: "boolean",
+          description: "Send the link as a per-network short link with UTM tags, counting clicks.",
+        },
+        idempotencyKey: { type: "string" },
+      },
+      required: ["accounts", "text"],
+    },
+    readOnly: false,
+    async run({ user }, input) {
+      const at = optionalString(input, "at")?.trim() || "now";
+      const special = at === "now" || at === "queue" || at === "draft";
+      const scheduledAt = special ? null : wallTime(at, user.timeZone);
+      if (!special && scheduledAt === null)
+        throw new ApiError(400, "at must be now, queue, draft or a date-time like 2026-11-24T09:30.");
+      const perNetwork = input.perNetwork;
+      const overrides: Record<string, string> = {};
+      if (perNetwork && typeof perNetwork === "object" && !Array.isArray(perNetwork)) {
+        for (const [network, words] of Object.entries(perNetwork))
+          if (typeof words === "string") overrides[network] = words;
+      }
+      const result = await saveStudioPost(user, {
+        text: requiredString(input, "text"),
+        link: optionalString(input, "link") ?? "",
+        productId: null,
+        accountIds: optionalStrings(input, "accounts") ?? [],
+        media: (optionalStrings(input, "media") ?? []).map((id) => ({ id })),
+        frames: [],
+        overrides,
+        options: {},
+        scheduledAt,
+        queue: at === "queue",
+        draft: at === "draft",
+        thread: optionalStrings(input, "thread") ?? [],
+        firstComment: optionalString(input, "firstComment") ?? "",
+        tags: optionalStrings(input, "tags") ?? [],
+        trackLinks: optionalBoolean(input, "trackLinks") ?? false,
+        idempotencyKey: optionalString(input, "idempotencyKey"),
+        source: "api",
+      });
+      if (!result.ok) throw new ApiError(400, result.error);
+      return await socialPostSummary(user, result.postId);
+    },
+  },
+  {
+    name: "list_social_posts",
+    title: "List social posts",
+    description:
+      "The user's studio posts, newest first: drafts, scheduled and sent, with each account's status and stats.",
+    inputSchema: { type: "object", properties: {} },
+    readOnly: true,
+    async run({ user }) {
+      const posts = await convex.query(api.social.list, { userId: user._id, limit: 30 });
+      return { posts: posts.map((post) => shapeSocialPost(post)) };
+    },
+  },
+  {
+    name: "get_social_post",
+    title: "Get a social post",
+    description: "One studio post: where each copy went, its link, and the latest likes, comments, shares and views.",
+    inputSchema: { type: "object", properties: { post: { type: "string" } }, required: ["post"] },
+    readOnly: true,
+    async run({ user }, input) {
+      return await socialPostSummary(user, requiredString(input, "post"));
     },
   },
   {

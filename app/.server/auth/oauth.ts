@@ -1,6 +1,6 @@
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { isOAuthProvider, OAUTH_LABELS, type OAuthProviderId } from "~/lib/model";
+import { AUTH_LABELS, type AuthProviderId, isAuthProvider } from "~/lib/model";
 import { convex } from "../convex";
 import { encodeBase64Url } from "../encoding";
 import { absoluteUrl, config, type OAuthClientCredentials } from "../config";
@@ -33,17 +33,25 @@ export const FACEBOOK_GRAPH_VERSION = "v26.0";
 interface ProviderSpec {
   authorizeUrl: string;
   tokenUrl: string;
-  /** Scopes to sign in or link: just enough to know who the person is. */
-  loginScopes: readonly string[];
+  /** Scopes to sign in or link: just enough to know who the person is. Absent when it only connects. */
+  loginScopes?: readonly string[];
   /** Scopes to connect for auto-posting. Absent when the provider only signs in. */
   connectScopes?: readonly string[];
+  /** Without an intent, connect (X and LinkedIn, whose old links meant that). */
+  connectsByDefault?: boolean;
   pkce: boolean;
   /** How the client authenticates at the token endpoint. */
   clientAuth: "basic" | "body";
+  /** What the client id is called (TikTok calls it `client_key`). */
+  clientIdParam?: string;
+  /** How scopes are joined (TikTok and Threads use commas). */
+  scopeSeparator?: string;
   extraParams?: Record<string, string>;
+  /** Parameters for connecting only, on top of `extraParams`. */
+  connectParams?: Record<string, string>;
 }
 
-const PROVIDERS: Record<OAuthProviderId, ProviderSpec> = {
+const PROVIDERS: Record<AuthProviderId, ProviderSpec> = {
   github: {
     authorizeUrl: "https://github.com/login/oauth/authorize",
     tokenUrl: "https://github.com/login/oauth/access_token",
@@ -55,9 +63,17 @@ const PROVIDERS: Record<OAuthProviderId, ProviderSpec> = {
     authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenUrl: "https://oauth2.googleapis.com/token",
     loginScopes: ["openid", "email", "profile"],
+    // Connecting picks a YouTube channel (a brand account is its own channel).
+    connectScopes: [
+      "https://www.googleapis.com/auth/youtube.upload",
+      "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/yt-analytics.readonly",
+    ],
     pkce: true,
     clientAuth: "body",
     extraParams: { prompt: "select_account" },
+    // A refresh token every time, so uploads keep working after the hour.
+    connectParams: { access_type: "offline", prompt: "consent select_account" },
   },
   x: {
     authorizeUrl: "https://x.com/i/oauth2/authorize",
@@ -65,7 +81,8 @@ const PROVIDERS: Record<OAuthProviderId, ProviderSpec> = {
     // Reading /2/users/me needs both. Signing in never asks to post or for
     // a refresh token.
     loginScopes: ["users.read", "tweet.read"],
-    connectScopes: ["tweet.read", "tweet.write", "users.read", "offline.access"],
+    connectScopes: ["tweet.read", "tweet.write", "users.read", "media.write", "offline.access"],
+    connectsByDefault: true,
     pkce: true,
     clientAuth: "basic",
   },
@@ -75,6 +92,7 @@ const PROVIDERS: Record<OAuthProviderId, ProviderSpec> = {
     // Sign In with LinkedIn using OpenID Connect.
     loginScopes: ["openid", "profile", "email"],
     connectScopes: ["openid", "profile", "w_member_social"],
+    connectsByDefault: true,
     // LinkedIn's web flow authenticates with the client secret instead.
     pkce: false,
     clientAuth: "body",
@@ -85,14 +103,57 @@ const PROVIDERS: Record<OAuthProviderId, ProviderSpec> = {
     // which keeps the app secret out of URLs and logs.
     tokenUrl: `https://graph.facebook.com/${FACEBOOK_GRAPH_VERSION}/oauth/access_token`,
     loginScopes: ["public_profile", "email"],
+    // Connecting grants Pages the person picks in Facebook's dialog, and the
+    // Instagram professional accounts linked to them.
+    connectScopes: [
+      "pages_show_list",
+      "pages_read_engagement",
+      "pages_manage_posts",
+      "business_management",
+      "instagram_basic",
+      "instagram_content_publish",
+      "instagram_manage_insights",
+      "instagram_manage_comments",
+      "pages_manage_engagement",
+      "pages_read_user_content",
+    ],
     // Facebook Login checks a PKCE verifier on top of the app secret.
     pkce: true,
     clientAuth: "body",
   },
+  tiktok: {
+    authorizeUrl: "https://www.tiktok.com/v2/auth/authorize/",
+    tokenUrl: "https://open.tiktokapis.com/v2/oauth/token/",
+    connectScopes: ["user.info.basic", "video.publish", "video.upload", "video.list"],
+    pkce: false,
+    clientAuth: "body",
+    clientIdParam: "client_key",
+    scopeSeparator: ",",
+  },
+  threads: {
+    authorizeUrl: "https://threads.net/oauth/authorize",
+    tokenUrl: "https://graph.threads.net/oauth/access_token",
+    connectScopes: [
+      "threads_basic",
+      "threads_content_publish",
+      "threads_manage_insights",
+      "threads_read_replies",
+      "threads_manage_replies",
+      "threads_delete",
+    ],
+    pkce: false,
+    clientAuth: "body",
+    scopeSeparator: ",",
+  },
 };
 
-export function clientCredentials(provider: OAuthProviderId): OAuthClientCredentials | null {
+export function clientCredentials(provider: AuthProviderId): OAuthClientCredentials | null {
   return config[provider];
+}
+
+/** Whether `provider` can connect accounts to post as on this server. */
+export function canConnect(provider: AuthProviderId): boolean {
+  return PROVIDERS[provider].connectScopes !== undefined && config[provider] !== null;
 }
 
 /**
@@ -101,21 +162,21 @@ export function clientCredentials(provider: OAuthProviderId): OAuthClientCredent
  * connects: that is all `/auth/x` and `/auth/linkedin` did before X and
  * LinkedIn could sign people in, and existing links still mean it.
  */
-export function parseIntent(provider: OAuthProviderId, value: string | null): OAuthIntent | null {
-  const canConnect = PROVIDERS[provider].connectScopes !== undefined;
-  const intent = value ?? (canConnect ? "connect" : "login");
+export function parseIntent(provider: AuthProviderId, value: string | null): OAuthIntent | null {
+  const spec = PROVIDERS[provider];
+  const intent = value ?? (spec.connectsByDefault || !spec.loginScopes ? "connect" : "login");
   switch (intent) {
     case "login":
     case "link":
-      return intent;
+      return spec.loginScopes ? intent : null;
     case "connect":
-      return canConnect ? intent : null;
+      return spec.connectScopes ? intent : null;
     default:
       return null;
   }
 }
 
-export function redirectUri(provider: OAuthProviderId): string {
+export function redirectUri(provider: AuthProviderId): string {
   return absoluteUrl(`/auth/${provider}/callback`);
 }
 
@@ -142,7 +203,7 @@ async function codeChallenge(verifier: string): Promise<string> {
 }
 
 export async function authorizationUrl(
-  provider: OAuthProviderId,
+  provider: AuthProviderId,
   client: OAuthClientCredentials,
   intent: OAuthIntent,
   state: string,
@@ -150,18 +211,19 @@ export async function authorizationUrl(
 ): Promise<URL> {
   const spec = PROVIDERS[provider];
   const scopes = intent === "connect" ? spec.connectScopes : spec.loginScopes;
-  if (!scopes) throw new OAuthError(`${OAUTH_LABELS[provider]} can't connect accounts for auto-posting.`);
+  if (!scopes) throw new OAuthError(`${AUTH_LABELS[provider]} can't do that.`);
   const url = new URL(spec.authorizeUrl);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("client_id", client.clientId);
+  url.searchParams.set(spec.clientIdParam ?? "client_id", client.clientId);
   url.searchParams.set("redirect_uri", redirectUri(provider));
-  url.searchParams.set("scope", scopes.join(" "));
+  url.searchParams.set("scope", scopes.join(spec.scopeSeparator ?? " "));
   url.searchParams.set("state", state);
   if (spec.pkce) {
     url.searchParams.set("code_challenge", await codeChallenge(codeVerifier));
     url.searchParams.set("code_challenge_method", "S256");
   }
-  for (const [name, value] of Object.entries(spec.extraParams ?? {})) {
+  const extra = { ...spec.extraParams, ...(intent === "connect" ? spec.connectParams : {}) };
+  for (const [name, value] of Object.entries(extra)) {
     url.searchParams.set(name, value);
   }
   return url;
@@ -183,12 +245,12 @@ function errorDetail(json: Record<string, unknown>): string | null {
 }
 
 async function tokenRequest(
-  provider: OAuthProviderId,
+  provider: AuthProviderId,
   client: OAuthClientCredentials,
   params: Record<string, string>,
 ): Promise<TokenSet> {
   const spec = PROVIDERS[provider];
-  const label = OAUTH_LABELS[provider];
+  const label = AUTH_LABELS[provider];
   const body = new URLSearchParams(params);
   const headers: Record<string, string> = {
     "content-type": "application/x-www-form-urlencoded",
@@ -198,7 +260,7 @@ async function tokenRequest(
     headers.authorization = `Basic ${btoa(`${client.clientId}:${client.clientSecret}`)}`;
     body.set("client_id", client.clientId);
   } else {
-    body.set("client_id", client.clientId);
+    body.set(spec.clientIdParam ?? "client_id", client.clientId);
     body.set("client_secret", client.clientSecret);
   }
 
@@ -225,7 +287,7 @@ async function tokenRequest(
 }
 
 export function exchangeCode(
-  provider: OAuthProviderId,
+  provider: AuthProviderId,
   client: OAuthClientCredentials,
   code: string,
   codeVerifier: string,
@@ -240,7 +302,7 @@ export function exchangeCode(
 }
 
 export function refreshTokens(
-  provider: OAuthProviderId,
+  provider: AuthProviderId,
   client: OAuthClientCredentials,
   refreshToken: string,
 ): Promise<TokenSet> {
@@ -252,7 +314,7 @@ export function refreshTokens(
 
 /** Server-side record of an in-flight authorization, keyed by `state`. */
 export interface PendingAuthorization {
-  provider: OAuthProviderId;
+  provider: AuthProviderId;
   intent: OAuthIntent;
   codeVerifier: string;
   /** Who started a `link` or `connect` flow; the browser finishing it must be them. */
@@ -267,7 +329,7 @@ export async function savePendingAuthorization(state: string, pending: PendingAu
 /** Reads and deletes the pending authorization, so a state works once. */
 export async function takePendingAuthorization(state: string): Promise<PendingAuthorization | null> {
   const pending = await convex.mutation(api.oauth.take, { state });
-  if (!pending || !isOAuthProvider(pending.provider)) return null;
+  if (!pending || !isAuthProvider(pending.provider)) return null;
   return { ...pending, provider: pending.provider };
 }
 

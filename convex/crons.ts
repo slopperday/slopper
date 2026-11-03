@@ -55,5 +55,8 @@ crons.interval(
   internal.schedule.tellUnfinished,
   {},
 );
+// Studio posts: recover lost sends and stalled uploads, then read sent posts' stats.
+crons.interval("recover studio posts", { minutes: 10 }, internal.social.backstop, {});
+crons.interval("read studio post stats", { minutes: 30 }, internal.social.syncMetrics, {});
 
 export default crons;
