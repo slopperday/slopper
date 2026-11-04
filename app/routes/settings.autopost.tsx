@@ -2,6 +2,7 @@ import { Form, Link } from "react-router";
 import type { Route } from "./+types/settings.autopost";
 import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
+import { requireRecentAuth } from "~/.server/auth/twoFactor";
 import { convex } from "~/.server/convex";
 import { config } from "~/.server/config";
 import { canConnect } from "~/.server/auth/oauth";
@@ -52,6 +53,10 @@ function isMode(value: string): value is CrosspostMode {
 export async function action({ request, context }: Route.ActionArgs) {
   const user = requireUser(context.get(viewerContext), request);
   const form = await request.formData();
+  // Connecting an account lets Slopper post as it: whoever does it proves it's them first.
+  if (["x-own-app", "bluesky"].includes(formText(form, "intent"))) {
+    await requireRecentAuth(context.get(viewerContext), request, HERE);
+  }
 
   switch (formText(form, "intent")) {
     case "modes": {

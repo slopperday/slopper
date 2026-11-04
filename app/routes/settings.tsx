@@ -2,6 +2,7 @@ import { data, Form } from "react-router";
 import type { Route } from "./+types/settings";
 import { api } from "@convex/_generated/api";
 import { requireUser, type User, viewerContext } from "~/.server/session";
+import { requireRecentAuth } from "~/.server/auth/twoFactor";
 import { convex } from "~/.server/convex";
 import { config } from "~/.server/config";
 import { formText, parseWebUrl } from "~/.server/forms";
@@ -59,6 +60,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     case "profile":
       return await saveProfile(user, form);
     case "unlink":
+      await requireRecentAuth(context.get(viewerContext), request, HERE);
       return await unlink(user, formText(form, "provider"));
     case "digest": {
       const enabled = formText(form, "enabled") === "on";

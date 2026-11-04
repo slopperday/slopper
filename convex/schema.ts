@@ -383,8 +383,17 @@ export default defineSchema({
     tokenHash: v.string(),
     userId: v.id("users"),
     expiresAt: v.number(),
+    /**
+     * When the person last proved it was them on this session: signing in
+     * (with their second factor, when they have one) or confirming it again.
+     * Sensitive actions ask again once it's older than 15 minutes.
+     */
+    verifiedAt: v.optional(v.number()),
+    /** What the browser said it was, for the sessions list. */
+    userAgent: v.optional(v.string()),
   })
     .index("by_hash", ["tokenHash"])
+    .index("by_user", ["userId"])
     .index("by_expiry", ["expiresAt"]),
 
   /** In-flight OAuth authorizations, keyed by `state`. */
@@ -1074,4 +1083,64 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_checked", ["active", "checkedAt"]),
+
+  /**
+   * Two-factor sign-in (app/.server/auth/twoFactor.ts). Anyone with a
+   * confirmed authenticator app or a passkey must use one after signing in
+   * with GitHub, Google, X, LinkedIn or Facebook.
+   */
+  totpFactors: defineTable({
+    userId: v.id("users"),
+    /** The shared secret, sealed by the app server. */
+    sealedSecret: v.string(),
+    /** Unconfirmed until a code from the app matches once. */
+    confirmed: v.boolean(),
+    /** The last 30-second step a code was used for, so a code works once. */
+    lastStep: v.optional(v.number()),
+  }).index("by_user", ["userId"]),
+
+  passkeys: defineTable({
+    userId: v.id("users"),
+    /** base64url, as WebAuthn names it. */
+    credentialId: v.string(),
+    /** The COSE public key, base64url. Not secret. */
+    publicKey: v.string(),
+    counter: v.number(),
+    transports: v.array(v.string()),
+    name: v.string(),
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_credential", ["credentialId"]),
+
+  /** One-time codes for when the phone and passkeys are gone, stored hashed. */
+  recoveryCodes: defineTable({
+    userId: v.id("users"),
+    codes: v.array(v.object({ hash: v.string(), usedAt: v.optional(v.number()) })),
+  }).index("by_user", ["userId"]),
+
+  /**
+   * A second-factor step in progress: after OAuth, before the session starts
+   * ("login"), confirming again before a sensitive action ("stepup"), or a
+   * passkey being added ("register"). The browser holds the token, Convex its hash.
+   */
+  authChallenges: defineTable({
+    tokenHash: v.string(),
+    kind: v.union(v.literal("login"), v.literal("stepup"), v.literal("register")),
+    userId: v.id("users"),
+    /** The WebAuthn challenge, once one was asked for. */
+    challenge: v.optional(v.string()),
+    returnTo: v.string(),
+    attempts: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_hash", ["tokenHash"])
+    .index("by_expiry", ["expiresAt"]),
+
+  /** What happened to a person's sign-in security, for them to read at /settings/security. */
+  securityEvents: defineTable({
+    userId: v.id("users"),
+    kind: v.string(),
+    detail: v.string(),
+  }).index("by_user", ["userId"]),
 });

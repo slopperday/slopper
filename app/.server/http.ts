@@ -10,6 +10,8 @@ export const SESSION_COOKIE = "slopper_session";
 export const OAUTH_COOKIE = "slopper_oauth";
 export const FLASH_COOKIE = "slopper_flash";
 export const TZ_COOKIE = "slopper_tz";
+/** A second-factor step in progress (app/.server/auth/twoFactor.ts). */
+export const TWO_FACTOR_COOKIE = "slopper_2fa";
 
 const secure = config.appUrl.protocol === "https:";
 

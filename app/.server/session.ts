@@ -107,13 +107,23 @@ export async function grantListedAdmin(identity: SignInIdentity): Promise<void> 
   await convex.mutation(api.team.bootstrap, { provider: identity.provider, providerId: identity.providerId });
 }
 
-/** Starts a session and sets its cookie on `headers`. */
-export async function startSession(userId: Id<"users">, headers: Headers): Promise<void> {
+/**
+ * Starts a session and sets its cookie on `headers`. `verified` says the
+ * person just proved it's them (signing in, with their second factor when
+ * they have one), so sensitive actions don't ask again for 15 minutes.
+ */
+export async function startSession(
+  userId: Id<"users">,
+  headers: Headers,
+  options: { verified?: boolean; userAgent?: string | null } = {},
+): Promise<void> {
   const token = randomToken();
   await convex.mutation(api.users.createSession, {
     userId,
     tokenHash: await hashToken(token),
     expiresAt: Date.now() + SESSION_TTL_MS,
+    ...(options.verified ? { verifiedAt: Date.now() } : {}),
+    ...(options.userAgent ? { userAgent: options.userAgent.slice(0, 200) } : {}),
   });
   setCookie(headers, SESSION_COOKIE, token, SESSION_TTL_MS / 1000);
 }

@@ -9,6 +9,7 @@ import {
   safeReturnTo,
   savePendingAuthorization,
 } from "~/.server/auth/oauth";
+import { requireRecentAuth } from "~/.server/auth/twoFactor";
 import { randomToken } from "~/.server/encoding";
 import { loginUrl, notFound, OAUTH_COOKIE, redirectWithFlash, setCookie } from "~/.server/http";
 import { AUTH_LABELS, isAuthProvider } from "~/lib/model";
@@ -38,6 +39,8 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
   const viewer = context.get(viewerContext);
   // Linking and connecting add to the signed-in account.
   if (intent !== "login" && !viewer.user) return redirectWithFlash(loginUrl(home));
+  // A new sign-in method or a connected account is a way in: whoever adds one proves it's them first.
+  if (intent !== "login") await requireRecentAuth(viewer, request);
 
   // Each start is a Convex write, and the page is public: a flood of starts
   // must hit an address's ceiling, not the oauthStates table.

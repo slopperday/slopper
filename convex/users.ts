@@ -164,7 +164,13 @@ export const get = query({
 });
 
 export const createSession = mutation({
-  args: { userId: v.id("users"), tokenHash: v.string(), expiresAt: v.number() },
+  args: {
+    userId: v.id("users"),
+    tokenHash: v.string(),
+    expiresAt: v.number(),
+    verifiedAt: v.optional(v.number()),
+    userAgent: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     await requireServer(ctx);
     await ctx.db.insert("sessions", args);

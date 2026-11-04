@@ -3,6 +3,7 @@ import { data, Form } from "react-router";
 import type { Route } from "./+types/settings.api";
 import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
+import { requireRecentAuth } from "~/.server/auth/twoFactor";
 import { convex, convexMessage } from "~/.server/convex";
 import { createApiToken } from "~/.server/tokens";
 import { config } from "~/.server/config";
@@ -30,6 +31,8 @@ export async function action({ request, context }: Route.ActionArgs) {
     await convex.mutation(api.tokens.revoke, { userId: user._id, tokenId: formText(form, "id") });
     return redirectWithFlash("/settings/api", { tone: "info", message: "Token revoked." });
   }
+  // A token acts as the person from anywhere: whoever makes one proves it's them first.
+  await requireRecentAuth(context.get(viewerContext), request, "/settings/api");
   try {
     return { token: await createApiToken(user._id, formText(form, "name")), error: null };
   } catch (error) {
