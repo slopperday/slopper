@@ -1,0 +1,316 @@
+{
+  "title": "1.12.0 (2026-11-04)",
+  "summary": [],
+  "sections": [
+    {
+      "title": "New",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Edit, schedule and cancel social drafts from agents.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/agent-social-drafts.md",
+            "changeset_path": ".changeset/agent-social-drafts.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "43dfb42"
+            }
+          }
+        },
+        {
+          "summary": "Comments are back, checked and moderated",
+          "details_markdown": "Every slop page takes feedback and kudos again. A new comment passes the content check: blocked words are refused, and anything mature or unchecked waits for a moderator before it appears. People can flag comments, and enough flags hide one until a moderator decides. Approve someone's comment once and they are trusted: their later comments skip the check and the hourly cap.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/comments-moderation.md",
+            "changeset_path": ".changeset/comments-moderation.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "3871f2d"
+            }
+          }
+        },
+        {
+          "summary": "Edit a launch through the next day",
+          "details_markdown": "A launch's original post now stays editable until the end of the day after it goes out, at least 24 hours after launch. Previously it closed at the end of the launch day, or 12 hours after a late launch. After the longer window closes, the original post is locked and changes go in updates, as before.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/edit-through-next-day.md",
+            "changeset_path": ".changeset/edit-through-next-day.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "7486bdb"
+            }
+          }
+        },
+        {
+          "summary": "Upload your own publication",
+          "details_markdown": "Wrote a book, zine, guide or paper? Launch it as a slop: upload the PDF or EPUB (up to 4 MB) and people read it straight from the slop page. With one, links are optional. Every file goes through Slopper's own safety scan first, so nobody who opens one gets scripts, auto-run actions, hidden attachments, trackers that load from the web or a file disguised as a book. Then it's checked like a screenshot, and agents can upload one too.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/publications.md",
+            "changeset_path": ".changeset/publications.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "aa17b4c"
+            }
+          }
+        },
+        {
+          "summary": "See a larger, network-specific preview for each social account, with playable videos and image carousels.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/social-preview.md",
+            "changeset_path": ".changeset/social-preview.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "43dfb42"
+            }
+          }
+        },
+        {
+          "summary": "Take the Solana Hacker House challenge November 1–12, with three shipping targets and a launch tag.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/solana-hacker-house.md",
+            "changeset_path": ".changeset/solana-hacker-house.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "dc05cb0"
+            }
+          }
+        },
+        {
+          "summary": "Post to every account without surprises",
+          "details_markdown": "- A checklist for each account says whether it's ready (\"Instagram needs a picture or a video\") with a button that takes you to the fix.\n- Give a network or one account its own link, pictures and first comment, and go back to the shared version in one click.\n- Send at the same time everywhere or pick a time per account. Times are read in your profile's time zone, across clock changes, and the composer says which.\n- \"Last used\" and \"Post as <product>\" pick a set of accounts in one tap.\n- Save ideas before choosing any accounts. What you're writing is kept in your browser and offered back if you leave.\n- Two X accounts can't post the same words (X's rules), and each X post shows what X will bill your app.\n- A post that may or may not have gone out is never sent again on its own: check the network, then tell Slopper it posted or send it again.\n- Settings → Accounts shows whether each account is connected, expiring soon or needs reconnecting, and a step-by-step guide for setting up every network.\n- Reddit connects with your Reddit account, and each subreddit you add is its own destination. LinkedIn Company Pages can be connected once LinkedIn approves the app.\n- Best-time suggestions are per account and labelled as estimates; previews are labelled as approximations.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "expanded",
+          "provenance": {
+            "source_path": ".changeset/studio-seamless.md",
+            "changeset_path": ".changeset/studio-seamless.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "43dfb42"
+            }
+          }
+        },
+        {
+          "summary": "The studio: write one post and send it to all your accounts at once",
+          "details_markdown": "Write once in the studio and post it to X, LinkedIn, Bluesky, Threads, Facebook Pages, Instagram, TikTok and YouTube,\nas whichever brand it's for. Each network gets a copy that fits it, and you see how it will look before it goes out.\n\n- Threads, a first comment, alt text, LinkedIn PDF documents, video covers and YouTube thumbnails.\n- Drafts, editing, a weekly posting queue, the best times to post from your own results, repeating posts, staggered\n  accounts, a pause button and bulk scheduling from a spreadsheet.\n- A calendar with drag to reschedule, filters, an Instagram grid and a feed for your calendar app.\n- Preview links that a client or teammate opens without an account to approve or ask for changes.\n- Snippets (hashtag groups, signatures, templates, saved replies), variables and spintax, and a writing assistant that\n  follows each brand's voice.\n- Comments and replies, taking posts down, reposts by your other accounts, an auto-plug reply once a post takes off,\n  and alerts when an account needs reconnecting.\n- Analytics by network, account, format and hashtag, tracked links that count clicks per network, and a CSV export.\n- Posts from RSS feeds, and signed webhooks for Zapier, Make or your own code.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "expanded",
+          "provenance": {
+            "source_path": ".changeset/studio.md",
+            "changeset_path": ".changeset/studio.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "a600d8e"
+            }
+          }
+        },
+        {
+          "summary": "Two-step sign-in with passkeys or an authenticator app",
+          "details_markdown": "Turn it on in Settings → Security. Add a passkey (your fingerprint, face, device PIN or a security key) or an\nauthenticator app, and signing in asks for it after GitHub, Google, X, LinkedIn or Facebook, so a stolen login for one\nof those isn't enough to get into your account and every brand it posts as. You get ten recovery codes in case you\nlose your phone. Making API tokens, approving the CLI, connecting accounts, and setting up webhooks and feeds ask you to\nconfirm it's you again after 15 minutes. The security page also lists where you're signed in, signs out other\nbrowsers, and keeps a log of sign-ins and changes.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "expanded",
+          "provenance": {
+            "source_path": ".changeset/two-step-sign-in.md",
+            "changeset_path": ".changeset/two-step-sign-in.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "f70714e"
+            }
+          }
+        },
+        {
+          "summary": "Connect multiple X brand accounts using your own developer app credentials and API credits. Choose which accounts post for each product.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/x-own-credentials.md",
+            "changeset_path": ".changeset/x-own-credentials.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "a600d8e"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Fixed",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "Read today’s date in the calendar in dark mode",
+          "details_markdown": "The highlighted date uses dark text on its bright background in either theme.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/calendar-dark-mode-contrast.md",
+            "changeset_path": ".changeset/calendar-dark-mode-contrast.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "7e3b6f2"
+            }
+          }
+        },
+        {
+          "summary": "Keep confirmations and errors until their page loads",
+          "details_markdown": "Background requests no longer hide Settings confirmations and errors before you can see them.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/flash-page-delivery-user.md",
+            "changeset_path": ".changeset/flash-page-delivery-user.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "36551a5"
+            }
+          }
+        },
+        {
+          "summary": "PDF publications can no longer open links automatically. Clicked links still work. PDFs with automatic hooks, including opening-view settings, need to be exported again as plain PDFs.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/pdf-automatic-actions.md",
+            "changeset_path": ".changeset/pdf-automatic-actions.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "5e57c09"
+            }
+          }
+        },
+        {
+          "summary": "Keep scheduled launch dates and counts private to you until they go live.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/private-scheduled-profile.md",
+            "changeset_path": ".changeset/private-scheduled-profile.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "f1ddffb"
+            }
+          }
+        },
+        {
+          "summary": "Launches and edits stay private while their content check is unavailable. Scheduled launches retry failed checks.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/private-until-checked.md",
+            "changeset_path": ".changeset/private-until-checked.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "e384b75"
+            }
+          }
+        },
+        {
+          "summary": "Screenshots and videos open full screen",
+          "details_markdown": "Open screenshots, update images and review images in a full-screen gallery without leaving the page. Use the arrows to browse, and Escape or Close to return. Promo videos have a button to open the same view.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/screenshots-open-full-screen.md",
+            "changeset_path": ".changeset/screenshots-open-full-screen.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "7e3b6f2"
+            }
+          }
+        },
+        {
+          "summary": "Launch ages stay consistent while pages open, even across time boundaries and time zones.",
+          "change_type": "user_fix",
+          "bump": "patch",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/stable-launch-ages.md",
+            "changeset_path": ".changeset/stable-launch-ages.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "1893f61"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
