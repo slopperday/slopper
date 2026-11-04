@@ -118,6 +118,14 @@ describe("routes an anonymous visitor can reach have a ceiling", () => {
       ["app/routes/wall.tsx", "wall-search:"],
       ["app/routes/card.slop.ts", "card:"],
       ["app/routes/card.profile.ts", "card:"],
+      ["app/routes/api.social.ts", "social:"],
+      ["app/routes/api.social-metrics.ts", "social-metrics:"],
+      ["app/routes/api.social-feeds.ts", "social-feeds:"],
+      ["app/routes/api.studio-calendar.ts", "studio-calendar:"],
+      ["app/routes/go.ts", "go:"],
+      ["app/routes/review.tsx", "review:"],
+      ["app/routes/api.auth-passkey.ts", "passkey:"],
+      ["app/routes/login.verify.tsx", "two-factor:"],
     ];
     const missing = routes.filter(([file, key]) => !readFileSync(join(ROOT, file), "utf8").includes(key));
     expect(missing.map(([file]) => file)).toEqual([]);

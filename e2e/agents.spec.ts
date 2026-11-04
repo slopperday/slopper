@@ -5,6 +5,7 @@ import { join } from "node:path";
 import process from "node:process";
 import { promisify } from "node:util";
 import type { APIRequestContext } from "@playwright/test";
+import { api } from "../convex/_generated/api.js";
 import { expect, test } from "./fixtures.ts";
 
 /** Runs the slopper CLI from source (packages/cli), the way an agent would, and parses its JSON. */
@@ -240,4 +241,61 @@ test.describe("agents run Slopper", () => {
       expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(stack.appUrl);
     }
   });
+});
+
+test("agents refine and schedule one draft for multiple accounts", async ({ seed, convex, request, stack }) => {
+  const maker = await seed.user("agentdraft");
+  const account = async (provider: "x" | "bluesky", handle: string) =>
+    convex.mutation(api.accounts.connect, {
+      userId: maker.id,
+      provider,
+      remoteId: `${handle}-${maker.username}`,
+      handle,
+      displayName: handle,
+      avatarUrl: null,
+      sealedCredentials: "fake",
+      expiresAt: null,
+    });
+  const x = await account("x", "brandx");
+  const sky = await account("bluesky", "brandsky");
+  const token = await seed.apiToken(maker);
+  const env = { SLOPPER_TOKEN: token, SLOPPER_URL: stack.appUrl };
+  const draft = await slopper(
+    env,
+    "social",
+    "post",
+    "Launching soon",
+    "--account",
+    x._id,
+    "--account",
+    sky._id,
+    "--at",
+    "draft",
+  );
+  expect(draft.status).toBe("draft");
+  const id = String(draft.id);
+  const changed = await slopper(
+    env,
+    "social",
+    "edit",
+    id,
+    "--copy",
+    `x=News for X`,
+    "--copy",
+    `${sky._id}=News for Bluesky`,
+  );
+  expect(changed.status).toBe("draft");
+  const status = (await slopper(env, "social", "status", id)) as {
+    readiness: { copies: { accountId: string; text: string }[] };
+  };
+  expect(status.readiness.copies.find((row) => row.accountId === x._id)?.text).toBe("News for X");
+  expect(status.readiness.copies.find((row) => row.accountId === sky._id)?.text).toBe("News for Bluesky");
+  const tools = await mcp(request, token, "tools/list");
+  expect(JSON.stringify(tools)).toContain("edit_social_post");
+  const at = new Date(Date.now() + 3_600_000).toISOString();
+  const scheduled = await slopper(env, "social", "edit", id, "--at", at);
+  expect(scheduled.status).toBe("scheduled");
+  expect(scheduled.scheduledAt).toBe(at);
+  expect(scheduled.copies as unknown[]).toHaveLength(2);
+  expect((await slopper(env, "social", "cancel", id)).status).toBe("cancelled");
 });

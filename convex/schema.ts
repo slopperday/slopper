@@ -36,6 +36,10 @@ export const socialProviderValidator = v.union(
   v.literal("instagram"),
   v.literal("tiktok"),
   v.literal("youtube"),
+  v.literal("mastodon"),
+  v.literal("discord"),
+  v.literal("telegram"),
+  v.literal("reddit"),
 );
 
 /** Post stats as a network reports them; a network that doesn't count something leaves it out. */
@@ -761,13 +765,43 @@ export default defineSchema({
      * can pick a brand's accounts on every network at once.
      */
     brand: v.optional(v.string()),
+    /**
+     * When set, this social account is shared with every member of the
+     * organisation so teammates can post and repost with it in the studio.
+     */
+    organizationId: v.optional(v.id("organizations")),
     /** Why posting as it stopped working (a revoked or expired token); cleared by reconnecting. */
     broken: v.optional(v.string()),
     /** An X account with Premium: posts up to 25,000 characters. */
     longPosts: v.optional(v.boolean()),
   })
     .index("by_user", ["userId"])
+    .index("by_org", ["organizationId"])
     .index("by_user_remote", ["userId", "provider", "remoteId"]),
+
+  /**
+   * Organisation accounts: teams and studios that share connected social
+   * accounts so any member can compose, schedule, and publish for the org.
+   */
+  organizations: defineTable({
+    name: v.string(),
+    slug: v.string(),
+    ownerId: v.id("users"),
+    avatarUrl: v.union(v.string(), v.null()),
+    bio: v.string(),
+    website: v.union(v.string(), v.null()),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_owner", ["ownerId"]),
+
+  organizationMembers: defineTable({
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    role: v.union(v.literal("owner"), v.literal("admin"), v.literal("member")),
+  })
+    .index("by_org", ["organizationId"])
+    .index("by_user", ["userId"])
+    .index("by_org_user", ["organizationId", "userId"]),
 
   /**
    * Read-only connections that bring a product's traction onto its page
@@ -911,6 +945,8 @@ export default defineSchema({
    */
   socialPosts: defineTable({
     userId: v.id("users"),
+    /** When posted using an organisation's shared accounts, members of that org can see it. */
+    organizationId: v.optional(v.id("organizations")),
     /** The product it's about, when it's about one: its first launch. */
     productId: v.union(v.id("slops"), v.null()),
     text: v.string(),
@@ -950,6 +986,7 @@ export default defineSchema({
     activity: v.optional(v.array(socialActivityValidator)),
   })
     .index("by_user", ["userId"])
+    .index("by_org", ["organizationId"])
     .index("by_scheduled", ["scheduledAt"])
     .index("by_user_key", ["userId", "idempotencyKey"]),
 

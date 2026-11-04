@@ -69,18 +69,44 @@ function commandHelp(command: Command): string {
   ].join("\n");
 }
 
+function canonicalName(name: string): string {
+  return /^social-(accounts|post|posts|status|edit|cancel)$/.test(name) ? name.replace("social-", "social ") : name;
+}
+
 function findCommand(name: string): Command {
+  name = canonicalName(name);
   if (name.startsWith("-")) throw usageError(`Put the command first, then its flags: slopper <command> ${name} …`);
   const command = COMMANDS.find((candidate) => candidate.name === name);
   if (!command) throw usageError(`Unknown command “${name}”.`);
   return command;
 }
 
-/** Where to look after a usage mistake: the command's own help, when there is a command. */
-function helpHint(name: string | undefined): string {
+/** Social subcommands are shown together and can be used without a token for help. */
+function socialHelp(): string {
+  const commands = COMMANDS.filter((command) => command.name.startsWith("social ") && !command.hidden);
+  const width = Math.max(...commands.map((command) => command.name.slice(7).length));
+  return [
+    "Usage: slopper social <command> [flags]",
+    "",
+    "Social commands:",
+    ...commands.map((command) => `  ${command.name.slice(7).padEnd(width)}  ${command.summary}`),
+    "",
+    "For details: slopper social <command> --help",
+    "",
+    "Global flags:",
+    ...flagLines(GLOBAL_FLAGS),
+  ].join("\n");
+}
+
+/** Where to look after a usage mistake. */
+function helpHint(argv: readonly string[]): string {
+  const name =
+    argv[0] === "social" && argv[1] && !argv[1].startsWith("-") ? `social ${argv[1]}` : canonicalName(argv[0] ?? "");
   return COMMANDS.some((command) => command.name === name)
     ? `Run \`slopper help ${name}\`.`
-    : "Run `slopper help` for the commands.";
+    : argv[0] === "social"
+      ? "Run `slopper social --help` for social commands."
+      : "Run `slopper help` for the commands.";
 }
 
 function print(io: Io, result: unknown): void {
@@ -107,7 +133,11 @@ async function siteContext(local: LocalContext): Promise<Context> {
 async function run(argv: string[], io: Io): Promise<void> {
   const [name, ...rest] = argv;
   if (name === undefined || name === "help" || name === "--help" || name === "-h") {
-    print(io, `${rest[0] ? commandHelp(findCommand(rest[0])) : overview()}\n`);
+    if (rest[0] === "social" && !rest[1]) print(io, `${socialHelp()}\n`);
+    else {
+      const commandName = rest[0] === "social" ? `social ${rest[1]}` : rest[0];
+      print(io, `${commandName ? commandHelp(findCommand(commandName)) : overview()}\n`);
+    }
     return;
   }
   if (name === "--version" || name === "-v") {
@@ -115,11 +145,26 @@ async function run(argv: string[], io: Io): Promise<void> {
     return;
   }
 
-  const command = findCommand(name);
+  let commandName = name;
+  let commandArgs = rest;
+  if (name === "social") {
+    const [subcommand, ...args] = rest;
+    if (!subcommand || subcommand === "--help" || subcommand === "-h" || (subcommand === "help" && !args[0])) {
+      print(io, `${socialHelp()}\n`);
+      return;
+    }
+    if (subcommand === "help") {
+      print(io, `${commandHelp(findCommand(`social ${args[0]}`))}\n`);
+      return;
+    }
+    commandName = `social ${subcommand}`;
+    commandArgs = args;
+  }
+  const command = findCommand(commandName);
   let parsed: ReturnType<typeof parseArgs>;
   try {
     parsed = parseArgs({
-      args: rest,
+      args: commandArgs,
       options: { ...GLOBAL_OPTIONS, ...command.options },
       allowPositionals: true,
       strict: true,
@@ -155,7 +200,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
     const details = error.details
       ? Object.entries(error.details).map(([field, problem]) => `\n  ${field}: ${problem}`)
       : [];
-    const hint = error.exitCode === 2 ? `\n${helpHint(argv[0])}` : "";
+    const hint = error.exitCode === 2 ? `\n${helpHint(argv)}` : "";
     io.stderr(`slopper: ${error.message}${details.join("")}${hint}\n`);
     return error.exitCode;
   }

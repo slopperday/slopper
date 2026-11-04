@@ -165,11 +165,14 @@ export async function checkCode(step: PendingStep, typed: string): Promise<CodeR
     const totp = await convex.query(api.security.totpSecret, { userId: step.userId });
     if (totp?.confirmed) {
       const matched = matchTotp(await unseal(totp.sealedSecret), code);
-      if (
-        matched !== null &&
-        (await convex.mutation(api.security.useTotpStep, { userId: step.userId, step: matched }))
-      ) {
-        return { ok: true, method: "authenticator app" };
+      if (matched !== null) {
+        if (totp.lastStep !== null && matched <= totp.lastStep) {
+          return { ok: false, error: "That code was already used. Wait a few seconds for the next one in your app." };
+        }
+        if (await convex.mutation(api.security.useTotpStep, { userId: step.userId, step: matched })) {
+          return { ok: true, method: "authenticator app" };
+        }
+        return { ok: false, error: "That code was already used. Wait a few seconds for the next one in your app." };
       }
     }
     return { ok: false, error: "That code didn't match. Use the newest one from your app." };

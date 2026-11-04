@@ -231,6 +231,8 @@ export async function saveStudioPost(
   if (media.length !== input.media.length) return fail("One of your uploads is gone. Add it again.");
   const picked = accounts.filter((account) => input.accountIds.includes(account._id));
   if (picked.length === 0) return fail("Pick at least one account to post as.");
+  if (new Set(input.accountIds).size !== picked.length)
+    return fail("One of those accounts isn't available. Choose it again.");
 
   const video = media.find((item) => item.kind === "video");
   const videoInput = video ? input.media.find((item) => item.id === video.id) : undefined;
@@ -250,10 +252,11 @@ export async function saveStudioPost(
     if (problems.length) return fail(problems[0]);
   }
 
+  const pickedIds = new Set(picked.map((account) => String(account._id)));
   const overrides: Record<string, string> = {};
-  for (const [provider, words] of Object.entries(input.overrides)) {
-    if (isSocialProvider(provider) && providers.has(provider) && words.trim()) {
-      overrides[provider] = words.trim().slice(0, 25_000);
+  for (const [key, words] of Object.entries(input.overrides)) {
+    if (((isSocialProvider(key) && providers.has(key)) || pickedIds.has(key)) && words.trim()) {
+      overrides[key] = words.trim().slice(0, 25_000);
     }
   }
 
@@ -307,13 +310,15 @@ export async function saveStudioPost(
   }
   if (!input.draft && fields.scheduledAt === null) await deliver(postId);
   return {
-    ok: true,
+    ok,
     postId,
     scheduled: !input.draft && fields.scheduledAt !== null,
     draft: input.draft ?? false,
     scheduledAt: fields.scheduledAt,
   };
 }
+
+const ok = true as const;
 
 /** Kept for callers from before drafts: makes a post. */
 export async function createStudioPost(
@@ -452,7 +457,10 @@ export function wordsFor(
   } = {},
 ): string {
   const link = options.link === undefined ? post.link : options.link;
-  const raw = post.overrides[provider]?.trim() || post.text;
+  const raw =
+    (options.account ? post.overrides[options.account._id]?.trim() : undefined) ||
+    post.overrides[provider]?.trim() ||
+    post.text;
   const words = options.context
     ? personalize(raw, options.account?._id ?? provider, {
         at: options.at ?? Date.now(),
@@ -530,6 +538,7 @@ export function brokenReason(error: unknown): string | null {
  * The words after the post: the thread's later posts (on networks that
  * thread), then the first comment. Each replies to the one before. A part
  * that fails stops the rest and leaves a warning; the post itself stands.
+ * Passing `existingParts` resumes from where an earlier try stopped.
  */
 export async function followUps(
   adapter: SocialAdapter,
@@ -537,14 +546,21 @@ export async function followUps(
   root: { remoteId: string; cid?: string },
   post: Pick<Doc<"socialPosts">, "thread" | "firstComment">,
   context: DraftContext,
+  existingParts: readonly string[] = [],
 ): Promise<{ parts: string[]; warning: string | null }> {
   const spec = NETWORKS[account.provider];
   const threaded = spec.threads ? (post.thread ?? []) : [];
   const texts = [...threaded, ...(spec.firstComment && post.firstComment ? [post.firstComment] : [])];
-  if (texts.length === 0 || !adapter.reply) return { parts: [], warning: null };
-  const parts: string[] = [];
-  let parent: ReplyRef = { remoteId: root.remoteId, cid: root.cid, rootId: root.remoteId, rootCid: root.cid };
-  for (const [index, raw] of texts.entries()) {
+  if (texts.length === 0 || !adapter.reply) return { parts: [...existingParts], warning: null };
+  const parts: string[] = [...existingParts];
+  let parent: ReplyRef = {
+    remoteId: parts.at(-1) ?? root.remoteId,
+    cid: parts.length === 0 ? root.cid : undefined,
+    rootId: root.remoteId,
+    rootCid: root.cid,
+  };
+  for (let index = parts.length; index < texts.length; index++) {
+    const raw = texts[index];
     const words = wordsFor(
       account.provider,
       { text: raw, link: null, overrides: {} },
@@ -576,18 +592,13 @@ async function contextFor(claimed: ClaimedPost): Promise<DraftContext> {
   return { timeZone: user?.timeZone ?? "UTC", product: product?.name ?? null };
 }
 
-/**
- * Sends what's due on a post: every queued copy, uploads due another look,
- * then reposts of what went out. Each account runs on its own, so one
- * network failing never stops the others. Returns how many copies it handled.
- */
-export async function deliver(
+async function deliverPass(
   postId: string,
-  userId?: Id<"users">,
-  networks: Record<SocialProvider, SocialAdapter> = adapters(),
-): Promise<number> {
+  userId: Id<"users"> | undefined,
+  networks: Record<SocialProvider, SocialAdapter>,
+): Promise<{ handled: number; publishedOriginal: boolean }> {
   const claimed = await convex.mutation(api.social.claim, { postId, userId });
-  if (!claimed) return 0;
+  if (!claimed) return { handled: 0, publishedOriginal: false };
   const accounts = new Map<string, ConnectedAccount>(
     (await convex.query(api.accounts.list, { userId: claimed.post.userId })).map((account) => [account._id, account]),
   );
@@ -655,7 +666,26 @@ export async function deliver(
       ...(result.status === "ok" ? { url: result.url } : result.status === "error" ? { error: result.message } : {}),
     });
   }
-  return claimed.deliveries.length;
+  return {
+    handled: claimed.deliveries.length,
+    publishedOriginal: events.some((item) => item.event === "post.published" && !item.row.repost),
+  };
+}
+
+/**
+ * Sends what's due on a post: every queued copy, uploads due another look,
+ * then reposts of what went out. Each account runs on its own, so one
+ * network failing never stops the others. Returns how many copies it handled.
+ */
+export async function deliver(
+  postId: string,
+  userId?: Id<"users">,
+  networks: Record<SocialProvider, SocialAdapter> = adapters(),
+): Promise<number> {
+  const first = await deliverPass(postId, userId, networks);
+  if (!first.publishedOriginal) return first.handled;
+  const second = await deliverPass(postId, userId, networks);
+  return first.handled + second.handled;
 }
 
 /**

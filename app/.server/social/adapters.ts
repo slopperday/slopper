@@ -21,6 +21,7 @@ import {
   type SendResult,
 } from "./core";
 import { facebookAdapter, instagramAdapter, threadsAdapter } from "./meta";
+import { discordAdapter, mastodonAdapter, redditAdapter, telegramAdapter } from "./community";
 import { tiktokAdapter } from "./tiktok";
 import { youtubeAdapter } from "./youtube";
 import { xAuthorization, type XOwnCredentials } from "./x-credentials";
@@ -768,5 +769,9 @@ export function adapters(): Record<SocialProvider, SocialAdapter> {
     instagram: instagramAdapter(),
     tiktok: tiktokAdapter(),
     youtube: youtubeAdapter(),
+    mastodon: mastodonAdapter(),
+    discord: discordAdapter(),
+    telegram: telegramAdapter(),
+    reddit: redditAdapter(),
   };
 }

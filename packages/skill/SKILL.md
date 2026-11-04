@@ -1,6 +1,6 @@
 ---
 name: slopper
-description: Ship to slopper.day from the terminal with the `slopper` CLI (npm @slopperday/cli). Use when the user says to deploy, ship, post or put a project on Slopper or slopper.day, wants to launch a project as today's slop or schedule launches for later days, post an update or field test, set a daily shipping goal, log costs or revenue, check today's slop of the day race, search slops, vote on slops, review slops they tried, or read their slops' reviews.
+description: Ship to slopper.day from the terminal with the `slopper` CLI (npm @slopperday/cli). Use when the user says to deploy, ship, post or put a project on Slopper or slopper.day, wants to launch a project as today's slop or schedule launches for later days, post an update or field test, edit and upload a Slopper promo video, manage social drafts and schedules, set a daily shipping goal, log costs or revenue, check today's slop of the day race, search slops, vote on slops, review slops they tried, or read their slops' reviews.
 ---
 
 # Slopper
@@ -122,14 +122,38 @@ The user's connected accounts (X, LinkedIn, Bluesky, Threads, Facebook Pages, In
 one message at once, each copy fitted to its network and checked first:
 
 ```sh
-slopper social-accounts                                         # ids, networks and brands
-slopper social-post "Tiltmaze 2.0 is out" --account <id> --account <id> --link https://tiltmaze.app \
-  --thread "40 new levels" --first-comment "#indiegames" --at queue --key launch-2-0
-slopper social-posts                                            # drafts, scheduled and sent
-slopper social-status <post>                                    # each copy's link and stats
+slopper social accounts                                         # ids, networks and brands
+slopper social post "Tiltmaze 2.0 is out" --account <id> --account <id> --link https://tiltmaze.app \
+  --thread "40 new levels" --first-comment "#indiegames" --at draft --key launch-2-0
+slopper social edit <post> --text "Revised announcement"        # keeps it a draft
+slopper social edit <post> --copy x="Short version for X" --copy <account-id>="Brand-specific version"
+slopper social status <post>                                    # per-account previews and readiness warnings
+slopper social edit <post> --options '{"instagram":{"format":"story"}}' # update one network's format
+slopper social edit <post> --at 2026-11-24T09:30               # schedule all selected accounts
+slopper social edit <post> --at 2026-11-25T10:00               # move the scheduled time
+slopper social cancel <post>                                    # delete draft or cancel schedule
+slopper social posts                                            # drafts, scheduled and sent
+slopper social status <post>                                    # each copy's link and stats
 ```
 
-Ask before posting as the user. `--at draft` saves it for them to look at in the studio first.
+Use `--at draft` to save without publishing; `social edit` changes only flags provided and keeps the existing
+accounts, media, network options and schedule. Use `social accounts` for account IDs and repeat `--account` to replace
+the selected accounts. Times without offsets use the user's time zone; include `Z` or an offset for an explicit zone.
+Each `--copy` changes only that network or account; account-specific text takes precedence over network text, and
+`--copy x=` removes that override. `social status` gives each fitted preview and warnings about missing media,
+network options, unavailable accounts or text that would be shortened. Discuss useful improvements with the user;
+preflight does not predict content-check or network acceptance. Set network-specific formats through `--options`
+with JSON; `social status` shows the current settings. Each supplied network replaces its settings, preserving the rest. Scheduling runs the content check. Cancel a scheduled
+post before it goes out. Post or schedule when the user has
+authorized it; otherwise save a draft for review. The corresponding MCP operations are `list_social_accounts`,
+`create_social_post`, `list_social_posts`, `get_social_post`, `edit_social_post` and `cancel_social_post`; REST uses
+`GET/POST /api/v1/social/posts` and `GET/PATCH/DELETE /api/v1/social/posts/:post`.
+
+To make a promo video, edit the user's source files locally with the available video tools (for example, ffmpeg),
+preview the result and keep it MP4 or WebM under 4 MB. Then run `slopper video <slop> <file>`: it uploads the file and
+sets it as that Slop's promo. The response says whether it is pending moderation or live. MCP can do the same with
+`upload_video` followed by `set_video`; REST uses `POST /api/v1/videos` and `PUT /api/v1/slops/:slop/video`.
+This publishes the promo to Slopper subject to moderation, without sending it to the connected social platforms.
 
 ## Keep it alive
 

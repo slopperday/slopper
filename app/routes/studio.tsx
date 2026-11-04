@@ -11,7 +11,8 @@ import { modeFor } from "~/.server/social/crosspost";
 import { bestTimes, nextAt, saveStudioPost, type StudioInput } from "~/.server/social/studio";
 import { type CreatorInfo, creatorInfo } from "~/.server/social/tiktok";
 import { ASSIST_ACTIONS, type AssistAction } from "~/lib/assist";
-import { fitPost, measureFor } from "~/lib/compose";
+import { fitText, measureFor } from "~/lib/compose";
+import { wallTime } from "~/lib/csv";
 import { slopPath } from "~/lib/display";
 import {
   INSTAGRAM_FORMATS,
@@ -28,7 +29,7 @@ import {
   type YouTubeOptions,
 } from "~/lib/networks";
 import { splitThread } from "~/lib/thread";
-import { VARIABLES } from "~/lib/variables";
+import { personalize, VARIABLES } from "~/lib/variables";
 import { seo } from "~/lib/seo";
 import { Icon } from "~/components/Icon";
 import {
@@ -73,8 +74,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const search = new URL(request.url).searchParams;
   const editId = search.get("edit");
   const copyId = search.get("copy");
-  const [accounts, slops, posts, snippets, settings, sent, editing] = await Promise.all([
+  const [accounts, organizations, slops, posts, snippets, settings, sent, editing] = await Promise.all([
     convex.query(api.accounts.list, { userId: user._id }),
+    convex.query(api.organizations.list, { userId: user._id }),
     convex.query(api.slops.listForServer, { userId: user._id }),
     convex.query(api.social.list, { userId: user._id, limit: 30 }),
     convex.query(api.studio.snippets, { userId: user._id }),
@@ -83,11 +85,20 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     editId ? convex.query(api.social.get, { userId: user._id, postId: editId }) : null,
   ]);
   const copy = copyId ? await convex.query(api.social.get, { userId: user._id, postId: copyId }) : null;
+  const orgById = new Map(organizations.map((org) => [String(org.id), org.name]));
 
-  // One entry per product, from its newest launch: its name, link, screenshots and the accounts it posts as.
+  // One entry per product, from its newest launch: its name, link, screenshots and the accounts it posts and reposts as.
   const products = new Map<
     string,
-    { id: string; name: string; tagline: string; url: string; screenshots: string[]; accountIds: string[] }
+    {
+      id: string;
+      name: string;
+      tagline: string;
+      url: string;
+      screenshots: string[];
+      accountIds: string[];
+      repostAccountIds: string[];
+    }
   >();
   for (const slop of slops) {
     const id = slop.productId ?? slop._id;
@@ -99,6 +110,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       url: new URL(slopPath(user.username, slop.slug), config.appUrl).href,
       screenshots: slop.screenshots.slice(0, 4),
       accountIds: accounts.filter((account) => modeFor(slop, account) === "post").map((account) => account._id),
+      repostAccountIds: accounts
+        .filter((account) => modeFor(slop, account) === "amplify" && NETWORKS[account.provider].canRepost)
+        .map((account) => account._id),
     });
   }
   const screenshotUrls = await convex.query(api.social.mediaForOwner, {
@@ -113,15 +127,25 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   return {
     // Sealed credentials never leave the server.
-    accounts: accounts.map(({ _id, provider, handle, displayName, avatarUrl, brand, broken, longPosts }) => ({
-      id: _id,
-      provider,
-      handle,
-      displayName,
-      avatarUrl,
-      brand: brand ?? null,
-      broken: broken ?? null,
-      longPosts: longPosts ?? false,
+    accounts: accounts.map(
+      ({ _id, provider, handle, displayName, avatarUrl, brand, organizationId, broken, longPosts }) => ({
+        id: _id,
+        provider,
+        handle,
+        displayName,
+        avatarUrl,
+        brand: brand ?? null,
+        organizationId: organizationId ? String(organizationId) : null,
+        organizationName: organizationId ? (orgById.get(String(organizationId)) ?? null) : null,
+        broken: broken ?? null,
+        longPosts: longPosts ?? false,
+      }),
+    ),
+    organizations: organizations.map((org) => ({
+      id: String(org.id),
+      name: org.name,
+      slug: org.slug,
+      role: org.role,
     })),
     products: [...products.values()].map((product) => ({
       ...product,
@@ -141,6 +165,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     canPost: config.contentCheck !== null,
     canAssist: config.contentCheck !== null,
     timeZone: user.timeZone,
+    previewTime: Date.now(),
   };
 }
 
@@ -299,8 +324,22 @@ function localInput(at: number, timeZone: string): string {
 }
 
 export default function Studio({ loaderData, actionData }: Route.ComponentProps) {
-  const { accounts, products, posts, tiktok, canPost, canAssist, snippets, best, editing, prefill, paused, timeZone } =
-    loaderData;
+  const {
+    accounts,
+    organizations,
+    products,
+    posts,
+    tiktok,
+    canPost,
+    canAssist,
+    snippets,
+    best,
+    editing,
+    prefill,
+    paused,
+    timeZone,
+    previewTime,
+  } = loaderData;
   const navigation = useNavigation();
   const sending = navigation.state !== "idle" && navigation.formMethod === "POST";
   const [params] = useSearchParams();
@@ -314,13 +353,14 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
   const [reposters, setReposters] = useState<ReadonlySet<string>>(
     new Set(base?.deliveries.filter((row) => row.repost).map((row) => row.accountId) ?? []),
   );
+  const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
   const [productId, setProductId] = useState(base?.product?.id ?? "");
   const [text, setText] = useState(
     base?.text ?? (prefill.text ? prefill.text : signature ? `\n\n${signature.text}` : ""),
   );
   const [link, setLink] = useState(base?.link ?? prefill.link);
-  const [overrides, setOverrides] = useState<Partial<Record<SocialProvider, string>>>(base?.overrides ?? {});
-  const [editingNetwork, setEditingNetwork] = useState<SocialProvider | null>(null);
+  const [overrides, setOverrides] = useState<Record<string, string | undefined>>(base?.overrides ?? {});
+  const [editingOverrideTarget, setEditingOverrideTarget] = useState<string | null>(null);
   const [thread, setThread] = useState<string[]>(base?.thread ?? []);
   const [firstComment, setFirstComment] = useState(base?.firstComment ?? "");
   const [media, setMedia] = useState<Attachment[]>(
@@ -380,6 +420,15 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
 
   const picked = accounts.filter((account) => selected.has(account.id));
   const providers = new Set(picked.map((account) => account.provider));
+  const editingAccount = editingOverrideTarget
+    ? (picked.find((account) => account.id === editingOverrideTarget) ?? null)
+    : null;
+  const editingNetwork: SocialProvider | null = editingAccount
+    ? editingAccount.provider
+    : editingOverrideTarget && (SOCIAL_ORDER as readonly string[]).includes(editingOverrideTarget)
+      ? (editingOverrideTarget as SocialProvider)
+      : null;
+
   const video = media.find((item) => item.kind === "video");
   const shape: PostShape = {
     images: media.filter((item) => item.kind === "image").length,
@@ -427,7 +476,8 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
   const brands = useMemo(() => {
     const groups = new Map<string, ComposerAccount[]>();
     for (const account of accounts) {
-      const name = account.brand ?? "No brand yet";
+      const name =
+        account.brand ?? (account.organizationName ? `${account.organizationName} (Shared)` : "No brand yet");
       groups.set(name, [...(groups.get(name) ?? []), account]);
     }
     return [...groups.entries()].sort(([a], [b]) =>
@@ -469,7 +519,10 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
   function pickProduct(id: string) {
     setProductId(id);
     const product = products.find((item) => item.id === id);
-    if (product) setSelected(new Set(product.accountIds));
+    if (product) {
+      setSelected(new Set(product.accountIds));
+      setReposters(new Set(product.repostAccountIds));
+    }
   }
 
   /** Starts the post from the product: its tagline, its Slopper page and its screenshots. */
@@ -506,9 +559,9 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           action,
-          text: editingNetwork ? overrides[editingNetwork] || text : text,
+          text: editingOverrideTarget ? overrides[editingOverrideTarget] || text : text,
           network: action === "adapt" ? editingNetwork : null,
-          brand,
+          brand: editingAccount?.brand ?? brand,
         }),
       });
       const body = (await response.json()) as { text?: string; posts?: string[]; hashtags?: string[]; error?: string };
@@ -517,8 +570,8 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
         setText(body.posts[0]);
         setThread(body.posts.slice(1));
       } else if (body.hashtags) setHashtags(body.hashtags);
-      else if (body.text && action === "adapt" && editingNetwork)
-        setOverrides({ ...overrides, [editingNetwork]: body.text });
+      else if (body.text && action === "adapt" && editingOverrideTarget)
+        setOverrides({ ...overrides, [editingOverrideTarget]: body.text });
       else if (body.text) setText(body.text);
     } catch (error) {
       setAssistError(error instanceof Error ? error.message : "The assistant didn't answer.");
@@ -573,19 +626,53 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     coverMediaId: providers.has("youtube") ? cover.id : null,
   });
 
-  // One preview per network picked, for its first account.
+  // One preview per selected account, ordered by network so multiple accounts on the same network each show their own preview.
   const readyMedia = media
     .filter((item) => item.id && item.kind !== "document")
     .map(({ kind, url }) => ({ kind: kind as "image" | "video", url }));
-  const previews = SOCIAL_ORDER.filter((provider) => providers.has(provider)).map((provider) => {
-    const account = picked.find((item) => item.provider === provider)!;
-    const words = overrides[provider]?.trim() || text;
-    const limit = limits[provider] ?? NETWORKS[provider].textLimit;
-    const fitted = fitPost(provider, words, link.trim() || null);
-    const measure = measureFor(provider);
-    const suffix = link.trim() ? measure(`\n\n${link.trim()}`) : 0;
-    return { account, fitted, over: measure(words.trim()) + suffix > limit };
-  });
+  const previews = SOCIAL_ORDER.flatMap((provider) =>
+    picked
+      .filter((item) => item.provider === provider)
+      .map((account) => {
+        const source = overrides[account.id]?.trim() || overrides[provider]?.trim() || text;
+        const postLink = link.trim() || null;
+        const at = when === "later" && scheduledAt ? (wallTime(scheduledAt, timeZone) ?? previewTime) : previewTime;
+        const words = personalize(source, account.id, {
+          at,
+          timeZone,
+          product: products.find((product) => product.id === productId)?.name ?? null,
+          link: postLink,
+          network: NETWORKS[provider].label,
+        });
+        const limit = textLimitFor(provider, account);
+        const measure = measureFor(provider);
+        const suffix =
+          postLink && provider !== "instagram" && provider !== "tiktok" && !words.includes(postLink)
+            ? `\n\n${postLink}`
+            : "";
+        const fitted = fitText(words.trim(), limit - measure(suffix), measure) + suffix;
+        const followUp = (part: string) =>
+          fitText(
+            personalize(part, account.id, {
+              at,
+              timeZone,
+              product: products.find((product) => product.id === productId)?.name ?? null,
+              link: null,
+              network: NETWORKS[provider].label,
+            }).trim(),
+            limit,
+            measure,
+          );
+        return {
+          account,
+          fitted,
+          over: measure(words.trim()) + measure(suffix) > limit,
+          replies: NETWORKS[provider].threads ? thread.filter((part) => part.trim()).map(followUp) : [],
+          firstComment: NETWORKS[provider].firstComment && firstComment.trim() ? followUp(firstComment) : "",
+        };
+      }),
+  );
+  const activePreview = previews.find(({ account }) => account.id === previewAccountId) ?? previews[0];
   const filter = params.get("show") ?? "all";
   const listed = posts.filter((post) => {
     const scheduled = post.scheduledAt !== null && !post.released && !post.cancelled && !post.draft;
@@ -650,7 +737,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
           </Link>
         </div>
       ) : (
-        <Form method="post" className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <Form method="post" className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(380px,460px)]">
           <input type="hidden" name="payload" value={payload} />
           <div className="grid gap-5">
             {editing && (
@@ -723,7 +810,14 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                             >
                               <AccountAvatar account={account} size={34} />
                               <span className="leading-tight">
-                                <span className="block text-sm font-bold">{account.displayName}</span>
+                                <span className="flex items-center gap-1.5 text-sm font-bold">
+                                  <span>{account.displayName}</span>
+                                  {account.organizationName && (
+                                    <span className="rounded-full bg-sunk px-1.5 py-0.5 text-[0.65rem] font-bold text-muted">
+                                      {account.organizationName}
+                                    </span>
+                                  )}
+                                </span>
                                 <span className={`block text-xs ${account.broken ? "text-hot" : "text-muted"}`}>
                                   {reason ??
                                     (account.broken
@@ -740,6 +834,28 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                   );
                 })}
               </div>
+              {organizations.length > 0 && (
+                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-xs">
+                  <span className="font-bold text-muted">Shared organisations:</span>
+                  {organizations.map((org) => {
+                    const orgAccounts = accounts.filter((acc) => acc.organizationId === org.id);
+                    if (orgAccounts.length === 0) return null;
+                    const allSelected = orgAccounts.every((acc) => selected.has(acc.id));
+                    return (
+                      <button
+                        key={org.id}
+                        type="button"
+                        onClick={() => toggleBrand(orgAccounts)}
+                        className={`rounded-full border px-2.5 py-1 font-bold transition ${
+                          allSelected ? "border-ink bg-raised text-ink" : "border-line text-muted hover:text-ink"
+                        }`}
+                      >
+                        {org.name} ({orgAccounts.length})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {repostCandidates.length > 0 && (
                 <div className="mt-4 border-t border-line pt-3">
                   <p className="text-sm font-bold">Repost it with</p>
@@ -872,33 +988,71 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                   Track clicks
                 </label>
               </div>
-              {providers.size > 1 && (
+              {picked.length > 1 && (
                 <div className="mt-4">
-                  <p className="text-sm font-bold">Say it differently on one network</p>
+                  <p className="text-sm font-bold">Say it differently on one network or account</p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {SOCIAL_ORDER.filter((provider) => providers.has(provider)).map((provider) => (
-                      <button
-                        key={provider}
-                        type="button"
-                        aria-pressed={editingNetwork === provider}
-                        onClick={() => setEditingNetwork(editingNetwork === provider ? null : provider)}
-                        className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-bold ${editingNetwork === provider ? "border-ink bg-raised" : "border-line"}`}
-                      >
-                        <NetworkBadge provider={provider} size="sm" />
-                        {NETWORKS[provider].label}
-                        {overrides[provider]?.trim() && <span className="text-slop-text">· own words</span>}
-                      </button>
-                    ))}
+                    {SOCIAL_ORDER.filter((provider) => providers.has(provider)).flatMap((provider) => {
+                      const onNetwork = picked.filter((acc) => acc.provider === provider);
+                      const networkBtn = (
+                        <button
+                          key={provider}
+                          type="button"
+                          aria-pressed={editingOverrideTarget === provider}
+                          onClick={() => setEditingOverrideTarget(editingOverrideTarget === provider ? null : provider)}
+                          className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-bold ${
+                            editingOverrideTarget === provider ? "border-ink bg-raised" : "border-line"
+                          }`}
+                        >
+                          <NetworkBadge provider={provider} size="sm" />
+                          {NETWORKS[provider].label}
+                          {overrides[provider]?.trim() && <span className="text-slop-text">· own words</span>}
+                        </button>
+                      );
+                      if (onNetwork.length <= 1) return [networkBtn];
+                      return [
+                        networkBtn,
+                        ...onNetwork.map((acc) => (
+                          <button
+                            key={acc.id}
+                            type="button"
+                            aria-pressed={editingOverrideTarget === acc.id}
+                            onClick={() => setEditingOverrideTarget(editingOverrideTarget === acc.id ? null : acc.id)}
+                            className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-bold ${
+                              editingOverrideTarget === acc.id ? "border-ink bg-raised" : "border-line"
+                            }`}
+                          >
+                            <NetworkBadge provider={provider} size="sm" />
+                            {acc.displayName || acc.handle}
+                            {overrides[acc.id]?.trim() && <span className="text-slop-text">· own words</span>}
+                          </button>
+                        )),
+                      ];
+                    })}
                   </div>
-                  {editingNetwork && (
+                  {editingOverrideTarget && editingNetwork && (
                     <div className="mt-3">
                       <textarea
                         className="input min-h-28"
-                        aria-label={`Words for ${NETWORKS[editingNetwork].label}`}
-                        placeholder={`Leave empty to use the post above on ${NETWORKS[editingNetwork].label}.`}
-                        value={overrides[editingNetwork] ?? ""}
-                        maxLength={limits[editingNetwork] ?? NETWORKS[editingNetwork].textLimit}
-                        onChange={(event) => setOverrides({ ...overrides, [editingNetwork]: event.target.value })}
+                        aria-label={`Words for ${
+                          editingAccount
+                            ? editingAccount.displayName || editingAccount.handle
+                            : NETWORKS[editingNetwork].label
+                        }`}
+                        placeholder={`Leave empty to use the post above on ${
+                          editingAccount
+                            ? editingAccount.displayName || editingAccount.handle
+                            : NETWORKS[editingNetwork].label
+                        }.`}
+                        value={overrides[editingOverrideTarget] ?? ""}
+                        maxLength={
+                          editingAccount
+                            ? textLimitFor(editingNetwork, editingAccount)
+                            : (limits[editingNetwork] ?? NETWORKS[editingNetwork].textLimit)
+                        }
+                        onChange={(event) =>
+                          setOverrides({ ...overrides, [editingOverrideTarget]: event.target.value })
+                        }
                       />
                       {canAssist && (
                         <button
@@ -907,7 +1061,13 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                           disabled={assisting !== null}
                           onClick={() => void runAssist("adapt")}
                         >
-                          {assisting === "adapt" ? "Writing…" : `Write it for ${NETWORKS[editingNetwork].label}`}
+                          {assisting === "adapt"
+                            ? "Writing…"
+                            : `Write it for ${
+                                editingAccount
+                                  ? editingAccount.displayName || editingAccount.handle
+                                  : NETWORKS[editingNetwork].label
+                              }`}
                         </button>
                       )}
                     </div>
@@ -1271,27 +1431,58 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
             </div>
           </div>
 
-          {/* Live previews */}
-          <aside className="grid gap-4 lg:sticky lg:top-20" aria-label="Previews">
-            <h2 className="font-display text-[1.6rem] leading-none font-extrabold">Preview</h2>
+          {/* Pick one account at a time so every preview has room to read. */}
+          <aside className="min-w-0 lg:sticky lg:top-20" aria-label="Previews">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="font-display text-[1.6rem] leading-none font-extrabold">Preview</h2>
+              <span className="text-xs text-muted">Approximate · layouts can change</span>
+            </div>
             {previews.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-line p-6 text-center text-muted">
+              <p className="mt-4 rounded-2xl border border-dashed border-line p-6 text-center text-muted">
                 Pick accounts to see how the post looks on each network.
               </p>
             ) : (
-              previews.map(({ account, fitted, over }) => (
-                <PostPreview
-                  key={account.provider}
-                  account={account}
-                  text={fitted}
-                  title={account.provider === "youtube" ? youtube.title || "Untitled video" : undefined}
-                  media={readyMedia}
-                  over={over}
-                />
-              ))
+              <>
+                <div
+                  className="mt-4 flex gap-2 overflow-x-auto pb-2"
+                  role="group"
+                  aria-label="Choose account to preview"
+                >
+                  {previews.map(({ account }) => (
+                    <button
+                      type="button"
+                      key={account.id}
+                      onClick={() => setPreviewAccountId(account.id)}
+                      aria-pressed={activePreview?.account.id === account.id}
+                      aria-label={`${NETWORKS[account.provider].label}: ${account.handle}`}
+                      className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-bold ${activePreview?.account.id === account.id ? "border-ink bg-ink text-ground" : "border-line bg-ground text-ink hover:bg-raised"}`}
+                    >
+                      <NetworkBadge provider={account.provider} size="sm" />
+                      <span>{account.handle}</span>
+                    </button>
+                  ))}
+                </div>
+                {activePreview && (
+                  <div className="mx-auto mt-2 w-full max-w-[460px]">
+                    <PostPreview
+                      key={activePreview.account.id}
+                      account={activePreview.account}
+                      text={activePreview.fitted}
+                      title={
+                        activePreview.account.provider === "youtube" ? youtube.title || "Untitled video" : undefined
+                      }
+                      media={readyMedia}
+                      over={activePreview.over}
+                      instagramFormat={instagramFormat}
+                      replies={activePreview.replies}
+                      firstComment={activePreview.firstComment}
+                    />
+                  </div>
+                )}
+              </>
             )}
             {thread.length > 0 && threadNetworks.length > 0 && (
-              <p className="text-sm text-muted">
+              <p className="mt-3 text-sm text-muted">
                 + {thread.length} more post{thread.length === 1 ? "" : "s"} in the thread
               </p>
             )}

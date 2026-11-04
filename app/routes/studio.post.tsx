@@ -30,10 +30,11 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     convex.query(api.studio.snippets, { userId: user._id }),
   ]);
   if (!post) notFound();
-  // What each network got, as it was sent.
-  const words = Object.fromEntries(
-    post.deliveries.map((row) => [row.provider, wordsFor(row.provider, post)]),
-  ) as Record<string, string>;
+  // What each account got, as it was sent.
+  const words = Object.fromEntries([
+    ...post.deliveries.map((row) => [row.provider, wordsFor(row.provider, post)]),
+    ...post.deliveries.map((row) => [row.id, wordsFor(row.provider, post, { account: { _id: row.accountId } })]),
+  ]) as Record<string, string>;
   return {
     post,
     words,
@@ -402,7 +403,7 @@ export default function StudioPost({ loaderData }: Route.ComponentProps) {
                     {!row.repost && (
                       <details className="mt-1 text-xs text-muted">
                         <summary className="cursor-pointer">What it said</summary>
-                        <p className="mt-1 max-w-sm whitespace-pre-wrap">{words[row.provider]}</p>
+                        <p className="mt-1 max-w-sm whitespace-pre-wrap">{words[row.id] ?? words[row.provider]}</p>
                       </details>
                     )}
                   </td>

@@ -38,6 +38,7 @@ import type * as moderation from "../moderation.js";
 import type * as money from "../money.js";
 import type * as notifications from "../notifications.js";
 import type * as oauth from "../oauth.js";
+import type * as organizations from "../organizations.js";
 import type * as push from "../push.js";
 import type * as pushSend from "../pushSend.js";
 import type * as race from "../race.js";
@@ -91,6 +92,7 @@ declare const fullApi: ApiFromModules<{
   money: typeof money;
   notifications: typeof notifications;
   oauth: typeof oauth;
+  organizations: typeof organizations;
   push: typeof push;
   pushSend: typeof pushSend;
   race: typeof race;

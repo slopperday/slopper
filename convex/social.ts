@@ -12,6 +12,7 @@ import {
 import { requireServer } from "./lib/auth";
 import { isImage, isPublication, isVideo, mediaUrl } from "./lib/media";
 import { consume } from "./lib/rate";
+import { canAccessAccount, userOrganizationIds } from "./organizations";
 import { networkOptionsValidator, socialMetricsValidator } from "./schema";
 import { NETWORKS } from "../app/lib/networks";
 import { hasSpintax } from "../app/lib/variables";
@@ -52,7 +53,10 @@ export function nextMetricsAt(provider: Doc<"socialDeliveries">["provider"], sen
 async function ownedPost(ctx: QueryCtx, userId: Id<"users">, rawId: string) {
   const id = ctx.db.normalizeId("socialPosts", rawId);
   const post = id ? await ctx.db.get(id) : null;
-  return post && post.userId === userId ? post : null;
+  if (!post) return null;
+  if (post.userId === userId) return post;
+  if (post.organizationId && (await userOrganizationIds(ctx, userId)).has(post.organizationId)) return post;
+  return null;
 }
 
 async function deliveriesOf(ctx: QueryCtx, postId: Id<"socialPosts">) {
@@ -192,7 +196,9 @@ async function ownedAccounts(ctx: MutationCtx, userId: Id<"users">, ids: readonl
   for (const raw of new Set(ids)) {
     const id = ctx.db.normalizeId("accounts", raw);
     const account = id ? await ctx.db.get(id) : null;
-    if (!account || account.userId !== userId) throw new ConvexError("One of those accounts isn't yours.");
+    if (!account || !(await canAccessAccount(ctx, userId, account))) {
+      throw new ConvexError("One of those accounts isn't yours.");
+    }
     accounts.push(account);
   }
   return accounts;
@@ -260,6 +266,8 @@ async function preparePost(ctx: MutationCtx, args: PostInput) {
   // Networks refuse the same words twice, and so do followers: spintax makes each copy differ.
   if (!args.draft && !hasSpintax(args.text)) {
     for (const account of accounts) {
+      const words = args.overrides[account._id]?.trim() || args.overrides[account.provider]?.trim() || args.text.trim();
+      if (!words || hasSpintax(words)) continue;
       const recent = await ctx.db
         .query("socialDeliveries")
         .withIndex("by_account", (q) => q.eq("accountId", account._id))
@@ -268,7 +276,9 @@ async function preparePost(ctx: MutationCtx, args: PostInput) {
       for (const row of recent) {
         if (row.status !== "ok" || (row.sentAt ?? 0) < Date.now() - DAY) continue;
         const sent = await ctx.db.get(row.postId);
-        if (sent && sent.text.trim() === args.text.trim() && args.text.trim()) {
+        const sentWords =
+          sent?.overrides[account._id]?.trim() || sent?.overrides[account.provider]?.trim() || sent?.text.trim() || "";
+        if (sentWords === words) {
           throw new ConvexError(
             `You posted these exact words as ${account.handle} in the last day. Change them a little, or use {spintax|variations}.`,
           );
@@ -277,7 +287,9 @@ async function preparePost(ctx: MutationCtx, args: PostInput) {
     }
   }
 
+  const organizationId = [...accounts, ...reposters].find((account) => account.organizationId)?.organizationId;
   const fields = {
+    ...(organizationId ? { organizationId } : {}),
     productId,
     text: args.text,
     link: args.link,
@@ -513,12 +525,16 @@ export const discard = mutation({
 async function repeatPost(ctx: MutationCtx, post: Doc<"socialPosts">) {
   if (!post.repeat || post.scheduledAt === null) return;
   const rows = await deliveriesOf(ctx, post._id);
-  const accounts = (
-    await Promise.all(rows.filter((row) => !row.repost).map((row) => ctx.db.get(row.accountId)))
-  ).filter((account): account is Doc<"accounts"> => account !== null && account.userId === post.userId);
-  const reposters = (
-    await Promise.all(rows.filter((row) => row.repost).map((row) => ctx.db.get(row.accountId)))
-  ).filter((account): account is Doc<"accounts"> => account !== null && account.userId === post.userId);
+  const loadedAccounts = await Promise.all(rows.filter((row) => !row.repost).map((row) => ctx.db.get(row.accountId)));
+  const accounts: Doc<"accounts">[] = [];
+  for (const account of loadedAccounts) {
+    if (account && (await canAccessAccount(ctx, post.userId, account))) accounts.push(account);
+  }
+  const loadedReposters = await Promise.all(rows.filter((row) => row.repost).map((row) => ctx.db.get(row.accountId)));
+  const reposters: Doc<"accounts">[] = [];
+  for (const account of loadedReposters) {
+    if (account && (await canAccessAccount(ctx, post.userId, account))) reposters.push(account);
+  }
   if (accounts.length === 0) return;
   const { _id, _creationTime, released: _released, activity: _activity, idempotencyKey: _key, ...rest } = post;
   const remaining = post.repeat.remaining - 1;
@@ -546,7 +562,14 @@ export const claim = mutation({
     await requireServer(ctx);
     const id = ctx.db.normalizeId("socialPosts", rawId);
     const post = id ? await ctx.db.get(id) : null;
-    if (!post || post.cancelled || post.draft || (userId && post.userId !== userId)) return null;
+    if (!post || post.cancelled || post.draft) return null;
+    if (
+      userId &&
+      post.userId !== userId &&
+      (!post.organizationId || !(await userOrganizationIds(ctx, userId)).has(post.organizationId))
+    ) {
+      return null;
+    }
     const now = Date.now();
     if (post.scheduledAt !== null && post.scheduledAt > now) return null;
     if ((await settingsOf(ctx, post.userId))?.paused) return null;
@@ -571,7 +594,7 @@ export const claim = mutation({
         }
       }
       const account = await ctx.db.get(row.accountId);
-      if (!account || account.userId !== post.userId) {
+      if (!account || !(await canAccessAccount(ctx, post.userId, account))) {
         await ctx.db.patch(row._id, { status: "skipped", message: "That account was disconnected." });
         continue;
       }
@@ -730,10 +753,11 @@ export const markRemoved = mutation({
     await requireServer(ctx);
     const id = ctx.db.normalizeId("socialDeliveries", deliveryId);
     const row = id ? await ctx.db.get(id) : null;
-    if (!row || row.userId !== userId || row.status !== "ok") return;
+    if (!row || row.status !== "ok") return;
+    const post = await ownedPost(ctx, userId, row.postId);
+    if (!post) return;
     await ctx.db.patch(row._id, { status: "removed", nextMetricsAt: undefined });
-    const post = await ctx.db.get(row.postId);
-    if (post) await log(ctx, post, "removed", `Taken down from ${NETWORKS[row.provider].label} (${row.handle})`);
+    await log(ctx, post, "removed", `Taken down from ${NETWORKS[row.provider].label} (${row.handle})`);
   },
 });
 
@@ -744,7 +768,10 @@ export const ownedDelivery = query({
     await requireServer(ctx);
     const id = ctx.db.normalizeId("socialDeliveries", deliveryId);
     const row = id ? await ctx.db.get(id) : null;
-    return row && row.userId === userId ? row : null;
+    if (!row) return null;
+    if (row.userId === userId) return row;
+    const post = await ownedPost(ctx, userId, row.postId);
+    return post ? row : null;
   },
 });
 
@@ -761,11 +788,29 @@ export const list = query({
   args: { userId: v.id("users"), limit: v.optional(v.number()) },
   handler: async (ctx, { userId, limit }) => {
     await requireServer(ctx);
-    const posts = await ctx.db
+    const cap = Math.min(limit ?? 20, 200);
+    const mine = await ctx.db
       .query("socialPosts")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .take(Math.min(limit ?? 20, 200));
+      .take(cap);
+    const orgIds = await userOrganizationIds(ctx, userId);
+    const seen = new Set(mine.map((post) => post._id));
+    const shared: Doc<"socialPosts">[] = [];
+    for (const orgId of orgIds) {
+      const rows = await ctx.db
+        .query("socialPosts")
+        .withIndex("by_org", (q) => q.eq("organizationId", orgId))
+        .order("desc")
+        .take(cap);
+      for (const row of rows) {
+        if (!seen.has(row._id)) {
+          seen.add(row._id);
+          shared.push(row);
+        }
+      }
+    }
+    const posts = [...mine, ...shared].sort((a, b) => b._creationTime - a._creationTime).slice(0, cap);
     return await Promise.all(posts.map((post) => shapePost(ctx, post)));
   },
 });
@@ -825,7 +870,7 @@ export const sent = query({
         sentAt: row.sentAt!,
         metrics: row.metrics ?? null,
         repost: row.repost ?? false,
-        text: post?.overrides[row.provider] ?? post?.text ?? "",
+        text: post?.overrides[row.accountId] ?? post?.overrides[row.provider] ?? post?.text ?? "",
         tags: post?.tags ?? [],
         shape: {
           images: post?.media.filter((item) => item.kind === "image").length ?? 0,

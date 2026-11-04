@@ -46,6 +46,10 @@ export const SOCIAL_ORDER: readonly SocialProvider[] = [
   "instagram",
   "tiktok",
   "youtube",
+  "mastodon",
+  "discord",
+  "telegram",
+  "reddit",
 ];
 
 export function Counters({
@@ -58,7 +62,7 @@ export function Counters({
   providers: ReadonlySet<SocialProvider>;
   text: string;
   link: string;
-  overrides: Partial<Record<SocialProvider, string>>;
+  overrides: Record<string, string | undefined>;
   limits: Partial<Record<SocialProvider, number>>;
 }) {
   if (providers.size === 0) return null;

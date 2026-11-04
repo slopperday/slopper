@@ -39,6 +39,8 @@ import { findOperation, missingToken, runOperation } from "~/.server/agent/opera
  *   GET    /api/v1/social/posts
  *   POST   /api/v1/social/posts
  *   GET    /api/v1/social/posts/:post
+ *   PATCH  /api/v1/social/posts/:post
+ *   DELETE /api/v1/social/posts/:post
  */
 
 interface Match {
@@ -79,8 +81,11 @@ function route(method: string, path: string): Match | null {
       if (method === "GET") return { operation: "list_social_posts" };
       if (method === "POST") return { operation: "create_social_post" };
     }
-    if (method === "GET" && parts.length === 3 && ref === "posts")
-      return { operation: "get_social_post", post: action };
+    if (parts.length === 3 && ref === "posts") {
+      if (method === "GET") return { operation: "get_social_post", post: action };
+      if (method === "PATCH") return { operation: "edit_social_post", post: action };
+      if (method === "DELETE") return { operation: "cancel_social_post", post: action };
+    }
     return null;
   }
   if (resource !== "slops") return null;

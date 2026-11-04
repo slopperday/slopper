@@ -3,6 +3,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { requireServer } from "./lib/auth";
 import { consume } from "./lib/rate";
+import { canAccessAccount, userOrganizationIds } from "./organizations";
 import { wakeDuePosts } from "./social";
 
 /**
@@ -261,7 +262,13 @@ export const createReview = mutation({
     await requireServer(ctx);
     const id = ctx.db.normalizeId("socialPosts", postId);
     const post = id ? await ctx.db.get(id) : null;
-    if (!post || post.userId !== userId) throw new ConvexError("That post is gone.");
+    if (!post) throw new ConvexError("That post is gone.");
+    if (post.userId !== userId) {
+      const orgIds = await userOrganizationIds(ctx, userId);
+      if (!post.organizationId || !orgIds.has(post.organizationId)) {
+        throw new ConvexError("That post is gone.");
+      }
+    }
     // One live link per post: a new one replaces the old.
     const old = await ctx.db
       .query("socialReviews")
@@ -414,7 +421,7 @@ export const addFeed = mutation({
     for (const raw of accountIds) {
       const id = ctx.db.normalizeId("accounts", raw);
       const account = id ? await ctx.db.get(id) : null;
-      if (account?.userId === userId) accounts.push(account._id);
+      if (account && (await canAccessAccount(ctx, userId, account))) accounts.push(account._id);
     }
     if (accounts.length === 0) throw new ConvexError("Pick the accounts a feed posts as.");
     await ctx.db.insert("socialFeeds", {

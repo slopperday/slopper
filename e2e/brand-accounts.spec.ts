@@ -20,8 +20,8 @@ test("brand accounts stay separate and X credentials never appear in settings HT
   }
   const page = await seed.pageAs(owner);
   await page.goto("/settings/autopost");
-  await expect(page.getByText("brand111", { exact: true })).toBeVisible();
-  await expect(page.getByText("brand222", { exact: true })).toBeVisible();
+  await expect(page.getByText("X · brand111", { exact: true })).toBeVisible();
+  await expect(page.getByText("X · brand222", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect X with my credentials" })).toBeVisible();
   expect(await page.content()).not.toContain(secret);
   for (const label of ["API Key", "API Key Secret", "Access Token", "Access Token Secret"]) {

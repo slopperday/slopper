@@ -29,9 +29,20 @@ import { deleteOrphanedMedia, uploadImage, uploadPublication, uploadVideo } from
 import { checkedContent, checkSlop, checkVideo } from "../moderation";
 import { finishLaunch, releaseScheduled } from "../launch";
 import { announce } from "../social/announce";
-import { saveStudioPost } from "../social/studio";
+import { saveStudioPost, wordsFor } from "../social/studio";
 import { wallTime } from "~/lib/csv";
-import { NETWORK_LABELS } from "~/lib/networks";
+import {
+  NETWORK_LABELS,
+  optionProblems,
+  textLimitFor,
+  unsupportedReason,
+  type NetworkOptions,
+  TIKTOK_PRIVACY,
+  YOUTUBE_PRIVACY,
+  INSTAGRAM_FORMATS,
+} from "~/lib/networks";
+import { measureFor } from "~/lib/compose";
+import { personalize } from "~/lib/variables";
 import { postUpdate } from "../updates";
 import { postReview } from "../reviews";
 import type { User } from "../session";
@@ -316,7 +327,23 @@ function shapeSocialPost(post: Omit<SocialPostShape, "editable"> & { editable?: 
           : "sent",
     scheduledAt: post.scheduledAt === null ? null : new Date(post.scheduledAt).toISOString(),
     tags: post.tags,
+    editable: post.editable ?? null,
+    link: post.link,
+    thread: post.thread,
+    firstComment: post.firstComment,
+    perNetwork: post.overrides,
+    options: post.options,
+    media: post.media.map(({ id, kind, alt, duration, width, height, coverAt }) => ({
+      id,
+      kind,
+      alt,
+      duration,
+      width,
+      height,
+      coverAt,
+    })),
     copies: post.deliveries.map((row) => ({
+      accountId: row.accountId,
       network: row.provider,
       account: row.handle,
       status: row.status,
@@ -329,10 +356,115 @@ function shapeSocialPost(post: Omit<SocialPostShape, "editable"> & { editable?: 
   };
 }
 
+/** Validate each network's complete settings before the composer reads them. */
+function networkOptions(value: unknown, previous: NetworkOptions): NetworkOptions {
+  const changes = asObject(value, "options");
+  const next: NetworkOptions = { ...previous };
+  const bool = (obj: JsonObject, key: string): boolean => {
+    const result = optionalBoolean(obj, key);
+    if (result === undefined) throw new ApiError(400, `options.${key} must be true or false.`);
+    return result;
+  };
+  for (const [network, raw] of Object.entries(changes)) {
+    if (
+      raw === null &&
+      (network === "youtube" || network === "tiktok" || network === "instagram" || network === "linkedin")
+    ) {
+      delete next[network];
+      continue;
+    }
+    const fields = asObject(raw, `options.${network}`);
+    if (network === "youtube") {
+      const privacy = requiredString(fields, "privacy");
+      if (!YOUTUBE_PRIVACY.some((value) => value === privacy)) throw new ApiError(400, "Invalid YouTube privacy.");
+      next.youtube = {
+        title: optionalString(fields, "title") ?? "",
+        privacy: privacy as NonNullable<NetworkOptions["youtube"]>["privacy"],
+        madeForKids: bool(fields, "madeForKids"),
+      };
+    } else if (network === "tiktok") {
+      const privacy = optionalString(fields, "privacy") ?? null;
+      if (privacy !== null && !TIKTOK_PRIVACY.some((value) => value === privacy))
+        throw new ApiError(400, "Invalid TikTok privacy.");
+      next.tiktok = {
+        privacy: privacy as NonNullable<NetworkOptions["tiktok"]>["privacy"],
+        allowComments: bool(fields, "allowComments"),
+        allowDuet: bool(fields, "allowDuet"),
+        allowStitch: bool(fields, "allowStitch"),
+        brandedContent: bool(fields, "brandedContent"),
+        yourBrand: bool(fields, "yourBrand"),
+      };
+    } else if (network === "instagram") {
+      const format = requiredString(fields, "format");
+      if (!INSTAGRAM_FORMATS.some((value) => value === format)) throw new ApiError(400, "Invalid Instagram format.");
+      next.instagram = {
+        format: format as NonNullable<NetworkOptions["instagram"]>["format"],
+        collaborators: optionalStrings(fields, "collaborators"),
+      };
+    } else if (network === "linkedin") {
+      next.linkedin = { documentTitle: optionalString(fields, "documentTitle") ?? "" };
+    } else throw new ApiError(400, `Unknown network options: ${network}.`);
+  }
+  return next;
+}
+
 async function socialPostSummary(user: User, postId: string) {
-  const post = await convex.query(api.social.get, { userId: user._id, postId });
+  const [post, accounts] = await Promise.all([
+    convex.query(api.social.get, { userId: user._id, postId }),
+    convex.query(api.accounts.list, { userId: user._id }),
+  ]);
   if (!post) throw new ApiError(404, "No such post.");
-  return shapeSocialPost(post);
+  const video = post.media.find((item) => item.kind === "video");
+  const shape = {
+    images: post.media.filter((item) => item.kind === "image").length,
+    video: video ? (video.duration ?? 0) : null,
+    documents: post.media.filter((item) => item.kind === "document").length,
+  };
+  const context = { timeZone: user.timeZone, product: post.product?.name ?? null };
+  const copies = post.deliveries.map((row) => {
+    const account = accounts.find((entry) => entry._id === row.accountId);
+    const warnings: string[] = [];
+    if (!account) warnings.push("Account is no longer available; reconnect or remove it.");
+    if (account?.broken) warnings.push(`Reconnect this account: ${account.broken}`);
+    if (!row.repost) {
+      const reason = unsupportedReason(row.provider, shape);
+      if (reason) warnings.push(reason);
+      warnings.push(...optionProblems(new Set([row.provider]), post.options));
+      const raw = post.overrides[row.accountId]?.trim() || post.overrides[row.provider]?.trim() || post.text;
+      const at = post.scheduledAt ?? Date.now();
+      const expanded = personalize(raw, row.accountId, {
+        at,
+        ...context,
+        link: post.link,
+        network: NETWORK_LABELS[row.provider],
+      });
+      const suffix =
+        post.link && row.provider !== "instagram" && row.provider !== "tiktok" && !expanded.includes(post.link)
+          ? `\n\n${post.link}`
+          : "";
+      if (measureFor(row.provider)(expanded.trim() + suffix) > textLimitFor(row.provider, account)) {
+        warnings.push("This copy exceeds the account's character limit and will be shortened. Edit it before sending.");
+      }
+    }
+    return {
+      accountId: row.accountId,
+      text: row.repost
+        ? null
+        : wordsFor(row.provider, post, {
+            account: { _id: row.accountId, longPosts: account?.longPosts },
+            context,
+            at: post.scheduledAt ?? Date.now(),
+          }),
+      warnings,
+    };
+  });
+  return {
+    ...shapeSocialPost(post),
+    readiness: {
+      note: "Preflight guidance only: the content check and network acceptance happen when scheduling or sending.",
+      copies,
+    },
+  };
 }
 
 export const OPERATIONS: Operation[] = [
@@ -1094,6 +1226,153 @@ export const OPERATIONS: Operation[] = [
     readOnly: true,
     async run({ user }, input) {
       return await socialPostSummary(user, requiredString(input, "post"));
+    },
+  },
+  {
+    name: "edit_social_post",
+    title: "Edit or schedule a social draft",
+    description:
+      "Change a draft or an unsent scheduled post. Only supplied fields change. Omit at to keep its current state; use draft, queue, or a future date-time to choose when all selected accounts post. Use now only when asked to post immediately. Scheduling runs the content check first. Times without an offset use the user's time zone.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        post: { type: "string", description: "Post id from list_social_posts." },
+        text: { type: "string" },
+        link: { type: "string", description: "Set to an empty string to clear." },
+        accounts: {
+          type: "array",
+          items: { type: "string" },
+          description: "Replace posting account ids; omit to keep them.",
+        },
+        repostAccounts: { type: "array", items: { type: "string" }, description: "Replace repost account ids." },
+        thread: { type: "array", items: { type: "string" } },
+        firstComment: { type: "string" },
+        perNetwork: { type: "object", description: "Replace all network and account text overrides." },
+        options: {
+          type: "object",
+          description:
+            "Replace settings for individual networks, keyed by youtube, tiktok, instagram or linkedin; use null to clear one.",
+        },
+        copy: {
+          type: "object",
+          description: "Update individual account or network overrides; an empty string removes one override.",
+        },
+        tags: { type: "array", items: { type: "string" } },
+        trackLinks: { type: "boolean" },
+        media: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Replace media with uploaded IDs; an empty list clears it. Existing metadata is kept for retained IDs.",
+        },
+        frames: {
+          type: "array",
+          items: { type: "string" },
+          description: "Checked screenshot IDs of a large video's frames, required when scheduling videos over 20 MB.",
+        },
+        at: {
+          type: "string",
+          description: "draft, queue, now, or a future ISO date-time. Omit to leave the schedule unchanged.",
+        },
+      },
+      required: ["post"],
+    },
+    readOnly: false,
+    async run({ user }, input) {
+      const postId = requiredString(input, "post").trim();
+      const post = await convex.query(api.social.get, { userId: user._id, postId });
+      if (!post) throw new ApiError(404, "No such post.");
+      if (!post.editable) throw new ApiError(400, "Only drafts and unsent scheduled posts can be changed.");
+      const at = optionalString(input, "at")?.trim();
+      if (at === "") throw new ApiError(400, "at must be draft, queue, now or a date-time.");
+      const special = at === undefined || at === "draft" || at === "queue" || at === "now";
+      const parsed = special ? null : wallTime(at, user.timeZone);
+      if (!special && parsed === null) throw new ApiError(400, "at must be draft, queue, now or a date-time.");
+      let overrides = post.overrides;
+      if (input.perNetwork !== undefined) {
+        const given = asObject(input.perNetwork, "perNetwork");
+        overrides = {};
+        for (const [key, value] of Object.entries(given)) {
+          if (typeof value !== "string") throw new ApiError(400, "perNetwork values must be strings.");
+          overrides[key] = value;
+        }
+      }
+      if (input.copy !== undefined) {
+        const available = await convex.query(api.accounts.list, { userId: user._id });
+        const selected = new Set(
+          optionalStrings(input, "accounts") ??
+            post.deliveries.filter((row) => !row.repost).map((row) => row.accountId),
+        );
+        const keys = new Set(
+          available
+            .filter((account) => selected.has(account._id))
+            .flatMap((account) => [String(account._id), account.provider]),
+        );
+        overrides = { ...overrides };
+        for (const [key, value] of Object.entries(asObject(input.copy, "copy"))) {
+          if (!keys.has(key)) throw new ApiError(400, `No selected account or network named ${key}.`);
+          if (typeof value !== "string") throw new ApiError(400, "copy values must be strings.");
+          if (value.trim()) overrides[key] = value;
+          else delete overrides[key];
+        }
+      }
+      const result = await saveStudioPost(user, {
+        postId,
+        text: optionalString(input, "text") ?? post.text,
+        link: optionalString(input, "link") ?? post.link ?? "",
+        productId: post.product?.id ?? null,
+        accountIds:
+          optionalStrings(input, "accounts") ??
+          post.deliveries.filter((row) => !row.repost).map((row) => row.accountId),
+        repostAccountIds:
+          optionalStrings(input, "repostAccounts") ??
+          post.deliveries.filter((row) => row.repost).map((row) => row.accountId),
+        media: (optionalStrings(input, "media") ?? post.media.map((item) => item.id)).map((id) => {
+          const item = post.media.find((entry) => entry.id === id);
+          return {
+            id,
+            duration: item?.duration ?? undefined,
+            width: item?.width ?? undefined,
+            height: item?.height ?? undefined,
+            alt: item?.alt,
+            coverAt: item?.coverAt ?? undefined,
+          };
+        }),
+        frames: optionalStrings(input, "frames") ?? [],
+        overrides,
+        options: input.options === undefined ? post.options : networkOptions(input.options, post.options),
+        scheduledAt: at === undefined ? post.scheduledAt : parsed,
+        queue: at === "queue",
+        draft: at === undefined ? post.draft : at === "draft",
+        thread: optionalStrings(input, "thread") ?? post.thread,
+        firstComment: optionalString(input, "firstComment") ?? post.firstComment,
+        note: post.note,
+        tags: optionalStrings(input, "tags") ?? post.tags,
+        repeat: post.repeat,
+        staggerMinutes: post.staggerMinutes,
+        plug: post.plug,
+        trackLinks: optionalBoolean(input, "trackLinks") ?? post.trackLinks,
+        coverMediaId: post.cover?.id ?? null,
+      });
+      if (!result.ok) throw new ApiError(400, result.error);
+      return await socialPostSummary(user, result.postId);
+    },
+  },
+  {
+    name: "cancel_social_post",
+    title: "Cancel a scheduled social post or delete a draft",
+    description: "Cancel an unsent scheduled post, or delete a draft. Nothing is posted.",
+    inputSchema: { type: "object", properties: { post: { type: "string" } }, required: ["post"] },
+    readOnly: false,
+    async run({ user }, input) {
+      const postId = requiredString(input, "post").trim();
+      const post = await convex.query(api.social.get, { userId: user._id, postId });
+      if (!post) throw new ApiError(404, "No such post.");
+      const cancelled = post.draft
+        ? await convex.mutation(api.social.discard, { userId: user._id, postId })
+        : await convex.mutation(api.social.cancel, { userId: user._id, postId });
+      if (!cancelled) throw new ApiError(400, "Only drafts and unsent scheduled posts can be cancelled.");
+      return { id: postId, status: post.draft ? "deleted" : "cancelled" };
     },
   },
   {

@@ -127,19 +127,18 @@ took from them. The "Seen in" column names a few of the products that have it.
 
 ### Automation and agents
 
-| #   | Feature                                                                                            | Seen in                   | Where                      |
-| --- | -------------------------------------------------------------------------------------------------- | ------------------------- | -------------------------- |
-| 66  | RSS and Atom feeds to posts (at once or at the next queue time)                                    | Publer, Postiz, Metricool | Studio settings            |
-| 67  | Signed webhooks for `post.published` and `post.failed`                                             | Postiz, Mixpost, Ayrshare | Studio settings            |
-| 68  | MCP and REST: `list_social_accounts`, `create_social_post`, `list_social_posts`, `get_social_post` | Postiz, Buffer, Typefully | `/mcp`, `/api/v1/social/*` |
-| 69  | Idempotency keys                                                                                   | Ayrshare                  | `create_social_post`       |
-| 70  | CLI: `social-accounts`, `social-post`, `social-posts`, `social-status`                             | Postiz, Mixpost           | `@slopperday/cli`          |
-| 71  | Agent skill section                                                                                | Typefully, Post Bridge    | `packages/skill/SKILL.md`  |
+| #   | Feature                                                                                                                                      | Seen in                   | Where                      |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | -------------------------- |
+| 66  | RSS and Atom feeds to posts (at once or at the next queue time)                                                                              | Publer, Postiz, Metricool | Studio settings            |
+| 67  | Signed webhooks for `post.published` and `post.failed`                                                                                       | Postiz, Mixpost, Ayrshare | Studio settings            |
+| 68  | MCP and REST: `list_social_accounts`, `create_social_post`, `list_social_posts`, `get_social_post`, `edit_social_post`, `cancel_social_post` | Postiz, Buffer, Typefully | `/mcp`, `/api/v1/social/*` |
+| 69  | Idempotency keys                                                                                                                             | Ayrshare                  | `create_social_post`       |
+| 70  | CLI: `social accounts`, `social post`, `social posts`, `social status`, `social edit`, `social cancel`                                       | Postiz, Mixpost           | `@slopperday/cli`          |
+| 71  | Agent skill section                                                                                                                          | Typefully, Post Bridge    | `packages/skill/SKILL.md`  |
 
 ### Left out, and why
 
-- **Team workspaces, roles, multi-step approvals, SSO:** Slopper accounts belong to
-  one maker. The preview link covers sign-off by a client or teammate.
+- **Multi-step approvals and SSO:** the preview link covers sign-off by a client or teammate.
 - **A full unified inbox (DMs, mentions, listening, sentiment, comment-to-DM):**
   needs read and messaging permissions networks grant only after review. Comments
   and replies are on each post's page.
@@ -209,9 +208,6 @@ These are platform gates, not code:
 - Downloads for upload-based networks (X, LinkedIn, TikTok, YouTube) read the
   whole video into memory and must finish inside the function's time limit. Move
   delivery for big videos to a Netlify background function (15 minutes).
-- No editing of a scheduled post: cancel and write it again.
-- Agent access (an MCP/REST operation and a CLI command) isn't built yet.
-- Comments and replies aren't read into Slopper yet: counts only.
 - Bluesky video and LinkedIn Company Pages aren't supported yet.
 
 Official references:
