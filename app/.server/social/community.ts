@@ -1,4 +1,7 @@
 import { composeFor } from "~/lib/compose";
+import { api } from "@convex/_generated/api";
+import { config } from "../config";
+import { convex } from "../convex";
 import { publicFetch } from "../preview";
 import { assertPublicService } from "./adapters";
 import {
@@ -13,6 +16,7 @@ import {
   type PostMetrics,
   type SocialAdapter,
   SocialError,
+  sealCredentials,
 } from "./core";
 
 export interface MastodonCredentials {
@@ -39,6 +43,9 @@ export interface RedditCredentials {
   kind: "reddit";
   subreddit: string;
   accessToken: string;
+  /** From the OAuth connection: Reddit's access tokens last an hour, so it refreshes them. */
+  refreshToken?: string;
+  expiresAt?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,12 +99,17 @@ export function mastodonAdapter(): SocialAdapter {
     const form = new FormData();
     form.set("file", new Blob([bytes], { type: media.contentType }), "upload");
     if (media.alt?.trim()) form.set("description", media.alt.trim().slice(0, 1500));
-    const response = await fetch(`${credentials.service}/api/v2/media`, {
+    // The instance is an address someone typed, so the upload goes through the pinned transport
+    // like every other call to it: encode the form to bytes first, as that transport sends bytes.
+    const encoded = new Response(form);
+    const response = await publicFetch(new URL(`${credentials.service}/api/v2/media`), {
       method: "POST",
-      headers: { authorization: `Bearer ${credentials.accessToken}` },
-      body: form,
-      redirect: "error",
-      signal: AbortSignal.timeout(60_000),
+      headers: {
+        authorization: `Bearer ${credentials.accessToken}`,
+        "content-type": encoded.headers.get("content-type") ?? "multipart/form-data",
+      },
+      body: new Uint8Array(await encoded.arrayBuffer()),
+      timeoutMs: 60_000,
     });
     const data = await okJson<{ id: string }>(response, "Mastodon");
     return data.id;
@@ -434,6 +446,53 @@ export function telegramAdapter(): SocialAdapter {
 const REDDIT_OAUTH = "https://oauth.reddit.com";
 const REDDIT_UA = "web:slopper.studio:v1.0";
 
+/**
+ * An account's Reddit credentials with a live access token: tokens from the
+ * OAuth connection refresh themselves (and are stored again); a pasted token
+ * lasts an hour, then asks to reconnect.
+ */
+export async function redditCredentials(account: ConnectedAccount): Promise<RedditCredentials> {
+  const credentials = await openCredentials<RedditCredentials>(account);
+  const expiresAt = credentials.expiresAt ? Date.parse(credentials.expiresAt) : Infinity;
+  if (expiresAt - Date.now() > 120_000) return credentials;
+  if (!credentials.refreshToken || !config.reddit) {
+    throw new SocialError("Reddit signed this account out. Reconnect it.");
+  }
+  const response = await fetch("https://www.reddit.com/api/v1/access_token", {
+    method: "POST",
+    headers: {
+      authorization: `Basic ${btoa(`${config.reddit.clientId}:${config.reddit.clientSecret}`)}`,
+      "content-type": "application/x-www-form-urlencoded",
+      "user-agent": REDDIT_UA,
+    },
+    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: credentials.refreshToken }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const tokens = await okJson<{ access_token?: string; expires_in?: number }>(response, "Reddit");
+  if (!tokens.access_token) throw new SocialError("Reddit signed this account out. Reconnect it.");
+  const next: RedditCredentials = {
+    ...credentials,
+    accessToken: tokens.access_token,
+    expiresAt: new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString(),
+  };
+  await convex.mutation(api.accounts.storeCredentials, {
+    accountId: account._id,
+    sealedCredentials: await sealCredentials(next),
+  });
+  return next;
+}
+
+/** Who a Reddit token belongs to, when connecting. */
+export async function fetchRedditIdentity(accessToken: string): Promise<{ name: string; icon: string | null }> {
+  const response = await fetch(`${REDDIT_OAUTH}/api/v1/me`, {
+    headers: { authorization: `Bearer ${accessToken}`, "user-agent": REDDIT_UA },
+    signal: AbortSignal.timeout(15_000),
+  });
+  const me = await okJson<{ name?: string; icon_img?: string }>(response, "Reddit");
+  if (!me.name) throw new SocialError("Reddit didn't say whose account that is.");
+  return { name: me.name, icon: me.icon_img?.split("?")[0] || null };
+}
+
 export async function fetchRedditSubreddit(subredditRaw: string, accessTokenRaw: string) {
   const subreddit = subredditRaw
     .trim()
@@ -481,7 +540,7 @@ function splitRedditTitleAndBody(text: string): { title: string; selftext: strin
 
 export function redditAdapter(): SocialAdapter {
   async function submit(account: ConnectedAccount, title: string, bodyOrUrl: { selftext?: string; url?: string }) {
-    const credentials = await openCredentials<RedditCredentials>(account);
+    const credentials = await redditCredentials(account);
     const params = new URLSearchParams({
       api_type: "json",
       sr: credentials.subreddit,
@@ -536,7 +595,7 @@ export function redditAdapter(): SocialAdapter {
       return { status: "ok", post };
     },
     async reply(account, parent, text) {
-      const credentials = await openCredentials<RedditCredentials>(account);
+      const credentials = await redditCredentials(account);
       const thingId = parent.remoteId.startsWith("t") ? parent.remoteId : `t3_${parent.remoteId}`;
       const params = new URLSearchParams({
         api_type: "json",
@@ -558,7 +617,7 @@ export function redditAdapter(): SocialAdapter {
       return { remoteId };
     },
     async remove(account, remoteId) {
-      const credentials = await openCredentials<RedditCredentials>(account);
+      const credentials = await redditCredentials(account);
       const thingId = remoteId.startsWith("t") ? remoteId : `t3_${remoteId}`;
       const response = await fetch(`${REDDIT_OAUTH}/api/del`, {
         method: "POST",
@@ -573,7 +632,7 @@ export function redditAdapter(): SocialAdapter {
       await expectOk(response, "Reddit");
     },
     async metrics(account, posts) {
-      const credentials = await openCredentials<RedditCredentials>(account);
+      const credentials = await redditCredentials(account);
       const found = new Map<string, PostMetrics>();
       const ids = posts.map((p) => (p.remoteId.startsWith("t") ? p.remoteId : `t3_${p.remoteId}`));
       if (ids.length === 0) return found;

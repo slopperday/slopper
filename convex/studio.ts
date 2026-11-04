@@ -4,7 +4,7 @@ import { mutation, query, type QueryCtx } from "./_generated/server";
 import { requireServer } from "./lib/auth";
 import { consume } from "./lib/rate";
 import { canAccessAccount, userOrganizationIds } from "./organizations";
-import { wakeDuePosts } from "./social";
+import { DEFAULT_SLOTS, wakeDuePosts } from "./social";
 
 /**
  * The studio's supporting records: the posting queue and pause switch, the
@@ -15,8 +15,6 @@ import { wakeDuePosts } from "./social";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
-/** A sensible queue to start with: weekdays at 9:00, 12:30 and 17:00. */
-export const DEFAULT_SLOTS = [1, 2, 3, 4, 5].flatMap((day) => [540, 750, 1020].map((minute) => ({ day, minute })));
 
 function token(bytes = 24): string {
   const raw = new Uint8Array(bytes);
@@ -41,6 +39,7 @@ export const settings = query({
       paused: row?.paused ?? false,
       slots: row?.slots ?? DEFAULT_SLOTS,
       calendarToken: row?.calendarToken ?? null,
+      lastAccountIds: row?.lastAccountIds ?? [],
       webhook: row?.webhook ?? null,
     };
   },

@@ -130,6 +130,15 @@ const PROVIDERS: Record<AuthProviderId, ProviderSpec> = {
     clientIdParam: "client_key",
     scopeSeparator: ",",
   },
+  reddit: {
+    authorizeUrl: "https://www.reddit.com/api/v1/authorize",
+    tokenUrl: "https://www.reddit.com/api/v1/access_token",
+    connectScopes: ["identity", "submit", "read", "edit", "history", "mysubreddits"],
+    pkce: false,
+    clientAuth: "basic",
+    // A refresh token that lasts, so scheduled posts keep working past the first hour.
+    connectParams: { duration: "permanent" },
+  },
   threads: {
     authorizeUrl: "https://threads.net/oauth/authorize",
     tokenUrl: "https://graph.threads.net/oauth/access_token",
@@ -146,6 +155,13 @@ const PROVIDERS: Record<AuthProviderId, ProviderSpec> = {
     scopeSeparator: ",",
   },
 };
+
+/** What posting as a LinkedIn Company Page asks for (Community Management API). */
+export const LINKEDIN_PAGE_SCOPES = [
+  "w_organization_social",
+  "r_organization_social",
+  "rw_organization_admin",
+] as const;
 
 export function clientCredentials(provider: AuthProviderId): OAuthClientCredentials | null {
   return config[provider];
@@ -210,7 +226,12 @@ export async function authorizationUrl(
   codeVerifier: string,
 ): Promise<URL> {
   const spec = PROVIDERS[provider];
-  const scopes = intent === "connect" ? spec.connectScopes : spec.loginScopes;
+  const baseScopes = intent === "connect" ? spec.connectScopes : spec.loginScopes;
+  // Company Pages need LinkedIn's approval first; LINKEDIN_PAGES turns them on once it's granted.
+  const scopes =
+    baseScopes && provider === "linkedin" && intent === "connect" && config.linkedinPages
+      ? [...baseScopes, ...LINKEDIN_PAGE_SCOPES]
+      : baseScopes;
   if (!scopes) throw new OAuthError(`${AUTH_LABELS[provider]} can't do that.`);
   const url = new URL(spec.authorizeUrl);
   url.searchParams.set("response_type", "code");
@@ -255,6 +276,8 @@ async function tokenRequest(
   const headers: Record<string, string> = {
     "content-type": "application/x-www-form-urlencoded",
     accept: "application/json",
+    // Reddit refuses requests without a descriptive one.
+    "user-agent": "web:slopper.day:v1 (by /u/slopperday)",
   };
   if (spec.clientAuth === "basic") {
     headers.authorization = `Basic ${btoa(`${client.clientId}:${client.clientSecret}`)}`;

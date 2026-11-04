@@ -13,7 +13,8 @@ import { requireServer } from "./lib/auth";
 import { isImage, isPublication, isVideo, mediaUrl } from "./lib/media";
 import { consume } from "./lib/rate";
 import { canAccessAccount, userOrganizationIds } from "./organizations";
-import { networkOptionsValidator, socialMetricsValidator } from "./schema";
+import { networkOptionsValidator, socialMetricsValidator, socialVariantValidator } from "./schema";
+import { xTwins } from "../app/lib/destinations";
 import { NETWORKS } from "../app/lib/networks";
 import { hasSpintax } from "../app/lib/variables";
 
@@ -108,6 +109,8 @@ async function shapePost(ctx: QueryCtx, post: Doc<"socialPosts">) {
     text: post.text,
     link: post.link,
     overrides: post.overrides,
+    variants: post.variants ?? {},
+    times: post.times ?? {},
     options: post.options,
     scheduledAt: post.scheduledAt,
     cancelled: post.cancelled ?? false,
@@ -187,6 +190,8 @@ const postFields = {
   plug: v.optional(v.object({ likes: v.number(), text: v.string() })),
   trackLinks: v.optional(v.boolean()),
   coverMediaId: v.optional(v.string()),
+  variants: v.optional(v.record(v.string(), socialVariantValidator)),
+  times: v.optional(v.record(v.string(), v.number())),
 };
 
 type PostInput = Infer<ReturnType<typeof v.object<typeof postFields>>> & { userId: Id<"users"> };
@@ -207,7 +212,8 @@ async function ownedAccounts(ctx: MutationCtx, userId: Id<"users">, ids: readonl
 /** Checks what a post is made of, and turns the input into what's stored (without deliveries). */
 async function preparePost(ctx: MutationCtx, args: PostInput) {
   const accounts = await ownedAccounts(ctx, args.userId, args.accountIds);
-  if (accounts.length === 0) throw new ConvexError("Pick at least one account to post as.");
+  // An idea can wait for its accounts; only posting needs them.
+  if (accounts.length === 0 && !args.draft) throw new ConvexError("Pick at least one account to post as.");
   const reposters = (await ownedAccounts(ctx, args.userId, args.repostAccountIds ?? [])).filter(
     (account) => !accounts.some((other) => other._id === account._id),
   );
@@ -253,6 +259,54 @@ async function preparePost(ctx: MutationCtx, args: PostInput) {
     const row = id ? await ctx.db.get(id) : null;
     if (!row || row.ownerId !== args.userId || !isImage(row)) throw new ConvexError("That thumbnail is gone.");
     coverMediaId = row._id;
+  }
+
+  // Each network's or account's own media is a choice among the post's uploads.
+  const keys = new Set<string>([
+    ...accounts.map((account) => String(account._id)),
+    ...accounts.map((account) => account.provider),
+  ]);
+  const uploads = new Set(media.map((item) => String(item.mediaId)));
+  const variants: Record<string, Infer<typeof socialVariantValidator>> = {};
+  for (const [key, variant] of Object.entries(args.variants ?? {})) {
+    if (!keys.has(key)) continue;
+    const clean: Infer<typeof socialVariantValidator> = {};
+    if (variant.media !== undefined) {
+      if (variant.media.some((id) => !uploads.has(id)))
+        throw new ConvexError("A network's media must be one of the post's uploads.");
+      clean.media = [...new Set(variant.media)].slice(0, 20);
+    }
+    if (variant.link !== undefined) clean.link = variant.link?.trim().slice(0, 2048) || null;
+    if (variant.firstComment !== undefined) clean.firstComment = variant.firstComment.trim().slice(0, 5000);
+    if (Object.keys(clean).length) variants[key] = clean;
+  }
+  const accountIds = new Set(accounts.map((account) => String(account._id)));
+  const times: Record<string, number> = {};
+  for (const [id, at] of Object.entries(args.times ?? {})) {
+    if (!accountIds.has(id) || !Number.isFinite(at)) continue;
+    if (!args.draft && at < Date.now() - 60_000) throw new ConvexError("Pick times in the future for every account.");
+    times[id] = at;
+  }
+
+  // X forbids the same automated post from several accounts one person runs.
+  if (!args.draft) {
+    const destinationPost = {
+      text: args.text,
+      link: args.link,
+      media: [],
+      overrides: args.overrides,
+      variants,
+      options: args.options,
+    };
+    const picked = accounts.map((account) => ({ id: account._id, provider: account.provider, handle: account.handle }));
+    for (const account of picked) {
+      const twins = xTwins(destinationPost, account, picked);
+      if (twins.length) {
+        throw new ConvexError(
+          `@${account.handle} and @${twins[0]} would post the same words on X, which X doesn't allow. Give each X account its own version.`,
+        );
+      }
+    }
   }
 
   let productId: Id<"slops"> | null = null;
@@ -319,6 +373,8 @@ async function preparePost(ctx: MutationCtx, args: PostInput) {
         : undefined,
     trackLinks: (args.trackLinks && args.link !== null) || undefined,
     coverMediaId,
+    variants: Object.keys(variants).length ? variants : undefined,
+    times: Object.keys(times).length ? times : undefined,
   };
   return { fields, accounts, reposters };
 }
@@ -354,8 +410,10 @@ async function makeDeliveries(
   const stagger = (post.staggerMinutes ?? 0) * 60_000;
   const due = new Set<number>();
   for (const [index, account] of accounts.entries()) {
-    const notBefore = stagger ? base + index * stagger : undefined;
-    if (notBefore !== undefined && notBefore > base) due.add(notBefore);
+    // An account's own time wins; otherwise its staggered turn after the post's time.
+    const own = post.times?.[account._id];
+    const notBefore = own ?? (stagger ? base + index * stagger : undefined);
+    if (notBefore !== undefined && notBefore > Date.now()) due.add(notBefore);
     await ctx.db.insert("socialDeliveries", {
       postId: post._id,
       userId: post.userId,
@@ -380,15 +438,18 @@ async function makeDeliveries(
     });
   }
   // Drafts aren't checked yet: no Slopper short link points anywhere until the post is.
-  if (post.trackLinks && post.link && !post.draft) {
+  if (post.trackLinks && !post.draft) {
     const campaign = post.tags?.[0] ?? "slopper-studio";
     for (const provider of new Set(accounts.map((account) => account.provider))) {
+      const own = post.variants?.[provider]?.link;
+      const target = own === undefined ? post.link : own;
+      if (!target) continue;
       await ctx.db.insert("socialLinks", {
         code: randomCode(),
         userId: post.userId,
         postId: post._id,
         provider,
-        url: utmLink(post.link, provider, campaign),
+        url: utmLink(target, provider, campaign),
         clicks: 0,
       });
     }
@@ -447,9 +508,22 @@ export const create = mutation({
     const post = (await ctx.db.get(postId))!;
     await log(ctx, post, "created", `${describeTime(post)}, for ${accounts.length + reposters.length} accounts`);
     await makeDeliveries(ctx, post, accounts, reposters);
+    await rememberAccounts(ctx, args.userId, accounts);
     return postId;
   },
 });
+
+/** A sensible queue to start with: weekdays at 9:00, 12:30 and 17:00. */
+export const DEFAULT_SLOTS = [1, 2, 3, 4, 5].flatMap((day) => [540, 750, 1020].map((minute) => ({ day, minute })));
+
+/** The composer's "Last used" set: the accounts this person's latest post went to. */
+async function rememberAccounts(ctx: MutationCtx, userId: Id<"users">, accounts: readonly Doc<"accounts">[]) {
+  if (accounts.length === 0) return;
+  const lastAccountIds = accounts.map((account) => account._id);
+  const row = await settingsOf(ctx, userId);
+  if (row) await ctx.db.patch(row._id, { lastAccountIds });
+  else await ctx.db.insert("socialSettings", { userId, slots: DEFAULT_SLOTS, lastAccountIds });
+}
 
 /** Whether a post can still be changed: a draft, or scheduled and not yet gone out. */
 async function editable(ctx: QueryCtx, post: Doc<"socialPosts">): Promise<boolean> {
@@ -481,6 +555,7 @@ export const update = mutation({
     const next = (await ctx.db.get(post._id))!;
     await log(ctx, next, "edited", describeTime(next));
     await makeDeliveries(ctx, next, accounts, reposters);
+    await rememberAccounts(ctx, args.userId, accounts);
     return post._id;
   },
 });
@@ -496,7 +571,10 @@ export const reschedule = mutation({
     }
     if (scheduledAt < Date.now() + 60_000) throw new ConvexError("Pick a time in the future.");
     const shift = scheduledAt - (post.scheduledAt ?? scheduledAt);
-    await ctx.db.patch(post._id, { scheduledAt });
+    const times = post.times
+      ? Object.fromEntries(Object.entries(post.times).map(([id, at]) => [id, at + shift]))
+      : undefined;
+    await ctx.db.patch(post._id, { scheduledAt, ...(times ? { times } : {}) });
     for (const row of await deliveriesOf(ctx, post._id)) {
       if (row.notBefore !== undefined) {
         await ctx.db.patch(row._id, { notBefore: row.notBefore + shift });
@@ -711,7 +789,11 @@ export const recordParts = mutation({
   },
 });
 
-/** Queues a post's failed copies again. Sent ones stay sent, so a retry never posts twice. */
+/**
+ * Queues a post's failed copies again. Sent ones stay sent, and so do
+ * uncertain ones (the network may have taken them): those wait for their
+ * owner to check the account and say what happened (`resolveUncertain`).
+ */
 export const retry = mutation({
   args: { userId: v.id("users"), postId: v.string() },
   handler: async (ctx, { userId, postId }) => {
@@ -721,12 +803,54 @@ export const retry = mutation({
     await consume(ctx, `social-retry:${userId}`, POSTS_PER_HOUR, HOUR);
     let queued = 0;
     for (const row of await deliveriesOf(ctx, post._id)) {
-      if (row.status !== "error") continue;
+      if (row.status !== "error" || row.uncertain) continue;
       await ctx.db.patch(row._id, { status: "queued", message: undefined, uncertain: undefined, notBefore: undefined });
       queued++;
     }
     if (queued) await log(ctx, post, "retried", `${queued} failed ${queued === 1 ? "copy" : "copies"} queued again`);
     return queued;
+  },
+});
+
+/**
+ * Settles a copy whose outcome wasn't known, once its owner has looked at
+ * the account: it posted (with its address, when they have it), or it
+ * didn't and should go again.
+ */
+export const resolveUncertain = mutation({
+  args: {
+    userId: v.id("users"),
+    deliveryId: v.string(),
+    outcome: v.union(v.literal("posted"), v.literal("resend")),
+    url: v.optional(v.string()),
+  },
+  handler: async (ctx, { userId, deliveryId, outcome, url }) => {
+    await requireServer(ctx);
+    const id = ctx.db.normalizeId("socialDeliveries", deliveryId);
+    const row = id ? await ctx.db.get(id) : null;
+    const post = row ? await ownedPost(ctx, userId, row.postId) : null;
+    if (!row || !post || row.status !== "error" || !row.uncertain) return false;
+    if (outcome === "posted") {
+      await ctx.db.patch(row._id, {
+        status: "ok",
+        uncertain: undefined,
+        message: undefined,
+        sentAt: Date.now(),
+        ...(url ? { url } : {}),
+      });
+      await log(ctx, post, "confirmed", `${row.handle} on ${NETWORKS[row.provider].label}: checked, it posted`);
+      return true;
+    }
+    await consume(ctx, `social-retry:${userId}`, POSTS_PER_HOUR, HOUR);
+    await ctx.db.patch(row._id, { status: "queued", uncertain: undefined, message: undefined, notBefore: undefined });
+    await log(
+      ctx,
+      post,
+      "retried",
+      `${row.handle} on ${NETWORKS[row.provider].label}: checked, it didn't post; sending again`,
+    );
+    await ctx.scheduler.runAfter(0, internal.social.tellApp, { postId: post._id, attempt: 1 });
+    return true;
   },
 });
 
@@ -1102,7 +1226,7 @@ export const mediaForOwner = query({
       const id = ctx.db.normalizeId("media", raw);
       const media = id ? await ctx.db.get(id) : null;
       if (!media || media.ownerId !== ownerId || media.orphanedAt !== undefined) continue;
-      const kind = isVideo(media)
+      const kind: "video" | "image" | "document" | null = isVideo(media)
         ? "video"
         : isImage(media)
           ? "image"

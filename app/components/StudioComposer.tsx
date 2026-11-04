@@ -10,6 +10,7 @@ import {
   type YouTubeOptions,
 } from "~/lib/networks";
 import type { CreatorInfo } from "~/.server/social/tiktok";
+import type { Variant } from "~/lib/destinations";
 import { Icon } from "./Icon";
 import { NetworkBadge, type StudioAccount } from "./Studio";
 
@@ -35,6 +36,8 @@ export interface Attachment {
   /** The second the cover is taken from. */
   coverAt?: number;
   fileName?: string;
+  /** Where the stored copy is, so a restored draft can show it after the browser's preview URL is gone. */
+  remoteUrl?: string;
 }
 
 export const SOCIAL_ORDER: readonly SocialProvider[] = [
@@ -461,7 +464,7 @@ export function MediaPicker({
       try {
         const uploaded = await uploadPicture(await prepareImage(file), file.name);
         // The preview keeps showing the file from this device: it's there already, and it's what was sent.
-        patch(key, { id: uploaded.id, progress: 1 });
+        patch(key, { id: uploaded.id, progress: 1, remoteUrl: uploaded.url });
       } catch (problem) {
         patch(key, { error: problem instanceof Error ? problem.message : "That upload didn't save." });
       }
@@ -484,7 +487,7 @@ export function MediaPicker({
       }
       patch(key, { duration: facts.duration, width: facts.width, height: facts.height, frames, coverAt: 0 });
       const uploaded = await uploadVideo(file, (progress) => patch(key, { progress }));
-      patch(key, { id: uploaded.id, progress: 1 });
+      patch(key, { id: uploaded.id, progress: 1, remoteUrl: uploaded.url });
     } catch (problem) {
       patch(key, { error: problem instanceof Error ? problem.message : "That upload didn't save." });
     }
@@ -658,3 +661,125 @@ export function MediaPicker({
 }
 
 export type { StudioAccount };
+
+/**
+ * What one network or account gets besides its words: its own link, first
+ * comment and media (a choice among the post's uploads). Each part says
+ * whether it's the shared one, and "Use shared version" puts everything back.
+ */
+export function VariantFields({
+  target,
+  label,
+  variant,
+  sharedLink,
+  sharedComment,
+  comments,
+  media,
+  onChange,
+  onReset,
+}: {
+  target: string;
+  label: string;
+  variant: Variant | undefined;
+  sharedLink: string;
+  sharedComment: string;
+  /** The network takes a first comment. */
+  comments: boolean;
+  media: readonly Attachment[];
+  onChange: (change: Partial<Variant>) => void;
+  onReset: () => void;
+}) {
+  const uploads = media.filter((item) => item.id);
+  const chosen = variant?.media ?? uploads.map((item) => item.id!);
+  return (
+    <div className="mt-3 grid gap-3 rounded-xl bg-sunk p-3" aria-label={`Own version for ${label}`}>
+      <label className="grid gap-1 text-sm font-bold">
+        <span className="flex items-center justify-between gap-2">
+          Link for {label}
+          {variant?.link !== undefined && (
+            <button type="button" className="text-xs underline" onClick={() => onChange({ link: undefined })}>
+              Use shared
+            </button>
+          )}
+        </span>
+        <input
+          className="input font-normal"
+          type="url"
+          aria-label={`Link for ${label}`}
+          placeholder={sharedLink ? `Shared: ${sharedLink}` : "No link"}
+          value={variant?.link ?? ""}
+          onChange={(event) => onChange({ link: event.target.value || null })}
+        />
+      </label>
+      {comments && (
+        <label className="grid gap-1 text-sm font-bold">
+          <span className="flex items-center justify-between gap-2">
+            First comment on {label}
+            {variant?.firstComment !== undefined && (
+              <button type="button" className="text-xs underline" onClick={() => onChange({ firstComment: undefined })}>
+                Use shared
+              </button>
+            )}
+          </span>
+          <textarea
+            className="input min-h-14 font-normal"
+            aria-label={`First comment on ${label}`}
+            placeholder={sharedComment ? `Shared: ${sharedComment}` : "None"}
+            value={variant?.firstComment ?? ""}
+            onChange={(event) => onChange({ firstComment: event.target.value })}
+          />
+        </label>
+      )}
+      {uploads.length > 0 && (
+        <fieldset className="grid gap-1 text-sm">
+          <legend className="flex w-full items-center justify-between gap-2 font-bold">
+            Media on {label}
+            {variant?.media !== undefined && (
+              <button type="button" className="text-xs underline" onClick={() => onChange({ media: undefined })}>
+                Use all
+              </button>
+            )}
+          </legend>
+          <div className="flex flex-wrap gap-2">
+            {uploads.map((item) => {
+              const on = chosen.includes(item.id!);
+              return (
+                <label
+                  key={item.key}
+                  className={`relative size-16 cursor-pointer overflow-hidden rounded-lg border-2 ${on ? "border-ink" : "border-transparent opacity-40"}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={on}
+                    aria-label={`Use ${item.kind} ${uploads.indexOf(item) + 1} on ${label}`}
+                    onChange={() =>
+                      onChange({
+                        media: on ? chosen.filter((id) => id !== item.id) : [...chosen, item.id!],
+                      })
+                    }
+                  />
+                  {item.kind === "image" ? (
+                    <img src={item.url} alt="" className="size-full object-cover" />
+                  ) : (
+                    <span className="grid size-full place-items-center bg-raised text-xs font-bold">
+                      {item.kind === "video" ? "Video" : "PDF"}
+                    </span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
+      <button
+        type="button"
+        className="justify-self-start text-sm font-bold underline"
+        onClick={onReset}
+        data-target={target}
+      >
+        Use shared version everywhere for {label}
+      </button>
+    </div>
+  );
+}

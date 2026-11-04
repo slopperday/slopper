@@ -85,18 +85,30 @@ export function wallTime(value: string, timeZone: string): number | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})$/.exec(value.trim());
   if (!match) return null;
   const [, y, mo, d, h, mi] = match.map(Number);
-  const guess = Date.UTC(y, mo - 1, d, h, mi);
-  // The zone's offset at that moment: format the guess there and see how far off it reads.
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
+  const wanted = Date.UTC(y, mo - 1, d, h, mi);
+  let zone = timeZone;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+  } catch {
+    zone = "UTC";
+  }
+  const format = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
-  }).formatToParts(new Date(guess));
-  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-  const shown = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"));
-  return guess - (shown - guess);
+  });
+  /** How far ahead of UTC the zone's clocks are at `at`. */
+  const offsetAt = (at: number) => {
+    const parts = format.formatToParts(new Date(at));
+    const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+    return Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute")) - at;
+  };
+  // Twice: the offset at the first guess can be the other side of a clock change from the answer.
+  let at = wanted - offsetAt(wanted);
+  at = wanted - offsetAt(at);
+  return at;
 }

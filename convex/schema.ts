@@ -88,6 +88,12 @@ export const networkOptionsValidator = v.object({
   linkedin: v.optional(v.object({ documentTitle: v.string() })),
 });
 
+export const socialVariantValidator = v.object({
+  media: v.optional(v.array(v.string())),
+  link: v.optional(v.union(v.string(), v.null())),
+  firstComment: v.optional(v.string()),
+});
+
 export const socialPostMediaValidator = v.object({
   mediaId: v.id("media"),
   /** A document is a PDF, posted as a LinkedIn document (a swipeable carousel). */
@@ -954,6 +960,13 @@ export default defineSchema({
     media: v.array(socialPostMediaValidator),
     /** Words written for one network instead of the shared ones, by provider. */
     overrides: v.record(v.string(), v.string()),
+    /**
+     * Media, link and first comment for one network or account, keyed like
+     * `overrides` (app/lib/destinations.ts): absent fields use the shared ones.
+     */
+    variants: v.optional(v.record(v.string(), socialVariantValidator)),
+    /** A time of its own for an account, by account id ("choose per account"). */
+    times: v.optional(v.record(v.string(), v.number())),
     options: networkOptionsValidator,
     /** When it goes out; null once it's been sent (or for "post now"). */
     scheduledAt: v.union(v.number(), v.null()),
@@ -1041,6 +1054,8 @@ export default defineSchema({
     paused: v.optional(v.boolean()),
     /** Weekly queue times: day 0 (Sunday) to 6, minutes after midnight in the person's time zone. */
     slots: v.array(v.object({ day: v.number(), minute: v.number() })),
+    /** The accounts the last post went out as: the composer's "Last used" set. */
+    lastAccountIds: v.optional(v.array(v.id("accounts"))),
     /** The secret in the calendar feed's address. */
     calendarToken: v.optional(v.string()),
     /** Where post events are sent, signed with `secret`. */

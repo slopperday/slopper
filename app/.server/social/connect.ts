@@ -9,7 +9,9 @@ import {
   type DiscordCredentials,
   fetchDiscordWebhook,
   fetchMastodonAccount,
+  fetchRedditIdentity,
   fetchRedditSubreddit,
+  redditCredentials,
   fetchTelegramChannel,
   type MastodonCredentials,
   type RedditCredentials,
@@ -173,9 +175,69 @@ export async function connectExtraNetwork(
       return { tone: "success", message: `Connected @${profile.username} on Threads.` };
     }
 
+    case "reddit": {
+      if (!tokens.refreshToken) {
+        return { tone: "error", message: "Reddit didn't let Slopper keep posting. Try connecting again." };
+      }
+      const me = await fetchRedditIdentity(tokens.accessToken);
+      // Your own profile is a subreddit too (u_name): the first place it posts.
+      const subreddit = `u_${me.name}`;
+      const credentials: RedditCredentials = {
+        kind: "reddit",
+        subreddit,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: tokens.expiresAt ?? new Date(Date.now() + 3_600_000).toISOString(),
+      };
+      await convex.mutation(api.accounts.connect, {
+        userId,
+        provider: "reddit",
+        remoteId: subreddit,
+        handle: `u/${me.name}`,
+        displayName: `u/${me.name}`,
+        avatarUrl: me.icon,
+        sealedCredentials: await sealCredentials(credentials),
+        expiresAt: null,
+        initialMode: "off",
+      });
+      return {
+        tone: "success",
+        message: `Connected u/${me.name} on Reddit. Add the subreddits it should post into below.`,
+      };
+    }
+
     default:
       return null;
   }
+}
+
+/**
+ * Another subreddit for a connected Reddit account: a new destination with
+ * the same sign-in, checked against Reddit first (it must exist and take posts).
+ */
+export async function addRedditSubreddit(userId: Id<"users">, accountId: string, subredditRaw: string): Promise<Flash> {
+  const accounts = await convex.query(api.accounts.list, { userId });
+  const account = accounts.find((item) => item._id === accountId && item.provider === "reddit");
+  if (!account) return { tone: "error", message: "That Reddit account isn't connected." };
+  const credentials = await redditCredentials(account);
+  const found = await fetchRedditSubreddit(subredditRaw, credentials.accessToken);
+  const next: RedditCredentials = { ...credentials, subreddit: found.subreddit };
+  await convex.mutation(api.accounts.connect, {
+    userId,
+    provider: "reddit",
+    remoteId: found.subreddit,
+    handle: `r/${found.subreddit}`,
+    displayName: `r/${found.subreddit} as ${account.displayName}`,
+    avatarUrl: found.avatarUrl ?? account.avatarUrl,
+    sealedCredentials: await sealCredentials(next),
+    expiresAt: null,
+    initialMode: "off",
+    ...(account.brand ? { brand: account.brand } : {}),
+  });
+  return {
+    tone: "success",
+    message: `Added r/${found.subreddit}. Check its rules: many subreddits limit self-promotion.`,
+  };
 }
 
 /**

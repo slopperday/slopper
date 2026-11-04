@@ -4,17 +4,22 @@
 speaks for), write once, add pictures or one video, and each network gets a copy
 that fits it. Sent posts read their stats back for a month. Screenshots are in
 `docs/studio/` (made by `STUDIO_SCREENSHOTS=1 vp exec playwright test e2e/studio.spec.ts`).
+How to set up each network, step by step, is in [social-setup.md](social-setup.md).
 
-| Network        | Connects with                       | Takes                                | Stats                                     |
-| -------------- | ----------------------------------- | ------------------------------------ | ----------------------------------------- |
-| X              | Slopper's app, or your own API keys | words, 4 pictures or a video         | views, likes, replies, reposts, bookmarks |
-| LinkedIn       | Slopper's app (personal profile)    | words, pictures or a video           | none: partners only                       |
-| Bluesky        | app password                        | words, 4 pictures                    | likes, replies, reposts (public, free)    |
-| Threads        | Threads login (`THREADS_CLIENT_*`)  | words, pictures or a video           | views, likes, replies, reposts, shares    |
-| Facebook Pages | Facebook login, Pages you tick      | words, link, pictures, video         | reactions, comments, shares               |
-| Instagram      | comes with its linked Facebook Page | pictures, carousel, Reel, Story      | views, likes, comments, shares, saves     |
-| TikTok         | TikTok login (`TIKTOK_CLIENT_*`)    | a video                              | views, likes, comments, shares            |
-| YouTube        | Google login, one channel each      | a video (Short when vertical ≤3 min) | per video + channel analytics             |
+| Network        | Connects with                                        | Takes                                | Stats                                     |
+| -------------- | ---------------------------------------------------- | ------------------------------------ | ----------------------------------------- |
+| X              | Slopper's app, or your own API keys                  | words, 4 pictures or a video         | views, likes, replies, reposts, bookmarks |
+| LinkedIn       | Slopper's app (profile; Pages with `LINKEDIN_PAGES`) | words, pictures or a video           | none: partners only                       |
+| Bluesky        | app password                                         | words, 4 pictures                    | likes, replies, reposts (public, free)    |
+| Threads        | Threads login (`THREADS_CLIENT_*`)                   | words, pictures or a video           | views, likes, replies, reposts, shares    |
+| Facebook Pages | Facebook login, Pages you tick                       | words, link, pictures, video         | reactions, comments, shares               |
+| Instagram      | comes with its linked Facebook Page                  | pictures, carousel, Reel, Story      | views, likes, comments, shares, saves     |
+| TikTok         | TikTok login (`TIKTOK_CLIENT_*`)                     | a video                              | views, likes, comments, shares            |
+| YouTube        | Google login, one channel each                       | a video (Short when vertical ≤3 min) | per video + channel analytics             |
+| Mastodon       | an access token from your server                     | words, 4 pictures or a video         | favourites, replies, boosts               |
+| Discord        | a channel webhook                                    | words, pictures or a video           | none                                      |
+| Telegram       | your own bot                                         | words, pictures or a video           | none                                      |
+| Reddit         | Reddit login (`REDDIT_CLIENT_*`), a subreddit each   | a link or text post                  | score, comments                           |
 
 ## Every feature, and where it came from
 
@@ -151,8 +156,42 @@ took from them. The "Seen in" column names a few of the products that have it.
 - **Mobile apps and a browser extension:** the site works on phones; the
   bookmarklet stands in for the extension.
 - **Scheduled email reports, white-label reports:** the CSV export comes first.
-- **Pinterest, Reddit, Mastodon, Google Business and more networks:** each needs
-  its own app and review. Add one to `app/lib/networks.ts` and give it an adapter.
+- **Pinterest, Google Business and more networks:** each needs its own app and
+  review. Add one to `app/lib/networks.ts` and give it an adapter.
+
+## Posting without surprises
+
+What we took from studying how the leading schedulers stay easy (November 2026):
+
+- **One idea, many destinations.** Each network, or one account, can have its own
+  words (`overrides`), and its own link, media and first comment (`variants`,
+  same keys). An account's version wins over its network's, which wins over the
+  shared one; "Use shared version" drops it. `app/lib/destinations.ts` resolves
+  them for the composer, the server and the agents alike.
+- **A checklist per destination.** `readiness()` lists what stands in the way:
+  `block` (it can't go: no media for Instagram, a broken connection, the same
+  words on two X accounts), `warn` (it'll be shortened) and `info` (links that
+  aren't clickable, X's price). Each line in the composer has a Fix button that
+  goes to the field. The server refuses to save a post with a `block`.
+- **Times.** "Same time for all" or "Choose per account" (`times`, account id to
+  time). Wall times are read in the person's profile time zone, which the
+  composer names, across clock changes (`wallTime` in `app/lib/csv.ts`).
+  Best-time suggestions per account are labelled estimates.
+- **X rules and costs.** X forbids the same automated post from several
+  accounts, so two X accounts with the same words (spintax aside) are refused.
+  Each X destination says what X bills its developer app: about $0.015 a post,
+  $0.20 with a link.
+- **Account sets.** "Last used" and "Post as <product>" pick a set in one tap
+  (`socialSettings.lastAccountIds`).
+- **Ideas and autosave.** A draft needs no accounts. The composer keeps what
+  you're writing in the browser and offers it back.
+- **Uncertain sends.** A send lost mid-way is never resent on its own. Its row
+  on the post's page asks to check the network: "It posted" (with the link) or
+  "It didn't post: send again" (`social.resolveUncertain`; agents:
+  `resolve_social_delivery`, `slopper social resolve`).
+- **Connection health.** Settings → Accounts says whether each account is
+  connected, expiring within a week, or needs reconnecting.
+- **Previews** are approximations of each network's layout.
 
 ## How it fits together
 
@@ -193,22 +232,26 @@ These are platform gates, not code:
   privately ("Only me"). The composer follows TikTok's UX rules: it shows the
   creator, makes you choose the audience, offers comment/duet/stitch and branded
   content disclosure.
-- **YouTube:** videos from unaudited API projects are locked to private, and each
-  upload costs 1,600 of 10,000 daily quota units (6 uploads a day). Apply for the
-  audit and a quota increase. The connect flow asks for `youtube.upload`,
-  `youtube.readonly` and `yt-analytics.readonly` (sensitive scopes: Google
-  verification).
+- **YouTube:** each upload takes 1 unit from a separate upload quota of 100 a
+  day per project (Google's reference, November 2026); more needs Google's quota
+  audit. The connect flow asks for `youtube.upload`, `youtube.readonly` and
+  `yt-analytics.readonly`: sensitive scopes, so the consent screen needs Google's
+  verification before others connect.
 - **X:** posting through Slopper's app costs Slopper per post, so it stays off;
   makers connect their own developer app instead (Settings → Accounts).
 - **LinkedIn:** Company Pages need the Community Management API (partner
-  approval); today the studio posts to personal profiles only.
+  approval). Once approved, set `LINKEDIN_PAGES=true`: connecting asks for the
+  organization scopes and adds each Page the person administers.
+- **Reddit:** a "web app" at reddit.com/prefs/apps (`REDDIT_CLIENT_*`). Each
+  subreddit is its own destination; the token refreshes itself. Many subreddits
+  limit self-promotion.
 
 ## Known limits and next steps
 
 - Downloads for upload-based networks (X, LinkedIn, TikTok, YouTube) read the
   whole video into memory and must finish inside the function's time limit. Move
   delivery for big videos to a Netlify background function (15 minutes).
-- Bluesky video and LinkedIn Company Pages aren't supported yet.
+- Bluesky video isn't supported yet.
 
 Official references:
 

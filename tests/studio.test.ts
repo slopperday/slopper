@@ -104,7 +104,13 @@ describe("studio posts in Convex", () => {
     const userId = await makeUser(server, "maker");
     const a = await connect(server, userId, "x", "tiltmaze");
     const b = await connect(server, userId, "x", "slopper");
-    const postId = await server.mutation(api.social.create, { ...post, userId, accountIds: [a._id, b._id] });
+    // Two X accounts need their own words: X refuses the same automated post from both.
+    const postId = await server.mutation(api.social.create, {
+      ...post,
+      userId,
+      accountIds: [a._id, b._id],
+      overrides: { [b._id]: "Shipped it, from the Slopper account" },
+    });
 
     const claimed = await server.mutation(api.social.claim, { postId });
     expect(claimed?.deliveries.map((row) => row.handle).sort()).toEqual(["slopper", "tiltmaze"]);

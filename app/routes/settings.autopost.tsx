@@ -10,10 +10,11 @@ import { formText } from "~/.server/forms";
 import { redirectWithFlash } from "~/.server/http";
 import { MissingSecretKeyError } from "~/.server/crypto";
 import { createBlueskySession, fetchXProfile, sealCredentials, SocialError } from "~/.server/social/adapters";
-import { connectCommunityNetwork, connectWithOwnToken } from "~/.server/social/connect";
+import { addRedditSubreddit, connectCommunityNetwork, connectWithOwnToken } from "~/.server/social/connect";
 import type { XOwnCredentials } from "~/.server/social/x-credentials";
 import { type CrosspostMode, NETWORK_LABELS } from "~/lib/model";
 import { seo } from "~/lib/seo";
+import { callbackPath, SETUP_GUIDES } from "~/lib/setupGuides";
 import { ModePicker } from "~/components/Autopost";
 import { SettingsNav } from "~/components/Shared";
 
@@ -29,7 +30,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   return {
     // Sealed credentials never leave the server.
     accounts: rawAccounts.map(
-      ({ _id, provider, handle, displayName, avatarUrl, expiresAt, defaultMode, brand, organizationId }) => ({
+      ({ _id, provider, handle, displayName, avatarUrl, expiresAt, defaultMode, brand, organizationId, broken }) => ({
+        broken: broken ?? null,
         id: _id,
         provider,
         handle,
@@ -63,7 +65,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       threads: canConnect("threads"),
       tiktok: canConnect("tiktok"),
       youtube: canConnect("google"),
+      reddit: canConnect("reddit"),
     },
+    origin: config.appUrl.origin,
   };
 }
 
@@ -76,7 +80,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const form = await request.formData();
   const intent = formText(form, "intent");
   // Connecting an account lets Slopper post as it: whoever does it proves it's them first.
-  if (["x-own-app", "bluesky", "own-token", "community"].includes(intent)) {
+  if (["x-own-app", "bluesky", "own-token", "community", "reddit-subreddit"].includes(intent)) {
     await requireRecentAuth(context.get(viewerContext), request, HERE);
   }
 
@@ -294,6 +298,16 @@ export async function action({ request, context }: Route.ActionArgs) {
       }
     }
 
+    case "reddit-subreddit": {
+      try {
+        const flash = await addRedditSubreddit(user._id, formText(form, "accountId"), formText(form, "subreddit"));
+        return redirectWithFlash(HERE, flash);
+      } catch (error) {
+        if (error instanceof SocialError) return redirectWithFlash(HERE, { tone: "error", message: error.message });
+        throw error;
+      }
+    }
+
     case "community": {
       const network = formText(form, "network");
       if (network !== "mastodon" && network !== "discord" && network !== "telegram" && network !== "reddit") {
@@ -374,12 +388,8 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
                   </div>
                   <p className="text-sm text-muted">
                     {NETWORK_LABELS[account.provider]} · {account.handle}
-                    {account.expiresAt && (
-                      <span className={expired ? "text-hot" : ""}>
-                        {` · ${expired ? "expired, reconnect" : `until ${account.expiresAt.slice(0, 10)}`}`}
-                      </span>
-                    )}
                   </p>
+                  <ConnectionHealth broken={account.broken} expiresAt={account.expiresAt} expired={expired} />
                 </div>
                 <input
                   name={`brand-${account.id}`}
@@ -805,33 +815,75 @@ export default function Autopost({ loaderData }: Route.ComponentProps) {
           <input type="hidden" name="network" value="reddit" />
           <h3 className="font-display text-[1.6rem] leading-none font-extrabold">Reddit</h3>
           <p className="mt-2 flex-1 text-[0.9375rem] text-muted">
-            Share product launches and changelogs to your own subreddit or maker communities. Connect multiple
-            subreddits by adding each <code className="font-mono text-xs">r/subreddit</code> separately.
+            Share launches and changelogs to your profile, your own subreddit or maker communities. Each subreddit is
+            its own destination.
           </p>
-          <div className="mt-3 grid gap-2">
-            <input
-              name="subreddit"
-              className="input min-h-9 py-1 text-sm"
-              placeholder="r/sideproject"
-              aria-label="Subreddit"
-              required
-            />
-            <input
-              name="accessToken"
-              type="password"
-              className="input min-h-9 py-1 font-mono text-sm"
-              placeholder="Reddit OAuth access token (submit, read)"
-              aria-label="Reddit access token"
-              required
-              autoComplete="off"
-            />
-            <ConnectAssignmentFields organizations={organizations} compact />
-            <button type="submit" className="btn btn-slop btn-sm mt-1 justify-self-start">
-              Connect Subreddit
-            </button>
-          </div>
+          {loaderData.connectable.reddit && (
+            <a href="/auth/reddit?intent=connect" className="btn btn-ink btn-sm mt-3 self-start">
+              Connect Reddit
+            </a>
+          )}
+          <details className="mt-3 text-sm text-muted" open={!loaderData.connectable.reddit}>
+            <summary className="cursor-pointer font-bold hover:text-ink">
+              {loaderData.connectable.reddit ? "Use your own token instead" : "Connect with a token"}
+            </summary>
+            <div className="mt-3 grid gap-2">
+              <input
+                name="subreddit"
+                className="input min-h-9 py-1 text-sm"
+                placeholder="r/sideproject"
+                aria-label="Subreddit"
+                required
+              />
+              <input
+                name="accessToken"
+                type="password"
+                className="input min-h-9 py-1 font-mono text-sm"
+                placeholder="Reddit OAuth access token (submit, read)"
+                aria-label="Reddit access token"
+                required
+                autoComplete="off"
+              />
+              <ConnectAssignmentFields organizations={organizations} compact />
+              <button type="submit" className="btn btn-slop btn-sm mt-1 justify-self-start">
+                Connect Subreddit
+              </button>
+              <p className="text-xs">A pasted token lasts an hour. Sign in with Reddit for posts that go out later.</p>
+            </div>
+          </details>
         </Form>
       </div>
+
+      {accounts.some((account) => account.provider === "reddit") && (
+        <Form method="post" className="panel mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]" data-no-capture>
+          <input type="hidden" name="intent" value="reddit-subreddit" />
+          <h3 className="font-bold sm:col-span-3">Post into another subreddit</h3>
+          <select name="accountId" className="input min-h-9 py-1 text-sm" aria-label="Reddit account">
+            {accounts
+              .filter((account) => account.provider === "reddit")
+              .map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.displayName}
+                </option>
+              ))}
+          </select>
+          <input
+            name="subreddit"
+            className="input min-h-9 py-1 text-sm"
+            placeholder="r/sideproject"
+            aria-label="Subreddit to add"
+            required
+          />
+          <button type="submit" className="btn btn-ink btn-sm">
+            Add subreddit
+          </button>
+          <p className="text-xs text-muted sm:col-span-3">
+            Read its rules first: many subreddits limit self-promotion.
+          </p>
+        </Form>
+      )}
+
+      <SetupGuides origin={loaderData.origin} />
 
       <p className="mt-10 max-w-2xl text-muted">
         Accounts connected through Facebook, YouTube, TikTok and Threads start Off for launches, so a new brand never
@@ -953,5 +1005,86 @@ function ConnectCard({
         tokenForm
       )}
     </div>
+  );
+}
+
+/** Whether an account can post: connected, expiring soon (reconnect before it stops), or needing a reconnect now. */
+function ConnectionHealth({
+  broken,
+  expiresAt,
+  expired,
+}: {
+  broken: string | null;
+  expiresAt: string | null;
+  expired: boolean;
+}) {
+  const days = expiresAt ? Math.ceil((Date.parse(expiresAt) - Date.now()) / 86_400_000) : null;
+  if (broken) return <p className="text-sm font-bold text-hot">Needs reconnecting: {broken}</p>;
+  if (expired) return <p className="text-sm font-bold text-hot">Expired: reconnect it to keep posting.</p>;
+  if (days !== null && days <= 7) {
+    return (
+      <p className="text-sm font-bold text-hot">Expires in {days === 1 ? "a day" : `${days} days`}: reconnect soon.</p>
+    );
+  }
+  return (
+    <p className="text-sm text-slop-text">Connected{days !== null ? ` · until ${expiresAt!.slice(0, 10)}` : ""}</p>
+  );
+}
+
+/** How to set up every network: the server's one-time app setup, and each person's steps. */
+function SetupGuides({ origin }: { origin: string }) {
+  return (
+    <section className="mt-16" aria-labelledby="setup-guides">
+      <h2 id="setup-guides" className="title-2">
+        How to set up each network
+      </h2>
+      <p className="mt-2 max-w-2xl text-muted">
+        “Once, on the server” is for whoever runs Slopper: a developer app and its keys, set in monosecret.toml then{" "}
+        <code className="font-mono text-sm">vp run env:netlify</code>. “To connect” is for everyone.
+      </p>
+      <div className="mt-5 grid gap-2">
+        {SETUP_GUIDES.map((guide) => (
+          <details key={guide.network} className="panel">
+            <summary className="flex cursor-pointer flex-wrap items-center gap-2 font-bold">
+              {NETWORK_LABELS[guide.network]}
+              <span className="text-sm font-normal text-muted">· {guide.method}</span>
+            </summary>
+            {guide.owner.length > 0 && (
+              <>
+                <h3 className="mt-4 text-sm font-bold">Once, on the server</h3>
+                <ol className="mt-1 grid list-decimal gap-1 pl-5 text-sm">
+                  {guide.owner.map((step) => (
+                    <li key={step}>{step.replace("{callback}", `${origin}${callbackPath(guide.network)}`)}</li>
+                  ))}
+                </ol>
+                {guide.env.length > 0 && (
+                  <p className="mt-2 text-xs text-muted">
+                    Variables:{" "}
+                    {guide.env.map((name) => (
+                      <code key={name} className="mr-1 font-mono">
+                        {name}
+                      </code>
+                    ))}
+                  </p>
+                )}
+              </>
+            )}
+            <h3 className="mt-4 text-sm font-bold">To connect</h3>
+            <ol className="mt-1 grid list-decimal gap-1 pl-5 text-sm">
+              {guide.you.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+            {guide.notes.length > 0 && (
+              <ul className="mt-3 grid list-disc gap-1 pl-5 text-sm text-muted">
+                {guide.notes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            )}
+          </details>
+        ))}
+      </div>
+    </section>
   );
 }

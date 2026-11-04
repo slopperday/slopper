@@ -112,6 +112,14 @@ export interface Config {
   tiktok: OAuthClientCredentials | null;
   /** A Threads app id and secret (THREADS_CLIENT_ID, THREADS_CLIENT_SECRET), for connecting Threads profiles. */
   threads: OAuthClientCredentials | null;
+  /** A Reddit "web app" (REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET), for posting to profiles and subreddits. */
+  reddit: OAuthClientCredentials | null;
+  /**
+   * LinkedIn Company Pages (LINKEDIN_PAGES=true): asks for the organization
+   * scopes, which only apps LinkedIn approved for its Community Management
+   * API may use. Off until then.
+   */
+  linkedinPages: boolean;
   /** Automated content check. Without it, nothing is ever auto-posted. */
   contentCheck: ContentCheckConfig | null;
   /**
@@ -262,6 +270,8 @@ export function loadConfig(env: Env = process.env): Config {
     facebook: credentials(env, "FACEBOOK"),
     tiktok: credentials(env, "TIKTOK"),
     threads: credentials(env, "THREADS"),
+    reddit: credentials(env, "REDDIT"),
+    linkedinPages: env.LINKEDIN_PAGES?.trim() === "true",
     contentCheck: env.OPENROUTER_API_KEY?.trim()
       ? {
           apiKey: env.OPENROUTER_API_KEY.trim(),

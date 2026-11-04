@@ -53,6 +53,25 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const here = `/studio/posts/${params.id}`;
   try {
     switch (formText(form, "intent")) {
+      case "confirm-posted":
+      case "resend": {
+        const intent = formText(form, "intent");
+        const done = await convex.mutation(api.social.resolveUncertain, {
+          userId: user._id,
+          deliveryId: formText(form, "deliveryId"),
+          outcome: intent === "resend" ? "resend" : "posted",
+          url: formText(form, "url") || undefined,
+        });
+        if (done && intent === "resend") await deliver(params.id, user._id);
+        return redirectWithFlash(here, {
+          tone: done ? "success" : "error",
+          message: !done
+            ? "That copy was already settled."
+            : intent === "resend"
+              ? "Sending it again."
+              : "Marked as posted. Nothing was sent again.",
+        });
+      }
       case "retry": {
         const queued = await convex.mutation(api.social.retry, { userId: user._id, postId: params.id });
         if (queued > 0) await deliver(params.id, user._id);
@@ -129,7 +148,8 @@ export default function StudioPost({ loaderData }: Route.ComponentProps) {
       ["sending", "processing"].includes(row.status) ||
       (row.status === "queued" && !scheduled && !post.cancelled && !post.draft),
   );
-  const failed = post.deliveries.some((row) => row.status === "error");
+  // Only confirmed failures retry in one go; an uncertain one may have posted, so its owner checks first.
+  const failed = post.deliveries.some((row) => row.status === "error" && !row.uncertain);
   const totals = sumMetrics(post.deliveries.filter((row) => !row.repost).map((row) => row.metrics));
   const clicks = post.links.reduce((total, row) => total + row.clicks, 0);
   const shape = {
@@ -418,6 +438,35 @@ export default function StudioPost({ loaderData }: Route.ComponentProps) {
                       </p>
                     )}
                     {row.warning && <p className="mt-1 max-w-56 text-xs text-hot">{row.warning}</p>}
+                    {row.status === "error" && row.uncertain && (
+                      <div
+                        className="mt-2 grid max-w-64 gap-1.5 rounded-lg bg-sunk p-2 text-xs"
+                        aria-label={`Check ${row.handle}`}
+                      >
+                        <p className="font-bold">Check {NETWORKS[row.provider].label} first: it may have posted.</p>
+                        <Form method="post" className="grid gap-1">
+                          <input type="hidden" name="intent" value="confirm-posted" />
+                          <input type="hidden" name="deliveryId" value={row.id} />
+                          <input
+                            name="url"
+                            type="url"
+                            className="input min-h-8 py-1 text-xs"
+                            placeholder="Its link (optional)"
+                            aria-label={`Link to ${row.handle}'s post`}
+                          />
+                          <button type="submit" className="btn btn-ink btn-sm">
+                            It posted
+                          </button>
+                        </Form>
+                        <Form method="post">
+                          <input type="hidden" name="intent" value="resend" />
+                          <input type="hidden" name="deliveryId" value={row.id} />
+                          <button type="submit" className="btn btn-quiet btn-sm">
+                            It didn’t post: send again
+                          </button>
+                        </Form>
+                      </div>
+                    )}
                     {row.status === "ok" && !row.repost && spec.canRemove && (
                       <Form
                         method="post"

@@ -3,16 +3,8 @@ import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
 import type { ClaimedPost } from "@convex/social";
 import { fitText, measureFor } from "~/lib/compose";
-import {
-  isSocialProvider,
-  NETWORKS,
-  type NetworkOptions,
-  optionProblems,
-  type PostShape,
-  type SocialProvider,
-  textLimitFor,
-  unsupportedReason,
-} from "~/lib/networks";
+import { isSocialProvider, NETWORKS, type NetworkOptions, type SocialProvider, textLimitFor } from "~/lib/networks";
+import { destinationFor, type DestinationPost, readiness, type Variant } from "~/lib/destinations";
 import { personalize } from "~/lib/variables";
 import { absoluteUrl, config, type ContentCheckConfig } from "../config";
 import { convex, convexMessage } from "../convex";
@@ -79,6 +71,10 @@ export interface StudioInput {
   plug?: { likes: number; text: string } | null;
   trackLinks?: boolean;
   coverMediaId?: string | null;
+  /** Media, link and first comment for one network or account (app/lib/destinations.ts). */
+  variants?: Record<string, Variant>;
+  /** Times of their own for some accounts, by account id (epoch ms). */
+  times?: Record<string, number>;
   idempotencyKey?: string;
   source?: "web" | "api" | "rss" | "csv";
 }
@@ -230,28 +226,14 @@ export async function saveStudioPost(
   ]);
   if (media.length !== input.media.length) return fail("One of your uploads is gone. Add it again.");
   const picked = accounts.filter((account) => input.accountIds.includes(account._id));
-  if (picked.length === 0) return fail("Pick at least one account to post as.");
+  // An idea can be saved before anyone decides where it goes.
+  if (picked.length === 0 && !input.draft) return fail("Pick at least one account to post as.");
   if (new Set(input.accountIds).size !== picked.length)
     return fail("One of those accounts isn't available. Choose it again.");
 
   const video = media.find((item) => item.kind === "video");
-  const videoInput = video ? input.media.find((item) => item.id === video.id) : undefined;
-  const shape: PostShape = {
-    images: media.filter((item) => item.kind === "image").length,
-    video: video ? (videoInput?.duration ?? 0) : null,
-    documents: media.filter((item) => item.kind === "document").length,
-  };
   if (media.filter((item) => item.kind === "video").length > 1) return fail("Add one video per post.");
   const providers = new Set(picked.map((account) => account.provider));
-  if (!input.draft) {
-    for (const account of picked) {
-      const reason = unsupportedReason(account.provider, shape);
-      if (reason) return fail(`${reason} Untick ${account.handle} or change the post.`);
-    }
-    const problems = optionProblems(providers, input.options);
-    if (problems.length) return fail(problems[0]);
-  }
-
   const pickedIds = new Set(picked.map((account) => String(account._id)));
   const overrides: Record<string, string> = {};
   for (const [key, words] of Object.entries(input.overrides)) {
@@ -260,8 +242,70 @@ export async function saveStudioPost(
     }
   }
 
+  // Each network's or account's own link and first comment, cleaned like the shared ones.
+  const variants: Record<string, Variant> = {};
+  for (const [key, variant] of Object.entries(input.variants ?? {})) {
+    if (!((isSocialProvider(key) && providers.has(key)) || pickedIds.has(key))) continue;
+    const clean: Variant = {};
+    if (variant.media !== undefined) clean.media = variant.media.filter((id) => media.some((item) => item.id === id));
+    if (variant.link !== undefined) {
+      if (variant.link === null || !variant.link.trim()) clean.link = null;
+      else {
+        const url = parseWebUrl(variant.link.trim());
+        if (!url) return fail(`The link for ${key} isn't a web address.`);
+        clean.link = url.href;
+      }
+    }
+    if (variant.firstComment !== undefined) clean.firstComment = variant.firstComment.trim().slice(0, 5000);
+    if (Object.keys(clean).length) variants[key] = clean;
+  }
+  const times: Record<string, number> = {};
+  for (const [id, at] of Object.entries(input.times ?? {})) {
+    if (!pickedIds.has(id) || !Number.isFinite(at)) continue;
+    if (!input.draft && (at < Date.now() - 60_000 || at > Date.now() + 365 * DAY)) {
+      return fail("Pick a time in the next year for every account with its own time.");
+    }
+    times[id] = at;
+  }
+
   if (!input.draft) {
-    const problem = await checkPost(user._id, { text, link, overrides, thread, input, media, video, services });
+    // The same checklist the composer shows: anything that blocks one account stops the post.
+    const destinationPost: DestinationPost = {
+      text,
+      link,
+      media: media.map((item) => ({
+        id: item.id,
+        kind: item.kind,
+        duration: input.media.find((entry) => entry.id === item.id)?.duration ?? null,
+      })),
+      overrides,
+      variants,
+      options: input.options,
+      thread,
+      firstComment: input.firstComment ?? "",
+    };
+    const destinations = picked.map((account) => ({
+      id: String(account._id),
+      provider: account.provider,
+      handle: account.handle,
+      broken: account.broken ?? null,
+      longPosts: account.longPosts,
+    }));
+    for (const account of destinations) {
+      const block = readiness(destinationPost, account, destinations).find((issue) => issue.level === "block");
+      if (block) return fail(`${account.handle} on ${NETWORKS[account.provider].label}: ${block.message}`);
+    }
+    const problem = await checkPost(user._id, {
+      text,
+      link,
+      overrides,
+      thread,
+      input,
+      media,
+      video,
+      services,
+      variants,
+    });
     if (problem) return fail(problem);
   }
 
@@ -292,6 +336,8 @@ export async function saveStudioPost(
     plug: input.plug ?? undefined,
     trackLinks: input.trackLinks ?? false,
     coverMediaId: input.coverMediaId ?? undefined,
+    variants,
+    times,
   };
   let postId: Id<"socialPosts">;
   try {
@@ -343,6 +389,7 @@ async function checkPost(
     media: OwnedMedia;
     video: OwnedMedia[number] | undefined;
     services: Services;
+    variants?: Record<string, Variant>;
   },
 ): Promise<string | null> {
   const { video, services, input } = post;
@@ -372,6 +419,12 @@ async function checkPost(
       ...(input.options.youtube?.title ? { "YouTube title": input.options.youtube.title } : {}),
       ...(input.options.linkedin?.documentTitle ? { "document title": input.options.linkedin.documentTitle } : {}),
       ...(alts.length ? { "alt text": alts } : {}),
+      ...Object.fromEntries(
+        Object.entries(post.variants ?? {}).flatMap(([key, variant]) => [
+          ...(variant.link ? [[`link for ${key}`, variant.link]] : []),
+          ...(variant.firstComment ? [[`first comment for ${key}`, variant.firstComment]] : []),
+        ]),
+      ),
     },
     images: imageUrls.map((url) => ({ url })),
     ...(video?.url && video.size <= STUDIO_LIMITS.inlineVideoBytes
@@ -439,10 +492,31 @@ interface DraftContext {
   product: string | null;
 }
 
-/** The link `provider` gets: the tracked short link when there is one. */
-function linkFor(provider: SocialProvider, claimed: Pick<ClaimedPost, "post" | "links">): string | null {
-  const tracked = claimed.links.find((row) => row.provider === provider);
-  return tracked ? absoluteUrl(`/go/${tracked.code}`) : claimed.post.link;
+/**
+ * The link one account gets: its own when it has one (sent as it is), or its
+ * network's, as the tracked short link when clicks are counted.
+ */
+function linkFor(account: ConnectedAccount, claimed: Pick<ClaimedPost, "post" | "links">): string | null {
+  const own = claimed.post.variants?.[account._id]?.link;
+  if (own !== undefined) return own;
+  const tracked = claimed.links.find((row) => row.provider === account.provider);
+  if (tracked) return absoluteUrl(`/go/${tracked.code}`);
+  const network = claimed.post.variants?.[account.provider]?.link;
+  return network === undefined ? claimed.post.link : network;
+}
+
+/** A claimed post as app/lib/destinations.ts reads it. */
+function destinationPostOf(claimed: ClaimedPost): DestinationPost {
+  return {
+    text: claimed.post.text,
+    link: claimed.post.link,
+    media: claimed.media.map((item) => ({ id: item.mediaId, kind: item.kind, duration: item.duration })),
+    overrides: claimed.post.overrides,
+    variants: claimed.post.variants,
+    options: claimed.post.options,
+    thread: claimed.post.thread,
+    firstComment: claimed.post.firstComment,
+  };
 }
 
 /** Fits words to one account: its limit, its link (where links work), its spintax and variables filled in. */
@@ -479,7 +553,14 @@ export function wordsFor(
 
 /** One account's copy of a claimed post. */
 export function draftFor(account: ConnectedAccount, claimed: ClaimedPost, context: DraftContext): Draft {
-  const media: DraftMedia[] = claimed.media
+  // This account's media: its own choice among the uploads, or all of them.
+  const chosen = destinationFor(destinationPostOf(claimed), {
+    id: account._id,
+    provider: account.provider,
+    handle: account.handle,
+  }).media.map((item) => item.id);
+  const media: DraftMedia[] = chosen
+    .flatMap((id) => claimed.media.filter((item) => item.mediaId === id))
     .filter((item): item is typeof item & { url: string } => item.url !== null)
     .map((item) => ({
       kind: item.kind,
@@ -492,7 +573,7 @@ export function draftFor(account: ConnectedAccount, claimed: ClaimedPost, contex
       alt: item.alt,
       coverAt: item.coverAt,
     }));
-  const link = linkFor(account.provider, claimed);
+  const link = linkFor(account, claimed);
   return {
     text: wordsFor(account.provider, claimed.post, { account, link, context }),
     link,
@@ -641,7 +722,15 @@ async function deliverPass(
           networks[account.provider],
           account,
           { remoteId: result.remoteId, cid: result.cid },
-          claimed.post,
+          {
+            thread: claimed.post.thread,
+            // This account's own first comment, or its network's, or the shared one.
+            firstComment: destinationFor(destinationPostOf(claimed), {
+              id: account._id,
+              provider: account.provider,
+              handle: account.handle,
+            }).firstComment,
+          },
           context,
         );
         if (done.parts.length || done.warning) {

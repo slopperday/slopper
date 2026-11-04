@@ -113,6 +113,48 @@ function wholeNumber(values: Values, key: string): number | undefined {
   return Number(value);
 }
 
+/** `key=value` flags, as an object: `--link-for x=https://…`. */
+function pairs(values: Values, key: string): Record<string, string> | undefined {
+  const entries = list(values, key);
+  if (!entries) return undefined;
+  const out: Record<string, string> = {};
+  for (const entry of entries) {
+    const split = entry.indexOf("=");
+    if (split < 1) throw usageError(`--${key} needs key=value.`);
+    out[entry.slice(0, split).trim()] = entry.slice(split + 1);
+  }
+  return out;
+}
+
+/** Per-destination media, links and first comments from `--media-for`, `--link-for`, `--comment-for`. */
+function variantFlags(values: Values): Record<string, Record<string, unknown>> | undefined {
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const [key, value] of Object.entries(pairs(values, "link-for") ?? {})) (out[key] ??= {}).link = value || null;
+  for (const [key, value] of Object.entries(pairs(values, "comment-for") ?? {})) (out[key] ??= {}).firstComment = value;
+  for (const [key, value] of Object.entries(pairs(values, "media-for") ?? {})) {
+    (out[key] ??= {}).media = value
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+const DESTINATION_FLAGS = {
+  "--link-for <network-or-account=url>":
+    "Give one network or account its own link (empty for none). Repeat for several.",
+  "--comment-for <network-or-account=text>": "Give one network or account its own first comment. Repeat for several.",
+  "--media-for <network-or-account=id,id>": "Choose which uploads one network or account gets. Repeat for several.",
+  "--time-for <account=when>": "Give one account its own time (a date-time in your time zone). Repeat for several.",
+};
+
+const DESTINATION_OPTIONS = {
+  "link-for": { type: "string", multiple: true },
+  "comment-for": { type: "string", multiple: true },
+  "media-for": { type: "string", multiple: true },
+  "time-for": { type: "string", multiple: true },
+} as const;
+
 function required<T>(value: T | undefined, flag: string): T {
   if (value === undefined) throw usageError(`Missing ${flag}.`);
   return value;
@@ -515,8 +557,10 @@ export const COMMANDS: Command[] = [
       "--tag <tag>": "A tag for the calendar and analytics. Repeat for more.",
       "--track-links": "Send the link as a per-network short link with UTM tags, counting clicks.",
       "--key <key>": "An idempotency key: the same key again returns the same post.",
+      ...DESTINATION_FLAGS,
     },
     options: {
+      ...DESTINATION_OPTIONS,
       account: { type: "string", multiple: true },
       link: { type: "string" },
       image: { type: "string", multiple: true },
@@ -531,7 +575,11 @@ export const COMMANDS: Command[] = [
       const { api, values } = context;
       return api.post("/social/posts", {
         text: positional(context, 0, "text"),
-        accounts: required(list(values, "account"), "--account <id>"),
+        // A draft can wait for its accounts (an idea); posting needs them.
+        accounts:
+          text(values, "at") === "draft"
+            ? list(values, "account")
+            : required(list(values, "account"), "--account <id>"),
         link: text(values, "link"),
         media: list(values, "image"),
         thread: list(values, "thread"),
@@ -539,6 +587,8 @@ export const COMMANDS: Command[] = [
         at: text(values, "at"),
         tags: list(values, "tag"),
         trackLinks: values["track-links"] === true,
+        variants: variantFlags(values),
+        times: pairs(values, "time-for"),
         idempotencyKey: text(values, "key"),
       });
     },
@@ -573,8 +623,10 @@ export const COMMANDS: Command[] = [
       "--at <when>": "draft, queue, now, or a future date-time in your time zone. Omit to keep the current state.",
       "--media <id>": "Replace attachments with uploaded IDs; repeat for each.",
       "--frame <id>": "A checked frame image id, required for scheduling large videos; repeat up to three.",
+      ...DESTINATION_FLAGS,
     },
     options: {
+      ...DESTINATION_OPTIONS,
       text: { type: "string" },
       copy: { type: "string", multiple: true },
       options: { type: "string" },
@@ -621,6 +673,28 @@ export const COMMANDS: Command[] = [
         at: text(values, "at"),
         frames: list(values, "frame"),
         media: list(values, "media"),
+        variantFor: variantFlags(values),
+        timeFor: pairs(values, "time-for"),
+      });
+    },
+  },
+  {
+    name: "social resolve",
+    args: "<delivery>",
+    summary:
+      "Settle a copy that may have gone out: check the account, then --posted (with --link) or --resend. Retries skip these so nothing posts twice.",
+    flags: {
+      "--posted": "It went out: mark it sent without sending again.",
+      "--link <url>": "With --posted: the post's address on the network.",
+      "--resend": "It didn't go out: send it again.",
+    },
+    options: { posted: { type: "boolean" }, link: { type: "string" }, resend: { type: "boolean" } },
+    run(context) {
+      const { api, values } = context;
+      if ((values.posted === true) === (values.resend === true)) throw usageError("Pass --posted or --resend.");
+      return api.post(`/social/deliveries/${encodeURIComponent(positional(context, 0, "delivery"))}/resolve`, {
+        outcome: values.posted === true ? "posted" : "resend",
+        url: text(values, "link"),
       });
     },
   },

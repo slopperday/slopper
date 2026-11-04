@@ -11,7 +11,7 @@ import {
 } from "~/.server/auth/identity";
 import * as oauth from "~/.server/auth/oauth";
 import { authorizationUrl, exchangeCode, FACEBOOK_GRAPH_VERSION, parseIntent } from "~/.server/auth/oauth";
-import { absoluteUrl } from "~/.server/config";
+import { absoluteUrl, config } from "~/.server/config";
 import { OAUTH_PROVIDERS } from "~/lib/model";
 
 const client = { clientId: "client-id", clientSecret: "app-secret" };
@@ -297,6 +297,31 @@ describe("flows", () => {
     expect(tiktok.get("client_key")).toBe("client-id");
     expect(tiktok.has("client_id")).toBe(false);
     expect(tiktok.get("scope")).toBe("user.info.basic,video.publish,video.upload,video.list");
+  });
+
+  it("connects Reddit for good, and LinkedIn Pages only once they're turned on", async () => {
+    const reddit = (await authorizationUrl("reddit", client, "connect", "s", "v")).searchParams;
+    expect(reddit.get("scope")).toBe("identity submit read edit history mysubreddits");
+    expect(reddit.get("duration")).toBe("permanent");
+    expect(reddit.get("redirect_uri")).toBe(absoluteUrl("/auth/reddit/callback"));
+    await expect(authorizationUrl("reddit", client, "login", "s", "v")).rejects.toThrow("can't do that");
+
+    const pages = config.linkedinPages;
+    try {
+      config.linkedinPages = false;
+      expect((await authorizationUrl("linkedin", client, "connect", "s", "v")).searchParams.get("scope")).not.toContain(
+        "w_organization_social",
+      );
+      config.linkedinPages = true;
+      const scope = (await authorizationUrl("linkedin", client, "connect", "s", "v")).searchParams.get("scope");
+      expect(scope).toContain("w_member_social");
+      expect(scope).toContain("w_organization_social");
+      expect((await authorizationUrl("linkedin", client, "login", "s", "v")).searchParams.get("scope")).not.toContain(
+        "w_organization_social",
+      );
+    } finally {
+      config.linkedinPages = pages;
+    }
   });
 
   it("trades a Facebook code with the secret in the body, never the URL", async () => {

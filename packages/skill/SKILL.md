@@ -118,7 +118,8 @@ Nobody else sees a scheduled launch until it goes out. `--autopost` posts it the
 
 ## Post to social accounts
 
-The user's connected accounts (X, LinkedIn, Bluesky, Threads, Facebook Pages, Instagram, TikTok, YouTube) can all post
+The user's connected accounts (X, LinkedIn, Bluesky, Threads, Facebook Pages, Instagram, TikTok, YouTube, Mastodon,
+Discord, Telegram, Reddit) can all post
 one message at once, each copy fitted to its network and checked first:
 
 ```sh
@@ -127,6 +128,9 @@ slopper social post "Tiltmaze 2.0 is out" --account <id> --account <id> --link h
   --thread "40 new levels" --first-comment "#indiegames" --at draft --key launch-2-0
 slopper social edit <post> --text "Revised announcement"        # keeps it a draft
 slopper social edit <post> --copy x="Short version for X" --copy <account-id>="Brand-specific version"
+slopper social edit <post> --link-for linkedin=https://tiltmaze.app/blog --comment-for x="Play it: tiltmaze.app" \
+  --media-for instagram=<media-id>,<media-id> --time-for <account-id>=2026-11-24T18:00
+slopper social post "Idea: a 2.0 teaser thread" --at draft  # an idea: no accounts yet
 slopper social status <post>                                    # per-account previews and readiness warnings
 slopper social edit <post> --options '{"instagram":{"format":"story"}}' # update one network's format
 slopper social edit <post> --at 2026-11-24T09:30               # schedule all selected accounts
@@ -134,20 +138,27 @@ slopper social edit <post> --at 2026-11-25T10:00               # move the schedu
 slopper social cancel <post>                                    # delete draft or cancel schedule
 slopper social posts                                            # drafts, scheduled and sent
 slopper social status <post>                                    # each copy's link and stats
+slopper social resolve <delivery> --posted --link https://x.com/… # an uncertain copy did post
+slopper social resolve <delivery> --resend                      # it didn't: send it again
 ```
 
 Use `--at draft` to save without publishing; `social edit` changes only flags provided and keeps the existing
 accounts, media, network options and schedule. Use `social accounts` for account IDs and repeat `--account` to replace
 the selected accounts. Times without offsets use the user's time zone; include `Z` or an offset for an explicit zone.
 Each `--copy` changes only that network or account; account-specific text takes precedence over network text, and
-`--copy x=` removes that override. `social status` gives each fitted preview and warnings about missing media,
+`--copy x=` removes that override. `--link-for`, `--comment-for` and `--media-for` give a network or account its own
+link, first comment or subset of the post's media the same way (an empty value means none there), and `--time-for`
+gives one account its own time. Two X accounts can't post the same words (X's automation rules): give each its own
+`--copy`. A draft with no accounts is an idea; pick accounts before scheduling. `social status` gives each fitted preview and warnings about missing media,
 network options, unavailable accounts or text that would be shortened. Discuss useful improvements with the user;
 preflight does not predict content-check or network acceptance. Set network-specific formats through `--options`
 with JSON; `social status` shows the current settings. Each supplied network replaces its settings, preserving the rest. Scheduling runs the content check. Cancel a scheduled
-post before it goes out. Post or schedule when the user has
+post before it goes out. A copy marked uncertain was lost mid-send and is never resent on its own: ask the user to check
+the network, then `social resolve` it. Post or schedule when the user has
 authorized it; otherwise save a draft for review. The corresponding MCP operations are `list_social_accounts`,
-`create_social_post`, `list_social_posts`, `get_social_post`, `edit_social_post` and `cancel_social_post`; REST uses
-`GET/POST /api/v1/social/posts` and `GET/PATCH/DELETE /api/v1/social/posts/:post`.
+`create_social_post`, `list_social_posts`, `get_social_post`, `edit_social_post`, `cancel_social_post` and
+`resolve_social_delivery`; REST uses `GET/POST /api/v1/social/posts`, `GET/PATCH/DELETE /api/v1/social/posts/:post`
+and `POST /api/v1/social/deliveries/:delivery/resolve`.
 
 To make a promo video, edit the user's source files locally with the available video tools (for example, ffmpeg),
 preview the result and keep it MP4 or WebM under 4 MB. Then run `slopper video <slop> <file>`: it uploads the file and

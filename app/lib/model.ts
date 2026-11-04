@@ -144,13 +144,18 @@ export function isOAuthProvider(value: string): value is OAuthProviderId {
 }
 
 /** Providers that only connect accounts to post as, never sign anyone in. */
-export const CONNECT_PROVIDERS = ["tiktok", "threads"] as const;
+export const CONNECT_PROVIDERS = ["tiktok", "threads", "reddit"] as const;
 export type ConnectProviderId = (typeof CONNECT_PROVIDERS)[number];
 
 /** Everything `/auth/<provider>` can start: sign-in providers and connect-only ones. */
 export type AuthProviderId = OAuthProviderId | ConnectProviderId;
 
-export const AUTH_LABELS: Record<AuthProviderId, string> = { ...OAUTH_LABELS, tiktok: "TikTok", threads: "Threads" };
+export const AUTH_LABELS: Record<AuthProviderId, string> = {
+  ...OAUTH_LABELS,
+  tiktok: "TikTok",
+  threads: "Threads",
+  reddit: "Reddit",
+};
 
 export function isAuthProvider(value: string): value is AuthProviderId {
   return isOAuthProvider(value) || (CONNECT_PROVIDERS as readonly string[]).includes(value);

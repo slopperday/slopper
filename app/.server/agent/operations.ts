@@ -29,20 +29,16 @@ import { deleteOrphanedMedia, uploadImage, uploadPublication, uploadVideo } from
 import { checkedContent, checkSlop, checkVideo } from "../moderation";
 import { finishLaunch, releaseScheduled } from "../launch";
 import { announce } from "../social/announce";
-import { saveStudioPost, wordsFor } from "../social/studio";
+import { deliver as deliverPost, saveStudioPost, wordsFor } from "../social/studio";
 import { wallTime } from "~/lib/csv";
 import {
   NETWORK_LABELS,
-  optionProblems,
-  textLimitFor,
-  unsupportedReason,
   type NetworkOptions,
   TIKTOK_PRIVACY,
   YOUTUBE_PRIVACY,
   INSTAGRAM_FORMATS,
 } from "~/lib/networks";
-import { measureFor } from "~/lib/compose";
-import { personalize } from "~/lib/variables";
+import { destinationFor, readiness, type Variant } from "~/lib/destinations";
 import { postUpdate } from "../updates";
 import { postReview } from "../reviews";
 import type { User } from "../session";
@@ -342,7 +338,10 @@ function shapeSocialPost(post: Omit<SocialPostShape, "editable"> & { editable?: 
       height,
       coverAt,
     })),
+    variants: post.variants,
+    times: Object.fromEntries(Object.entries(post.times).map(([id, at]) => [id, new Date(at).toISOString()])),
     copies: post.deliveries.map((row) => ({
+      delivery: row.id,
       accountId: row.accountId,
       network: row.provider,
       account: row.handle,
@@ -350,6 +349,8 @@ function shapeSocialPost(post: Omit<SocialPostShape, "editable"> & { editable?: 
       repost: row.repost,
       url: row.url,
       message: row.message ?? row.warning,
+      /** It may have posted: check the account, then resolve_social_delivery. Retrying skips it. */
+      uncertain: row.uncertain,
       stats: row.metrics,
     })),
     clicks: post.links.reduce((total, row) => total + row.clicks, 0),
@@ -408,54 +409,119 @@ function networkOptions(value: unknown, previous: NetworkOptions): NetworkOption
   return next;
 }
 
+/** `variants` from an agent: per network or account, its own media (upload ids), link and first comment. */
+function variantsInput(value: unknown, previous: Record<string, Variant> = {}): Record<string, Variant> {
+  if (value === undefined) return previous;
+  const next: Record<string, Variant> = {};
+  for (const [key, raw] of Object.entries(asObject(value, "variants"))) {
+    if (raw === null) continue;
+    const fields = asObject(raw, `variants.${key}`);
+    const variant: Variant = {};
+    if (fields.media !== undefined) variant.media = optionalStrings(fields, "media") ?? [];
+    if (fields.link !== undefined)
+      variant.link = fields.link === null ? null : (optionalString(fields, "link") ?? null);
+    if (fields.firstComment !== undefined) variant.firstComment = optionalString(fields, "firstComment") ?? "";
+    next[key] = variant;
+  }
+  return next;
+}
+
+/** `times` from an agent: account id to a date-time, in the user's time zone unless it has an offset. */
+function timesInput(value: unknown, timeZone: string, previous: Record<string, number> = {}): Record<string, number> {
+  if (value === undefined) return previous;
+  const next: Record<string, number> = {};
+  for (const [id, raw] of Object.entries(asObject(value, "times"))) {
+    if (typeof raw !== "string") throw new ApiError(400, "times values must be date-times like 2026-11-24T09:30.");
+    const at = wallTime(raw, timeZone);
+    if (at === null) throw new ApiError(400, `times.${id} isn't a date-time like 2026-11-24T09:30.`);
+    next[id] = at;
+  }
+  return next;
+}
+
+function mergeVariants(current: Record<string, Variant>, value: unknown): Record<string, Variant> {
+  if (value === undefined) return current;
+  const next = { ...current };
+  for (const [key, raw] of Object.entries(asObject(value, "variantFor"))) {
+    if (raw === null) delete next[key];
+    else next[key] = { ...next[key], ...variantsInput({ [key]: raw })[key] };
+  }
+  return next;
+}
+
+function mergeTimes(current: Record<string, number>, value: unknown, timeZone: string): Record<string, number> {
+  if (value === undefined) return current;
+  const next = { ...current };
+  for (const [id, raw] of Object.entries(asObject(value, "timeFor"))) {
+    if (raw === null) delete next[id];
+    else Object.assign(next, timesInput({ [id]: raw }, timeZone));
+  }
+  return next;
+}
+
+const VARIANTS_SCHEMA = {
+  type: "object",
+  description:
+    "Per network (x, linkedin, bluesky, threads, facebook, instagram, tiktok, youtube, …) or per account id: { media: [upload ids, a subset of the post's media], link: url or null for none, firstComment }. Omitted fields use the shared ones.",
+};
+const TIMES_SCHEMA = {
+  type: "object",
+  description:
+    "A time of its own for some accounts: account id to a date-time like 2026-11-24T09:30 (the user's time zone unless it has an offset). Others use `at`.",
+};
+
 async function socialPostSummary(user: User, postId: string) {
   const [post, accounts] = await Promise.all([
     convex.query(api.social.get, { userId: user._id, postId }),
     convex.query(api.accounts.list, { userId: user._id }),
   ]);
   if (!post) throw new ApiError(404, "No such post.");
-  const video = post.media.find((item) => item.kind === "video");
-  const shape = {
-    images: post.media.filter((item) => item.kind === "image").length,
-    video: video ? (video.duration ?? 0) : null,
-    documents: post.media.filter((item) => item.kind === "document").length,
-  };
   const context = { timeZone: user.timeZone, product: post.product?.name ?? null };
+  const destinationPost = {
+    text: post.text,
+    link: post.link,
+    media: post.media.map((item) => ({ id: item.id, kind: item.kind, duration: item.duration })),
+    overrides: post.overrides,
+    variants: post.variants,
+    options: post.options,
+    thread: post.thread,
+    firstComment: post.firstComment,
+  };
+  const picked = post.deliveries
+    .filter((row) => !row.repost)
+    .map((row) => {
+      const account = accounts.find((entry) => entry._id === row.accountId);
+      return {
+        id: String(row.accountId),
+        provider: row.provider,
+        handle: row.handle,
+        broken: account ? (account.broken ?? null) : "Account is no longer available; reconnect or remove it.",
+        longPosts: account?.longPosts,
+      };
+    });
+  // The same checklist as the studio composer (app/lib/destinations.ts).
   const copies = post.deliveries.map((row) => {
     const account = accounts.find((entry) => entry._id === row.accountId);
-    const warnings: string[] = [];
-    if (!account) warnings.push("Account is no longer available; reconnect or remove it.");
-    if (account?.broken) warnings.push(`Reconnect this account: ${account.broken}`);
-    if (!row.repost) {
-      const reason = unsupportedReason(row.provider, shape);
-      if (reason) warnings.push(reason);
-      warnings.push(...optionProblems(new Set([row.provider]), post.options));
-      const raw = post.overrides[row.accountId]?.trim() || post.overrides[row.provider]?.trim() || post.text;
-      const at = post.scheduledAt ?? Date.now();
-      const expanded = personalize(raw, row.accountId, {
-        at,
-        ...context,
-        link: post.link,
-        network: NETWORK_LABELS[row.provider],
-      });
-      const suffix =
-        post.link && row.provider !== "instagram" && row.provider !== "tiktok" && !expanded.includes(post.link)
-          ? `\n\n${post.link}`
-          : "";
-      if (measureFor(row.provider)(expanded.trim() + suffix) > textLimitFor(row.provider, account)) {
-        warnings.push("This copy exceeds the account's character limit and will be shortened. Edit it before sending.");
-      }
-    }
+    const destination = picked.find((entry) => entry.id === String(row.accountId));
+    const issues = row.repost || !destination ? [] : readiness(destinationPost, destination, picked);
+    const own = destination ? destinationFor(destinationPost, destination) : null;
     return {
       accountId: row.accountId,
       text: row.repost
         ? null
         : wordsFor(row.provider, post, {
             account: { _id: row.accountId, longPosts: account?.longPosts },
+            link: own?.link,
             context,
-            at: post.scheduledAt ?? Date.now(),
+            at: post.times[row.accountId] ?? post.scheduledAt ?? Date.now(),
           }),
-      warnings,
+      link: own?.link ?? null,
+      media: own?.media.map((item) => item.id) ?? [],
+      firstComment: own?.firstComment ?? "",
+      at: post.times[row.accountId] ? new Date(post.times[row.accountId]).toISOString() : null,
+      ready: !issues.some((issue) => issue.level === "block"),
+      issues: issues.map(({ level, message }) => ({ level, message })),
+      warnings: issues.filter((issue) => issue.level !== "info").map((issue) => issue.message),
     };
   });
   return {
@@ -1137,7 +1203,7 @@ export const OPERATIONS: Operation[] = [
     name: "create_social_post",
     title: "Post to social accounts",
     description:
-      "Write one social post and send it as several connected accounts at once, each copy fitted to its network, or schedule it, queue it at the user's next free queue time, or save it as a draft. Everything public is checked first, like posts written in the studio. Pass the same idempotencyKey again and you get the same post back instead of a second one. Words may use {spintax|variations} and the variables {date} {day} {time} {product} {link} {network}.",
+      "Write one social post and send it as several connected accounts at once, each copy fitted to its network, or schedule it, queue it at the user's next free queue time, or save it as a draft (a draft may have no accounts yet: an idea). Each network or account can have its own words (perNetwork), media, link and first comment (variants) and time (times). X refuses the same automated words from several X accounts, so give each its own. Everything public is checked first, like posts written in the studio. Pass the same idempotencyKey again and you get the same post back instead of a second one. Words may use {spintax|variations} and the variables {date} {day} {time} {product} {link} {network}.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1166,9 +1232,11 @@ export const OPERATIONS: Operation[] = [
           type: "boolean",
           description: "Send the link as a per-network short link with UTM tags, counting clicks.",
         },
+        variants: VARIANTS_SCHEMA,
+        times: TIMES_SCHEMA,
         idempotencyKey: { type: "string" },
       },
-      required: ["accounts", "text"],
+      required: ["text"],
     },
     readOnly: false,
     async run({ user }, input) {
@@ -1199,6 +1267,8 @@ export const OPERATIONS: Operation[] = [
         firstComment: optionalString(input, "firstComment") ?? "",
         tags: optionalStrings(input, "tags") ?? [],
         trackLinks: optionalBoolean(input, "trackLinks") ?? false,
+        variants: variantsInput(input.variants),
+        times: timesInput(input.times, user.timeZone),
         idempotencyKey: optionalString(input, "idempotencyKey"),
         source: "api",
       });
@@ -1264,6 +1334,21 @@ export const OPERATIONS: Operation[] = [
           items: { type: "string" },
           description:
             "Replace media with uploaded IDs; an empty list clears it. Existing metadata is kept for retained IDs.",
+        },
+        variants: {
+          ...VARIANTS_SCHEMA,
+          description: `Replace all per-destination media, links and first comments. ${VARIANTS_SCHEMA.description}`,
+        },
+        times: { ...TIMES_SCHEMA, description: `Replace per-account times. ${TIMES_SCHEMA.description}` },
+        variantFor: {
+          type: "object",
+          description:
+            "Change some destinations' media, link or first comment, keeping the rest: key to { media?, link?, firstComment? } merged into what's there, or null to go back to the shared version.",
+        },
+        timeFor: {
+          type: "object",
+          description:
+            "Set some accounts' own times, keeping the rest: account id to a date-time, or null to use `at`.",
         },
         frames: {
           type: "array",
@@ -1353,6 +1438,8 @@ export const OPERATIONS: Operation[] = [
         plug: post.plug,
         trackLinks: optionalBoolean(input, "trackLinks") ?? post.trackLinks,
         coverMediaId: post.cover?.id ?? null,
+        variants: mergeVariants(variantsInput(input.variants, post.variants), input.variantFor),
+        times: mergeTimes(timesInput(input.times, user.timeZone, post.times), input.timeFor, user.timeZone),
       });
       if (!result.ok) throw new ApiError(400, result.error);
       return await socialPostSummary(user, result.postId);
@@ -1373,6 +1460,38 @@ export const OPERATIONS: Operation[] = [
         : await convex.mutation(api.social.cancel, { userId: user._id, postId });
       if (!cancelled) throw new ApiError(400, "Only drafts and unsent scheduled posts can be cancelled.");
       return { id: postId, status: post.draft ? "deleted" : "cancelled" };
+    },
+  },
+  {
+    name: "resolve_social_delivery",
+    title: "Settle a social post that may have gone out",
+    description:
+      "When a copy's outcome is uncertain (the network may have taken it before the connection dropped), check the account first. Then say what happened: posted (optionally with its url) marks it sent without sending again; resend queues it again. Ordinary retries skip uncertain copies so nothing posts twice.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        delivery: { type: "string", description: "The copy's delivery id from get_social_post." },
+        outcome: { type: "string", enum: ["posted", "resend"] },
+        url: { type: "string", description: "The post's address on the network, when outcome is posted." },
+      },
+      required: ["delivery", "outcome"],
+    },
+    readOnly: false,
+    async run({ user }, input) {
+      const outcome = requiredString(input, "outcome");
+      if (outcome !== "posted" && outcome !== "resend") throw new ApiError(400, "outcome must be posted or resend.");
+      const delivery = requiredString(input, "delivery").trim();
+      const row = await convex.query(api.social.ownedDelivery, { userId: user._id, deliveryId: delivery });
+      if (!row) throw new ApiError(404, "No such delivery.");
+      const done = await convex.mutation(api.social.resolveUncertain, {
+        userId: user._id,
+        deliveryId: delivery,
+        outcome,
+        url: optionalString(input, "url"),
+      });
+      if (!done) throw new ApiError(400, "Only uncertain copies can be settled.");
+      if (outcome === "resend") await deliverPost(row.postId, user._id);
+      return await socialPostSummary(user, row.postId);
     },
   },
   {
