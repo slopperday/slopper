@@ -90,6 +90,17 @@ test.describe("promo videos", () => {
     // Shared links carry it too, for previews that play video.
     await expect(visitor.locator('meta[property="og:video"]')).toHaveAttribute("content", /videos\/.+\.mp4$/);
     await expect(visitor.locator('meta[property="og:video:type"]')).toHaveAttribute("content", "video/mp4");
+    const here = visitor.url();
+    const expand = visitor.getByRole("button", { name: `Watch the ${slop.name} video full screen` });
+    await expand.click();
+    const dialog = visitor.getByRole("dialog", { name: `${slop.name} promo video` });
+    await expect(dialog.locator("video")).toHaveAttribute("src", /videos\/.+\.mp4$/);
+    await expect(dialog.locator("video")).toHaveAttribute("controls", "");
+    await expect(dialog.getByRole("button", { name: "Next" })).toHaveCount(0);
+    expect(visitor.url()).toBe(here);
+    await visitor.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(expand).toBeFocused();
     await own.goto(slop.path);
     await expect(own.getByText("Your video is waiting for a moderator.")).toHaveCount(0);
   });

@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Form } from "react-router";
 import type { PublicUpdateLink } from "@convex/lib/shape";
 import { FIELD_OUTCOMES, type FieldOutcome, LINK_KINDS, type UpdateDetails } from "~/lib/model";
 import { Icon } from "./Icon";
+import { Lightbox } from "./Lightbox";
 
 /** Small pieces of an update: its version, details, images and links. */
 
@@ -32,27 +34,42 @@ export function UpdateDetailsLine({ details }: { details: UpdateDetails }) {
   );
 }
 
-/** An update's images, blurred like the slop's screenshots until revealed. */
+/** An update's images, blurred like the slop's screenshots until revealed. Opened full screen, never linked. */
 export function UpdateImages({ images, name, reveal }: { images: readonly string[]; name: string; reveal: boolean }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const frame = "relative shrink-0 snap-start overflow-hidden rounded-xl bg-sunk";
+  const items = images.map((url, index) => ({ url, alt: `${name} update image ${index + 1}` }));
   return (
-    <div className="scrollbar-none -mx-4 mt-3 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
-      {images.map((url, index) => (
-        <a
-          key={url}
-          href={reveal ? url : "?reveal=1"}
-          target={reveal ? "_blank" : undefined}
-          rel="noopener"
-          className="relative shrink-0 snap-start overflow-hidden rounded-xl bg-sunk"
-        >
-          <img
-            src={url}
-            alt={`${name} update image ${index + 1}`}
-            loading="lazy"
-            className={`h-40 w-auto max-w-[75vw] object-contain sm:h-48 ${reveal ? "" : "scale-110 blur-2xl"}`}
-          />
-        </a>
-      ))}
-    </div>
+    <>
+      <div className="scrollbar-none -mx-4 mt-3 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+        {images.map((url, index) => {
+          const image = (
+            <img
+              src={url}
+              alt={`${name} update image ${index + 1}`}
+              loading="lazy"
+              className={`h-40 w-auto max-w-[75vw] object-contain sm:h-48 ${reveal ? "" : "scale-110 blur-2xl"}`}
+            />
+          );
+          return reveal ? (
+            <button
+              key={url}
+              type="button"
+              onClick={() => setOpen(index)}
+              aria-label={`Open ${name} update image ${index + 1} full screen`}
+              className={`${frame} cursor-zoom-in`}
+            >
+              {image}
+            </button>
+          ) : (
+            <a key={url} href="?reveal=1" className={frame}>
+              {image}
+            </a>
+          );
+        })}
+      </div>
+      <Lightbox items={items} index={open} onClose={() => setOpen(null)} onIndex={setOpen} />
+    </>
   );
 }
 

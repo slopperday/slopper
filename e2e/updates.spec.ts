@@ -76,6 +76,14 @@ test.describe("updates", () => {
       "https://example.com/editor",
     );
     await expect(update.getByRole("button", { name: "Remove preview" })).toHaveCount(0);
+    const here = visitor.url();
+    await update.getByRole("img", { name: `${slop.name} update image 1` }).click();
+    const dialog = visitor.getByRole("dialog", { name: `${slop.name} update image 1` });
+    await expect(dialog.getByRole("img")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Next" })).toHaveCount(0);
+    expect(visitor.url()).toBe(here);
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
   });
 
   test("a field test says how it went and who tried it", async ({ seed }) => {

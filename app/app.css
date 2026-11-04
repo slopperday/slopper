@@ -810,6 +810,17 @@
   animation: survey-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/* A picture opens over the page it sits on (Lightbox.tsx). */
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.lightbox {
+  animation: lightbox-in 140ms ease-out;
+}
+
 /* Still for whoever asks, on their device or in Settings (data-motion, app/lib/motion.ts). */
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-motion="full"]) *,

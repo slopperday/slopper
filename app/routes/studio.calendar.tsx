@@ -263,7 +263,7 @@ export default function StudioCalendar({ loaderData }: Route.ComponentProps) {
                   aria-label={key}
                 >
                   <p
-                    className={`text-xs font-bold ${today ? "inline-block rounded-full bg-slop px-1.5 text-ink" : "text-muted"}`}
+                    className={`text-xs font-bold ${today ? "inline-block rounded-full bg-slop px-1.5 text-slop-ink" : "text-muted"}`}
                   >
                     {new Date(day).getUTCDate()}
                   </p>

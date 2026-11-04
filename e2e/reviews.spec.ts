@@ -28,6 +28,11 @@ test.describe("reviews", () => {
       "src",
       /screenshots\/.+\.png$/,
     );
+    await review.getByRole("img", { name: `${slop.name} update image 1` }).click();
+    const dialog = visitor.getByRole("dialog", { name: `${slop.name} update image 1` });
+    await expect(dialog.getByRole("img")).toBeVisible();
+    await dialog.getByRole("button", { name: "Close the full-screen picture" }).click({ position: { x: 5, y: 5 } });
+    await expect(dialog).toHaveCount(0);
 
     // The maker reads it but can't review their own slop or delete the review.
     const makerPage = await seed.pageAs(maker);

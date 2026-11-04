@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
 import type { Route } from "./+types/slop";
 import { api } from "@convex/_generated/api";
@@ -64,6 +64,7 @@ import { useLive } from "~/components/Live";
 import { updatePrompt } from "~/lib/prompts";
 import { DemoVideo } from "~/components/DemoVideo";
 import { LiveTeaser, TractionSection } from "~/components/Traction";
+import { Lightbox } from "~/components/Lightbox";
 
 function parseHandle(handle: string): string {
   if (!handle.startsWith("@")) notFound();
@@ -424,6 +425,11 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
   const path = slopPath(owner.username, slop.slug);
   const day = dayLabel(slop);
   const primary = slop.links.find((link) => link.kind === "website") ?? slop.links[0];
+  // Screenshots and the promo video open over the page, in the site, not in a file's own tab.
+  const [shot, setShot] = useState<number | null>(null);
+  const [promo, setPromo] = useState(false);
+  const inlineVideo = useRef<HTMLVideoElement>(null);
+  const shots = slop.screenshots.map((url, index) => ({ url, alt: `${slop.name} screenshot ${index + 1}` }));
 
   return (
     <>
@@ -550,8 +556,9 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
           </p>
         )}
         {slop.video && reveal && (
-          <section className="mt-10" aria-label="Promo video">
+          <section className="relative mt-10" aria-label="Promo video">
             <video
+              ref={inlineVideo}
               src={slop.video}
               poster={slop.screenshots[0]}
               controls
@@ -561,29 +568,53 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
             >
               <a href={slop.video}>Watch the {slop.name} video</a>
             </video>
+            <button
+              type="button"
+              onClick={() => {
+                inlineVideo.current?.pause();
+                setPromo(true);
+              }}
+              aria-label={`Watch the ${slop.name} video full screen`}
+              title="Full screen"
+              className="absolute top-3 right-3 inline-flex size-10 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/75"
+            >
+              <Icon name="expand" />
+            </button>
           </section>
         )}
         {slop.publication && <PublicationCard slop={slop} reveal={reveal} />}
         {slop.screenshots.length > 0 && (
           <section className="relative mt-10" aria-label="Screenshots">
             <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2">
-              {slop.screenshots.map((url, index) => (
-                <a
-                  key={url}
-                  data-capture="screenshot"
-                  href={reveal ? url : "?reveal=1"}
-                  target={reveal ? "_blank" : undefined}
-                  rel="noopener"
-                  className="relative shrink-0 snap-start overflow-hidden rounded-2xl bg-sunk"
-                >
+              {slop.screenshots.map((url, index) => {
+                const frame = "relative shrink-0 snap-start overflow-hidden rounded-2xl bg-sunk";
+                const image = (
                   <img
                     src={url}
                     alt={`${slop.name} screenshot ${index + 1}`}
                     loading={index === 0 ? "eager" : "lazy"}
                     className={`h-64 w-auto max-w-[85vw] object-contain sm:h-96 ${reveal ? "" : "scale-110 blur-2xl"}`}
                   />
-                </a>
-              ))}
+                );
+                // A screenshot opens over the page at full size; it never leaves the site for its file.
+                // While an NSFW slop is hidden, the click still reveals the shot instead.
+                return reveal ? (
+                  <button
+                    key={url}
+                    type="button"
+                    data-capture="screenshot"
+                    onClick={() => setShot(index)}
+                    aria-label={`Open ${slop.name} screenshot ${index + 1} full screen`}
+                    className={`${frame} cursor-zoom-in`}
+                  >
+                    {image}
+                  </button>
+                ) : (
+                  <a key={url} data-capture="screenshot" href="?reveal=1" className={frame}>
+                    {image}
+                  </a>
+                );
+              })}
             </div>
             {!reveal && (
               <div className="absolute inset-0 grid place-items-center">
@@ -594,6 +625,13 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
             )}
           </section>
         )}
+
+        <Lightbox items={shots} index={shot} onClose={() => setShot(null)} onIndex={setShot} />
+        <Lightbox
+          items={slop.video ? [{ url: slop.video, alt: `${slop.name} promo video`, video: true }] : []}
+          index={promo ? 0 : null}
+          onClose={() => setPromo(false)}
+        />
 
         <div className="mt-14 grid gap-x-16 gap-y-16 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0">

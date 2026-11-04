@@ -47,6 +47,13 @@ test.describe("screenshots", () => {
     const url = `${stack.mediaUrl}/${stored?.key}`;
     await expect(thumbnail).toHaveAttribute("src", url);
 
+    await files.setInputFiles({
+      name: `portrait-${id}.png`,
+      mimeType: "image/png",
+      buffer: await page.screenshot({ clip: { x: 0, y: 0, width: 320, height: 640 } }),
+    });
+    await expect(page.getByRole("img", { name: "Screenshot 2" })).toBeVisible();
+
     // It launches with the slop, and the bucket serves the same bytes.
     await page.getByRole("button", { name: "Throw it at the wall" }).click();
     await expect(page.getByRole("status")).toHaveText(`${name} is on the wall.`);
@@ -58,6 +65,48 @@ test.describe("screenshots", () => {
         .update(new Uint8Array(await served.arrayBuffer()))
         .digest("hex"),
     ).toBe(stored?.sha256);
+
+    // Clicking it opens it over the page, never the file in a tab; Escape puts it away.
+    const dialog = page.getByRole("dialog");
+    const opener = page.getByRole("button", { name: `Open ${name} screenshot 1 full screen`, exact: true });
+    const here = page.url();
+    await opener.click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("img", { name: `${name} screenshot 1` })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Close", exact: true })).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(dialog.getByRole("button", { name: "Next" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(dialog.getByRole("button", { name: "Close", exact: true })).toBeFocused();
+    await dialog.getByRole("button", { name: "Next" }).click();
+    await expect(dialog.getByRole("img", { name: `${name} screenshot 2` })).toBeVisible();
+    await expect(dialog).toContainText("2 / 2");
+    await page.keyboard.press("ArrowRight");
+    await expect(dialog.getByRole("img", { name: `${name} screenshot 1` })).toBeVisible();
+    await page.keyboard.press("ArrowLeft");
+    await expect(dialog.getByRole("img", { name: `${name} screenshot 2` })).toBeVisible();
+    await dialog.getByRole("button", { name: "Previous" }).click();
+    await expect(dialog.getByRole("img", { name: `${name} screenshot 1` })).toBeVisible();
+    expect(page.url()).toBe(here);
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(opener).toBeFocused();
+    expect(await page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+
+    // A portrait image still fits on a phone, with the close control in reach.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await opener.click();
+    await dialog.getByRole("button", { name: "Next" }).click();
+    const portrait = dialog.getByRole("img", { name: `${name} screenshot 2` });
+    await expect(portrait).toBeVisible();
+    const bounds = await portrait.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
+    expect(bounds!.width).toBeLessThanOrEqual(390);
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
 
     // Deleting the slop deletes the object.
     const path = new URL(page.url()).pathname;
