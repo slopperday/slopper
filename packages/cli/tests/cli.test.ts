@@ -153,16 +153,48 @@ describe("help", () => {
   it.each(COMMANDS.map((command) => command.name))("explains %s, with help, --help or -h", async (name) => {
     const cli = await harness();
     const command = COMMANDS.find((candidate) => candidate.name === name);
-    const help = await cli.run("help", name);
+    const help = await cli.run("help", ...name.split(" "));
     expect(help.code).toBe(0);
     expect(help.stdout).toMatch(new RegExp(`^Usage: slopper ${name}[ \\n]`));
     expect(help.stdout).toContain(command?.summary);
     for (const flag of Object.keys(command?.flags ?? {})) expect(help.stdout).toContain(`  ${flag}  `);
     expect(help.stdout).toContain("Global flags:");
-    expect(await cli.run(name, "--help")).toEqual(help);
-    expect(await cli.run(name, "-h")).toEqual(help);
+    expect(await cli.run(...name.split(" "), "--help")).toEqual(help);
+    expect(await cli.run(...name.split(" "), "-h")).toEqual(help);
     // Help needs no token and never calls the site.
     expect(cli.calls).toEqual([]);
+  });
+
+  it("groups social commands and explains each form without a token", async () => {
+    const cli = await harness();
+    const group = await cli.run("social");
+    expect(group.code).toBe(0);
+    expect(group.stdout).toContain("Usage: slopper social <command> [flags]");
+    for (const subcommand of ["accounts", "post", "posts", "status", "edit", "cancel"]) {
+      expect(group.stdout).toContain(`  ${subcommand} `);
+      expect(await cli.run("social", subcommand, "--help")).toEqual(await cli.run("help", "social", subcommand));
+      expect(await cli.run("social", "help", subcommand)).toEqual(await cli.run("help", "social", subcommand));
+    }
+    for (const argv of [
+      ["social", "--help"],
+      ["social", "-h"],
+      ["help", "social"],
+      ["social", "help"],
+    ]) {
+      expect(await cli.run(...argv)).toEqual(group);
+    }
+    const unknown = await cli.run("social", "nope");
+    expect(unknown.code).toBe(2);
+    expect(unknown.stderr).toContain("slopper social --help");
+    expect(cli.calls).toEqual([]);
+  });
+
+  it("keeps old social command aliases working but shows grouped help", async () => {
+    const cli = await harness({ "GET /api/v1/social/accounts": { body: { accounts: [] } } }, TOKEN);
+    expect(await cli.run("social-accounts")).toEqual(await cli.run("social", "accounts"));
+    expect((await cli.run("social-post", "--help")).stdout).toContain("Usage: slopper social post ");
+    expect(await cli.run("help", "social-post")).toEqual(await cli.run("help", "social", "post"));
+    expect((await cli.run("social-post")).stderr).toContain("slopper help social post");
   });
 
   it("prints the version from package.json", async () => {
@@ -201,13 +233,101 @@ const ROUTE_CASES: { name: string; argv: string[]; method: string; path: string;
   },
   { name: "slops", argv: ["slops"], method: "GET", path: "/api/v1/slops", body: null },
   { name: "scheduled", argv: ["scheduled"], method: "GET", path: "/api/v1/scheduled", body: null },
-  { name: "social-accounts", argv: ["social-accounts"], method: "GET", path: "/api/v1/social/accounts", body: null },
-  { name: "social-posts", argv: ["social-posts"], method: "GET", path: "/api/v1/social/posts", body: null },
-  { name: "social-status", argv: ["social-status", "p1"], method: "GET", path: "/api/v1/social/posts/p1", body: null },
+  { name: "social accounts", argv: ["social", "accounts"], method: "GET", path: "/api/v1/social/accounts", body: null },
   {
-    name: "social-post",
+    name: "social edit",
     argv: [
-      "social-post",
+      "social",
+      "edit",
+      "p1",
+      "--text",
+      "Revised",
+      "--copy",
+      "x=short version",
+      "--copy",
+      "a2=brand copy",
+      "--options",
+      '{"instagram":{"format":"story"}}',
+      "--account",
+      "a1",
+      "--account",
+      "a2",
+      "--at",
+      "2030-02-01T10:00Z",
+    ],
+    method: "PATCH",
+    path: "/api/v1/social/posts/p1",
+    body: {
+      text: "Revised",
+      copy: { x: "short version", a2: "brand copy" },
+      options: { instagram: { format: "story" } },
+      accounts: ["a1", "a2"],
+      at: "2030-02-01T10:00Z",
+    },
+  },
+  {
+    name: "social resolve",
+    argv: ["social", "resolve", "d1", "--posted", "--link", "https://x.com/a/status/1"],
+    method: "POST",
+    path: "/api/v1/social/deliveries/d1/resolve",
+    body: { outcome: "posted", url: "https://x.com/a/status/1" },
+  },
+  {
+    name: "social post with destinations",
+    argv: [
+      "social",
+      "post",
+      "Out now",
+      "--account",
+      "a1",
+      "--account",
+      "a2",
+      "--link-for",
+      "linkedin=https://tiltmaze.app/team",
+      "--comment-for",
+      "instagram=#indiegames",
+      "--media-for",
+      "x=m1,m2",
+      "--time-for",
+      "a2=2030-02-01T10:00",
+      "--at",
+      "2030-02-01T09:00",
+    ],
+    method: "POST",
+    path: "/api/v1/social/posts",
+    body: {
+      text: "Out now",
+      accounts: ["a1", "a2"],
+      at: "2030-02-01T09:00",
+      trackLinks: false,
+      variants: {
+        linkedin: { link: "https://tiltmaze.app/team" },
+        instagram: { firstComment: "#indiegames" },
+        x: { media: ["m1", "m2"] },
+      },
+      times: { a2: "2030-02-01T10:00" },
+    },
+  },
+  {
+    name: "social cancel",
+    argv: ["social", "cancel", "p1"],
+    method: "DELETE",
+    path: "/api/v1/social/posts/p1",
+    body: null,
+  },
+  { name: "social posts", argv: ["social", "posts"], method: "GET", path: "/api/v1/social/posts", body: null },
+  {
+    name: "social status",
+    argv: ["social", "status", "p1"],
+    method: "GET",
+    path: "/api/v1/social/posts/p1",
+    body: null,
+  },
+  {
+    name: "social post",
+    argv: [
+      "social",
+      "post",
       "Tiltmaze 2.0 is out",
       "--account",
       "a1",

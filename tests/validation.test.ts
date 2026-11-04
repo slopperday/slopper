@@ -231,10 +231,12 @@ describe("safety", () => {
     expect(html).toContain('rel="nofollow ugc noopener"');
   });
 
-  it("round-trips sealed credentials and detects tampering", async () => {
+  it("round-trips sealed credentials, rotates keys cleanly, and detects tampering", async () => {
     const key = await deriveKey("test-secret");
+    const rotated = await deriveKey("next-secret");
     const sealed = await seal('{"token":"abc"}', key);
     expect(await unseal(sealed, key)).toBe('{"token":"abc"}');
+    expect(await unseal(sealed, [rotated, key])).toBe('{"token":"abc"}');
     const [version, iv, body] = sealed.split(".");
     const flipped = body.slice(0, -2) + (body.endsWith("A") ? "BB" : "AA");
     await expect(unseal(`${version}.${iv}.${flipped}`, key)).rejects.toThrow();

@@ -2,6 +2,7 @@ import type { Route } from "./+types/auth.callback";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { grantListedAdmin, startSession, viewerContext } from "~/.server/session";
+import { config } from "~/.server/config";
 import { convex } from "~/.server/convex";
 import type { OAuthClientCredentials } from "~/.server/config";
 import {
@@ -17,7 +18,7 @@ import {
 import { avatarExpires, fetchIdentity } from "~/.server/auth/identity";
 import { secondFactorGate } from "~/.server/auth/twoFactor";
 import { copyAvatar } from "~/.server/media";
-import { fetchLinkedInProfile, fetchXProfile, sealCredentials } from "~/.server/social/adapters";
+import { fetchLinkedInPages, fetchLinkedInProfile, fetchXProfile, sealCredentials } from "~/.server/social/adapters";
 import { connectExtraNetwork } from "~/.server/social/connect";
 import { clearCookie, notFound, OAUTH_COOKIE, readCookie, redirectWithFlash, TZ_COOKIE } from "~/.server/http";
 import {
@@ -203,8 +204,36 @@ async function completeConnect(
     }),
     expiresAt: tokens.expiresAt,
   });
+  // With Company Pages turned on, each Page you administer becomes its own account: the brand posts as itself.
+  let pages: { urn: string; name: string }[] = [];
+  if (config.linkedinPages) {
+    pages = await fetchLinkedInPages(tokens.accessToken).catch((error: unknown) => {
+      console.warn("Listing LinkedIn Pages failed", error);
+      return [];
+    });
+    for (const page of pages) {
+      await convex.mutation(api.accounts.connect, {
+        userId: pending.userId,
+        provider: "linkedin",
+        remoteId: page.urn,
+        handle: page.name,
+        displayName: page.name,
+        avatarUrl: null,
+        sealedCredentials: await sealCredentials({
+          accessToken: tokens.accessToken,
+          expiresAt: tokens.expiresAt,
+          personUrn: page.urn,
+        }),
+        expiresAt: tokens.expiresAt,
+        initialMode: "off",
+        brand: page.name,
+      });
+    }
+  }
   return redirectWithFlash("/settings/autopost", {
     tone: "success",
-    message: `Connected ${account.displayName} on LinkedIn.`,
+    message: pages.length
+      ? `Connected ${account.displayName} and ${pages.length === 1 ? "1 Company Page" : `${pages.length} Company Pages`} on LinkedIn.`
+      : `Connected ${account.displayName} on LinkedIn.`,
   });
 }

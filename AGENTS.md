@@ -208,6 +208,13 @@ release. Add a tool name to select part of the graph. For example, run
   skip the check until they're posted. Settings, snippets, brand voices, tracked links (`/go/:code`), preview links
   (`/review/:token`, public, ceilinged) and RSS feeds are in `convex/studio.ts`. Webhook and feed addresses are typed
   by people, so they go through the pinned transport. Agents use `create_social_post` (with idempotency keys).
+  What each account posts (its words in `overrides`, link, media and first comment in `variants`, its time in
+  `times`) and whether it's ready come from `app/lib/destinations.ts` (`destinationFor`, `readiness`), shared by the
+  composer, `saveStudioPost` and the agents; a `block` issue is refused on save. Two X accounts never post the same
+  words (X's automation rules). Uncertain deliveries wait for the person to resolve them (`social.resolveUncertain`).
+  Setup steps per network are `app/lib/setupGuides.ts`, mirrored in docs/social-setup.md. Reddit connects by OAuth
+  (`REDDIT_CLIENT_*`, refreshed in `redditCredentials`); LinkedIn Pages need `LINKEDIN_PAGES=true` after LinkedIn
+  approves the Community Management API.
 - **Traction:** sources are one client each in `app/.server/integrations/` (registered in `index.ts`), read only.
   Syncs run on the app server (it holds the sealing key); Convex stores days in `metrics` and hands due sources out
   with `integrations.claim`. Numbers on the page always say where they came from; typed-in money stays in the ledger.

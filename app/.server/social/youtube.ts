@@ -20,9 +20,10 @@ import {
  * is its own channel). Uploads use the Data API's resumable upload; stats
  * come from the Data API (per video) and the Analytics API (per channel).
  *
- * Google locks videos from unaudited API projects to private, and each
- * upload costs 1,600 of the project's 10,000 daily quota units, so audit
- * the project before offering YouTube widely.
+ * Google's videos.insert reference (checked November 2026): uploads from
+ * unverified projects are not restricted to private, and each upload costs
+ * 1 unit from a separate Video Uploads bucket of 100 a day. More needs
+ * Google's quota audit, so plan for it before offering YouTube widely.
  */
 
 const DATA = "https://www.googleapis.com/youtube/v3";

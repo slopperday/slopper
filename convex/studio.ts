@@ -3,7 +3,8 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { requireServer } from "./lib/auth";
 import { consume } from "./lib/rate";
-import { wakeDuePosts } from "./social";
+import { canAccessAccount, userOrganizationIds } from "./organizations";
+import { DEFAULT_SLOTS, wakeDuePosts } from "./social";
 
 /**
  * The studio's supporting records: the posting queue and pause switch, the
@@ -14,8 +15,6 @@ import { wakeDuePosts } from "./social";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
-/** A sensible queue to start with: weekdays at 9:00, 12:30 and 17:00. */
-export const DEFAULT_SLOTS = [1, 2, 3, 4, 5].flatMap((day) => [540, 750, 1020].map((minute) => ({ day, minute })));
 
 function token(bytes = 24): string {
   const raw = new Uint8Array(bytes);
@@ -40,6 +39,7 @@ export const settings = query({
       paused: row?.paused ?? false,
       slots: row?.slots ?? DEFAULT_SLOTS,
       calendarToken: row?.calendarToken ?? null,
+      lastAccountIds: row?.lastAccountIds ?? [],
       webhook: row?.webhook ?? null,
     };
   },
@@ -261,7 +261,13 @@ export const createReview = mutation({
     await requireServer(ctx);
     const id = ctx.db.normalizeId("socialPosts", postId);
     const post = id ? await ctx.db.get(id) : null;
-    if (!post || post.userId !== userId) throw new ConvexError("That post is gone.");
+    if (!post) throw new ConvexError("That post is gone.");
+    if (post.userId !== userId) {
+      const orgIds = await userOrganizationIds(ctx, userId);
+      if (!post.organizationId || !orgIds.has(post.organizationId)) {
+        throw new ConvexError("That post is gone.");
+      }
+    }
     // One live link per post: a new one replaces the old.
     const old = await ctx.db
       .query("socialReviews")
@@ -414,7 +420,7 @@ export const addFeed = mutation({
     for (const raw of accountIds) {
       const id = ctx.db.normalizeId("accounts", raw);
       const account = id ? await ctx.db.get(id) : null;
-      if (account?.userId === userId) accounts.push(account._id);
+      if (account && (await canAccessAccount(ctx, userId, account))) accounts.push(account._id);
     }
     if (accounts.length === 0) throw new ConvexError("Pick the accounts a feed posts as.");
     await ctx.db.insert("socialFeeds", {

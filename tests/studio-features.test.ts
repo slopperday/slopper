@@ -124,6 +124,19 @@ describe("threads", () => {
     expect(stopped.parts).toEqual(["r1"]);
     expect(stopped.warning).toBe("The thread stopped at post 3: Bluesky turned it down: busy");
 
+    // Resuming picks up from the last sent reply instead of posting the start of the thread again.
+    replies.length = 0;
+    const resumed = await followUps(
+      adapter,
+      account,
+      { remoteId: "root" },
+      { thread: ["two", "three", "four"] },
+      context,
+      stopped.parts,
+    );
+    expect(replies).toEqual(["r1<-three", "r1<-four"]);
+    expect(resumed).toEqual({ parts: ["r1", "r1", "r2"], warning: null });
+
     // Facebook doesn't thread: only the first comment goes.
     replies.length = 0;
     const page = { ...account, provider: "facebook" } as Doc<"accounts">;
@@ -133,7 +146,7 @@ describe("threads", () => {
 });
 
 describe("fitting words to an account", () => {
-  it("gives X Premium accounts long posts", () => {
+  it("gives X Premium accounts long posts, and lets one account override its network's words", () => {
     const long = "word ".repeat(200);
     expect(textLimitFor("x", { longPosts: true })).toBe(X_LONG_LIMIT);
     expect(
@@ -144,6 +157,13 @@ describe("fitting words to an account", () => {
       ),
     ).toBe(long.trim());
     expect(wordsFor("x", { text: long, link: null, overrides: {} }).length).toBeLessThanOrEqual(280);
+    expect(
+      wordsFor(
+        "x",
+        { text: "shared", link: null, overrides: { x: "for x", a: "for account a" } },
+        { account: { _id: "a" as Id<"accounts"> } },
+      ),
+    ).toBe("for account a");
   });
 
   it("tells documents apart: LinkedIn only, and on their own", () => {
@@ -462,5 +482,12 @@ describe("studio posts in Convex: the new parts", () => {
     await expect(
       server.mutation(api.social.reschedule, { userId, postId, scheduledAt: Date.now() - 1000 }),
     ).rejects.toThrow("future");
+
+    await server.mutation(api.accounts.setBrand, { userId, accountId: a._id, brand: "Tiltmaze" });
+    await server.mutation(api.studio.saveBrandVoice, { userId, name: "Tiltmaze", voice: "Playful and short." });
+    await server.mutation(api.accounts.setBrand, { userId, accountId: a._id, brand: "Tiltmaze Studio" });
+    expect(await server.query(api.studio.brands, { userId })).toEqual([
+      { name: "Tiltmaze Studio", voice: "Playful and short." },
+    ]);
   });
 });

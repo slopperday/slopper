@@ -28,17 +28,18 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 export async function action({ request, context }: Route.ActionArgs) {
   const viewer = context.get(viewerContext);
-  const step = await pendingStep(request, viewer);
   const form = await request.formData();
   if (formText(form, "intent") === "cancel") {
+    const step = await pendingStep(request, viewer);
     const headers = await cancelStep(request, step);
     headers.set("location", step?.kind === "stepup" ? step.returnTo : "/login");
     return new Response(null, { status: 302, headers });
   }
-  if (!step) return redirectWithFlash("/login", { tone: "error", message: "That took too long. Sign in again." });
   if (!(await allowAction(`two-factor:${callerAddress(request)}`, 30, 900_000))) {
     return { error: "Too many tries. Wait 15 minutes, then try again." };
   }
+  const step = await pendingStep(request, viewer);
+  if (!step) return redirectWithFlash("/login", { tone: "error", message: "That took too long. Sign in again." });
   const result = await checkCode(step, formText(form, "code"));
   if (!result.ok) return { error: result.error };
   return await finishStep(request, step, result.method);

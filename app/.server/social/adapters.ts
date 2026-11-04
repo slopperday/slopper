@@ -21,6 +21,7 @@ import {
   type SendResult,
 } from "./core";
 import { facebookAdapter, instagramAdapter, threadsAdapter } from "./meta";
+import { discordAdapter, mastodonAdapter, redditAdapter, telegramAdapter } from "./community";
 import { tiktokAdapter } from "./tiktok";
 import { youtubeAdapter } from "./youtube";
 import { xAuthorization, type XOwnCredentials } from "./x-credentials";
@@ -477,6 +478,31 @@ export function linkedinAdapter(): SocialAdapter {
   };
 }
 
+/**
+ * The LinkedIn Company Pages this person administers, for posting as a brand.
+ * Needs the organization scopes, which LinkedIn grants only to apps approved
+ * for its Community Management API (LINKEDIN_PAGES).
+ */
+export async function fetchLinkedInPages(accessToken: string): Promise<{ urn: string; name: string }[]> {
+  const headers = {
+    authorization: `Bearer ${accessToken}`,
+    "linkedin-version": LINKEDIN_VERSION,
+    "x-restli-protocol-version": "2.0.0",
+  };
+  const acls = await fetch(`${LINKEDIN_API}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED`, {
+    headers,
+  });
+  const { elements } = await okJson<{ elements?: { organization?: string }[] }>(acls, "LinkedIn");
+  const pages: { urn: string; name: string }[] = [];
+  for (const urn of new Set((elements ?? []).map((item) => item.organization).filter((urn): urn is string => !!urn))) {
+    const id = urn.split(":").pop();
+    const response = await fetch(`${LINKEDIN_API}/organizations/${id}`, { headers });
+    const page = response.ok ? ((await response.json()) as { localizedName?: string }) : {};
+    pages.push({ urn, name: page.localizedName ?? `LinkedIn Page ${id}` });
+  }
+  return pages;
+}
+
 export async function fetchLinkedInProfile(accessToken: string) {
   const response = await fetch("https://api.linkedin.com/v2/userinfo", {
     headers: { authorization: `Bearer ${accessToken}` },
@@ -768,5 +794,9 @@ export function adapters(): Record<SocialProvider, SocialAdapter> {
     instagram: instagramAdapter(),
     tiktok: tiktokAdapter(),
     youtube: youtubeAdapter(),
+    mastodon: mastodonAdapter(),
+    discord: discordAdapter(),
+    telegram: telegramAdapter(),
+    reddit: redditAdapter(),
   };
 }

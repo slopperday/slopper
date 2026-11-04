@@ -48,6 +48,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     thread: post.thread,
     firstComment: post.firstComment,
     youtubeTitle: post.options.youtube?.title ?? null,
+    instagramFormat: post.options.instagram?.format ?? "feed",
     scheduledAt: post.scheduledAt,
     expiresAt: review.expiresAt,
     feedback: review.feedback,
@@ -79,7 +80,8 @@ export const meta: Route.MetaFunction = () => [
 ];
 
 export default function Review({ loaderData, actionData }: Route.ComponentProps) {
-  const { previews, media, thread, firstComment, youtubeTitle, scheduledAt, expiresAt, feedback } = loaderData;
+  const { previews, media, thread, firstComment, youtubeTitle, instagramFormat, scheduledAt, expiresAt, feedback } =
+    loaderData;
   const sending = useNavigation().state !== "idle";
   return (
     <section className="mx-auto max-w-5xl px-4 pt-10 pb-16">
@@ -98,6 +100,7 @@ export default function Review({ loaderData, actionData }: Route.ComponentProps)
             title={account.provider === "youtube" ? (youtubeTitle ?? undefined) : undefined}
             media={media}
             over={false}
+            instagramFormat={instagramFormat}
           />
         ))}
       </div>

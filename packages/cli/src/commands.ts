@@ -113,6 +113,48 @@ function wholeNumber(values: Values, key: string): number | undefined {
   return Number(value);
 }
 
+/** `key=value` flags, as an object: `--link-for x=https://…`. */
+function pairs(values: Values, key: string): Record<string, string> | undefined {
+  const entries = list(values, key);
+  if (!entries) return undefined;
+  const out: Record<string, string> = {};
+  for (const entry of entries) {
+    const split = entry.indexOf("=");
+    if (split < 1) throw usageError(`--${key} needs key=value.`);
+    out[entry.slice(0, split).trim()] = entry.slice(split + 1);
+  }
+  return out;
+}
+
+/** Per-destination media, links and first comments from `--media-for`, `--link-for`, `--comment-for`. */
+function variantFlags(values: Values): Record<string, Record<string, unknown>> | undefined {
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const [key, value] of Object.entries(pairs(values, "link-for") ?? {})) (out[key] ??= {}).link = value || null;
+  for (const [key, value] of Object.entries(pairs(values, "comment-for") ?? {})) (out[key] ??= {}).firstComment = value;
+  for (const [key, value] of Object.entries(pairs(values, "media-for") ?? {})) {
+    (out[key] ??= {}).media = value
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+const DESTINATION_FLAGS = {
+  "--link-for <network-or-account=url>":
+    "Give one network or account its own link (empty for none). Repeat for several.",
+  "--comment-for <network-or-account=text>": "Give one network or account its own first comment. Repeat for several.",
+  "--media-for <network-or-account=id,id>": "Choose which uploads one network or account gets. Repeat for several.",
+  "--time-for <account=when>": "Give one account its own time (a date-time in your time zone). Repeat for several.",
+};
+
+const DESTINATION_OPTIONS = {
+  "link-for": { type: "string", multiple: true },
+  "comment-for": { type: "string", multiple: true },
+  "media-for": { type: "string", multiple: true },
+  "time-for": { type: "string", multiple: true },
+} as const;
+
 function required<T>(value: T | undefined, flag: string): T {
   if (value === undefined) throw usageError(`Missing ${flag}.`);
   return value;
@@ -495,18 +537,18 @@ export const COMMANDS: Command[] = [
     },
   },
   {
-    name: "social-accounts",
+    name: "social accounts",
     summary:
       "The social accounts you can post as (X, LinkedIn, Bluesky, Threads, Facebook, Instagram, TikTok, YouTube), with their brands.",
     run: ({ api }) => api.get("/social/accounts"),
   },
   {
-    name: "social-post",
+    name: "social post",
     args: "<text>",
     summary:
       "Post once as several accounts, each copy fitted to its network. Checked first. --at now|queue|draft|2026-11-24T09:30.",
     flags: {
-      "--account <id>": "An account id from social-accounts. Repeat for each.",
+      "--account <id>": "An account id from `slopper social accounts`. Repeat for each.",
       "--link <url>": "The link, last in each copy.",
       "--image <id>": "An uploaded picture id (upload). Repeat for more.",
       "--thread <text>": "A post that follows as a thread on X, Bluesky and Threads. Repeat for more.",
@@ -515,8 +557,10 @@ export const COMMANDS: Command[] = [
       "--tag <tag>": "A tag for the calendar and analytics. Repeat for more.",
       "--track-links": "Send the link as a per-network short link with UTM tags, counting clicks.",
       "--key <key>": "An idempotency key: the same key again returns the same post.",
+      ...DESTINATION_FLAGS,
     },
     options: {
+      ...DESTINATION_OPTIONS,
       account: { type: "string", multiple: true },
       link: { type: "string" },
       image: { type: "string", multiple: true },
@@ -531,7 +575,11 @@ export const COMMANDS: Command[] = [
       const { api, values } = context;
       return api.post("/social/posts", {
         text: positional(context, 0, "text"),
-        accounts: required(list(values, "account"), "--account <id>"),
+        // A draft can wait for its accounts (an idea); posting needs them.
+        accounts:
+          text(values, "at") === "draft"
+            ? list(values, "account")
+            : required(list(values, "account"), "--account <id>"),
         link: text(values, "link"),
         media: list(values, "image"),
         thread: list(values, "thread"),
@@ -539,20 +587,122 @@ export const COMMANDS: Command[] = [
         at: text(values, "at"),
         tags: list(values, "tag"),
         trackLinks: values["track-links"] === true,
+        variants: variantFlags(values),
+        times: pairs(values, "time-for"),
         idempotencyKey: text(values, "key"),
       });
     },
   },
   {
-    name: "social-posts",
+    name: "social posts",
     summary: "Your social posts, newest first: drafts, scheduled and sent, with each account's status and stats.",
     run: ({ api }) => api.get("/social/posts"),
   },
   {
-    name: "social-status",
+    name: "social status",
     args: "<post>",
     summary: "Where one social post went, each copy's link, and its latest likes, comments, shares and views.",
     run: (context) => context.api.get(`/social/posts/${encodeURIComponent(positional(context, 0, "post"))}`),
+  },
+  {
+    name: "social edit",
+    args: "<post>",
+    summary: "Edit a draft or unsent scheduled post. Omitted options stay unchanged; use --at to schedule it.",
+    flags: {
+      "--text <text>": "Replace the post's words.",
+      "--options <json>":
+        "Network-specific settings as JSON, keyed by youtube, tiktok, instagram or linkedin. Omitted networks stay unchanged.",
+      "--copy <account-or-network=text>":
+        "Set one account's or network's copy; repeat to change several. An empty value clears the override.",
+      "--link <url>": "Replace the link; pass an empty string to clear.",
+      "--account <id>": "Replace posting accounts; repeat for each.",
+      "--repost-account <id>": "Replace reposting accounts; repeat for each.",
+      "--thread <text>": "Replace the thread; repeat for each part.",
+      "--first-comment <text>": "Replace the first comment; an empty string clears it.",
+      "--tag <tag>": "Replace tags; repeat for each.",
+      "--at <when>": "draft, queue, now, or a future date-time in your time zone. Omit to keep the current state.",
+      "--media <id>": "Replace attachments with uploaded IDs; repeat for each.",
+      "--frame <id>": "A checked frame image id, required for scheduling large videos; repeat up to three.",
+      ...DESTINATION_FLAGS,
+    },
+    options: {
+      ...DESTINATION_OPTIONS,
+      text: { type: "string" },
+      copy: { type: "string", multiple: true },
+      options: { type: "string" },
+      link: { type: "string" },
+      account: { type: "string", multiple: true },
+      "repost-account": { type: "string", multiple: true },
+      thread: { type: "string", multiple: true },
+      "first-comment": { type: "string" },
+      tag: { type: "string", multiple: true },
+      at: { type: "string" },
+      frame: { type: "string", multiple: true },
+      media: { type: "string", multiple: true },
+    },
+    run(context) {
+      const { api, values } = context;
+      const entries = list(values, "copy");
+      const copies: Record<string, string> = {};
+      for (const entry of entries ?? []) {
+        const split = entry.indexOf("=");
+        if (split < 1 || !entry.slice(0, split).trim()) throw usageError("--copy needs account-or-network=text.");
+        copies[entry.slice(0, split).trim()] = entry.slice(split + 1);
+      }
+      let options: unknown;
+      const rawOptions = text(values, "options");
+      if (rawOptions !== undefined) {
+        try {
+          options = JSON.parse(rawOptions);
+        } catch {
+          throw usageError("--options needs a JSON object.");
+        }
+        if (!options || typeof options !== "object" || Array.isArray(options))
+          throw usageError("--options needs a JSON object.");
+      }
+      return api.patch(`/social/posts/${encodeURIComponent(positional(context, 0, "post"))}`, {
+        text: text(values, "text"),
+        copy: entries ? copies : undefined,
+        options,
+        link: text(values, "link"),
+        accounts: list(values, "account"),
+        repostAccounts: list(values, "repost-account"),
+        thread: list(values, "thread"),
+        firstComment: text(values, "first-comment"),
+        tags: list(values, "tag"),
+        at: text(values, "at"),
+        frames: list(values, "frame"),
+        media: list(values, "media"),
+        variantFor: variantFlags(values),
+        timeFor: pairs(values, "time-for"),
+      });
+    },
+  },
+  {
+    name: "social resolve",
+    args: "<delivery>",
+    summary:
+      "Settle a copy that may have gone out: check the account, then --posted (with --link) or --resend. Retries skip these so nothing posts twice.",
+    flags: {
+      "--posted": "It went out: mark it sent without sending again.",
+      "--link <url>": "With --posted: the post's address on the network.",
+      "--resend": "It didn't go out: send it again.",
+    },
+    options: { posted: { type: "boolean" }, link: { type: "string" }, resend: { type: "boolean" } },
+    run(context) {
+      const { api, values } = context;
+      if ((values.posted === true) === (values.resend === true)) throw usageError("Pass --posted or --resend.");
+      return api.post(`/social/deliveries/${encodeURIComponent(positional(context, 0, "delivery"))}/resolve`, {
+        outcome: values.posted === true ? "posted" : "resend",
+        url: text(values, "link"),
+      });
+    },
+  },
+  {
+    name: "social cancel",
+    args: "<post>",
+    summary: "Cancel an unsent scheduled post or delete a draft.",
+    run: (context) => context.api.delete(`/social/posts/${encodeURIComponent(positional(context, 0, "post"))}`),
   },
   {
     name: "scheduled",

@@ -551,30 +551,63 @@ export async function fetchMetaPages(userToken: string, appId: string, appSecret
     }),
   });
   const { access_token: longLived } = await okJson<{ access_token: string }>(exchange, "Facebook");
+  return await fetchMetaPagesFromToken(longLived);
+}
+
+/** Reads Pages and linked Instagram professional accounts from a long-lived user or Page token. */
+export async function fetchMetaPagesFromToken(token: string): Promise<MetaPage[]> {
   const fields = "id,name,access_token,picture{url},instagram_business_account{id,username,name,profile_picture_url}";
   const { data } = await graph<{
-    data: {
+    data?: {
       id: string;
       name: string;
-      access_token: string;
+      access_token?: string;
       picture?: { data?: { url?: string } };
       instagram_business_account?: { id: string; username: string; name?: string; profile_picture_url?: string };
     }[];
-  }>(GRAPH, longLived, `me/accounts?limit=100&fields=${encodeURIComponent(fields)}`);
-  return data.map((page) => ({
-    id: page.id,
-    name: page.name,
-    accessToken: page.access_token,
-    picture: page.picture?.data?.url ?? null,
-    instagram: page.instagram_business_account
-      ? {
-          id: page.instagram_business_account.id,
-          username: page.instagram_business_account.username,
-          name: page.instagram_business_account.name ?? page.instagram_business_account.username,
-          picture: page.instagram_business_account.profile_picture_url ?? null,
-        }
-      : null,
-  }));
+  }>(GRAPH, token, `me/accounts?limit=100&fields=${encodeURIComponent(fields)}`).catch(() => ({ data: undefined }));
+  if (data && data.length > 0) {
+    return data.map((page) => ({
+      id: page.id,
+      name: page.name,
+      accessToken: page.access_token ?? token,
+      picture: page.picture?.data?.url ?? null,
+      instagram: page.instagram_business_account
+        ? {
+            id: page.instagram_business_account.id,
+            username: page.instagram_business_account.username,
+            name: page.instagram_business_account.name ?? page.instagram_business_account.username,
+            picture: page.instagram_business_account.profile_picture_url ?? null,
+          }
+        : null,
+    }));
+  }
+  const single = await graph<{
+    id: string;
+    name: string;
+    picture?: { data?: { url?: string } };
+    instagram_business_account?: { id: string; username: string; name?: string; profile_picture_url?: string };
+  }>(
+    GRAPH,
+    token,
+    `me?fields=${encodeURIComponent("id,name,picture{url},instagram_business_account{id,username,name,profile_picture_url}")}`,
+  );
+  return [
+    {
+      id: single.id,
+      name: single.name,
+      accessToken: token,
+      picture: single.picture?.data?.url ?? null,
+      instagram: single.instagram_business_account
+        ? {
+            id: single.instagram_business_account.id,
+            username: single.instagram_business_account.username,
+            name: single.instagram_business_account.name ?? single.instagram_business_account.username,
+            picture: single.instagram_business_account.profile_picture_url ?? null,
+          }
+        : null,
+    },
+  ];
 }
 
 /** Swaps a Threads code's short-lived token for a 60-day one, and says whose it is. */
@@ -585,9 +618,14 @@ export async function fetchThreadsProfile(shortToken: string, appSecret: string)
   url.searchParams.set("access_token", shortToken);
   const exchange = await fetch(url);
   const long = await okJson<{ access_token: string; expires_in: number }>(exchange, "Threads");
+  return await fetchThreadsFromToken(long.access_token, new Date(Date.now() + long.expires_in * 1000).toISOString());
+}
+
+/** Verifies a Threads user token and packs its credentials. */
+export async function fetchThreadsFromToken(accessToken: string, expiresAt: string | null = null) {
   const profile = await graph<{ id: string; username: string; name?: string; threads_profile_picture_url?: string }>(
     THREADS,
-    long.access_token,
+    accessToken,
     "me?fields=id,username,name,threads_profile_picture_url",
     undefined,
     "Threads",
@@ -597,8 +635,8 @@ export async function fetchThreadsProfile(shortToken: string, appSecret: string)
     credentials: {
       kind: "threads",
       userId: profile.id,
-      accessToken: long.access_token,
-      expiresAt: new Date(Date.now() + long.expires_in * 1000).toISOString(),
+      accessToken,
+      expiresAt,
     } satisfies ThreadsCredentials,
   };
 }

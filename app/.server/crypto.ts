@@ -8,7 +8,7 @@ import { config } from "./config";
 
 const VERSION = "v1";
 const DEV_SECRET = "slopper-local-development-only";
-let keyPromise: Promise<CryptoKey> | null = null;
+let keysPromise: Promise<CryptoKey[]> | null = null;
 
 export class MissingSecretKeyError extends Error {
   constructor() {
@@ -19,11 +19,17 @@ export class MissingSecretKeyError extends Error {
   }
 }
 
-function secret(): string {
-  if (config.secretKey) return config.secretKey;
+function secrets(): string[] {
+  if (config.secretKey) {
+    const list = config.secretKey
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (list.length > 0) return list;
+  }
   // A production build never falls back to the development key.
   if (import.meta.env.PROD) throw new MissingSecretKeyError();
-  return DEV_SECRET;
+  return [DEV_SECRET];
 }
 
 async function deriveKey(material: string): Promise<CryptoKey> {
@@ -31,32 +37,40 @@ async function deriveKey(material: string): Promise<CryptoKey> {
   return await crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
-function key(): Promise<CryptoKey> {
-  keyPromise ??= deriveKey(secret());
-  return keyPromise;
+function keys(): Promise<CryptoKey[]> {
+  keysPromise ??= Promise.all(secrets().map((item) => deriveKey(item)));
+  return keysPromise;
 }
 
 export async function seal(plaintext: string, cryptoKey?: CryptoKey): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
+  const activeKey = cryptoKey ?? (await keys())[0];
   const ciphertext = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
-    cryptoKey ?? (await key()),
+    activeKey,
     new TextEncoder().encode(plaintext),
   );
   return [VERSION, encodeBase64Url(iv), encodeBase64Url(new Uint8Array(ciphertext))].join(".");
 }
 
-export async function unseal(sealed: string, cryptoKey?: CryptoKey): Promise<string> {
+export async function unseal(sealed: string, cryptoKey?: CryptoKey | readonly CryptoKey[]): Promise<string> {
   const [version, iv, ciphertext] = sealed.split(".");
   if (version !== VERSION || !iv || !ciphertext) {
     throw new Error("Unrecognised sealed value");
   }
-  const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: decodeBase64Url(iv) },
-    cryptoKey ?? (await key()),
-    decodeBase64Url(ciphertext),
-  );
-  return new TextDecoder().decode(plaintext);
+  const candidates = cryptoKey ? (Array.isArray(cryptoKey) ? cryptoKey : [cryptoKey as CryptoKey]) : await keys();
+  const decodedIv = decodeBase64Url(iv);
+  const decodedCiphertext = decodeBase64Url(ciphertext);
+  let lastError: unknown;
+  for (const candidate of candidates) {
+    try {
+      const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: decodedIv }, candidate, decodedCiphertext);
+      return new TextDecoder().decode(plaintext);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError ?? new Error("Could not unseal value");
 }
 
 /** Exposed for tests that need an isolated key. */

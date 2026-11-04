@@ -12,7 +12,9 @@ import {
 import { requireServer } from "./lib/auth";
 import { isImage, isPublication, isVideo, mediaUrl } from "./lib/media";
 import { consume } from "./lib/rate";
-import { networkOptionsValidator, socialMetricsValidator } from "./schema";
+import { canAccessAccount, userOrganizationIds } from "./organizations";
+import { networkOptionsValidator, socialMetricsValidator, socialVariantValidator } from "./schema";
+import { xTwins } from "../app/lib/destinations";
 import { NETWORKS } from "../app/lib/networks";
 import { hasSpintax } from "../app/lib/variables";
 
@@ -52,7 +54,10 @@ export function nextMetricsAt(provider: Doc<"socialDeliveries">["provider"], sen
 async function ownedPost(ctx: QueryCtx, userId: Id<"users">, rawId: string) {
   const id = ctx.db.normalizeId("socialPosts", rawId);
   const post = id ? await ctx.db.get(id) : null;
-  return post && post.userId === userId ? post : null;
+  if (!post) return null;
+  if (post.userId === userId) return post;
+  if (post.organizationId && (await userOrganizationIds(ctx, userId)).has(post.organizationId)) return post;
+  return null;
 }
 
 async function deliveriesOf(ctx: QueryCtx, postId: Id<"socialPosts">) {
@@ -104,6 +109,8 @@ async function shapePost(ctx: QueryCtx, post: Doc<"socialPosts">) {
     text: post.text,
     link: post.link,
     overrides: post.overrides,
+    variants: post.variants ?? {},
+    times: post.times ?? {},
     options: post.options,
     scheduledAt: post.scheduledAt,
     cancelled: post.cancelled ?? false,
@@ -183,6 +190,8 @@ const postFields = {
   plug: v.optional(v.object({ likes: v.number(), text: v.string() })),
   trackLinks: v.optional(v.boolean()),
   coverMediaId: v.optional(v.string()),
+  variants: v.optional(v.record(v.string(), socialVariantValidator)),
+  times: v.optional(v.record(v.string(), v.number())),
 };
 
 type PostInput = Infer<ReturnType<typeof v.object<typeof postFields>>> & { userId: Id<"users"> };
@@ -192,7 +201,9 @@ async function ownedAccounts(ctx: MutationCtx, userId: Id<"users">, ids: readonl
   for (const raw of new Set(ids)) {
     const id = ctx.db.normalizeId("accounts", raw);
     const account = id ? await ctx.db.get(id) : null;
-    if (!account || account.userId !== userId) throw new ConvexError("One of those accounts isn't yours.");
+    if (!account || !(await canAccessAccount(ctx, userId, account))) {
+      throw new ConvexError("One of those accounts isn't yours.");
+    }
     accounts.push(account);
   }
   return accounts;
@@ -201,7 +212,8 @@ async function ownedAccounts(ctx: MutationCtx, userId: Id<"users">, ids: readonl
 /** Checks what a post is made of, and turns the input into what's stored (without deliveries). */
 async function preparePost(ctx: MutationCtx, args: PostInput) {
   const accounts = await ownedAccounts(ctx, args.userId, args.accountIds);
-  if (accounts.length === 0) throw new ConvexError("Pick at least one account to post as.");
+  // An idea can wait for its accounts; only posting needs them.
+  if (accounts.length === 0 && !args.draft) throw new ConvexError("Pick at least one account to post as.");
   const reposters = (await ownedAccounts(ctx, args.userId, args.repostAccountIds ?? [])).filter(
     (account) => !accounts.some((other) => other._id === account._id),
   );
@@ -249,6 +261,54 @@ async function preparePost(ctx: MutationCtx, args: PostInput) {
     coverMediaId = row._id;
   }
 
+  // Each network's or account's own media is a choice among the post's uploads.
+  const keys = new Set<string>([
+    ...accounts.map((account) => String(account._id)),
+    ...accounts.map((account) => account.provider),
+  ]);
+  const uploads = new Set(media.map((item) => String(item.mediaId)));
+  const variants: Record<string, Infer<typeof socialVariantValidator>> = {};
+  for (const [key, variant] of Object.entries(args.variants ?? {})) {
+    if (!keys.has(key)) continue;
+    const clean: Infer<typeof socialVariantValidator> = {};
+    if (variant.media !== undefined) {
+      if (variant.media.some((id) => !uploads.has(id)))
+        throw new ConvexError("A network's media must be one of the post's uploads.");
+      clean.media = [...new Set(variant.media)].slice(0, 20);
+    }
+    if (variant.link !== undefined) clean.link = variant.link?.trim().slice(0, 2048) || null;
+    if (variant.firstComment !== undefined) clean.firstComment = variant.firstComment.trim().slice(0, 5000);
+    if (Object.keys(clean).length) variants[key] = clean;
+  }
+  const accountIds = new Set(accounts.map((account) => String(account._id)));
+  const times: Record<string, number> = {};
+  for (const [id, at] of Object.entries(args.times ?? {})) {
+    if (!accountIds.has(id) || !Number.isFinite(at)) continue;
+    if (!args.draft && at < Date.now() - 60_000) throw new ConvexError("Pick times in the future for every account.");
+    times[id] = at;
+  }
+
+  // X forbids the same automated post from several accounts one person runs.
+  if (!args.draft) {
+    const destinationPost = {
+      text: args.text,
+      link: args.link,
+      media: [],
+      overrides: args.overrides,
+      variants,
+      options: args.options,
+    };
+    const picked = accounts.map((account) => ({ id: account._id, provider: account.provider, handle: account.handle }));
+    for (const account of picked) {
+      const twins = xTwins(destinationPost, account, picked);
+      if (twins.length) {
+        throw new ConvexError(
+          `@${account.handle} and @${twins[0]} would post the same words on X, which X doesn't allow. Give each X account its own version.`,
+        );
+      }
+    }
+  }
+
   let productId: Id<"slops"> | null = null;
   if (args.productId) {
     const id = ctx.db.normalizeId("slops", args.productId);
@@ -260,6 +320,8 @@ async function preparePost(ctx: MutationCtx, args: PostInput) {
   // Networks refuse the same words twice, and so do followers: spintax makes each copy differ.
   if (!args.draft && !hasSpintax(args.text)) {
     for (const account of accounts) {
+      const words = args.overrides[account._id]?.trim() || args.overrides[account.provider]?.trim() || args.text.trim();
+      if (!words || hasSpintax(words)) continue;
       const recent = await ctx.db
         .query("socialDeliveries")
         .withIndex("by_account", (q) => q.eq("accountId", account._id))
@@ -268,7 +330,9 @@ async function preparePost(ctx: MutationCtx, args: PostInput) {
       for (const row of recent) {
         if (row.status !== "ok" || (row.sentAt ?? 0) < Date.now() - DAY) continue;
         const sent = await ctx.db.get(row.postId);
-        if (sent && sent.text.trim() === args.text.trim() && args.text.trim()) {
+        const sentWords =
+          sent?.overrides[account._id]?.trim() || sent?.overrides[account.provider]?.trim() || sent?.text.trim() || "";
+        if (sentWords === words) {
           throw new ConvexError(
             `You posted these exact words as ${account.handle} in the last day. Change them a little, or use {spintax|variations}.`,
           );
@@ -277,7 +341,9 @@ async function preparePost(ctx: MutationCtx, args: PostInput) {
     }
   }
 
+  const organizationId = [...accounts, ...reposters].find((account) => account.organizationId)?.organizationId;
   const fields = {
+    ...(organizationId ? { organizationId } : {}),
     productId,
     text: args.text,
     link: args.link,
@@ -307,6 +373,8 @@ async function preparePost(ctx: MutationCtx, args: PostInput) {
         : undefined,
     trackLinks: (args.trackLinks && args.link !== null) || undefined,
     coverMediaId,
+    variants: Object.keys(variants).length ? variants : undefined,
+    times: Object.keys(times).length ? times : undefined,
   };
   return { fields, accounts, reposters };
 }
@@ -342,8 +410,10 @@ async function makeDeliveries(
   const stagger = (post.staggerMinutes ?? 0) * 60_000;
   const due = new Set<number>();
   for (const [index, account] of accounts.entries()) {
-    const notBefore = stagger ? base + index * stagger : undefined;
-    if (notBefore !== undefined && notBefore > base) due.add(notBefore);
+    // An account's own time wins; otherwise its staggered turn after the post's time.
+    const own = post.times?.[account._id];
+    const notBefore = own ?? (stagger ? base + index * stagger : undefined);
+    if (notBefore !== undefined && notBefore > Date.now()) due.add(notBefore);
     await ctx.db.insert("socialDeliveries", {
       postId: post._id,
       userId: post.userId,
@@ -368,15 +438,18 @@ async function makeDeliveries(
     });
   }
   // Drafts aren't checked yet: no Slopper short link points anywhere until the post is.
-  if (post.trackLinks && post.link && !post.draft) {
+  if (post.trackLinks && !post.draft) {
     const campaign = post.tags?.[0] ?? "slopper-studio";
     for (const provider of new Set(accounts.map((account) => account.provider))) {
+      const own = post.variants?.[provider]?.link;
+      const target = own === undefined ? post.link : own;
+      if (!target) continue;
       await ctx.db.insert("socialLinks", {
         code: randomCode(),
         userId: post.userId,
         postId: post._id,
         provider,
-        url: utmLink(post.link, provider, campaign),
+        url: utmLink(target, provider, campaign),
         clicks: 0,
       });
     }
@@ -435,9 +508,22 @@ export const create = mutation({
     const post = (await ctx.db.get(postId))!;
     await log(ctx, post, "created", `${describeTime(post)}, for ${accounts.length + reposters.length} accounts`);
     await makeDeliveries(ctx, post, accounts, reposters);
+    await rememberAccounts(ctx, args.userId, accounts);
     return postId;
   },
 });
+
+/** A sensible queue to start with: weekdays at 9:00, 12:30 and 17:00. */
+export const DEFAULT_SLOTS = [1, 2, 3, 4, 5].flatMap((day) => [540, 750, 1020].map((minute) => ({ day, minute })));
+
+/** The composer's "Last used" set: the accounts this person's latest post went to. */
+async function rememberAccounts(ctx: MutationCtx, userId: Id<"users">, accounts: readonly Doc<"accounts">[]) {
+  if (accounts.length === 0) return;
+  const lastAccountIds = accounts.map((account) => account._id);
+  const row = await settingsOf(ctx, userId);
+  if (row) await ctx.db.patch(row._id, { lastAccountIds });
+  else await ctx.db.insert("socialSettings", { userId, slots: DEFAULT_SLOTS, lastAccountIds });
+}
 
 /** Whether a post can still be changed: a draft, or scheduled and not yet gone out. */
 async function editable(ctx: QueryCtx, post: Doc<"socialPosts">): Promise<boolean> {
@@ -469,6 +555,7 @@ export const update = mutation({
     const next = (await ctx.db.get(post._id))!;
     await log(ctx, next, "edited", describeTime(next));
     await makeDeliveries(ctx, next, accounts, reposters);
+    await rememberAccounts(ctx, args.userId, accounts);
     return post._id;
   },
 });
@@ -484,7 +571,10 @@ export const reschedule = mutation({
     }
     if (scheduledAt < Date.now() + 60_000) throw new ConvexError("Pick a time in the future.");
     const shift = scheduledAt - (post.scheduledAt ?? scheduledAt);
-    await ctx.db.patch(post._id, { scheduledAt });
+    const times = post.times
+      ? Object.fromEntries(Object.entries(post.times).map(([id, at]) => [id, at + shift]))
+      : undefined;
+    await ctx.db.patch(post._id, { scheduledAt, ...(times ? { times } : {}) });
     for (const row of await deliveriesOf(ctx, post._id)) {
       if (row.notBefore !== undefined) {
         await ctx.db.patch(row._id, { notBefore: row.notBefore + shift });
@@ -513,12 +603,16 @@ export const discard = mutation({
 async function repeatPost(ctx: MutationCtx, post: Doc<"socialPosts">) {
   if (!post.repeat || post.scheduledAt === null) return;
   const rows = await deliveriesOf(ctx, post._id);
-  const accounts = (
-    await Promise.all(rows.filter((row) => !row.repost).map((row) => ctx.db.get(row.accountId)))
-  ).filter((account): account is Doc<"accounts"> => account !== null && account.userId === post.userId);
-  const reposters = (
-    await Promise.all(rows.filter((row) => row.repost).map((row) => ctx.db.get(row.accountId)))
-  ).filter((account): account is Doc<"accounts"> => account !== null && account.userId === post.userId);
+  const loadedAccounts = await Promise.all(rows.filter((row) => !row.repost).map((row) => ctx.db.get(row.accountId)));
+  const accounts: Doc<"accounts">[] = [];
+  for (const account of loadedAccounts) {
+    if (account && (await canAccessAccount(ctx, post.userId, account))) accounts.push(account);
+  }
+  const loadedReposters = await Promise.all(rows.filter((row) => row.repost).map((row) => ctx.db.get(row.accountId)));
+  const reposters: Doc<"accounts">[] = [];
+  for (const account of loadedReposters) {
+    if (account && (await canAccessAccount(ctx, post.userId, account))) reposters.push(account);
+  }
   if (accounts.length === 0) return;
   const { _id, _creationTime, released: _released, activity: _activity, idempotencyKey: _key, ...rest } = post;
   const remaining = post.repeat.remaining - 1;
@@ -546,7 +640,14 @@ export const claim = mutation({
     await requireServer(ctx);
     const id = ctx.db.normalizeId("socialPosts", rawId);
     const post = id ? await ctx.db.get(id) : null;
-    if (!post || post.cancelled || post.draft || (userId && post.userId !== userId)) return null;
+    if (!post || post.cancelled || post.draft) return null;
+    if (
+      userId &&
+      post.userId !== userId &&
+      (!post.organizationId || !(await userOrganizationIds(ctx, userId)).has(post.organizationId))
+    ) {
+      return null;
+    }
     const now = Date.now();
     if (post.scheduledAt !== null && post.scheduledAt > now) return null;
     if ((await settingsOf(ctx, post.userId))?.paused) return null;
@@ -571,7 +672,7 @@ export const claim = mutation({
         }
       }
       const account = await ctx.db.get(row.accountId);
-      if (!account || account.userId !== post.userId) {
+      if (!account || !(await canAccessAccount(ctx, post.userId, account))) {
         await ctx.db.patch(row._id, { status: "skipped", message: "That account was disconnected." });
         continue;
       }
@@ -688,7 +789,11 @@ export const recordParts = mutation({
   },
 });
 
-/** Queues a post's failed copies again. Sent ones stay sent, so a retry never posts twice. */
+/**
+ * Queues a post's failed copies again. Sent ones stay sent, and so do
+ * uncertain ones (the network may have taken them): those wait for their
+ * owner to check the account and say what happened (`resolveUncertain`).
+ */
 export const retry = mutation({
   args: { userId: v.id("users"), postId: v.string() },
   handler: async (ctx, { userId, postId }) => {
@@ -698,12 +803,54 @@ export const retry = mutation({
     await consume(ctx, `social-retry:${userId}`, POSTS_PER_HOUR, HOUR);
     let queued = 0;
     for (const row of await deliveriesOf(ctx, post._id)) {
-      if (row.status !== "error") continue;
+      if (row.status !== "error" || row.uncertain) continue;
       await ctx.db.patch(row._id, { status: "queued", message: undefined, uncertain: undefined, notBefore: undefined });
       queued++;
     }
     if (queued) await log(ctx, post, "retried", `${queued} failed ${queued === 1 ? "copy" : "copies"} queued again`);
     return queued;
+  },
+});
+
+/**
+ * Settles a copy whose outcome wasn't known, once its owner has looked at
+ * the account: it posted (with its address, when they have it), or it
+ * didn't and should go again.
+ */
+export const resolveUncertain = mutation({
+  args: {
+    userId: v.id("users"),
+    deliveryId: v.string(),
+    outcome: v.union(v.literal("posted"), v.literal("resend")),
+    url: v.optional(v.string()),
+  },
+  handler: async (ctx, { userId, deliveryId, outcome, url }) => {
+    await requireServer(ctx);
+    const id = ctx.db.normalizeId("socialDeliveries", deliveryId);
+    const row = id ? await ctx.db.get(id) : null;
+    const post = row ? await ownedPost(ctx, userId, row.postId) : null;
+    if (!row || !post || row.status !== "error" || !row.uncertain) return false;
+    if (outcome === "posted") {
+      await ctx.db.patch(row._id, {
+        status: "ok",
+        uncertain: undefined,
+        message: undefined,
+        sentAt: Date.now(),
+        ...(url ? { url } : {}),
+      });
+      await log(ctx, post, "confirmed", `${row.handle} on ${NETWORKS[row.provider].label}: checked, it posted`);
+      return true;
+    }
+    await consume(ctx, `social-retry:${userId}`, POSTS_PER_HOUR, HOUR);
+    await ctx.db.patch(row._id, { status: "queued", uncertain: undefined, message: undefined, notBefore: undefined });
+    await log(
+      ctx,
+      post,
+      "retried",
+      `${row.handle} on ${NETWORKS[row.provider].label}: checked, it didn't post; sending again`,
+    );
+    await ctx.scheduler.runAfter(0, internal.social.tellApp, { postId: post._id, attempt: 1 });
+    return true;
   },
 });
 
@@ -730,10 +877,11 @@ export const markRemoved = mutation({
     await requireServer(ctx);
     const id = ctx.db.normalizeId("socialDeliveries", deliveryId);
     const row = id ? await ctx.db.get(id) : null;
-    if (!row || row.userId !== userId || row.status !== "ok") return;
+    if (!row || row.status !== "ok") return;
+    const post = await ownedPost(ctx, userId, row.postId);
+    if (!post) return;
     await ctx.db.patch(row._id, { status: "removed", nextMetricsAt: undefined });
-    const post = await ctx.db.get(row.postId);
-    if (post) await log(ctx, post, "removed", `Taken down from ${NETWORKS[row.provider].label} (${row.handle})`);
+    await log(ctx, post, "removed", `Taken down from ${NETWORKS[row.provider].label} (${row.handle})`);
   },
 });
 
@@ -744,7 +892,10 @@ export const ownedDelivery = query({
     await requireServer(ctx);
     const id = ctx.db.normalizeId("socialDeliveries", deliveryId);
     const row = id ? await ctx.db.get(id) : null;
-    return row && row.userId === userId ? row : null;
+    if (!row) return null;
+    if (row.userId === userId) return row;
+    const post = await ownedPost(ctx, userId, row.postId);
+    return post ? row : null;
   },
 });
 
@@ -761,11 +912,29 @@ export const list = query({
   args: { userId: v.id("users"), limit: v.optional(v.number()) },
   handler: async (ctx, { userId, limit }) => {
     await requireServer(ctx);
-    const posts = await ctx.db
+    const cap = Math.min(limit ?? 20, 200);
+    const mine = await ctx.db
       .query("socialPosts")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .take(Math.min(limit ?? 20, 200));
+      .take(cap);
+    const orgIds = await userOrganizationIds(ctx, userId);
+    const seen = new Set(mine.map((post) => post._id));
+    const shared: Doc<"socialPosts">[] = [];
+    for (const orgId of orgIds) {
+      const rows = await ctx.db
+        .query("socialPosts")
+        .withIndex("by_org", (q) => q.eq("organizationId", orgId))
+        .order("desc")
+        .take(cap);
+      for (const row of rows) {
+        if (!seen.has(row._id)) {
+          seen.add(row._id);
+          shared.push(row);
+        }
+      }
+    }
+    const posts = [...mine, ...shared].sort((a, b) => b._creationTime - a._creationTime).slice(0, cap);
     return await Promise.all(posts.map((post) => shapePost(ctx, post)));
   },
 });
@@ -825,7 +994,7 @@ export const sent = query({
         sentAt: row.sentAt!,
         metrics: row.metrics ?? null,
         repost: row.repost ?? false,
-        text: post?.overrides[row.provider] ?? post?.text ?? "",
+        text: post?.overrides[row.accountId] ?? post?.overrides[row.provider] ?? post?.text ?? "",
         tags: post?.tags ?? [],
         shape: {
           images: post?.media.filter((item) => item.kind === "image").length ?? 0,
@@ -1057,7 +1226,7 @@ export const mediaForOwner = query({
       const id = ctx.db.normalizeId("media", raw);
       const media = id ? await ctx.db.get(id) : null;
       if (!media || media.ownerId !== ownerId || media.orphanedAt !== undefined) continue;
-      const kind = isVideo(media)
+      const kind: "video" | "image" | "document" | null = isVideo(media)
         ? "video"
         : isImage(media)
           ? "image"

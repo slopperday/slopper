@@ -104,7 +104,13 @@ describe("studio posts in Convex", () => {
     const userId = await makeUser(server, "maker");
     const a = await connect(server, userId, "x", "tiltmaze");
     const b = await connect(server, userId, "x", "slopper");
-    const postId = await server.mutation(api.social.create, { ...post, userId, accountIds: [a._id, b._id] });
+    // Two X accounts need their own words: X refuses the same automated post from both.
+    const postId = await server.mutation(api.social.create, {
+      ...post,
+      userId,
+      accountIds: [a._id, b._id],
+      overrides: { [b._id]: "Shipped it, from the Slopper account" },
+    });
 
     const claimed = await server.mutation(api.social.claim, { postId });
     expect(claimed?.deliveries.map((row) => row.handle).sort()).toEqual(["slopper", "tiltmaze"]);
@@ -196,5 +202,108 @@ describe("studio posts in Convex", () => {
     expect((await connect(server, userId, "instagram", "two")).defaultMode).toBe("off");
     expect((await connect(server, userId, "x", "one")).defaultMode).toBe("post");
     expect((await connect(server, userId, "x", "two")).defaultMode).toBe("amplify");
+  });
+
+  it("supports Mastodon, Discord, Telegram, and Reddit, multiple accounts per network, and shared organisation accounts", async () => {
+    const { server } = setup();
+    const founder = await makeUser(server, "founder");
+    const teammate = await makeUser(server, "teammate");
+    const outsider = await makeUser(server, "outsider");
+
+    const orgId = await server.mutation(api.organizations.create, {
+      userId: founder,
+      name: "Slopper Labs",
+    });
+    await server.mutation(api.organizations.addMember, {
+      actorId: founder,
+      organizationId: orgId,
+      username: "teammate",
+      role: "member",
+    });
+
+    // Connect multiple accounts on the same network (Discord) plus Mastodon, Telegram, and Reddit, shared with the org
+    const discordAnnouncements = await server.mutation(api.accounts.connect, {
+      userId: founder,
+      provider: "discord",
+      remoteId: "hook-1",
+      handle: "#announcements",
+      displayName: "#announcements",
+      avatarUrl: null,
+      sealedCredentials: "sealed",
+      expiresAt: null,
+      organizationId: orgId,
+    });
+    const discordChangelog = await server.mutation(api.accounts.connect, {
+      userId: founder,
+      provider: "discord",
+      remoteId: "hook-2",
+      handle: "#changelog",
+      displayName: "#changelog",
+      avatarUrl: null,
+      sealedCredentials: "sealed",
+      expiresAt: null,
+      organizationId: orgId,
+    });
+    const mastodon = await server.mutation(api.accounts.connect, {
+      userId: founder,
+      provider: "mastodon",
+      remoteId: "https://mastodon.social#1",
+      handle: "slopper@mastodon.social",
+      displayName: "Slopper",
+      avatarUrl: null,
+      sealedCredentials: "sealed",
+      expiresAt: null,
+      organizationId: orgId,
+    });
+    const telegram = await server.mutation(api.accounts.connect, {
+      userId: founder,
+      provider: "telegram",
+      remoteId: "-1001234",
+      handle: "sloppernews",
+      displayName: "Slopper News",
+      avatarUrl: null,
+      sealedCredentials: "sealed",
+      expiresAt: null,
+      organizationId: orgId,
+    });
+    const reddit = await server.mutation(api.accounts.connect, {
+      userId: founder,
+      provider: "reddit",
+      remoteId: "t5_slop",
+      handle: "r/sideproject",
+      displayName: "r/sideproject",
+      avatarUrl: null,
+      sealedCredentials: "sealed",
+      expiresAt: null,
+      organizationId: orgId,
+    });
+
+    // Teammate sees all shared organisation accounts
+    const teammateAccounts = await server.query(api.accounts.list, { userId: teammate });
+    expect(teammateAccounts.map((a) => a._id).sort()).toEqual(
+      [discordAnnouncements._id, discordChangelog._id, mastodon._id, telegram._id, reddit._id].sort(),
+    );
+
+    // Teammate can post to multiple accounts on the same network (with per-account copy overrides) and across all new networks
+    const postId = await server.mutation(api.social.create, {
+      ...post,
+      userId: teammate,
+      text: "We just shipped v2.0!",
+      overrides: {
+        [discordChangelog._id]: "Changelog v2.0: new social networks and team organisations.",
+      },
+      accountIds: [discordAnnouncements._id, discordChangelog._id, mastodon._id, telegram._id, reddit._id],
+    });
+    const claimed = await server.mutation(api.social.claim, { postId });
+    expect(claimed?.deliveries).toHaveLength(5);
+
+    // Outsider cannot post with the organisation's shared accounts
+    await expect(
+      server.mutation(api.social.create, {
+        ...post,
+        userId: outsider,
+        accountIds: [mastodon._id],
+      }),
+    ).rejects.toThrow("isn't yours");
   });
 });

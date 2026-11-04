@@ -11,24 +11,31 @@ import { modeFor } from "~/.server/social/crosspost";
 import { bestTimes, nextAt, saveStudioPost, type StudioInput } from "~/.server/social/studio";
 import { type CreatorInfo, creatorInfo } from "~/.server/social/tiktok";
 import { ASSIST_ACTIONS, type AssistAction } from "~/lib/assist";
-import { fitPost, measureFor } from "~/lib/compose";
+import { fitText, measureFor } from "~/lib/compose";
+import { wallTime } from "~/lib/csv";
 import { slopPath } from "~/lib/display";
 import {
   INSTAGRAM_FORMATS,
   NETWORKS,
   type NetworkOptions,
-  optionProblems,
   type PostShape,
   type SocialProvider,
   textLimitFor,
   TIKTOK_PRIVACY,
   type TikTokOptions,
-  unsupportedReason,
   YOUTUBE_PRIVACY,
   type YouTubeOptions,
 } from "~/lib/networks";
 import { splitThread } from "~/lib/thread";
-import { VARIABLES } from "~/lib/variables";
+import { personalize, VARIABLES } from "~/lib/variables";
+import {
+  destinationFor,
+  type DestinationPost,
+  type Issue,
+  readiness,
+  readinessLabel,
+  type Variant,
+} from "~/lib/destinations";
 import { seo } from "~/lib/seo";
 import { Icon } from "~/components/Icon";
 import {
@@ -49,6 +56,7 @@ import {
   SOCIAL_ORDER,
   TikTokFields,
   uploadPicture,
+  VariantFields,
   YouTubeFields,
 } from "~/components/StudioComposer";
 
@@ -73,8 +81,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const search = new URL(request.url).searchParams;
   const editId = search.get("edit");
   const copyId = search.get("copy");
-  const [accounts, slops, posts, snippets, settings, sent, editing] = await Promise.all([
+  const [accounts, organizations, slops, posts, snippets, settings, sent, editing] = await Promise.all([
     convex.query(api.accounts.list, { userId: user._id }),
+    convex.query(api.organizations.list, { userId: user._id }),
     convex.query(api.slops.listForServer, { userId: user._id }),
     convex.query(api.social.list, { userId: user._id, limit: 30 }),
     convex.query(api.studio.snippets, { userId: user._id }),
@@ -83,11 +92,20 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     editId ? convex.query(api.social.get, { userId: user._id, postId: editId }) : null,
   ]);
   const copy = copyId ? await convex.query(api.social.get, { userId: user._id, postId: copyId }) : null;
+  const orgById = new Map(organizations.map((org) => [String(org.id), org.name]));
 
-  // One entry per product, from its newest launch: its name, link, screenshots and the accounts it posts as.
+  // One entry per product, from its newest launch: its name, link, screenshots and the accounts it posts and reposts as.
   const products = new Map<
     string,
-    { id: string; name: string; tagline: string; url: string; screenshots: string[]; accountIds: string[] }
+    {
+      id: string;
+      name: string;
+      tagline: string;
+      url: string;
+      screenshots: string[];
+      accountIds: string[];
+      repostAccountIds: string[];
+    }
   >();
   for (const slop of slops) {
     const id = slop.productId ?? slop._id;
@@ -99,6 +117,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       url: new URL(slopPath(user.username, slop.slug), config.appUrl).href,
       screenshots: slop.screenshots.slice(0, 4),
       accountIds: accounts.filter((account) => modeFor(slop, account) === "post").map((account) => account._id),
+      repostAccountIds: accounts
+        .filter((account) => modeFor(slop, account) === "amplify" && NETWORKS[account.provider].canRepost)
+        .map((account) => account._id),
     });
   }
   const screenshotUrls = await convex.query(api.social.mediaForOwner, {
@@ -113,15 +134,25 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
   return {
     // Sealed credentials never leave the server.
-    accounts: accounts.map(({ _id, provider, handle, displayName, avatarUrl, brand, broken, longPosts }) => ({
-      id: _id,
-      provider,
-      handle,
-      displayName,
-      avatarUrl,
-      brand: brand ?? null,
-      broken: broken ?? null,
-      longPosts: longPosts ?? false,
+    accounts: accounts.map(
+      ({ _id, provider, handle, displayName, avatarUrl, brand, organizationId, broken, longPosts }) => ({
+        id: _id,
+        provider,
+        handle,
+        displayName,
+        avatarUrl,
+        brand: brand ?? null,
+        organizationId: organizationId ? String(organizationId) : null,
+        organizationName: organizationId ? (orgById.get(String(organizationId)) ?? null) : null,
+        broken: broken ?? null,
+        longPosts: longPosts ?? false,
+      }),
+    ),
+    organizations: organizations.map((org) => ({
+      id: String(org.id),
+      name: org.name,
+      slug: org.slug,
+      role: org.role,
     })),
     products: [...products.values()].map((product) => ({
       ...product,
@@ -135,12 +166,24 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     snippets,
     paused: settings.paused,
     best: bestTimes(sent, user.timeZone).map((slot) => ({ ...slot, at: nextAt(slot.day, slot.minute, user.timeZone) })),
+    // Each account's own best times, from its own results: estimates, labelled as such.
+    bestByAccount: Object.fromEntries(
+      accounts.map((account) => [
+        String(account._id),
+        bestTimes(
+          sent.filter((row) => row.accountId === account._id),
+          user.timeZone,
+        ).map((slot) => ({ ...slot, at: nextAt(slot.day, slot.minute, user.timeZone) })),
+      ]),
+    ),
+    lastAccountIds: (settings.lastAccountIds ?? []).map(String),
     editing: editing && editing.editable ? editing : null,
     copy,
     prefill: { text: search.get("text") ?? "", link: search.get("link") ?? "" },
     canPost: config.contentCheck !== null,
     canAssist: config.contentCheck !== null,
     timeZone: user.timeZone,
+    previewTime: Date.now(),
   };
 }
 
@@ -153,7 +196,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
   let input: StudioInput;
   try {
-    input = parsePayload(formText(form, "payload"), formText(form, "submit"));
+    input = parsePayload(formText(form, "payload"), formText(form, "submit"), user.timeZone);
   } catch {
     return redirectWithFlash("/studio", { tone: "error", message: "That post didn't arrive whole. Try again." });
   }
@@ -170,7 +213,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 /** The composer's JSON, read defensively: every field typed, nothing else kept. */
-function parsePayload(raw: string, submit: string): StudioInput {
+function parsePayload(raw: string, submit: string, timeZone: string): StudioInput {
   const value = JSON.parse(raw) as Record<string, unknown>;
   const strings = (list: unknown) => (Array.isArray(list) ? list.filter((item) => typeof item === "string") : []);
   const str = (x: unknown) => (typeof x === "string" ? x : "");
@@ -235,7 +278,30 @@ function parsePayload(raw: string, submit: string): StudioInput {
         : {}),
       ...(options.linkedin ? { linkedin: { documentTitle: str(options.linkedin.documentTitle).slice(0, 200) } } : {}),
     },
-    scheduledAt: submit === "schedule" ? (num(value.scheduledAt) ?? null) : null,
+    // Times arrive as the wall-clock time typed, read in the person's own time zone (not the browser's).
+    scheduledAt: submit === "schedule" ? wallTime(str(value.scheduledAtLocal), timeZone) : null,
+    times: Object.fromEntries(
+      Object.entries((value.timesLocal ?? {}) as Record<string, unknown>)
+        .map(([id, local]) => [id, wallTime(str(local), timeZone)] as const)
+        .filter((entry): entry is readonly [string, number] => entry[1] !== null),
+    ),
+    variants: Object.fromEntries(
+      Object.entries((value.variants ?? {}) as Record<string, Record<string, unknown> | null>)
+        .filter(([, variant]) => variant && typeof variant === "object")
+        .slice(0, 60)
+        .map(([key, variant]) => [
+          key,
+          {
+            ...(Array.isArray(variant!.media) ? { media: strings(variant!.media).slice(0, 20) } : {}),
+            ...(variant!.link === null || typeof variant!.link === "string"
+              ? { link: variant!.link === null ? null : str(variant!.link).slice(0, 2048) }
+              : {}),
+            ...(typeof variant!.firstComment === "string"
+              ? { firstComment: str(variant!.firstComment).slice(0, 5000) }
+              : {}),
+          },
+        ]),
+    ),
     queue: submit === "queue",
     draft: submit === "draft",
     thread: strings(value.thread).slice(0, 30),
@@ -298,9 +364,40 @@ function localInput(at: number, timeZone: string): string {
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 }
 
+/** What autosave keeps of an unfinished post in this browser. */
+interface Saved {
+  text: string;
+  link: string;
+  overrides: Record<string, string | undefined>;
+  variants: Record<string, Variant | undefined>;
+  thread: string[];
+  firstComment: string;
+  selected: string[];
+  productId: string;
+  media: { key: string; kind: Attachment["kind"]; id: string; url: string; duration?: number; alt?: string }[];
+  tags: string;
+  note: string;
+}
+
 export default function Studio({ loaderData, actionData }: Route.ComponentProps) {
-  const { accounts, products, posts, tiktok, canPost, canAssist, snippets, best, editing, prefill, paused, timeZone } =
-    loaderData;
+  const {
+    accounts,
+    organizations,
+    products,
+    posts,
+    tiktok,
+    canPost,
+    canAssist,
+    snippets,
+    best,
+    editing,
+    prefill,
+    paused,
+    timeZone,
+    previewTime,
+    lastAccountIds,
+    bestByAccount,
+  } = loaderData;
   const navigation = useNavigation();
   const sending = navigation.state !== "idle" && navigation.formMethod === "POST";
   const [params] = useSearchParams();
@@ -314,13 +411,14 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
   const [reposters, setReposters] = useState<ReadonlySet<string>>(
     new Set(base?.deliveries.filter((row) => row.repost).map((row) => row.accountId) ?? []),
   );
+  const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
   const [productId, setProductId] = useState(base?.product?.id ?? "");
   const [text, setText] = useState(
     base?.text ?? (prefill.text ? prefill.text : signature ? `\n\n${signature.text}` : ""),
   );
   const [link, setLink] = useState(base?.link ?? prefill.link);
-  const [overrides, setOverrides] = useState<Partial<Record<SocialProvider, string>>>(base?.overrides ?? {});
-  const [editingNetwork, setEditingNetwork] = useState<SocialProvider | null>(null);
+  const [overrides, setOverrides] = useState<Record<string, string | undefined>>(base?.overrides ?? {});
+  const [editingOverrideTarget, setEditingOverrideTarget] = useState<string | null>(null);
   const [thread, setThread] = useState<string[]>(base?.thread ?? []);
   const [firstComment, setFirstComment] = useState(base?.firstComment ?? "");
   const [media, setMedia] = useState<Attachment[]>(
@@ -370,6 +468,101 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
   const [extras, setExtras] = useState(
     Boolean(base?.firstComment || base?.note || base?.tags.length || base?.repeat || base?.plug),
   );
+  const [variants, setVariants] = useState<Record<string, Variant | undefined>>(base?.variants ?? {});
+  const [timeMode, setTimeMode] = useState<"same" | "each">(
+    editing && Object.keys(editing.times ?? {}).length ? "each" : "same",
+  );
+  const [times, setTimes] = useState<Record<string, string>>(
+    Object.fromEntries(Object.entries(editing?.times ?? {}).map(([id, at]) => [id, localInput(at, timeZone)])),
+  );
+  const [restorable, setRestorable] = useState<{ savedAt: number; state: Saved } | null>(null);
+  const autosaveKey = editing ? `slopper-studio:${editing.id}` : loaderData.copy ? null : "slopper-studio:new";
+
+  // Autosave: an unfinished post survives a refresh or a closed tab, in this browser.
+  useEffect(() => {
+    if (!autosaveKey) return;
+    try {
+      const raw = window.localStorage.getItem(autosaveKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { savedAt: number; state: Saved };
+      const fresh = Date.now() - saved.savedAt < 7 * 86_400_000;
+      if (fresh && (saved.state.text.trim() || saved.state.media.length) && saved.state.text !== text)
+        setRestorable(saved);
+      else if (!fresh) window.localStorage.removeItem(autosaveKey);
+    } catch {
+      // A broken or full store just means no autosave.
+    }
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival.
+  }, []);
+
+  useEffect(() => {
+    if (!autosaveKey || restorable) return;
+    const state: Saved = {
+      text,
+      link,
+      overrides,
+      variants,
+      thread,
+      firstComment,
+      selected: [...selected],
+      productId,
+      media: media
+        .filter((item) => item.id)
+        .map((item) => ({
+          key: item.key,
+          kind: item.kind,
+          id: item.id!,
+          url: item.remoteUrl ?? item.url,
+          duration: item.duration,
+          alt: item.alt,
+        })),
+      tags,
+      note,
+    };
+    const timer = window.setTimeout(() => {
+      try {
+        if (!state.text.trim() && state.media.length === 0) window.localStorage.removeItem(autosaveKey);
+        else window.localStorage.setItem(autosaveKey, JSON.stringify({ savedAt: Date.now(), state }));
+      } catch {
+        // Storage full or blocked: nothing to do.
+      }
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [
+    autosaveKey,
+    restorable,
+    text,
+    link,
+    overrides,
+    variants,
+    thread,
+    firstComment,
+    selected,
+    productId,
+    media,
+    tags,
+    note,
+  ]);
+
+  function restore(saved: Saved) {
+    setText(saved.text);
+    setLink(saved.link);
+    setOverrides(saved.overrides);
+    setVariants(saved.variants);
+    setThread(saved.thread);
+    setFirstComment(saved.firstComment);
+    setSelected(new Set(saved.selected));
+    setProductId(saved.productId);
+    setMedia(saved.media.map((item) => ({ ...item, progress: 1, error: null })));
+    setTags(saved.tags);
+    setNote(saved.note);
+    setRestorable(null);
+  }
+
+  function forgetAutosave() {
+    if (autosaveKey) window.localStorage.removeItem(autosaveKey);
+    setRestorable(null);
+  }
 
   // A product picked from a link (?product=) starts with its accounts.
   useEffect(() => {
@@ -380,6 +573,15 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
 
   const picked = accounts.filter((account) => selected.has(account.id));
   const providers = new Set(picked.map((account) => account.provider));
+  const editingAccount = editingOverrideTarget
+    ? (picked.find((account) => account.id === editingOverrideTarget) ?? null)
+    : null;
+  const editingNetwork: SocialProvider | null = editingAccount
+    ? editingAccount.provider
+    : editingOverrideTarget && (SOCIAL_ORDER as readonly string[]).includes(editingOverrideTarget)
+      ? (editingOverrideTarget as SocialProvider)
+      : null;
+
   const video = media.find((item) => item.kind === "video");
   const shape: PostShape = {
     images: media.filter((item) => item.kind === "image").length,
@@ -413,21 +615,38 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
       : {}),
     ...(providers.has("linkedin") && shape.documents ? { linkedin: { documentTitle } } : {}),
   };
-  const blocked = picked
-    .map((account) => ({ account, reason: unsupportedReason(account.provider, shape) }))
-    .filter((item): item is { account: (typeof picked)[number]; reason: string } => item.reason !== null);
+  // Every picked account's checklist: what it will get, and what's in its way.
+  const destinationPost: DestinationPost = {
+    text,
+    link: link.trim() || null,
+    media: media.map((item) => ({ id: item.id ?? item.key, kind: item.kind, duration: item.duration ?? null })),
+    overrides,
+    variants,
+    options,
+    thread,
+    firstComment,
+  };
+  const destinations = picked.map((account) => ({ ...account, broken: account.broken }));
+  const checklist = picked.map((account) => {
+    const issues = readiness(destinationPost, account, destinations);
+    return { account, issues, label: readinessLabel(issues) };
+  });
+  const blocked = checklist.filter((entry) => entry.label.tone === "block");
+  const missingTimes = when === "later" && timeMode === "each" ? picked.filter((account) => !times[account.id]) : [];
   const problems = [
-    ...optionProblems(providers, options),
     ...(!text.trim() && media.length === 0 ? ["Write something or add a picture or video."] : []),
-    ...(when === "later" && !scheduledAt ? ["Pick when it goes out."] : []),
+    ...(when === "later" && timeMode === "same" && !scheduledAt ? ["Pick when it goes out."] : []),
+    ...(missingTimes.length ? [`Pick a time for ${missingTimes.map((account) => account.handle).join(", ")}.`] : []),
   ];
   const ready = canPost && picked.length > 0 && blocked.length === 0 && problems.length === 0 && !uploading;
-  const canDraft = picked.length > 0 && !uploading && (text.trim() || media.length > 0);
+  // An idea can be saved before it has anywhere to go.
+  const canDraft = !uploading && (text.trim() || media.length > 0);
 
   const brands = useMemo(() => {
     const groups = new Map<string, ComposerAccount[]>();
     for (const account of accounts) {
-      const name = account.brand ?? "No brand yet";
+      const name =
+        account.brand ?? (account.organizationName ? `${account.organizationName} (Shared)` : "No brand yet");
       groups.set(name, [...(groups.get(name) ?? []), account]);
     }
     return [...groups.entries()].sort(([a], [b]) =>
@@ -469,7 +688,50 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
   function pickProduct(id: string) {
     setProductId(id);
     const product = products.find((item) => item.id === id);
-    if (product) setSelected(new Set(product.accountIds));
+    if (product) {
+      setSelected(new Set(product.accountIds));
+      setReposters(new Set(product.repostAccountIds));
+    }
+  }
+
+  /** One tap: exactly these accounts, nothing else. */
+  function pickSet(ids: readonly string[]) {
+    setSelected(new Set(ids.filter((id) => accounts.some((account) => account.id === id))));
+    setReposters(new Set());
+  }
+
+  /** Takes the person to the field that fixes an issue. */
+  function fix(account: ComposerAccount, issue: Issue) {
+    const target =
+      issue.field === "copy"
+        ? "section-post"
+        : issue.field === "media"
+          ? "section-media"
+          : issue.field === "text" || issue.field === "link"
+            ? "section-post"
+            : issue.field === "account"
+              ? "section-accounts"
+              : "section-network-details";
+    if (issue.field === "copy") setEditingOverrideTarget(account.id);
+    if (issue.field === "account") {
+      window.location.assign("/settings/autopost");
+      return;
+    }
+    requestAnimationFrame(() => {
+      const element = document.getElementById(target);
+      element?.scrollIntoView({ behavior: "smooth", block: "start" });
+      element?.querySelector<HTMLElement>("textarea, input, select, button")?.focus({ preventScroll: true });
+    });
+  }
+
+  function setVariant(key: string, change: Partial<Variant> | null) {
+    setVariants((current) => {
+      if (change === null) {
+        const { [key]: _gone, ...rest } = current;
+        return rest;
+      }
+      return { ...current, [key]: { ...current[key], ...change } };
+    });
   }
 
   /** Starts the post from the product: its tagline, its Slopper page and its screenshots. */
@@ -506,9 +768,9 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           action,
-          text: editingNetwork ? overrides[editingNetwork] || text : text,
+          text: editingOverrideTarget ? overrides[editingOverrideTarget] || text : text,
           network: action === "adapt" ? editingNetwork : null,
-          brand,
+          brand: editingAccount?.brand ?? brand,
         }),
       });
       const body = (await response.json()) as { text?: string; posts?: string[]; hashtags?: string[]; error?: string };
@@ -517,8 +779,8 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
         setText(body.posts[0]);
         setThread(body.posts.slice(1));
       } else if (body.hashtags) setHashtags(body.hashtags);
-      else if (body.text && action === "adapt" && editingNetwork)
-        setOverrides({ ...overrides, [editingNetwork]: body.text });
+      else if (body.text && action === "adapt" && editingOverrideTarget)
+        setOverrides({ ...overrides, [editingOverrideTarget]: body.text });
       else if (body.text) setText(body.text);
     } catch (error) {
       setAssistError(error instanceof Error ? error.message : "The assistant didn't answer.");
@@ -558,7 +820,27 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     frames: video?.frames ?? [],
     overrides,
     options,
-    scheduledAt: scheduledAt ? new Date(scheduledAt).getTime() : null,
+    // Wall-clock times as typed: the server reads them in the profile's time zone.
+    scheduledAtLocal:
+      when !== "later"
+        ? ""
+        : timeMode === "each"
+          ? (picked
+              .map((account) => times[account.id])
+              .filter(Boolean)
+              .sort()[0] ?? "")
+          : scheduledAt,
+    timesLocal:
+      when === "later" && timeMode === "each"
+        ? Object.fromEntries(
+            picked.filter((account) => times[account.id]).map((account) => [account.id, times[account.id]]),
+          )
+        : {},
+    variants: Object.fromEntries(
+      Object.entries(variants).filter(
+        ([key, variant]) => variant && (providers.has(key as SocialProvider) || selected.has(key)),
+      ),
+    ),
     thread: threadNetworks.length ? thread : [],
     firstComment: commentNetworks.length ? firstComment : "",
     note,
@@ -573,19 +855,59 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     coverMediaId: providers.has("youtube") ? cover.id : null,
   });
 
-  // One preview per network picked, for its first account.
-  const readyMedia = media
-    .filter((item) => item.id && item.kind !== "document")
-    .map(({ kind, url }) => ({ kind: kind as "image" | "video", url }));
-  const previews = SOCIAL_ORDER.filter((provider) => providers.has(provider)).map((provider) => {
-    const account = picked.find((item) => item.provider === provider)!;
-    const words = overrides[provider]?.trim() || text;
-    const limit = limits[provider] ?? NETWORKS[provider].textLimit;
-    const fitted = fitPost(provider, words, link.trim() || null);
-    const measure = measureFor(provider);
-    const suffix = link.trim() ? measure(`\n\n${link.trim()}`) : 0;
-    return { account, fitted, over: measure(words.trim()) + suffix > limit };
-  });
+  // One preview per selected account, ordered by network so multiple accounts on the same network each show their own preview.
+  const previews = SOCIAL_ORDER.flatMap((provider) =>
+    picked
+      .filter((item) => item.provider === provider)
+      .map((account) => {
+        const destination = destinationFor(destinationPost, account);
+        const source = destination.text;
+        const postLink = destination.link?.trim() || null;
+        const ownMedia = destination.media
+          .map((entry) => media.find((item) => (item.id ?? item.key) === entry.id))
+          .filter((item): item is Attachment => !!item && !!item.id && item.kind !== "document")
+          .map(({ kind, url }) => ({ kind: kind as "image" | "video", url }));
+        const at = when === "later" && scheduledAt ? (wallTime(scheduledAt, timeZone) ?? previewTime) : previewTime;
+        const words = personalize(source, account.id, {
+          at,
+          timeZone,
+          product: products.find((product) => product.id === productId)?.name ?? null,
+          link: postLink,
+          network: NETWORKS[provider].label,
+        });
+        const limit = textLimitFor(provider, account);
+        const measure = measureFor(provider);
+        const suffix =
+          postLink && provider !== "instagram" && provider !== "tiktok" && !words.includes(postLink)
+            ? `\n\n${postLink}`
+            : "";
+        const fitted = fitText(words.trim(), limit - measure(suffix), measure) + suffix;
+        const followUp = (part: string) =>
+          fitText(
+            personalize(part, account.id, {
+              at,
+              timeZone,
+              product: products.find((product) => product.id === productId)?.name ?? null,
+              link: null,
+              network: NETWORKS[provider].label,
+            }).trim(),
+            limit,
+            measure,
+          );
+        return {
+          account,
+          media: ownMedia,
+          fitted,
+          over: measure(words.trim()) + measure(suffix) > limit,
+          replies: NETWORKS[provider].threads ? thread.filter((part) => part.trim()).map(followUp) : [],
+          firstComment:
+            NETWORKS[provider].firstComment && destination.firstComment.trim()
+              ? followUp(destination.firstComment)
+              : "",
+        };
+      }),
+  );
+  const activePreview = previews.find(({ account }) => account.id === previewAccountId) ?? previews[0];
   const filter = params.get("show") ?? "all";
   const listed = posts.filter((post) => {
     const scheduled = post.scheduledAt !== null && !post.released && !post.cancelled && !post.draft;
@@ -650,9 +972,38 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
           </Link>
         </div>
       ) : (
-        <Form method="post" className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <Form
+          method="post"
+          onSubmit={() => {
+            // A post handed to the server is saved there; an error keeps it on screen, and autosave picks it up again.
+            if (autosaveKey) window.localStorage.removeItem(autosaveKey);
+          }}
+          className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(380px,460px)]"
+        >
           <input type="hidden" name="payload" value={payload} />
           <div className="grid gap-5">
+            {restorable && (
+              <div
+                className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-ink p-3 text-sm"
+                role="status"
+              >
+                <span className="flex-1">
+                  You have an unsaved post from{" "}
+                  {new Date(restorable.savedAt).toLocaleString("en-GB", {
+                    timeZone,
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                  .
+                </span>
+                <button type="button" className="btn btn-ink btn-sm" onClick={() => restore(restorable.state)}>
+                  Restore it
+                </button>
+                <button type="button" className="btn btn-quiet btn-sm" onClick={forgetAutosave}>
+                  Discard
+                </button>
+              </div>
+            )}
             {editing && (
               <p className="rounded-2xl bg-raised p-3 text-sm">
                 Editing {editing.draft ? "a draft" : "a scheduled post"}.{" "}
@@ -662,7 +1013,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
               </p>
             )}
             {/* 1. Who it's from */}
-            <fieldset className="panel">
+            <fieldset className="panel scroll-mt-24" id="section-accounts">
               <legend className="sr-only">Post as</legend>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="font-display text-[1.6rem] leading-none font-extrabold">Post as</h2>
@@ -691,6 +1042,32 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                   </div>
                 )}
               </div>
+              {(lastAccountIds.length > 0 || products.some((product) => product.accountIds.length > 0)) && (
+                <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Quick picks">
+                  <span className="text-sm font-bold text-muted">One tap:</span>
+                  {lastAccountIds.length > 0 && (
+                    <button
+                      type="button"
+                      className="min-h-9 rounded-full border border-line px-3 text-sm font-bold hover:border-ink"
+                      onClick={() => pickSet(lastAccountIds)}
+                    >
+                      Last used ({lastAccountIds.filter((id) => accounts.some((account) => account.id === id)).length})
+                    </button>
+                  )}
+                  {products
+                    .filter((product) => product.accountIds.length > 0)
+                    .map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        className={`min-h-9 rounded-full border px-3 text-sm font-bold ${productId === product.id ? "border-ink bg-raised" : "border-line hover:border-ink"}`}
+                        onClick={() => pickProduct(product.id)}
+                      >
+                        Post as {product.name} ({product.accountIds.length})
+                      </button>
+                    ))}
+                </div>
+              )}
               <div className="mt-4 grid gap-4">
                 {brands.map(([brandName, list]) => {
                   const all = list.every((account) => selected.has(account.id));
@@ -705,7 +1082,10 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                       <div className="mt-2 flex flex-wrap gap-2">
                         {list.map((account) => {
                           const on = selected.has(account.id);
-                          const reason = on ? unsupportedReason(account.provider, shape) : null;
+                          const status = on
+                            ? checklist.find((entry) => entry.account.id === account.id)?.label
+                            : undefined;
+                          const reason = status && status.tone !== "ready" ? status.text : null;
                           return (
                             <button
                               key={account.id}
@@ -714,16 +1094,25 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                               onClick={() => toggle(account.id)}
                               className={`flex min-h-12 items-center gap-2 rounded-2xl border-2 py-1.5 pr-3 pl-1.5 text-left transition ${
                                 on
-                                  ? reason
+                                  ? status?.tone === "block"
                                     ? "border-hot bg-hot/10"
-                                    : "border-ink bg-raised"
+                                    : status?.tone === "warn"
+                                      ? "border-ink bg-sunk"
+                                      : "border-ink bg-raised"
                                   : "border-line opacity-70 hover:opacity-100"
                               }`}
                               title={reason ?? account.broken ?? undefined}
                             >
                               <AccountAvatar account={account} size={34} />
                               <span className="leading-tight">
-                                <span className="block text-sm font-bold">{account.displayName}</span>
+                                <span className="flex items-center gap-1.5 text-sm font-bold">
+                                  <span>{account.displayName}</span>
+                                  {account.organizationName && (
+                                    <span className="rounded-full bg-sunk px-1.5 py-0.5 text-[0.65rem] font-bold text-muted">
+                                      {account.organizationName}
+                                    </span>
+                                  )}
+                                </span>
                                 <span className={`block text-xs ${account.broken ? "text-hot" : "text-muted"}`}>
                                   {reason ??
                                     (account.broken
@@ -731,7 +1120,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                                       : `${NETWORKS[account.provider].label} · ${account.handle}`)}
                                 </span>
                               </span>
-                              {on && !reason && <Icon name="check" className="size-4" />}
+                              {on && status?.tone === "ready" && <Icon name="check" className="size-4" />}
                             </button>
                           );
                         })}
@@ -740,6 +1129,28 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                   );
                 })}
               </div>
+              {organizations.length > 0 && (
+                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-xs">
+                  <span className="font-bold text-muted">Shared organisations:</span>
+                  {organizations.map((org) => {
+                    const orgAccounts = accounts.filter((acc) => acc.organizationId === org.id);
+                    if (orgAccounts.length === 0) return null;
+                    const allSelected = orgAccounts.every((acc) => selected.has(acc.id));
+                    return (
+                      <button
+                        key={org.id}
+                        type="button"
+                        onClick={() => toggleBrand(orgAccounts)}
+                        className={`rounded-full border px-2.5 py-1 font-bold transition ${
+                          allSelected ? "border-ink bg-raised text-ink" : "border-line text-muted hover:text-ink"
+                        }`}
+                      >
+                        {org.name} ({orgAccounts.length})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {repostCandidates.length > 0 && (
                 <div className="mt-4 border-t border-line pt-3">
                   <p className="text-sm font-bold">Repost it with</p>
@@ -772,7 +1183,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
             </fieldset>
 
             {/* 2. What it says */}
-            <div className="panel">
+            <div className="panel scroll-mt-24" id="section-post">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="font-display text-[1.6rem] leading-none font-extrabold" htmlFor="studio-text">
                   Post
@@ -872,33 +1283,71 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                   Track clicks
                 </label>
               </div>
-              {providers.size > 1 && (
+              {picked.length > 1 && (
                 <div className="mt-4">
-                  <p className="text-sm font-bold">Say it differently on one network</p>
+                  <p className="text-sm font-bold">Say it differently on one network or account</p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {SOCIAL_ORDER.filter((provider) => providers.has(provider)).map((provider) => (
-                      <button
-                        key={provider}
-                        type="button"
-                        aria-pressed={editingNetwork === provider}
-                        onClick={() => setEditingNetwork(editingNetwork === provider ? null : provider)}
-                        className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-bold ${editingNetwork === provider ? "border-ink bg-raised" : "border-line"}`}
-                      >
-                        <NetworkBadge provider={provider} size="sm" />
-                        {NETWORKS[provider].label}
-                        {overrides[provider]?.trim() && <span className="text-slop-text">· own words</span>}
-                      </button>
-                    ))}
+                    {SOCIAL_ORDER.filter((provider) => providers.has(provider)).flatMap((provider) => {
+                      const onNetwork = picked.filter((acc) => acc.provider === provider);
+                      const networkBtn = (
+                        <button
+                          key={provider}
+                          type="button"
+                          aria-pressed={editingOverrideTarget === provider}
+                          onClick={() => setEditingOverrideTarget(editingOverrideTarget === provider ? null : provider)}
+                          className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-bold ${
+                            editingOverrideTarget === provider ? "border-ink bg-raised" : "border-line"
+                          }`}
+                        >
+                          <NetworkBadge provider={provider} size="sm" />
+                          {NETWORKS[provider].label}
+                          {overrides[provider]?.trim() && <span className="text-slop-text">· own words</span>}
+                        </button>
+                      );
+                      if (onNetwork.length <= 1) return [networkBtn];
+                      return [
+                        networkBtn,
+                        ...onNetwork.map((acc) => (
+                          <button
+                            key={acc.id}
+                            type="button"
+                            aria-pressed={editingOverrideTarget === acc.id}
+                            onClick={() => setEditingOverrideTarget(editingOverrideTarget === acc.id ? null : acc.id)}
+                            className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-bold ${
+                              editingOverrideTarget === acc.id ? "border-ink bg-raised" : "border-line"
+                            }`}
+                          >
+                            <NetworkBadge provider={provider} size="sm" />
+                            {acc.displayName || acc.handle}
+                            {overrides[acc.id]?.trim() && <span className="text-slop-text">· own words</span>}
+                          </button>
+                        )),
+                      ];
+                    })}
                   </div>
-                  {editingNetwork && (
+                  {editingOverrideTarget && editingNetwork && (
                     <div className="mt-3">
                       <textarea
                         className="input min-h-28"
-                        aria-label={`Words for ${NETWORKS[editingNetwork].label}`}
-                        placeholder={`Leave empty to use the post above on ${NETWORKS[editingNetwork].label}.`}
-                        value={overrides[editingNetwork] ?? ""}
-                        maxLength={limits[editingNetwork] ?? NETWORKS[editingNetwork].textLimit}
-                        onChange={(event) => setOverrides({ ...overrides, [editingNetwork]: event.target.value })}
+                        aria-label={`Words for ${
+                          editingAccount
+                            ? editingAccount.displayName || editingAccount.handle
+                            : NETWORKS[editingNetwork].label
+                        }`}
+                        placeholder={`Leave empty to use the post above on ${
+                          editingAccount
+                            ? editingAccount.displayName || editingAccount.handle
+                            : NETWORKS[editingNetwork].label
+                        }.`}
+                        value={overrides[editingOverrideTarget] ?? ""}
+                        maxLength={
+                          editingAccount
+                            ? textLimitFor(editingNetwork, editingAccount)
+                            : (limits[editingNetwork] ?? NETWORKS[editingNetwork].textLimit)
+                        }
+                        onChange={(event) =>
+                          setOverrides({ ...overrides, [editingOverrideTarget]: event.target.value })
+                        }
                       />
                       {canAssist && (
                         <button
@@ -907,9 +1356,33 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                           disabled={assisting !== null}
                           onClick={() => void runAssist("adapt")}
                         >
-                          {assisting === "adapt" ? "Writing…" : `Write it for ${NETWORKS[editingNetwork].label}`}
+                          {assisting === "adapt"
+                            ? "Writing…"
+                            : `Write it for ${
+                                editingAccount
+                                  ? editingAccount.displayName || editingAccount.handle
+                                  : NETWORKS[editingNetwork].label
+                              }`}
                         </button>
                       )}
+                      <VariantFields
+                        target={editingOverrideTarget}
+                        label={
+                          editingAccount
+                            ? editingAccount.displayName || editingAccount.handle
+                            : NETWORKS[editingNetwork].label
+                        }
+                        variant={variants[editingOverrideTarget]}
+                        sharedLink={link}
+                        sharedComment={firstComment}
+                        comments={NETWORKS[editingNetwork].firstComment}
+                        media={media}
+                        onChange={(change) => setVariant(editingOverrideTarget, change)}
+                        onReset={() => {
+                          setVariant(editingOverrideTarget, null);
+                          setOverrides({ ...overrides, [editingOverrideTarget]: undefined });
+                        }}
+                      />
                     </div>
                   )}
                 </div>
@@ -997,23 +1470,25 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
             )}
 
             {/* 4. Pictures, a video or a PDF */}
-            <MediaPicker
-              media={media}
-              setMedia={setMedia}
-              error={uploadError}
-              setError={setUploadError}
-              altText={[...providers].some((provider) => NETWORKS[provider].altText) || providers.size === 0}
-              documents={providers.has("linkedin")}
-              thumbnail={providers.has("youtube") ? cover : null}
-              onThumbnail={(frame) => void makeThumbnail(frame)}
-            />
+            <div id="section-media" className="scroll-mt-24">
+              <MediaPicker
+                media={media}
+                setMedia={setMedia}
+                error={uploadError}
+                setError={setUploadError}
+                altText={[...providers].some((provider) => NETWORKS[provider].altText) || providers.size === 0}
+                documents={providers.has("linkedin")}
+                thumbnail={providers.has("youtube") ? cover : null}
+                onThumbnail={(frame) => void makeThumbnail(frame)}
+              />
+            </div>
 
             {/* 5. What only some networks ask */}
             {(providers.has("youtube") ||
               providers.has("tiktok") ||
               providers.has("instagram") ||
               (providers.has("linkedin") && shape.documents)) && (
-              <div className="panel grid gap-5">
+              <div className="panel grid scroll-mt-24 gap-5" id="section-network-details">
                 <h2 className="font-display text-[1.6rem] leading-none font-extrabold">Network details</h2>
                 {providers.has("youtube") && <YouTubeFields value={youtube} onChange={setYouTube} />}
                 {providers.has("tiktok") && (
@@ -1165,7 +1640,61 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                   </Link>
                 </p>
               )}
-              {when === "later" && (
+              {when === "later" && picked.length > 1 && (
+                <div className="mt-3">
+                  <Segmented
+                    name="time-mode"
+                    value={timeMode}
+                    onChange={setTimeMode}
+                    options={[
+                      { value: "same", label: "Same time for all" },
+                      { value: "each", label: "Choose per account" },
+                    ]}
+                  />
+                </div>
+              )}
+              {when === "later" && timeMode === "each" && picked.length > 1 && (
+                <ul className="mt-3 grid gap-2" aria-label="Time for each account">
+                  {picked.map((account) => (
+                    <li key={account.id} className="flex flex-wrap items-center gap-2 text-sm">
+                      <AccountAvatar account={account} size={26} />
+                      <span className="w-40 truncate font-bold">{account.handle}</span>
+                      <input
+                        type="datetime-local"
+                        className="input min-h-9 w-auto py-1"
+                        aria-label={`When ${account.handle} posts`}
+                        value={times[account.id] ?? ""}
+                        onChange={(event) => setTimes({ ...times, [account.id]: event.target.value })}
+                      />
+                      {(bestByAccount[account.id] ?? []).slice(0, 2).map((slot) => (
+                        <button
+                          key={`${slot.day}-${slot.minute}`}
+                          type="button"
+                          className="rounded-full border border-line px-2 py-0.5 text-xs font-bold hover:border-ink"
+                          title={
+                            slot.reason === "yours"
+                              ? "From this account's own results: an estimate."
+                              : "A typical good time: an estimate."
+                          }
+                          onClick={() => setTimes({ ...times, [account.id]: localInput(slot.at, timeZone) })}
+                        >
+                          {DAYS[slot.day]} {String(Math.floor(slot.minute / 60)).padStart(2, "0")}:
+                          {String(slot.minute % 60).padStart(2, "0")}
+                        </button>
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {when !== "now" && (
+                <p className="mt-2 text-xs text-muted">
+                  Times are in your time zone, {timeZone}.{" "}
+                  <Link to="/settings" className="underline">
+                    Change it
+                  </Link>
+                </p>
+              )}
+              {when === "later" && (timeMode === "same" || picked.length <= 1) && (
                 <div className="mt-3 grid gap-2">
                   <input
                     type="datetime-local"
@@ -1176,7 +1705,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                   />
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-bold">
-                      {best[0]?.reason === "yours" ? "Your best times:" : "Good times to post:"}
+                      {best[0]?.reason === "yours" ? "Your best times (estimates):" : "Typical good times (estimates):"}
                     </span>
                     {best.map((slot) => (
                       <button
@@ -1223,15 +1752,53 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                   )}
                 </div>
               )}
-              {(blocked.length > 0 || problems.length > 0 || actionData?.error || !canPost) && (
+              {checklist.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-sm font-bold">Checklist</h3>
+                  <ul className="mt-2 grid gap-1.5" aria-label="Checklist">
+                    {checklist.map(({ account, issues, label }) => {
+                      const firstFix = issues.find((issue) => issue.level !== "info");
+                      return (
+                        <li key={account.id} className="flex flex-wrap items-center gap-2 text-sm">
+                          <NetworkBadge provider={account.provider} size="sm" />
+                          <span className="font-bold">{account.handle}</span>
+                          <span
+                            className={
+                              label.tone === "ready"
+                                ? "font-bold text-slop-text"
+                                : label.tone === "block"
+                                  ? "text-hot"
+                                  : "text-ink"
+                            }
+                          >
+                            · {label.text}
+                          </span>
+                          {firstFix && (
+                            <button
+                              type="button"
+                              className="text-xs font-bold underline"
+                              onClick={() => fix(account, firstFix)}
+                            >
+                              Fix
+                            </button>
+                          )}
+                          {issues
+                            .filter((issue) => issue.level === "info")
+                            .map((issue) => (
+                              <span key={issue.message} className="basis-full pl-7 text-xs text-muted">
+                                {issue.message}
+                              </span>
+                            ))}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+              {(problems.length > 0 || actionData?.error || !canPost) && (
                 <ul className="mt-4 grid gap-1 text-sm text-hot" role="status">
                   {!canPost && <li>Posting needs the content check, and it isn’t set up on this server.</li>}
                   {actionData?.error && <li>{actionData.error}</li>}
-                  {blocked.map(({ account, reason }) => (
-                    <li key={account.id}>
-                      {account.displayName}: {reason}
-                    </li>
-                  ))}
                   {problems.map((problem) => (
                     <li key={problem}>{problem}</li>
                   ))}
@@ -1260,38 +1827,69 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                   className="btn btn-ink"
                   disabled={!canDraft || sending}
                 >
-                  Save draft
+                  {picked.length === 0 ? "Save as an idea" : "Save draft"}
                 </button>
                 <p className="text-sm text-muted">
                   {picked.length === 0
-                    ? "Pick accounts above."
+                    ? "Pick accounts above, or save it as an idea for later."
                     : `${providers.size} network${providers.size === 1 ? "" : "s"}. Checked before anything goes out.`}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Live previews */}
-          <aside className="grid gap-4 lg:sticky lg:top-20" aria-label="Previews">
-            <h2 className="font-display text-[1.6rem] leading-none font-extrabold">Preview</h2>
+          {/* Pick one account at a time so every preview has room to read. */}
+          <aside className="min-w-0 lg:sticky lg:top-20" aria-label="Previews">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="font-display text-[1.6rem] leading-none font-extrabold">Preview</h2>
+              <span className="text-xs text-muted">Approximate · layouts can change</span>
+            </div>
             {previews.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-line p-6 text-center text-muted">
+              <p className="mt-4 rounded-2xl border border-dashed border-line p-6 text-center text-muted">
                 Pick accounts to see how the post looks on each network.
               </p>
             ) : (
-              previews.map(({ account, fitted, over }) => (
-                <PostPreview
-                  key={account.provider}
-                  account={account}
-                  text={fitted}
-                  title={account.provider === "youtube" ? youtube.title || "Untitled video" : undefined}
-                  media={readyMedia}
-                  over={over}
-                />
-              ))
+              <>
+                <div
+                  className="mt-4 flex gap-2 overflow-x-auto pb-2"
+                  role="group"
+                  aria-label="Choose account to preview"
+                >
+                  {previews.map(({ account }) => (
+                    <button
+                      type="button"
+                      key={account.id}
+                      onClick={() => setPreviewAccountId(account.id)}
+                      aria-pressed={activePreview?.account.id === account.id}
+                      aria-label={`${NETWORKS[account.provider].label}: ${account.handle}`}
+                      className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-bold ${activePreview?.account.id === account.id ? "border-ink bg-ink text-ground" : "border-line bg-ground text-ink hover:bg-raised"}`}
+                    >
+                      <NetworkBadge provider={account.provider} size="sm" />
+                      <span>{account.handle}</span>
+                    </button>
+                  ))}
+                </div>
+                {activePreview && (
+                  <div className="mx-auto mt-2 w-full max-w-[460px]">
+                    <PostPreview
+                      key={activePreview.account.id}
+                      account={activePreview.account}
+                      text={activePreview.fitted}
+                      title={
+                        activePreview.account.provider === "youtube" ? youtube.title || "Untitled video" : undefined
+                      }
+                      media={activePreview.media}
+                      over={activePreview.over}
+                      instagramFormat={instagramFormat}
+                      replies={activePreview.replies}
+                      firstComment={activePreview.firstComment}
+                    />
+                  </div>
+                )}
+              </>
             )}
             {thread.length > 0 && threadNetworks.length > 0 && (
-              <p className="text-sm text-muted">
+              <p className="mt-3 text-sm text-muted">
                 + {thread.length} more post{thread.length === 1 ? "" : "s"} in the thread
               </p>
             )}
