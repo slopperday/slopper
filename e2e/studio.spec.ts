@@ -137,9 +137,11 @@ test("one post goes to each brand's accounts, fitted per network, and its stats 
       "Tiltmaze 2.0 is out: 40 new levels, a level editor, and daily challenges. Built in a weekend, polished for a month. Tilt your phone to roll the ball home, and share your own mazes with friends. Free on iOS and Android.",
     );
   await page.getByLabel("Link").fill("https://tiltmaze.app/");
-  // Without media, the composer says which networks can't take it, before anything is sent.
-  await expect(page.getByText("Tiltmaze: Instagram needs a picture or a video.")).toBeVisible();
-  await expect(page.getByText("Tiltmaze: YouTube needs a video.")).toBeVisible();
+  // Without media, the checklist says which accounts can't take it, before anything is sent.
+  const checklist = page.getByRole("list", { name: "Checklist" });
+  await expect(checklist).toContainText("Instagram needs a picture or a video.");
+  await expect(checklist).toContainText("YouTube needs a video.");
+  await expect(checklist).toContainText("X bills the developer app");
   await expect(page.getByRole("button", { name: /Post to 5 accounts/ })).toBeDisabled();
   await shoot(page, "1-compose-needs-media");
 
@@ -155,6 +157,7 @@ test("one post goes to each brand's accounts, fitted per network, and its stats 
   });
   await expect(page.getByLabel("Uploading")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Post to 4 accounts/ })).toBeEnabled();
+  await expect(checklist.getByRole("listitem").filter({ hasText: "tiltmaze.app" })).toContainText("Ready");
   // X is over its 280 characters: say it shorter there.
   await page.getByRole("button", { name: "X", exact: true }).click();
   await page
@@ -171,7 +174,7 @@ test("one post goes to each brand's accounts, fitted per network, and its stats 
   // A thread for X and Bluesky, and a first comment, then save it as a draft instead of sending.
   await page.getByRole("button", { name: "Add a post" }).click();
   await page.getByLabel("Thread post 2").fill("Build a maze, share the link, watch friends fail at it.");
-  await page.getByLabel("First comment").fill("#indiegames #buildinpublic");
+  await page.getByLabel("First comment", { exact: true }).fill("#indiegames #buildinpublic");
   await expect(previews.getByRole("article", { name: "X preview" })).toContainText("Build a maze, share the link");
   await expect(previews.getByRole("article", { name: "X preview" })).toContainText("#indiegames #buildinpublic");
   await page.getByText("More options").click();
