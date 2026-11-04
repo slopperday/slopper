@@ -11,6 +11,7 @@ const PATHS = {
   right: "M5 12h14M13 6l6 6-6 6",
   left: "M19 12H5M11 6l-6 6 6 6",
   out: "M8 16 16 8M9 8h7v7",
+  expand: "M9 4H4v5M20 9V4h-5M15 20h5v-5M4 15v5h5",
   plus: "M12 5v14M5 12h14",
   clock: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17ZM12 7.5V12l3 2",
   copy: "M9 9h10.5v10.5H9ZM15 9V4.5H4.5V15H9",
