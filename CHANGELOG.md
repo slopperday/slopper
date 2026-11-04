@@ -5,6 +5,141 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.12.0 (2026-11-04)
+
+### Features
+
+#### Publications (PDFs and EPUBs) on slops
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ aa17b4c
+
+- `slops.publication` and `scheduledLaunches.publication` hold one PDF's media id; media rows keep a `fileName`. `PublicSlop.publication` is `{ url, fileName, size }` or null, and cards show "PDF" beside the platforms.
+- `scanPdf` (app/.server/pdfSafety.ts) is a pdfid-style safety scan run before anything else: it undoes `#xx` name escapes, inflates object streams (capped at `MAX_INFLATED_BYTES` against bombs), skips stream data only where `/Length` lands on `endstream`, and refuses polyglots, encryption, active content (`/JavaScript`, `/Launch`, `/SubmitForm`, `/XFA`, script URIs…), attachments and object streams it can't read. The reason maps to a message in `PDF_PROBLEMS`.
+- `scanEpub` (app/.server/epubSafety.ts) is the EPUB side: it reads the ZIP's directory and requires its entries to sit end to end with nothing around them, unpacks each (capped at `MAX_UNPACKED_BYTES`) and checks its size and CRC, refuses climbing or twin names, ZIP64, encrypted entries and DRM (font obfuscation is fine), only lets in the files a book is made of, and reads every page, drawing and stylesheet with a quote-aware tag reader: scripts, frames, forms, `on*` handlers, code URLs (after undoing character references and CSS escapes) and anything that loads from the web are refused. It returns the book's text, which the content check reads as a text part instead of a file part. `EPUB_PROBLEMS` holds the messages.
+- Publications are `PUBLICATION_TYPES.pdf` or `.epub` (`publicationFormat` in convex/lib/media.ts), stored under `publications/` with their own extension; `PublicPublication` and the form's publication carry `format`, and upload results return it.
+- `uploadPublication` (app/.server/media.ts) sniffs an EPUB's leading `mimetype` entry or `%PDF-`, caps at `LIMITS.publicationBytes`, runs `scanPdf`, and runs the content check with the PDF inline as a `file` part and OpenRouter's free `pdf-text` parser. Blocked ones are refused, mature ones blur the slop through `checkScreenshots`, and an unchecked one is sent again with the launch check.
+- `validateSlop` takes a link or a publication. Screenshots only take images now (`isImage`), and `releaseMedia` counts publications as shown.
+- Agents: the `upload_publication` operation, `POST /api/v1/publications` (raw PDF with `?fileName=`, or JSON), and `publication` on `create_slop`/`update_slop` (null takes it off).
+
+#### Add the studio's posting engine, network adapters and agent access
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ a600d8e
+
+- `socialPosts` and `socialDeliveries` in Convex (`convex/social.ts`): one leased delivery per account, with
+  staggering (`notBefore`), reposts that wait for an original, repeats, pause, idempotency keys, a duplicate guard,
+  an activity log, and a backstop that marks lost sends uncertain instead of resending them.
+- Supporting tables in `convex/studio.ts`: settings (queue slots, pause, calendar token, webhook), snippets, brand
+  voices, tracked links, preview links and RSS feeds.
+- Network adapters gain `reply`, `remove` and `comments`, alt text, covers, collaborators, LinkedIn documents and
+  YouTube thumbnails. One table, `app/lib/networks.ts`, says what each network takes.
+- New routes: `/studio/calendar`, `/studio/settings`, `/studio/analytics.csv`, `/review/:token`, `/go/:code`,
+  `/api/studio/assist`, `/api/studio/calendar/:token`, `/api/social/feeds`.
+- Agent operations `list_social_accounts`, `create_social_post`, `list_social_posts` and `get_social_post` (MCP and
+  `/api/v1/social/*`), with CLI commands `social-accounts`, `social-post`, `social-posts` and `social-status`.
+- OAuth connect scopes for comments, replies and deletion on Meta and Threads.
+
+#### Shared destination resolution and readiness for the studio
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 43dfb42
+
+- `app/lib/destinations.ts`: `destinationFor` (account, then network, then shared), `readiness` (block/warn/info issues), `xTwins`, X prices. Used by the composer, `saveStudioPost` and the agent operations; a `block` is refused on save.
+- `socialPosts.variants` (media subset, link, first comment per network or account) and `socialPosts.times` (account id to time, setting `notBefore`); drafts may have no accounts; `socialSettings.lastAccountIds`.
+- `social.resolveUncertain`, the `resolve_social_delivery` operation and `POST /api/v1/social/deliveries/:delivery/resolve`; `retry` skips uncertain deliveries.
+- `wallTime` is DST-safe; the composer reads typed times in the profile time zone.
+- Mastodon media uploads go through the pinned transport.
+- Reddit OAuth (`REDDIT_CLIENT_*`) with refreshing tokens and subreddits per account; LinkedIn Pages behind `LINKEDIN_PAGES` (Community Management API scopes, `organizationAcls`).
+- `app/lib/setupGuides.ts` and docs/social-setup.md: setup steps for every network.
+
+#### Add second factors and step-up confirmation to sign-in
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ f70714e
+
+- `convex/security.ts`: TOTP factors (sealed secrets, each 30-second step usable once), passkeys (WebAuthn via
+  `@simplewebauthn/server`, counter regression refused), hashed one-time recovery codes, short-lived `authChallenges`
+  (five tries each, ten per person per 15 minutes) and a per-user `securityEvents` log.
+- `app/.server/auth/twoFactor.ts`: `secondFactorGate` holds the session after OAuth until `/login/verify` passes;
+  `requireRecentAuth` sends sensitive actions to confirm when the session's `verifiedAt` is over 15 minutes old.
+- Sessions record `verifiedAt` and the browser, are indexed by user, and can be ended from `/settings/security`.
+
+### Fixes
+
+- **Authenticate analytics account claims and reserve product actions for server capture.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 2ce17d1
+- **Apply analytics request ceilings before parsing, path lookup and replay processing, including rejected requests.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ b2e9124
+- **Enforce the disabled comments feature in public Convex page queries.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 2d96d28
+- **Validate EPUB manifest media types and spine references before publication uploads, refusing resources that readers could reinterpret as unchecked active content.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 526ca6f
+- **Consume flash cookies only when the page delivers the message.** Background resource and child-only data requests leave the message for the root loader.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 36551a5
+- **Resolve form media only for the signed-in owner and the expected media type.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 5132d75
+- **Bound anonymous hall-of-fame queries.** Cap hall-of-fame reads and card expansion at 100 winners. Normalize finite result limits to non-negative integers and reject non-finite limits before database work.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 3956c37
+- **Drain rejected MCP request bodies before reusing their HTTP connection.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 4c2a3ec
+- **Reject PDF OpenAction and AA hooks before content checks and storage, including escaped names, indirect actions and compressed objects.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 5e57c09
+- **Inspect unfiltered PDF object streams and every filter stage before accepting publications; reject ambiguous headers and incomplete decoding.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 7de454c
+- **Hold new and edited launches until a current moderation verdict; retain scheduled completion retries.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ e384b75
+- **Bound publication upload attempts before parsing.** Limit browser body reads by account and address. Charge malformed and rejected publications against the upload budget before safety scans or decompression.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ c534627
+- **Stop rate-limit cleanup from rescheduling on pages of live rows while continuing to drain expired rows.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 42d410c
+- **Hydrate launch ages from the serialized page clock and format calendar fallbacks in UTC.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 1893f61
+- **Bound replay decompression, JSON allocations and event counts during playback.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ fe5c5fc
+- **Keep owner launch, goal and integration pages out of session replay, including encoded route names.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ bdfdef4
+- **Charge the review budget before content checks, including blocked and failed attempts.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 8a8dc0a
+- **Bound signed-in search work and embedding spend with one account quota across browser, REST and MCP.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 4fd6be8
+
+#### Harden ingestion limits and security checks
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 7134520 · _Last updated in:_ e0755e4
+
+Round one — the attacks the audits proved, closed:
+
+- Analytics ingestion (`/a/e`, `/a/r`) is public, so it now has ceilings: events per minute and per UTC day, per distinct id, merges into an account, and recording bytes and chunks (packages/analytics). A flood hits the ceiling — and the shared counter slows it down — instead of the deployment's storage and function budget; honest traffic never notices.
+- Share-card URLs only render their canonical version: any other `?v=` is redirected to it (301), so made-up query strings can't fill the CDN or make the server draw. Drawing also reads a new, lighter `slops.card` query, and each address has an hourly ceiling.
+- Anonymous routes that cost a Convex write per request are rate limited per address: OAuth starts (30/h), CLI polls (720/h), scheduled-launch claims (600/h, id-shaped first), unsubscribes (60/h), REST and MCP pre-limits (4800/h) before a bearer is resolved, and the MCP endpoint refuses requests without a token before parsing their body (draining it, so keep-alive connections survive). Anonymous wall searches get the API's 120/h too: each one costs an embedding model call.
+- Editing a slop is limited (30/day) and clears its content-check verdict the moment the checked content changes: a re-check that errors leaves it held for a moderator, the way a launch that fails its check is, instead of showing a stale "ok" over new text.
+- Public queries are bounded: a day's race caps at 500 items, goal standings at 2,000 goals × 2,000 slops, a slop's page at 500 updates/comments/launches.
+- Upvotes notify their owner once an hour per slop, not once per toggle; avatar copies from providers time out after 10s and refuse oversized bodies.
+
+Round two — deeper audits, all fixed:
+
+- A check verdict now carries a fingerprint of the content it judged (`moderation.applyCheck`): a check that was in flight while the slop was edited lands on nothing, so swapped-in text can never ride an "ok" out to the maker's social accounts.
+- Scheduled releases the app server never finished (it was down, or `tellApp` gave up) are retried by a 15-minute cron backstop, so a launch can't sit live and unchecked.
+- Deleting a slop no longer refunds its voters' five votes for the day.
+- `money.add` and `goals.create` validate their numbers Convex-side (NaN, negatives and degenerate goals are refused, not stored).
+- `safeReturnTo` rejects control characters: a tab after the slash turned `/\t//evil.com` into a redirect off the site after login.
+- The CSP is nonce-based — no more `unsafe-inline` scripts — and static files get `nosniff` and the referrer policy at the edge too. The two preference cookies are `Secure` on HTTPS.
+- Every outbound fetch to an address a person typed (a Bluesky PDS, self-hosted PostHog, the Solana RPC, a slop's website) rides the SSRF-pinned transport, which checks the address inside the DNS lookup it connects with: DNS rebinding can't slip a private address past.
+- `media.url` (any media id → its URL) is server-only; API tokens expire after a year; uploads nothing ever attaches to are swept after two weeks; the OAuth-state/session/rate-limit sweeper reschedules itself while there's more, so floods can't outgrow it; and the fflate copy satori pulls in is pinned past its CVE.
+
+Pinned so they can't quietly come back: `tests/security.test.ts` (every public Convex function names an auth gate; the CSP keeps its nonce; the one raw-HTML sink stays the sanitizer; anonymous Convex-costing routes keep a ceiling; ingest caps stay caps), `tests/replay-sandbox.test.ts` (the replay iframe never allows scripts), and `e2e/security.spec.ts` (the exploits themselves, replayed every CI run).
+
+- **Canonicalize the complete share-card URL before fetching media or rendering to prevent cache-busting requests from triggering duplicate work.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ b7c23c1
+- **Limit traction refresh requests per address before querying slops or claiming integration syncs.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 557d9f5
+- **Reserve update quota before fetching link previews and retain charges for failed attempts.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ ed698da
+
+### Other
+
+- **Update monochange to 0.20.1.** The release tooling moves to `@monochange/cli` 0.20.1, which installs its npm binary with the executable bit set and supports opening release pull requests through monochange.dev.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 31a76f2
+- **Update release tooling to monochange 0.21.0.** Use the verified monochange 0.21.0 CLI for configuration, changeset checks and release planning. Preserve all other tool versions and allow only this exact release through the package age gate.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ e0755e4
+
 ## 1.11.0 (2026-10-21)
 
 ### Features

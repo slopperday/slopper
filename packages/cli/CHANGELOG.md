@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## cli 0.1.8 (2026-11-04)
+
+Grouped release for `cli`.
+
+### Features
+
+- **Launch a PDF or EPUB you wrote from the CLI.** `--publication ./guide.pdf` (or `./zine.epub`) on `slopper launch` uploads a book, zine, guide or paper (up to 4 MB) to read from the slop page, and makes `--link` optional. On `slopper edit` it swaps the file, and `--remove-publication` takes it off.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ aa17b4c
+- **Group social commands under slopper social, with help for each command.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 43dfb42
+- **Per-destination links, media, first comments and times, ideas, and resolving uncertain copies.** Adds --link-for, --comment-for, --media-for and --time-for to social post and social edit, allows social post --at draft without accounts, and adds slopper social resolve <delivery> --posted [--link url] | --resend.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 43dfb42
+- **Let agents edit, schedule and cancel social drafts, and document promo video workflows.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 43dfb42
+
+#### Post to your social accounts from the CLI
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ a600d8e
+
+`slopper social-accounts` lists the accounts you can post as. `slopper social-post "<text>" --account <id> ...` sends one
+post to all of them, each copy fitted to its network, with `--thread`, `--first-comment`, `--link`, `--image`,
+`--tag`, `--track-links` and `--at now|queue|draft|<date-time>`. `--key` makes retries safe: the same key returns the
+same post. `slopper social-posts` and `slopper social-status <post>` show where each copy went and how it's doing.
+The skill explains when to use them.
+
+### Fixes
+
+- **Prevent login servers from executing commands through the Windows browser launcher; restrict sign-in links to the configured site's approval page.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 95a79a7
+- **Describe the longer edit window in the CLI.** `slopper edit` now says editing stays open until the end of the day after launch, at least 24 hours after launch, matching the server's `editableUntil`.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 7486bdb
+- **Add repository metadata to published CLI packages.** Include the private source repository and package directory in the CLI and skill package manifests so release metadata satisfies monochange 0.21.0. The packages remain closed source and UNLICENSED.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ e0755e4
+- **Bind saved CLI tokens to their saved origin and require HTTPS outside loopback development.**
+  _Owner:_ Ifiok Jr. · _Introduced in:_ aecfe1a
+
+### Documentation
+
+- **The skill knows "deploy this to Slopper" means launch a slop.** Its description now triggers on asking to deploy, ship or post a project to Slopper, and it says that means launching the project as a slop that links to where it already runs.
+  _Packages:_ ⚪ _@slopperday/skill_
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 4f98be9
+- **The skill launches publications with --publication.**
+  _Packages:_ ⚪ _@slopperday/skill_
+  _Owner:_ Ifiok Jr. · _Introduced in:_ aa17b4c
+
 ## cli 0.1.7 (2026-10-21)
 
 Grouped release for `cli`.
