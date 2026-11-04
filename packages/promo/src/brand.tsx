@@ -232,7 +232,15 @@ export function useEnter(at: number, damping = 14) {
 }
 
 /** The closing card every cut ends on: the splat, the address, the promise. */
-export function EndCard({ start, tagline = "Too much slop? Not enough yet!" }: { start: number; tagline?: string }) {
+export function EndCard({
+  start,
+  tagline = "Too much slop? Not enough yet!",
+  address = "slopper.day",
+}: {
+  start: number;
+  tagline?: string;
+  address?: string;
+}) {
   const frame = useCurrentFrame();
   const { u, portrait } = useLayout();
   const pop = useEnter(start, 9);
@@ -249,14 +257,15 @@ export function EndCard({ start, tagline = "Too much slop? Not enough yet!" }: {
           style={{
             fontFamily: DISPLAY,
             fontWeight: 900,
-            fontSize: (portrait ? 190 : 230) * u,
+            // Longer addresses shrink to keep the width "slopper.day" has.
+            fontSize: (portrait ? 190 : 230) * u * Math.min(1, 11 / address.length),
             lineHeight: 0.9,
             color: C.ink,
             transform: `translateY(${(1 - line) * 40 * u}px)`,
             opacity: line,
           }}
         >
-          slopper.day
+          {address}
         </div>
         <div
           style={{

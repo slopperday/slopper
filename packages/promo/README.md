@@ -9,6 +9,14 @@ vp run --filter @slopperday/promo render:landscape  # out/slopper-promo-landscap
 vp run --filter @slopperday/promo studio            # preview and scrub in the browser
 ```
 
+The 41-second studio demo on Slopper Studio (set it up, write once, promote your slops, run all your social, what it
+costs) is `src/StudioDemo.tsx`; everything on screen is a mock of the real pages:
+
+```sh
+vp run --filter @slopperday/promo render:studio            # out/slopper-studio.mp4, 1080×1920, about 1.6 MB
+vp run --filter @slopperday/promo render:studio-landscape  # out/slopper-studio-landscape.mp4, 1920×1080
+```
+
 Two scripts help with a new cut (they need `ffmpeg` on your PATH; rendering doesn't):
 
 - `node scripts/beats.ts public/music-keeping-fit.mp3` prints a track's tempo, beats, downbeats and accents in frames.

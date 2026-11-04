@@ -9,6 +9,8 @@
     "studio": "remotion studio src/index.ts",
     "render": "remotion render src/index.ts vision-portrait out/slopper-promo.mp4 --codec h264 --crf 20 --audio-bitrate 192k --concurrency 50%",
     "render:landscape": "remotion render src/index.ts vision-landscape out/slopper-promo-landscape.mp4 --codec h264 --crf 20 --audio-bitrate 192k --concurrency 50%",
+    "render:studio": "remotion render src/index.ts studio-portrait out/slopper-studio.mp4 --codec h264 --crf 28 --audio-bitrate 128k --concurrency 50%",
+    "render:studio-landscape": "remotion render src/index.ts studio-landscape out/slopper-studio-landscape.mp4 --codec h264 --crf 28 --audio-bitrate 128k --concurrency 50%",
     "beats": "node scripts/beats.ts",
     "review": "node scripts/review.ts"
   },
