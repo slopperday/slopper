@@ -314,9 +314,6 @@ export const COST_CATEGORIES = ["domain", "hosting", "ai", "tools", "design", "m
 export const REVENUE_CATEGORIES = ["sales", "subscriptions", "ads", "sponsorship", "other"] as const;
 export type MoneyKind = "cost" | "revenue";
 
-/** "Take my money" preset amounts, in USD cents. */
-export const PLEDGE_PRESETS = [500, 1000, 2500] as const;
-
 /** Flags from this many different people blur a slop until a moderator looks. */
 export const FLAGS_TO_BLUR = 3;
 

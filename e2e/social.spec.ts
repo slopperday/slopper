@@ -106,35 +106,12 @@ test.describe("people reacting, live", () => {
     await expect(page.locator("#feedback")).toContainText("Still spicy");
   });
 
-  test("visitors are asked to sign in before voting or pledging", async ({ seed }) => {
+  test("visitors are asked to sign in before voting", async ({ seed }) => {
     const slop = await seed.slop(await seed.user("maker"));
     const page = await seed.visitorPage();
     await page.goto(slop.path);
-    await page.getByRole("link", { name: "💸 Take my money" }).click();
+    await page.getByTitle("Sign in to vote").click();
     await expect(page).toHaveURL(`/login?returnTo=${encodeURIComponent(slop.path)}`);
-  });
-
-  test("a pledge shows the maker what people would pay", async ({ seed }) => {
-    const maker = await seed.user("maker");
-    const backer = await seed.user("backer");
-    const slop = await seed.slop(maker);
-
-    const makerPage = await seed.pageAs(maker);
-    await makerPage.goto(slop.path);
-    await expect(makerPage.getByText("pledged by 0 people")).toBeVisible();
-
-    const page = await seed.pageAs(backer);
-    await page.goto(slop.path);
-    await page.getByRole("button", { name: "💸 Take my money" }).click();
-    await page.getByRole("button", { name: "$10" }).click();
-    await expect(page.getByText("You pledged $10.")).toBeVisible();
-
-    await expect(makerPage.getByText("pledged by 1 person")).toBeVisible();
-    await expect(makerPage.getByText("$10").first()).toBeVisible();
-
-    await page.getByRole("button", { name: "Change" }).click();
-    await page.getByRole("button", { name: "Withdraw my pledge" }).click();
-    await expect(makerPage.getByText("pledged by 0 people")).toBeVisible();
   });
 });
 

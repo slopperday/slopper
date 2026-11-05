@@ -57,7 +57,6 @@ import { ScreenshotPicker } from "~/components/ScreenshotPicker";
 import { Icon } from "~/components/Icon";
 import { MadeWithTag } from "~/components/TagPicker";
 import { VoteButtons } from "~/components/VoteButtons";
-import { TakeMyMoney } from "~/components/TakeMyMoney";
 import { MoneyLedger, MoneySummary } from "~/components/Money";
 import { AgentPrompt } from "~/components/AgentPrompt";
 import { useLive } from "~/components/Live";
@@ -411,7 +410,7 @@ type PageData = NonNullable<Route.ComponentProps["loaderData"]["page"]>;
 type View = PageData & Route.ComponentProps["loaderData"]["extras"];
 
 export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
-  // Live: votes, pledges, updates and feedback from everyone land here as they happen.
+  // Live: votes, updates and feedback from everyone land here as they happen.
   const page =
     useLive(
       api.slops.page,
@@ -1344,15 +1343,6 @@ function Sidebar({ loaderData, path }: { loaderData: LoaderData; path: string })
           </ul>
         )}
       </section>
-
-      <TakeMyMoney
-        slopId={slop.id}
-        backers={slop.backers}
-        pledged={slop.pledged}
-        myPledge={loaderData.myPledge}
-        mode={loaderData.voteMode}
-        loginHref={`/login?returnTo=${encodeURIComponent(path)}`}
-      />
 
       <ShareBox intents={loaderData.intents} url={loaderData.url} />
 

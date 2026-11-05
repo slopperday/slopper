@@ -29,7 +29,6 @@ it to people, and keep slopping until one of them is **slopcessful**.
   from the web, ZIP bombs and tricks, files a book isn't made of, programs, and DRM. Then it's checked like a
   screenshot (an EPUB by the text its scan read out): blocked ones are refused and never stored, mature ones blur the slop, and one the check couldn't
   read is read again with the launch.
-- **Take my money.** Non-binding pledges that show how much people would pay.
 - **Product pages.** Each slop can carry a demo video (YouTube, Loom or Vimeo, loaded on a click), what it does and who
   it's for. AI drafts them from the maker's words and website; the maker edits before saving.
 - **Traction from the source.** Connect Google Analytics, PostHog, Stripe or a Solana wallet (USDC and USDT) and the
@@ -42,7 +41,7 @@ it to people, and keep slopping until one of them is **slopcessful**.
 - **For agents:** an MCP server, a REST API, a CLI (`@slopperday/cli`) with its skill (`@slopperday/skill`) and
   a prompt on every form to pass to your agent.
 
-Everything is live: votes, races, pledges and notifications update on every open page as they happen.
+Everything is live: votes, races and notifications update on every open page as they happen.
 
 ## Stack
 

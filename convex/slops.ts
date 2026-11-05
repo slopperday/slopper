@@ -617,10 +617,10 @@ export const listForServer = query({
 });
 
 /**
- * Everything the slop page shows, live: votes, pledges, updates and
- * feedback reach every open copy of the page as they happen. Feedback is
- * left out unless Convex enables COMMENTS_ENABLED and `withComments` asks
- * for it. A caller cannot turn the feature on for the deployment.
+ * Everything the slop page shows, live: votes, updates and feedback reach
+ * every open copy of the page as they happen. Feedback is left out unless
+ * Convex enables COMMENTS_ENABLED and `withComments` asks for it. A caller
+ * cannot turn the feature on for the deployment.
  */
 export const page = query({
   args: {
@@ -682,14 +682,6 @@ export const page = query({
         .query("reports")
         .withIndex("by_slop_reporter", (q) => q.eq("slopId", slop._id).eq("reporterId", reader._id))
         .first()) !== null;
-    const myPledge = reader
-      ? ((
-          await ctx.db
-            .query("pledges")
-            .withIndex("by_slop_user", (q) => q.eq("slopId", slop._id).eq("userId", reader._id))
-            .unique()
-        )?.amount ?? 0)
-      : 0;
 
     const authors = new Map<Id<"users">, Doc<"users"> | null>();
     for (const comment of comments) {
@@ -762,7 +754,6 @@ export const page = query({
       },
       vote: reader ? await voteOf(ctx, slop._id, reader._id) : 0,
       voteMode: !reader ? ("login" as const) : isOwner ? ("own" as const) : ("vote" as const),
-      myPledge,
       flaggedByMe,
       // Only the owner and moderators ever load a hidden slop.
       heldForReview: slop.hidden && slop.check?.verdict === "blocked",
