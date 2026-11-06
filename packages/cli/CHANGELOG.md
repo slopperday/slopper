@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## cli 0.1.9 (2026-11-06)
+
+Grouped release for `cli`.
+
+### Fixes
+
+#### npm packages record their publishing commit again
+
+_Owner:_ Ifiok Jr. · _Introduced in:_ 2b8414b
+
+The CLI and its skill are published with the npm CLI once more. The pnpm-based
+publisher dropped the `gitHead` field from the registry record, so installs
+pinned to the publishing commit (like the dotfiles skill sync) refused every
+release after 0.1.8.
+
 ## cli 0.1.8 (2026-11-04)
 
 Grouped release for `cli`.
