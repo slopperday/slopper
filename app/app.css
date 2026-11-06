@@ -588,6 +588,21 @@
     box-shadow: 0 0 0 3px var(--slop-tint);
   }
 
+  /* A canvist Markdown field (MarkdownEditor): the box is padded, the editor inside isn't. */
+  .markdown-editor-box {
+    cursor: text;
+  }
+
+  .markdown-editor-box:focus-within {
+    outline: none;
+    border-color: var(--focus);
+    box-shadow: 0 0 0 3px var(--slop-tint);
+  }
+
+  .markdown-editor-box[aria-invalid="true"] {
+    border-color: var(--hot);
+  }
+
   textarea.input {
     min-height: 7rem;
     resize: vertical;

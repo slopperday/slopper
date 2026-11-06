@@ -23,6 +23,8 @@ minimumReleaseAgeExclude:
   - "@monochange/cli-win32-arm64-msvc@0.21.0"
   - "@monochange/cli-win32-x64-msvc@0.21.0"
   - "@monochange/cli@0.21.0"
+  - "@canvist/react@0.2.0"
+  - "@canvist/web@0.2.0"
 overrides:
   vite@*: "catalog:"
   # satori pulls fflate through an opentype beta; the font bytes are our own, but patched is patched.

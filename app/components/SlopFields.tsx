@@ -1,3 +1,4 @@
+import { MarkdownEditor } from "./MarkdownEditor";
 import { CATEGORIES, LIMITS, type SlopFeature, type SlopLink } from "~/lib/model";
 import { FeatureFields } from "./FeatureFields";
 import { LinkFields } from "./LinkFields";
@@ -138,10 +139,11 @@ export function SlopFields({
         error={errors.description}
         hint="Markdown. What is it, why did you make it, what's next?"
       >
-        <textarea
+        <MarkdownEditor
           id="description"
           name="description"
-          className="input min-h-40"
+          label="Description"
+          className="min-h-40"
           maxLength={LIMITS.descriptionLength}
           placeholder="Built in 3 hours with…"
           defaultValue={values.description ?? ""}

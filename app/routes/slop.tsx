@@ -1,3 +1,4 @@
+import { MarkdownEditor } from "~/components/MarkdownEditor";
 import { useRef, useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
 import type { Route } from "./+types/slop";
@@ -564,9 +565,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
               playsInline
               preload="metadata"
               className="max-h-[75vh] w-full rounded-2xl bg-board object-contain"
-            >
-              <a href={slop.video}>Watch the {slop.name} video</a>
-            </video>
+            />
             <button
               type="button"
               onClick={() => {
@@ -947,14 +946,17 @@ function UpdateComposer({ autopostCount }: { autopostCount: number }) {
       <label htmlFor="update-body" className="sr-only">
         Update
       </label>
-      <textarea
-        id="update-body"
-        name="body"
-        required
-        maxLength={LIMITS.updateLength}
-        className="input mt-3 min-h-24"
-        placeholder={COMPOSER_HINTS[kind]}
-      />
+      <div className="mt-3">
+        <MarkdownEditor
+          id="update-body"
+          name="body"
+          label="Update"
+          required
+          maxLength={LIMITS.updateLength}
+          className="min-h-24"
+          placeholder={COMPOSER_HINTS[kind]}
+        />
+      </div>
       <details className="group mt-3">
         <summary className="flex min-h-11 cursor-pointer items-center gap-1.5 font-bold text-muted hover:text-ink">
           <Icon name="plus" className="size-4 transition-transform group-open:rotate-45" />
@@ -1194,15 +1196,18 @@ function ReviewForm({ mine }: { mine: LoaderData["mine"] }) {
       <label htmlFor="review-body" className="sr-only">
         Review
       </label>
-      <textarea
-        id="review-body"
-        name="body"
-        required
-        maxLength={LIMITS.reviewLength}
-        defaultValue={mine?.body}
-        className="input mt-3 min-h-28"
-        placeholder="What is it, what did you try, and how did it go? If it broke, say where."
-      />
+      <div className="mt-3">
+        <MarkdownEditor
+          id="review-body"
+          name="body"
+          label="Review"
+          required
+          maxLength={LIMITS.reviewLength}
+          defaultValue={mine?.body}
+          className="min-h-28"
+          placeholder="What is it, what did you try, and how did it go? If it broke, say where."
+        />
+      </div>
       <div className="mt-3 grid gap-1.5">
         <span className="field-label">Screenshots</span>
         <ScreenshotPicker
@@ -1280,12 +1285,13 @@ function Feedback({ loaderData, path }: { loaderData: LoaderData; path: string }
           <label htmlFor="comment-body" className="field-label">
             Your feedback
           </label>
-          <textarea
+          <MarkdownEditor
             id="comment-body"
             name="body"
+            label="Your feedback"
             required
             maxLength={LIMITS.commentLength}
-            className="input min-h-28"
+            className="min-h-28"
             placeholder="What worked? What broke? What should it do next?"
           />
           <div className="mt-3 flex flex-wrap justify-end gap-2">

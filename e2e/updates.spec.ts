@@ -1,5 +1,5 @@
 import { api } from "../convex/_generated/api.js";
-import { choose, expect, test } from "./fixtures.ts";
+import { expect, test, choose, markdownField, write } from "./fixtures.ts";
 
 test.describe("updates", () => {
   test("an address that spent its preview budget can still post plain links", async ({ seed, convex }) => {
@@ -20,7 +20,7 @@ test.describe("updates", () => {
     const page = await seed.pageAs(maker);
     await page.setExtraHTTPHeaders({ "x-nf-client-connection-ip": address });
     await page.goto(slop.path);
-    await page.getByRole("textbox", { name: "Update", exact: true }).fill("Release notes.");
+    await write(page, "Update", "Release notes.");
     await page.getByText("Version, images and links").click();
     await page.getByRole("button", { name: "Add a link" }).click();
     await page.getByLabel("Link 1 address").fill("https://example.com/notes");
@@ -43,7 +43,7 @@ test.describe("updates", () => {
 
     await choose(page, "New feature");
     await page.getByLabel("Feature name").fill("Level editor");
-    await page.getByRole("textbox", { name: "Update", exact: true }).fill("Build a maze and share the link.");
+    await write(page, "Update", "Build a maze and share the link.");
     await page.getByText("Version, images and links").click();
     await page.getByLabel("Version").fill("v1.3");
     await page
@@ -58,7 +58,7 @@ test.describe("updates", () => {
     await expect(page.getByRole("status")).toHaveText("New feature posted.");
 
     // The composer is empty again, ready for the next one.
-    await expect(page.getByRole("textbox", { name: "Update", exact: true })).toHaveValue("");
+    await expect(markdownField(page, "Update").value).toHaveValue("");
     await expect(page.getByRole("img", { name: "Image 1", exact: true })).toHaveCount(0);
 
     const visitor = await seed.visitorPage();
@@ -94,7 +94,7 @@ test.describe("updates", () => {
 
     await choose(page, "Mixed");
     await page.getByLabel("Who tried it").fill("5 people at the bus stop");
-    await page.getByRole("textbox", { name: "Update", exact: true }).fill("Three got hooked, two got lost.");
+    await write(page, "Update", "Three got hooked, two got lost.");
     await page.getByRole("button", { name: "Post update" }).click();
     await expect(page.getByRole("status")).toHaveText("Field test posted.");
     const update = page.locator("#updates li").filter({ hasText: "Three got hooked" });
