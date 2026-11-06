@@ -22,9 +22,11 @@
 #   vp exec monochange run release --dry-run   # preview the next release
 #   vp exec monochange run release             # from main: commit the release on chore/release and open its pull request
 #
-# Merging that pull request runs .github/workflows/release.yml, which runs
-# `monochange run publish`: tag the release, deploy Convex and Netlify when the
-# site is in it, and publish the released npm packages with trusted publishing.
+# The release pull request merges itself once its required check reports
+# (.github/workflows/release-merge.yml), which runs .github/workflows/release.yml
+# on main: `monochange run publish` tags the release, deploys Convex and Netlify
+# when the site is in it, and publishes the released npm packages with trusted
+# publishing. Merging a release pull request by hand publishes the same way.
 # A new npm package needs `vp exec monochange publish placeholder` once, from
 # this machine, and then `npm trust github <package> --file release.yml
 # --repository ifiokjr/slopper` before its first release.

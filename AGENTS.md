@@ -254,7 +254,8 @@ release. Add a tool name to select part of the graph. For example, run
   site notice and become `/changelog` (`app/changelog/<version>.json`); every other type (`feat`, `fix`, ...) goes to
   `CHANGELOG.md`. Write two changesets when both audiences care. Never hand-edit `app/changelog/`,
   `CHANGELOG.md` or `.monochange/releases/`: monochange owns them. A release is a pull request:
-  `vp exec monochange run release` (from a clean main) commits it on `chore/release` and opens it; merging it
-  publishes. `run publish` only runs in the release workflow.
+  `vp exec monochange run release` (from a clean main) commits it on `chore/release` and opens it; it merges itself
+  once its `ci` check reports (`release-merge.yml`, which dispatches the release workflow for its bot merge), so
+  publishing and deploying need no second step. `run publish` only runs in the release workflow.
 - **Voice:** the tagline is "Too much slop? Not enough yet!"; how it works is throw slop at the wall, keep slopping until
   it's slopcessful. Plain words; no restaurant metaphors.

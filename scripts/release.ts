@@ -10,6 +10,7 @@
  * up-to-date main: `branch` moves to the release branch, monochange bumps the
  * versions, writes the changelogs and commits there, and `pr` pushes it (the
  * pre-push hook runs CI) and opens the pull request, or updates the open one.
+ * .github/workflows/release-merge.yml merges it once its required check reports.
  *
  * Merging it puts the release commit on main, where
  * .github/workflows/release.yml runs `monochange run publish`: `ci` makes sure
@@ -138,7 +139,7 @@ function pr(dryRun: boolean): void {
   if (open) gh("pr", "edit", open, "--title", title, "--body", body);
   const url = open || gh("pr", "create", "--base", "main", "--head", RELEASE_BRANCH, "--title", title, "--body", body);
   git("switch", "--quiet", "main");
-  console.log(`${open ? "Updated" : "Opened"} ${url}. Merge it to publish.`);
+  console.log(`${open ? "Updated" : "Opened"} ${url}. It merges itself to publish.`);
 }
 
 /**

@@ -2,9 +2,14 @@
 #
 # Releases start on a laptop: `vp exec monochange run release` commits the
 # release on chore/release, the pre-push hook runs CI, and it opens a pull
-# request. Merging that puts the release commit on main, and this job tags it,
-# deploys Convex and Netlify when the site is in it, and publishes the released
-# npm packages with npm trusted publishing (OIDC, no npm token).
+# request. .github/workflows/release-merge.yml merges that once its required
+# check reports, then dispatches this workflow on main: a merge made with the
+# workflow's GITHUB_TOKEN starts no push run. Merging a release pull request by
+# hand arrives through the push trigger below instead.
+#
+# This job tags the release, deploys Convex and Netlify when the site is in it,
+# and publishes the released npm packages with npm trusted publishing (OIDC, no
+# npm token).
 #
 # Every other push to main skips this publishing job. CI defaults to the local
 # pre-push hook; authorized security repairs opt into ci.yml. Run this workflow
