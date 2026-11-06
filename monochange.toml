@@ -50,10 +50,17 @@ changelog_version_title = "{{ version }} ({{ date }})"
 [package."@slopperday/cli"]
 path = "packages/cli"
 type = "npm"
+# monochange publishes pnpm-workspace packages with `pnpm publish`, and pnpm 11+
+# no longer records the publishing commit (gitHead) on the registry — installs
+# pinned to that commit can't track these packages. External mode leaves
+# publishing to `node scripts/release.ts publish-npm`, which runs the npm CLI:
+# it stamps gitHead from the tagged release commit.
+publish = { mode = "external" }
 
 [package."@slopperday/skill"]
 path = "packages/skill"
 type = "npm"
+publish = { mode = "external" }
 
 # The skill documents the CLI, so they share a version: tags are cli/v1.2.3.
 [group.cli]
@@ -68,9 +75,11 @@ lockfile_commands = [{ command = "pnpm install --lockfile-only" }]
 
 [ecosystems.npm.publish]
 # Only the release workflow publishes, with npm trusted publishing (OIDC); a
-# local publish fails. The repo is private, so npm adds no provenance. In this
-# mode monochange runs `npm publish`, which doesn't rewrite `workspace:`
-# ranges, so a published package must not depend on one.
+# local publish fails. The repo is private, so npm adds no provenance. Both
+# npm packages above publish externally (see the gitHead note there), so this
+# section stays the ecosystem default for any future built-in package, which
+# must not depend on a `workspace:` range: pnpm's publisher rewrites those and
+# the npm CLI would ship them verbatim.
 enabled = true
 mode = "builtin"
 registry = "npm"
