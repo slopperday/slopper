@@ -65,7 +65,9 @@ jobs:
               ;;
           esac
 
-          gh pr merge "$PR" --squash
+          # The merge endpoint checks the branch rules themselves. `gh pr merge` also refuses a pull request whose
+          # mergeStateStatus reads blocked, which a skipped required check reports even though it passes.
+          gh api "repos/$GH_REPO/pulls/$PR/merge" --method PUT -f merge_method=squash
 
           # The merge used GITHUB_TOKEN, so no push run started for it; ask for the publish explicitly.
           gh workflow run release.yml --ref main -F dry_run=false
