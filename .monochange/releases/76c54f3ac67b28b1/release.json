@@ -1,0 +1,149 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-11-06T11:34:15Z",
+  "command": "release",
+  "version": "1.13.0",
+  "versions": {
+    "slopper": "1.13.0"
+  },
+  "release_targets": [
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.13.0",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.13.0",
+      "rendered_title": "v1.13.0 (2026-11-06)",
+      "rendered_changelog_title": "1.13.0 (2026-11-06)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["slopper"],
+  "changed_files": ["CHANGELOG.md", "app/changelog/1.13.0.json", "package.json"],
+  "package_publications": [],
+  "updated_changelogs": ["CHANGELOG.md", "app/changelog/1.13.0.json"],
+  "deleted_changesets": [".changeset/remove-pledge-box.md"],
+  "changesets": [
+    {
+      "path": ".changeset/remove-pledge-box.md",
+      "summary": "The pledge box is gone from slop pages",
+      "details": "\"Take my money\" no longer sits under the maker's links: no pledged total, no pledge buttons.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_change"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8263144856896b38685740520fa62dba55e74777",
+            "short_sha": "8263144",
+            "url": null,
+            "authored_at": "2026-11-05T10:11:13Z",
+            "committed_at": "2026-11-05T10:11:13Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "8263144856896b38685740520fa62dba55e74777",
+            "short_sha": "8263144",
+            "url": null,
+            "authored_at": "2026-11-05T10:11:13Z",
+            "committed_at": "2026-11-05T10:11:13Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.13.0 (2026-11-06)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Changed",
+            "collapsed": false,
+            "entries": ["- **No package-specific changes were recorded; `slopper` was updated to 1.13.0.**"]
+          }
+        ]
+      },
+      "rendered": "## 1.13.0 (2026-11-06)\n\n### Changed\n\n- **No package-specific changes were recorded; `slopper` was updated to 1.13.0.**"
+    },
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "user",
+      "stream": "user",
+      "path": "app/changelog/1.13.0.json",
+      "format": "json",
+      "notes": {
+        "title": "1.13.0 (2026-11-06)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Changed",
+            "collapsed": false,
+            "entries": [
+              "- **The pledge box is gone from slop pages.** \"Take my money\" no longer sits under the maker's links: no pledged total, no pledge buttons.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 8263144"
+            ]
+          }
+        ]
+      },
+      "rendered": "{\n  \"title\": \"1.13.0 (2026-11-06)\",\n  \"summary\": [],\n  \"sections\": [\n    {\n      \"title\": \"Changed\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"The pledge box is gone from slop pages\",\n          \"details_markdown\": \"\\\"Take my money\\\" no longer sits under the maker's links: no pledged total, no pledge buttons.\",\n          \"change_type\": \"user_change\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/remove-pledge-box.md\",\n            \"changeset_path\": \".changeset/remove-pledge-box.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"8263144\"\n            }\n          }\n        }\n      ]\n    }\n  ]\n}"
+    }
+  ],
+  "provider": null
+}
