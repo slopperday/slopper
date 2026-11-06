@@ -16,13 +16,19 @@ import {
   strike,
   taskList,
   trailingNode,
-} from "@canvist/web";
+} from "@canvist/web/full";
+
+/**
+ * Markdown reveal: the Markdown of the formatting at the caret shows around
+ * it and can be edited (`markdownReveal` in canvist's full module).
+ */
+const markdownReveal = { name: "markdownReveal", commands: [], nodes: [], queries: [] } as const;
 
 /**
  * The canvist editor behind Slopper's Markdown fields, loaded only in the
- * browser and only once a field needs it (its WebAssembly is ~900 KB).
- * Every extension writes Markdown; underline is left out because Markdown
- * can't keep it.
+ * browser and only once a field needs it. Every extension writes Markdown;
+ * underline is left out because Markdown can't keep it. Markdown reveal
+ * shows the syntax of the formatting at the caret, so it stays editable.
  */
 const EXTENSIONS = [
   bold,
@@ -41,6 +47,7 @@ const EXTENSIONS = [
   taskList,
   history,
   trailingNode,
+  markdownReveal,
 ] as const;
 
 export type MarkdownEditor = Awaited<ReturnType<typeof createMarkdownEditor>>;
