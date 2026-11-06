@@ -1,0 +1,71 @@
+# Merges the release pull request, so a release publishes on its own.
+#
+# `monochange run release` pushes chore/release and opens or updates its pull request (scripts/release.ts). This
+# workflow waits for the required `ci` check, squash-merges the pull request, then dispatches `release.yml` on main:
+# a merge made with the workflow's own GITHUB_TOKEN starts no push run, so the publish has to be asked for.
+#
+# Merging a release pull request by hand still reaches `release.yml` through its push trigger.
+name: release merge
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+concurrency:
+  group: release-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  merge:
+    if: >-
+      github.event.pull_request.state == 'open' &&
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'chore/release' &&
+      startsWith(github.event.pull_request.title, 'chore(release):')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write # merge the pull request, deleting chore/release
+      pull-requests: write # merge the pull request
+      actions: write # dispatch the release workflow
+    steps:
+      - name: Merge the release pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # `ci` is skipped unless the pull request carries the `security-ci` label, and a skipped required check
+          # passes. Wait for the newest one to report: a failing hosted run leaves the pull request to a person.
+          deadline=$((SECONDS + 2700))
+          state="missing none"
+          while :; do
+            state=$(gh api "repos/$GH_REPO/commits/$SHA/check-runs?per_page=100" --jq '
+              ([.check_runs[] | select(.name == "ci")] | sort_by(.id) | last // {})
+              | "\(.status // "missing") \(.conclusion // "none")"')
+            [ "${state%% *}" = completed ] && break
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::ci never finished for $SHA ($state)."
+              exit 1
+            fi
+            sleep 10
+          done
+
+          case "$state" in
+            "completed success" | "completed skipped" | "completed neutral") ;;
+            *)
+              echo "::error::ci reported '$state' for $SHA."
+              exit 1
+              ;;
+          esac
+
+          gh pr merge "$PR" --squash
+
+          # The merge used GITHUB_TOKEN, so no push run started for it; ask for the publish explicitly.
+          gh workflow run release.yml --ref main -F dry_run=false
