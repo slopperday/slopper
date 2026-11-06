@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { expect, test } from "./fixtures.ts";
+import { expect, test, write } from "./fixtures.ts";
 
 async function launch(page: Page, name: string, description: string): Promise<void> {
   await page.goto("/new");
@@ -7,7 +7,7 @@ async function launch(page: Page, name: string, description: string): Promise<vo
   await page.getByLabel("Tagline").fill("A tool for the e2e tests");
   await page.getByLabel("Link 1 address").fill("https://example.com/");
   await page.getByLabel("Category").selectOption("utilities");
-  await page.getByLabel("Description").fill(description);
+  await write(page, "Description", description);
   await page.getByRole("button", { name: "Throw it at the wall" }).click();
 }
 
@@ -28,7 +28,7 @@ test.describe("content check", () => {
     expect((await visitor.goto(path))?.status()).toBe(404);
 
     await page.goto(`${path}/edit`);
-    await page.getByLabel("Description").fill("The check can read this now");
+    await write(page, "Description", "The check can read this now");
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("status")).toHaveText("Saved.");
     expect((await visitor.goto(path))?.status()).toBe(200);

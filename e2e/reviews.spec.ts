@@ -1,4 +1,4 @@
-import { expect, test, choose } from "./fixtures.ts";
+import { expect, test, choose, write } from "./fixtures.ts";
 
 test.describe("reviews", () => {
   test("someone who tried it reviews it with a screenshot, and it's up at once", async ({ seed }) => {
@@ -9,7 +9,7 @@ test.describe("reviews", () => {
     await page.goto(`${slop.path}#reviews`);
 
     await choose(page, "Broken for me");
-    await page.getByRole("textbox", { name: "Review", exact: true }).fill("Crashes when I tilt left.");
+    await write(page, "Review", "Crashes when I tilt left.");
     await page
       .locator('#reviews input[type="file"]')
       .setInputFiles({ name: "crash.png", mimeType: "image/png", buffer: await page.screenshot() });
@@ -49,7 +49,7 @@ test.describe("reviews", () => {
     await page.goto(`${slop.path}#reviews`);
 
     await choose(page, "Mixed");
-    await page.getByRole("textbox", { name: "Review", exact: true }).fill("Not fit to print [e2e:blocked]");
+    await write(page, "Review", "Not fit to print [e2e:blocked]");
     await page.getByRole("button", { name: "Post review" }).click();
     await expect(page.getByRole("alert")).toHaveText(
       "This review can't go on Slopper. Keep it about the app, and keep it civil.",

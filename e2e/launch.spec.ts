@@ -1,4 +1,4 @@
-import { checkRequests, choose, expect, test } from "./fixtures.ts";
+import { expect, test, checkRequests, choose, write } from "./fixtures.ts";
 
 test.describe("a maker's day", () => {
   test("sets a goal, throws a slop with a screenshot, and it enters the race", async ({ seed, stack }) => {
@@ -34,8 +34,8 @@ test.describe("a maker's day", () => {
     await madeWith.pressSequentially("vite");
     await expect(page.getByRole("button", { name: "Remove Vite" })).toBeVisible();
     await expect(madeWith).toHaveValue("");
-    await page.getByLabel("Description").fill("Tilt to roll. **Sound on.**");
-    await page.getByLabel("Launch note").fill("Day 1. Built on the bus.");
+    await write(page, "Description", "Tilt to roll. **Sound on.**");
+    await write(page, "Launch note", "Day 1. Built on the bus.");
     await page.getByRole("button", { name: "Throw it at the wall" }).click();
 
     await expect(page.getByRole("heading", { level: 1 })).toContainText(name);
@@ -72,7 +72,7 @@ test.describe("a maker's day", () => {
     // A field test.
     await choose(page, "Field test");
     await expect(page.getByText("Who tried it in real life")).toBeVisible();
-    await page.getByRole("textbox", { name: "Update" }).fill("Showed it to 5 people at the bus stop. 3 got hooked.");
+    await write(page, "Update", "Showed it to 5 people at the bus stop. 3 got hooked.");
     await page.getByRole("button", { name: "Post update" }).click();
     await expect(page.getByRole("status")).toHaveText("Field test posted.");
     await expect(page.getByText("Showed it to 5 people at the bus stop.")).toBeVisible();
