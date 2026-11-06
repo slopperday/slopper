@@ -5,6 +5,7 @@
  *   node scripts/release.ts pr [--dry-run]      # last step of `monochange run release`
  *   node scripts/release.ts ci [--dry-run]      # first step of `monochange run publish`
  *   node scripts/release.ts deploy [--if-released] [--dry-run]
+ *   node scripts/release.ts publish-npm [--dry-run]  # publishes the released npm packages
  *
  * A release is a pull request. `monochange run release` starts on a clean,
  * up-to-date main: `branch` moves to the release branch, monochange bumps the
@@ -15,8 +16,8 @@
  * Merging it puts the release commit on main, where
  * .github/workflows/release.yml runs `monochange run publish`: `ci` makes sure
  * that's where it is, monochange tags the commit, `deploy --if-released`
- * deploys the site when this release has a site tag, and monochange publishes
- * the released npm packages with trusted publishing.
+ * deploys the site when this release has a site tag, and `publish-npm`
+ * publishes the released npm packages with the npm CLI (see its comment).
  *
  * `deploy` puts the Convex functions up first, so the app never calls one that
  * isn't there yet, then builds and deploys Netlify, and returns once
@@ -44,6 +45,11 @@ const RELEASE_SUBJECT = "chore(release):";
 const RELEASED = [
   { manifest: "package.json", name: (version: string) => `v${version}` },
   { manifest: "packages/cli/package.json", name: (version: string) => `cli v${version}` },
+];
+/** The npm packages monochange skips (publish mode "external"); both tag as `cli/v1.2.3`. */
+const NPM_PACKAGES = [
+  { dir: "packages/cli", tag: "cli" },
+  { dir: "packages/skill", tag: "cli" },
 ];
 
 function git(...args: string[]): string {
@@ -225,10 +231,55 @@ async function deploy(ifReleased: boolean, dryRun: boolean): Promise<void> {
   console.log(`${SITE.origin} is on ${current}: ${SITE.href}`);
 }
 
+/**
+ * Publishes the released npm packages with the npm CLI. monochange publishes
+ * pnpm-workspace packages with `pnpm publish`, and pnpm 11+ no longer records
+ * the publishing commit (gitHead) on the registry — installs pinned to that
+ * commit (the dotfiles skill sync) refused every release after 0.1.8. npm
+ * stamps gitHead from HEAD, so monochange's publish mode for these packages is
+ * "external" and this runs in the release workflow, after the tag push. Like
+ * `deploy --if-released`, a package whose release tag isn't at HEAD isn't part
+ * of this release and is skipped.
+ */
+function publishNpm(dryRun: boolean): void {
+  const head = git("rev-parse", "HEAD");
+  for (const { dir, tag } of NPM_PACKAGES) {
+    const manifest = JSON.parse(readFileSync(`${dir}/package.json`, "utf8")) as { name?: unknown; version?: unknown };
+    if (typeof manifest.name !== "string" || typeof manifest.version !== "string") {
+      fail(`${dir}/package.json has no name and version.`);
+    }
+    const { name, version: current } = manifest;
+    if (dryRun) {
+      console.log(`Would npm-publish ${dir} v${current} once ${tag}/v${current} tags this commit.`);
+      continue;
+    }
+    if (taggedCommit(`${tag}/v${current}`) !== head) {
+      console.log(
+        `${dir} v${current} isn't in this release (no ${tag}/v${current} tag at HEAD), so there's nothing to publish.`,
+      );
+      continue;
+    }
+    // A retry after one package published but a later one failed must not die
+    // on the duplicate, so skip whatever npm already has.
+    const onNpm = spawnSync("npm", ["view", `${name}@${current}`, "version"], { encoding: "utf8" });
+    if (onNpm.status === 0) {
+      console.log(`${name} v${current} is already on npm.`);
+      continue;
+    }
+    console.log(`Publishing ${dir} v${current} with npm…`);
+    const result = spawnSync("npm", ["publish", "--access", "public"], { cwd: dir, stdio: "inherit" });
+    if (result.status !== 0) {
+      fail(`Publishing ${dir} failed. Fix it, then rerun \`node scripts/release.ts publish-npm\`.`);
+    }
+  }
+}
+
 const [command, ...flags] = process.argv.slice(2);
 const dryRun = flags.includes("--dry-run");
 if (command === "branch") branch(dryRun);
 else if (command === "pr") pr(dryRun);
 else if (command === "ci") ci(dryRun);
 else if (command === "deploy") await deploy(flags.includes("--if-released"), dryRun);
-else fail("Usage: node scripts/release.ts branch | pr | ci | deploy [--if-released], each with [--dry-run]");
+else if (command === "publish-npm") publishNpm(dryRun);
+else
+  fail("Usage: node scripts/release.ts branch | pr | ci | deploy [--if-released] | publish-npm, each with [--dry-run]");

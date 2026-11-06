@@ -8,8 +8,10 @@
 # hand arrives through the push trigger below instead.
 #
 # This job tags the release, deploys Convex and Netlify when the site is in it,
-# and publishes the released npm packages with npm trusted publishing (OIDC, no
-# npm token).
+# and publishes the released npm packages: monochange handles the registry
+# identity (trusted publishing, OIDC, no npm token) while scripts/release.ts
+# runs the actual `npm publish`, whose registry record keeps the publishing
+# commit (gitHead) that install pinning needs.
 #
 # Every other push to main skips this publishing job. CI defaults to the local
 # pre-push hook; authorized security repairs opt into ci.yml. Run this workflow
@@ -66,7 +68,10 @@ jobs:
       - run: vp install --frozen-lockfile
 
       - name: Publish
-        run: vp exec monochange ${{ inputs.npm_only && 'publish packages' || 'run publish' }} ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: |
+          vp exec monochange ${{ inputs.npm_only && 'publish packages' || 'run publish' }} ${{ inputs.dry_run && '--dry-run' || '' }}
+          # monochange skips the npm packages (publish mode "external"); this publishes them.
+          node scripts/release.ts publish-npm ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
