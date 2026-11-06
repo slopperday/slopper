@@ -73,3 +73,27 @@ test("a field the editor can't show faithfully stays a plain text box", async ({
   await expect(textarea).toBeVisible();
   await expect(markdownField(page, "Description").editor).toHaveCount(0);
 });
+
+test("going back over formatting shows its Markdown, and editing it edits the formatting", async ({ seed }) => {
+  const maker = await seed.user("revealer");
+  const slop = await seed.slop(maker);
+  const page = await seed.pageAs(maker);
+  await page.goto(`${slop.path}/edit`);
+
+  const { value } = markdownField(page, "Description");
+  await write(page, "Description", "Say **bold** now");
+  await expect(value).toHaveValue("Say **bold** now");
+  const box = page.locator(".markdown-editor");
+  if (SHOTS) await box.screenshot({ path: `${SHOTS}/2-formatted.png` });
+
+  // Back over " now": the caret meets the bold word, and its `**` shows.
+  for (let step = 0; step < 4; step++) await page.keyboard.press("ArrowLeft");
+  if (SHOTS) await box.screenshot({ path: `${SHOTS}/3-revealed.png` });
+
+  // Backspace deletes one `*` of the closing `**`: bold becomes italic, then plain.
+  await page.keyboard.press("Backspace");
+  await expect(value).toHaveValue("Say *bold* now");
+  if (SHOTS) await box.screenshot({ path: `${SHOTS}/4-italic.png` });
+  await page.keyboard.press("Backspace");
+  await expect(value).toHaveValue("Say bold now");
+});
