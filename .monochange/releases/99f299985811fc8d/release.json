@@ -1,0 +1,158 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-11-06T15:15:45Z",
+  "command": "release",
+  "version": "0.1.9",
+  "versions": {
+    "cli": "0.1.9"
+  },
+  "release_targets": [
+    {
+      "id": "cli",
+      "kind": "group",
+      "version": "0.1.9",
+      "version_format": "namespaced",
+      "tag": true,
+      "release": false,
+      "tag_name": "cli/v0.1.9",
+      "rendered_title": "cli v0.1.9 (2026-11-06)",
+      "rendered_changelog_title": "cli 0.1.9 (2026-11-06)",
+      "members": ["@slopperday/cli", "@slopperday/skill"]
+    }
+  ],
+  "released_packages": ["@slopperday/cli", "@slopperday/skill"],
+  "changed_files": ["packages/cli/CHANGELOG.md", "packages/cli/package.json", "packages/skill/package.json"],
+  "package_publications": [
+    {
+      "package": "@slopperday/cli",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.9",
+      "mode": "external",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    },
+    {
+      "package": "@slopperday/skill",
+      "ecosystem": "npm",
+      "registry": "npm",
+      "version": "0.1.9",
+      "mode": "external",
+      "trusted_publishing": {
+        "enabled": true,
+        "mode": "required",
+        "repository": "ifiokjr/slopper",
+        "workflow": "release.yml",
+        "environment": null
+      }
+    }
+  ],
+  "updated_changelogs": ["packages/cli/CHANGELOG.md"],
+  "deleted_changesets": [".changeset/npm-githead.md"],
+  "changesets": [
+    {
+      "path": ".changeset/npm-githead.md",
+      "summary": "npm packages record their publishing commit again",
+      "details": "The CLI and its skill are published with the npm CLI once more. The pnpm-based\npublisher dropped the `gitHead` field from the registry record, so installs\npinned to the publishing commit (like the dotfiles skill sync) refused every\nrelease after 0.1.8.",
+      "targets": [
+        {
+          "id": "cli",
+          "kind": "group",
+          "bump": "patch",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "fix"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "2b8414bf00bf9a984b4cc0fb6bf5f65abc91b529",
+            "short_sha": "2b8414b",
+            "url": null,
+            "authored_at": "2026-11-06T15:13:53Z",
+            "committed_at": "2026-11-06T15:13:53Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "2b8414bf00bf9a984b4cc0fb6bf5f65abc91b529",
+            "short_sha": "2b8414b",
+            "url": null,
+            "authored_at": "2026-11-06T15:13:53Z",
+            "committed_at": "2026-11-06T15:13:53Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "cli",
+      "owner_kind": "group",
+      "output": "default",
+      "stream": "default",
+      "path": "packages/cli/CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "cli 0.1.9 (2026-11-06)",
+        "summary": ["Grouped release for `cli`."],
+        "sections": [
+          {
+            "title": "Fixes",
+            "collapsed": false,
+            "entries": [
+              "#### npm packages record their publishing commit again\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 2b8414b\n\nThe CLI and its skill are published with the npm CLI once more. The pnpm-based\npublisher dropped the `gitHead` field from the registry record, so installs\npinned to the publishing commit (like the dotfiles skill sync) refused every\nrelease after 0.1.8."
+            ]
+          }
+        ]
+      },
+      "rendered": "## cli 0.1.9 (2026-11-06)\n\nGrouped release for `cli`.\n\n### Fixes\n\n#### npm packages record their publishing commit again\n\n_Owner:_ Ifiok Jr. · _Introduced in:_ 2b8414b\n\nThe CLI and its skill are published with the npm CLI once more. The pnpm-based\npublisher dropped the `gitHead` field from the registry record, so installs\npinned to the publishing commit (like the dotfiles skill sync) refused every\nrelease after 0.1.8."
+    }
+  ],
+  "provider": null
+}
