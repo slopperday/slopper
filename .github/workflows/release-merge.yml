@@ -31,6 +31,7 @@ jobs:
       contents: write # merge the pull request, deleting chore/release
       pull-requests: write # merge the pull request
       actions: write # dispatch the release workflow
+      checks: read # read the ci check run before merging
     steps:
       - name: Merge the release pull request
         env:
