@@ -35,6 +35,8 @@ release. Add a tool name to select part of the graph. For example, run
   only on data the test created: the database is shared by parallel workers.
   Each checkout gets its own block of e2e ports from its path (`e2e/ports.ts`), so worktrees can run CI at the same
   time; `E2E_PORT_BASE` moves one by hand.
+  `vp exec playwright test -c playwright.demo.config.ts` (after `vp build`) records the Studio walkthrough video:
+  sign-up, connecting X and LinkedIn, posting, with stand-ins for those networks (`e2e/demo/fake-networks.ts`).
 - **CI defaults to local.** The pre-push hook runs `vp run ci`; hosted checks cost money and require explicit
   authorization. For the authorized security repairs, label the PR `security-ci` to run the same gates through
   `.github/workflows/ci.yml` (also available manually). A command-scoped pre-push bypass is authorized for those
