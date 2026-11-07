@@ -11,11 +11,13 @@ const NAV = [
   { to: "/wall", label: "The wall" },
   { to: "/slopcessful", label: "Slopcessful" },
   { to: "/streaks", label: "Streaks" },
+  // Room for it in the bar from lg up; tablets reach it from the account menu.
+  { to: "/studio", label: "Studio", wide: true },
 ];
 
 /** Full-height links; the active one sits on a lime bar along the header's edge. */
 function navClass({ isActive }: { isActive: boolean }) {
-  return `relative flex h-full shrink-0 items-center px-1.5 text-[0.875rem] font-bold whitespace-nowrap transition-colors after:absolute after:inset-x-1.5 after:bottom-0 after:h-[3px] after:rounded-t-full min-[430px]:px-2.5 min-[430px]:text-[0.9375rem] min-[430px]:after:inset-x-2.5 md:px-3 md:after:inset-x-3 ${
+  return `relative flex h-full shrink-0 items-center px-1.5 text-[0.875rem] font-bold whitespace-nowrap transition-colors after:absolute after:inset-x-1.5 after:bottom-0 after:h-[3px] after:rounded-t-full min-[430px]:px-2.5 min-[430px]:text-[0.9375rem] min-[430px]:after:inset-x-2.5 md:px-2 md:after:inset-x-2 lg:px-3 lg:after:inset-x-3 ${
     isActive ? "text-ink after:bg-slop" : "text-muted hover:text-ink"
   }`;
 }
@@ -44,7 +46,11 @@ export function Header({
         </Link>
         <nav className="hidden h-full items-stretch md:flex" aria-label="Main">
           {NAV.map((item) => (
-            <NavLink key={item.to} to={item.to} className={navClass}>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={(state) => `${navClass(state)} ${"wide" in item ? "max-lg:hidden" : ""}`}
+            >
               {item.label}
             </NavLink>
           ))}
