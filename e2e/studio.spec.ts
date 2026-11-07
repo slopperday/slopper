@@ -125,12 +125,25 @@ test("one post goes to each brand's accounts, fitted per network, and its stats 
   await page.goto("/studio");
   await expect(page.getByRole("heading", { name: "Studio", level: 1 })).toBeVisible();
 
-  // Pick the Tiltmaze brand in one tap, plus the personal Bluesky.
+  // A new post starts with the accounts the last one went to, and is about nothing in particular.
+  const postingAs = page.getByRole("list", { name: "Posting as" });
+  await expect(postingAs.getByRole("listitem")).toHaveCount(5);
+  await expect(
+    page.getByRole("group", { name: "Workflows" }).getByRole("button", { name: /Last used/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("group", { name: "About" }).getByRole("button", { name: "Anything" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  // This one is for the Tiltmaze brand in one tap, plus the personal Bluesky.
+  await page.getByRole("button", { name: "Add or remove" }).click();
   await page.getByRole("group", { name: "Tiltmaze" }).getByRole("button", { name: "All" }).click();
-  await page
-    .getByRole("group", { name: "Me" })
-    .getByRole("button", { name: /Bluesky/ })
-    .click();
+  await page.getByRole("button", { name: "Leave out Slopper on Threads" }).click();
+  await page.getByRole("button", { name: "Leave out Ifiok Jr. on LinkedIn" }).click();
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(postingAs.getByRole("listitem")).toHaveCount(5);
+  await page.getByRole("group", { name: "About" }).getByRole("button", { name: "Tiltmaze", exact: true }).click();
   await page
     .getByLabel("Post", { exact: true })
     .fill(
@@ -146,9 +159,10 @@ test("one post goes to each brand's accounts, fitted per network, and its stats 
   await shoot(page, "1-compose-needs-media");
 
   // YouTube needs a video: leave it out, add a picture for Instagram.
-  await page
-    .getByRole("group", { name: "Tiltmaze" })
-    .getByRole("button", { name: /YouTube needs a video/ })
+  await checklist
+    .getByRole("listitem")
+    .filter({ hasText: "YouTube needs a video" })
+    .getByRole("button", { name: "Leave it out" })
     .click();
   await page.locator('input[type="file"][accept^="image"]').setInputFiles({
     name: "tiltmaze.png",
@@ -158,13 +172,23 @@ test("one post goes to each brand's accounts, fitted per network, and its stats 
   await expect(page.getByLabel("Uploading")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Post to 4 accounts/ })).toBeEnabled();
   await expect(checklist.getByRole("listitem").filter({ hasText: "tiltmaze.app" })).toContainText("Ready");
+
+  // These four are the usual launch: keep them as a workflow new posts start with.
+  await page.getByRole("button", { name: "Save as a workflow" }).click();
+  await page.getByLabel("Name this workflow").fill("Tiltmaze launch");
+  await expect(page.getByLabel("Start new posts with it")).toBeChecked();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    page.getByRole("group", { name: "Workflows" }).getByRole("button", { name: /Tiltmaze launch/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+
   // X is over its 280 characters: say it shorter there.
-  await page.getByRole("button", { name: "X", exact: true }).click();
+  await page.getByRole("group", { name: "Words for" }).getByRole("button", { name: "X", exact: true }).click();
   await page
     .getByLabel("Words for X")
     .fill("Tiltmaze 2.0 is out: 40 new levels, a level editor and daily challenges 🎱");
   const previews = page.getByRole("complementary", { name: "Previews" });
-  await expect(previews.getByRole("group", { name: "Choose account to preview" }).getByRole("button")).toHaveCount(4);
+  await expect(checklist.getByRole("listitem")).toHaveCount(4);
   await expect(previews.getByRole("article")).toHaveCount(1);
   await expect(previews.getByRole("article", { name: "X preview" })).toContainText("40 new levels, a level editor");
   await previews.getByRole("button", { name: "Instagram: tiltmaze.app" }).click();
@@ -172,19 +196,43 @@ test("one post goes to each brand's accounts, fitted per network, and its stats 
   await previews.getByRole("button", { name: "X: tiltmaze", exact: true }).click();
   await expect(previews.getByRole("article", { name: "X preview" })).toBeVisible();
   // A thread for X and Bluesky, and a first comment, then save it as a draft instead of sending.
-  await page.getByRole("button", { name: "Add a post" }).click();
+  await page.getByRole("button", { name: "Add to thread" }).click();
   await page.getByLabel("Thread post 2").fill("Build a maze, share the link, watch friends fail at it.");
+  await page.getByRole("button", { name: "First comment" }).click();
   await page.getByLabel("First comment", { exact: true }).fill("#indiegames #buildinpublic");
   await expect(previews.getByRole("article", { name: "X preview" })).toContainText("Build a maze, share the link");
   await expect(previews.getByRole("article", { name: "X preview" })).toContainText("#indiegames #buildinpublic");
   await page.getByText("More options").click();
-  await page.getByLabel("Tags").fill("launch, tiltmaze");
+  await page.getByRole("textbox", { name: /^Tags/ }).fill("launch, tiltmaze");
   await page.getByLabel("Note to self").fill("Check the App Store link is live first.");
   await shoot(page, "2-compose-ready");
+  if (SHOTS) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: `${SHOTS}/2-compose-phone.png` });
+    await page.setViewportSize({ width: 1360, height: 1000 });
+  }
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page.getByText("Draft saved. Nothing goes out until you post it.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Make a preview link" })).toBeVisible();
   const draftUrl = page.url();
+
+  // The next new post starts with the workflow: its four accounts, about Tiltmaze.
+  await page.goto("/studio");
+  await expect(postingAs.getByRole("listitem")).toHaveCount(4);
+  await expect(
+    page.getByRole("group", { name: "Workflows" }).getByRole("button", { name: /Tiltmaze launch/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("group", { name: "About" }).getByRole("button", { name: "Tiltmaze", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  // Anything else is a tap away: a general post to every account.
+  await page
+    .getByRole("group", { name: "Workflows" })
+    .getByRole("button", { name: /Everywhere/ })
+    .click();
+  await page.getByRole("group", { name: "About" }).getByRole("button", { name: "Anything" }).click();
+  await expect(postingAs.getByRole("listitem")).toHaveCount(9);
+  await page.goto(draftUrl);
 
   // A preview link a client opens without an account, and says what they think.
   await page.getByRole("button", { name: "Make a preview link" }).click();
@@ -264,6 +312,8 @@ test("one post goes to each brand's accounts, fitted per network, and its stats 
 
   await page.goto("/studio/settings");
   await expect(page.getByRole("heading", { name: "Queue times" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Workflows" })).toContainText("Tiltmaze launch");
+  await expect(page.getByRole("list", { name: "Workflows" })).toContainText("4 accounts · posts straight away");
   await page.getByLabel("Kind").selectOption("hashtags");
   await page.getByLabel("Snippet name").fill("Indie games");
   await page.getByLabel("Snippet text").fill("#indiegames #gamedev #buildinpublic");
@@ -275,4 +325,20 @@ test("one post goes to each brand's accounts, fitted per network, and its stats 
   await expect(page.getByLabel("Brand for Ifiok Jr.")).toHaveValue("Me");
   expect(await page.content()).not.toContain("not-a-real-credential");
   await shoot(page, "5-accounts");
+});
+
+test("the first visit says how the studio works and where to start", async ({ seed }) => {
+  const owner = await seed.user("studio-new");
+  const page = await seed.pageAs(owner);
+  await page.setViewportSize({ width: 1360, height: 1000 });
+  await page.goto("/studio");
+  await expect(page.getByRole("heading", { name: "Post everywhere from one place" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Connect your first account" })).toHaveAttribute(
+    "href",
+    "/settings/autopost",
+  );
+  // An idea can be written down before any account is connected.
+  await page.getByLabel("Post", { exact: true }).fill("Maybe a level editor next?");
+  await expect(page.getByRole("button", { name: "Save as an idea" })).toBeEnabled();
+  await shoot(page, "0-get-started");
 });

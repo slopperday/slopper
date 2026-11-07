@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { Form, Link, useNavigation, useSearchParams } from "react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Form, Link, useFetcher, useNavigation, useSearchParams } from "react-router";
 import type { Route } from "./+types/studio";
 import { api } from "@convex/_generated/api";
 import { requireUser, viewerContext } from "~/.server/session";
-import { convex } from "~/.server/convex";
+import { convex, convexMessage } from "~/.server/convex";
 import { config } from "~/.server/config";
 import { formText } from "~/.server/forms";
 import { redirectWithFlash } from "~/.server/http";
 import { modeFor } from "~/.server/social/crosspost";
-import { bestTimes, nextAt, saveStudioPost, type StudioInput } from "~/.server/social/studio";
+import { bestTimes, nextAt, nextQueueSlot, saveStudioPost, type StudioInput } from "~/.server/social/studio";
 import { type CreatorInfo, creatorInfo } from "~/.server/social/tiktok";
 import { ASSIST_ACTIONS, type AssistAction } from "~/lib/assist";
 import { fitText, measureFor } from "~/lib/compose";
@@ -37,7 +37,7 @@ import {
   type Variant,
 } from "~/lib/destinations";
 import { seo } from "~/lib/seo";
-import { Icon } from "~/components/Icon";
+import { Icon, type IconName } from "~/components/Icon";
 import {
   AccountAvatar,
   formatCount,
@@ -51,11 +51,12 @@ import {
 import {
   type Attachment,
   Counters,
-  MediaPicker,
+  MediaTray,
   Segmented,
   SOCIAL_ORDER,
   TikTokFields,
   uploadPicture,
+  useMediaUploads,
   VariantFields,
   YouTubeFields,
 } from "~/components/StudioComposer";
@@ -81,7 +82,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const search = new URL(request.url).searchParams;
   const editId = search.get("edit");
   const copyId = search.get("copy");
-  const [accounts, organizations, slops, posts, snippets, settings, sent, editing] = await Promise.all([
+  const [accounts, organizations, slops, posts, snippets, settings, sent, taken, editing] = await Promise.all([
     convex.query(api.accounts.list, { userId: user._id }),
     convex.query(api.organizations.list, { userId: user._id }),
     convex.query(api.slops.listForServer, { userId: user._id }),
@@ -89,6 +90,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     convex.query(api.studio.snippets, { userId: user._id }),
     convex.query(api.studio.settings, { userId: user._id }),
     convex.query(api.social.sent, { userId: user._id, since: Date.now() - 90 * DAY }),
+    convex.query(api.social.scheduledTimes, { userId: user._id }),
     editId ? convex.query(api.social.get, { userId: user._id, postId: editId }) : null,
   ]);
   const copy = copyId ? await convex.query(api.social.get, { userId: user._id, postId: copyId }) : null;
@@ -177,6 +179,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       ]),
     ),
     lastAccountIds: (settings.lastAccountIds ?? []).map(String),
+    workflows: settings.workflows.map((workflow) => ({ ...workflow, accountIds: workflow.accountIds.map(String) })),
+    defaultWorkflowId: settings.defaultWorkflowId,
+    nextQueueAt: nextQueueSlot(settings.slots, taken, user.timeZone),
     editing: editing && editing.editable ? editing : null,
     copy,
     prefill: { text: search.get("text") ?? "", link: search.get("link") ?? "" },
@@ -190,6 +195,22 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 export async function action({ request, context }: Route.ActionArgs) {
   const user = requireUser(context.get(viewerContext), request);
   const form = await request.formData();
+  if (formText(form, "intent") === "workflow") {
+    try {
+      const id = await convex.mutation(api.studio.saveWorkflow, {
+        userId: user._id,
+        name: formText(form, "name"),
+        accountIds: form.getAll("accountIds").map(String),
+        when: formText(form, "when") === "queue" ? "queue" : "now",
+        productId: formText(form, "productId") || null,
+        trackLinks: form.get("trackLinks") === "on",
+        makeDefault: form.get("makeDefault") === "on",
+      });
+      return { workflowSaved: id };
+    } catch (error) {
+      return { workflowError: convexMessage(error) ?? "That workflow didn't save." };
+    }
+  }
   if (formText(form, "intent") === "discard") {
     await convex.mutation(api.social.discard, { userId: user._id, postId: formText(form, "postId") });
     return redirectWithFlash("/studio", { tone: "info", message: "Draft deleted." });
@@ -397,30 +418,46 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     previewTime,
     lastAccountIds,
     bestByAccount,
+    workflows,
+    defaultWorkflowId,
+    nextQueueAt,
   } = loaderData;
   const navigation = useNavigation();
   const sending = navigation.state !== "idle" && navigation.formMethod === "POST";
   const [params] = useSearchParams();
+  const saver = useFetcher<typeof action>();
 
   const signature = snippets.find((snippet) => snippet.autoAdd);
   // Editing keeps the post; "Use again" starts a new one from a copy of it.
   const base = editing ?? loaderData.copy;
+  const live = (ids: readonly string[]) =>
+    ids.filter((id) => accounts.some((account) => account.id === id && !account.broken));
+  // A new post starts the way this person usually posts: their default workflow, else the last post's accounts.
+  const defaultWorkflow = workflows.find((workflow) => workflow.id === defaultWorkflowId) ?? null;
   const [selected, setSelected] = useState<ReadonlySet<string>>(
-    new Set(base?.deliveries.filter((row) => !row.repost).map((row) => row.accountId) ?? []),
+    new Set(
+      base
+        ? base.deliveries.filter((row) => !row.repost).map((row) => row.accountId)
+        : live(defaultWorkflow?.accountIds ?? lastAccountIds),
+    ),
   );
   const [reposters, setReposters] = useState<ReadonlySet<string>>(
     new Set(base?.deliveries.filter((row) => row.repost).map((row) => row.accountId) ?? []),
   );
+  const [picking, setPicking] = useState(selected.size === 0);
   const [previewAccountId, setPreviewAccountId] = useState<string | null>(null);
-  const [productId, setProductId] = useState(base?.product?.id ?? "");
+  const [productId, setProductId] = useState(base?.product?.id ?? (base ? "" : (defaultWorkflow?.productId ?? "")));
   const [text, setText] = useState(
     base?.text ?? (prefill.text ? prefill.text : signature ? `\n\n${signature.text}` : ""),
   );
   const [link, setLink] = useState(base?.link ?? prefill.link);
   const [overrides, setOverrides] = useState<Record<string, string | undefined>>(base?.overrides ?? {});
-  const [editingOverrideTarget, setEditingOverrideTarget] = useState<string | null>(null);
+  // The words tab: everywhere, or one network (and on it, every account or one of them).
+  const [tab, setTab] = useState<"all" | SocialProvider>("all");
+  const [tabAccount, setTabAccount] = useState<string | null>(null);
   const [thread, setThread] = useState<string[]>(base?.thread ?? []);
   const [firstComment, setFirstComment] = useState(base?.firstComment ?? "");
+  const [commenting, setCommenting] = useState(Boolean(base?.firstComment));
   const [media, setMedia] = useState<Attachment[]>(
     base?.media
       .filter((item) => item.url)
@@ -450,7 +487,9 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
   );
   const [collaborators, setCollaborators] = useState((base?.options.instagram?.collaborators ?? []).join(", "));
   const [documentTitle, setDocumentTitle] = useState(base?.options.linkedin?.documentTitle ?? "");
-  const [when, setWhen] = useState<"now" | "queue" | "later">(editing?.scheduledAt ? "later" : "now");
+  const [when, setWhen] = useState<"now" | "queue" | "later">(
+    editing?.scheduledAt ? "later" : base ? "now" : (defaultWorkflow?.when ?? "now"),
+  );
   const [scheduledAt, setScheduledAt] = useState(editing?.scheduledAt ? localInput(editing.scheduledAt, timeZone) : "");
   const [repeatDays, setRepeatDays] = useState(base?.repeat?.everyDays ?? 0);
   const [repeatTimes, setRepeatTimes] = useState(base?.repeat?.remaining ?? 4);
@@ -458,16 +497,16 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
   const [plugOn, setPlugOn] = useState(!!base?.plug);
   const [plugLikes, setPlugLikes] = useState(base?.plug?.likes ?? 50);
   const [plugText, setPlugText] = useState(base?.plug?.text ?? "");
-  const [trackLinks, setTrackLinks] = useState(base?.trackLinks ?? false);
+  const [trackLinks, setTrackLinks] = useState(
+    base?.trackLinks ?? (base ? false : (defaultWorkflow?.trackLinks ?? false)),
+  );
   const [tags, setTags] = useState((base?.tags ?? []).join(", "));
   const [note, setNote] = useState(base?.note ?? "");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [assisting, setAssisting] = useState<AssistAction | null>(null);
   const [assistError, setAssistError] = useState<string | null>(null);
   const [hashtags, setHashtags] = useState<string[]>([]);
-  const [extras, setExtras] = useState(
-    Boolean(base?.firstComment || base?.note || base?.tags.length || base?.repeat || base?.plug),
-  );
+  const [extras, setExtras] = useState(Boolean(base?.note || base?.tags.length || base?.plug || base?.staggerMinutes));
   const [variants, setVariants] = useState<Record<string, Variant | undefined>>(base?.variants ?? {});
   const [timeMode, setTimeMode] = useState<"same" | "each">(
     editing && Object.keys(editing.times ?? {}).length ? "each" : "same",
@@ -476,7 +515,15 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     Object.fromEntries(Object.entries(editing?.times ?? {}).map(([id, at]) => [id, localInput(at, timeZone)])),
   );
   const [restorable, setRestorable] = useState<{ savedAt: number; state: Saved } | null>(null);
+  const [naming, setNaming] = useState<{ name: string; makeDefault: boolean } | null>(null);
+  const [dropping, setDropping] = useState(false);
   const autosaveKey = editing ? `slopper-studio:${editing.id}` : loaderData.copy ? null : "slopper-studio:new";
+  const pictureInput = useRef<HTMLInputElement>(null);
+  const videoInput = useRef<HTMLInputElement>(null);
+  const pdfInput = useRef<HTMLInputElement>(null);
+  const textArea = useRef<HTMLTextAreaElement>(null);
+  const submitButton = useRef<HTMLButtonElement>(null);
+  const uploads = useMediaUploads(media, setMedia, setUploadError);
 
   // Autosave: an unfinished post survives a refresh or a closed tab, in this browser.
   useEffect(() => {
@@ -551,6 +598,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     setVariants(saved.variants);
     setThread(saved.thread);
     setFirstComment(saved.firstComment);
+    setCommenting(Boolean(saved.firstComment));
     setSelected(new Set(saved.selected));
     setProductId(saved.productId);
     setMedia(saved.media.map((item) => ({ ...item, progress: 1, error: null })));
@@ -571,16 +619,26 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival.
   }, []);
 
+  // A saved workflow closes its form.
+  useEffect(() => {
+    if (saver.state === "idle" && saver.data && "workflowSaved" in saver.data) setNaming(null);
+  }, [saver.state, saver.data]);
+
   const picked = accounts.filter((account) => selected.has(account.id));
   const providers = new Set(picked.map((account) => account.provider));
-  const editingAccount = editingOverrideTarget
-    ? (picked.find((account) => account.id === editingOverrideTarget) ?? null)
-    : null;
-  const editingNetwork: SocialProvider | null = editingAccount
-    ? editingAccount.provider
-    : editingOverrideTarget && (SOCIAL_ORDER as readonly string[]).includes(editingOverrideTarget)
-      ? (editingOverrideTarget as SocialProvider)
-      : null;
+  const activeTab: "all" | SocialProvider = tab !== "all" && providers.has(tab) ? tab : "all";
+  const tabAccounts = activeTab === "all" ? [] : picked.filter((account) => account.provider === activeTab);
+  const editingAccount =
+    activeTab === "all" || tabAccounts.length < 2
+      ? null
+      : (tabAccounts.find((account) => account.id === tabAccount) ?? null);
+  const editingNetwork: SocialProvider | null = activeTab === "all" ? null : activeTab;
+  const editingOverrideTarget = editingNetwork ? (editingAccount?.id ?? editingNetwork) : null;
+  const targetLabel = editingAccount
+    ? editingAccount.displayName || editingAccount.handle
+    : editingNetwork
+      ? NETWORKS[editingNetwork].label
+      : "";
 
   const video = media.find((item) => item.kind === "video");
   const shape: PostShape = {
@@ -627,11 +685,16 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     firstComment,
   };
   const destinations = picked.map((account) => ({ ...account, broken: account.broken }));
+  // Before a word is written, an empty post isn't a problem to flag on every account.
+  const empty = !text.trim() && media.length === 0;
   const checklist = picked.map((account) => {
-    const issues = readiness(destinationPost, account, destinations);
+    const issues = readiness(destinationPost, account, destinations).filter(
+      (issue) => !(empty && issue.field === "text"),
+    );
     return { account, issues, label: readinessLabel(issues) };
   });
   const blocked = checklist.filter((entry) => entry.label.tone === "block");
+  const blockedNetworks = new Set(blocked.map((entry) => entry.account.provider));
   const missingTimes = when === "later" && timeMode === "each" ? picked.filter((account) => !times[account.id]) : [];
   const problems = [
     ...(!text.trim() && media.length === 0 ? ["Write something or add a picture or video."] : []),
@@ -658,6 +721,46 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     (account) => !selected.has(account.id) && NETWORKS[account.provider].canRepost && providers.has(account.provider),
   );
   const brand = picked.find((account) => account.brand)?.brand ?? "";
+  const product = products.find((item) => item.id === productId) ?? null;
+
+  // One-tap sets: saved workflows, the last post's accounts, each product's accounts, and everything.
+  const same = (ids: readonly string[]) => {
+    const usable = live(ids);
+    return usable.length > 0 && usable.length === selected.size && usable.every((id) => selected.has(id));
+  };
+  const sets: QuickSet[] = [
+    ...workflows.map((workflow) => ({
+      key: `workflow-${workflow.id}`,
+      label: workflow.name,
+      ids: workflow.accountIds,
+      starred: workflow.id === defaultWorkflowId,
+      apply: () => applyWorkflow(workflow),
+    })),
+    ...(lastAccountIds.length > 0 && !workflows.some((workflow) => sameIds(workflow.accountIds, lastAccountIds))
+      ? [{ key: "last", label: "Last used", ids: lastAccountIds, starred: false, apply: () => pickSet(lastAccountIds) }]
+      : []),
+    ...products
+      .filter((item) => item.accountIds.length > 0)
+      .map((item) => ({
+        key: `product-${item.id}`,
+        label: `${item.name}’s accounts`,
+        ids: item.accountIds,
+        starred: false,
+        apply: () => pickProduct(item.id),
+      })),
+    ...(accounts.length > 1
+      ? [
+          {
+            key: "everything",
+            label: "Everywhere",
+            ids: accounts.map((account) => account.id),
+            starred: false,
+            apply: () => pickSet(accounts.map((account) => account.id)),
+          },
+        ]
+      : []),
+  ].filter((set) => live(set.ids).length > 0);
+  const savedAlready = workflows.some((workflow) => same(workflow.accountIds));
 
   function toggle(id: string) {
     setSelected((current) => {
@@ -687,40 +790,70 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
 
   function pickProduct(id: string) {
     setProductId(id);
-    const product = products.find((item) => item.id === id);
-    if (product) {
-      setSelected(new Set(product.accountIds));
-      setReposters(new Set(product.repostAccountIds));
+    const item = products.find((entry) => entry.id === id);
+    if (item) {
+      setSelected(new Set(live(item.accountIds)));
+      setReposters(new Set(item.repostAccountIds));
     }
   }
 
   /** One tap: exactly these accounts, nothing else. */
   function pickSet(ids: readonly string[]) {
-    setSelected(new Set(ids.filter((id) => accounts.some((account) => account.id === id))));
+    setSelected(new Set(live(ids)));
     setReposters(new Set());
   }
 
-  /** Takes the person to the field that fixes an issue. */
+  function applyWorkflow(workflow: (typeof workflows)[number]) {
+    pickSet(workflow.accountIds);
+    setProductId(workflow.productId ?? "");
+    setTrackLinks(workflow.trackLinks);
+    if (!editing) setWhen(workflow.when);
+  }
+
+  function saveWorkflow() {
+    if (!naming) return;
+    const form = new FormData();
+    form.set("intent", "workflow");
+    form.set("name", naming.name);
+    for (const id of selected) form.append("accountIds", id);
+    form.set("when", when === "queue" ? "queue" : "now");
+    form.set("productId", productId);
+    if (trackLinks) form.set("trackLinks", "on");
+    if (naming.makeDefault) form.set("makeDefault", "on");
+    void saver.submit(form, { method: "post" });
+  }
+
+  /** Takes the person to what fixes an issue. */
   function fix(account: ComposerAccount, issue: Issue) {
-    const target =
-      issue.field === "copy"
-        ? "section-post"
-        : issue.field === "media"
-          ? "section-media"
-          : issue.field === "text" || issue.field === "link"
-            ? "section-post"
-            : issue.field === "account"
-              ? "section-accounts"
-              : "section-network-details";
-    if (issue.field === "copy") setEditingOverrideTarget(account.id);
     if (issue.field === "account") {
       window.location.assign("/settings/autopost");
       return;
     }
+    let target = "studio-text";
+    if (
+      issue.field === "copy" ||
+      issue.field === "youtube" ||
+      issue.field === "tiktok" ||
+      issue.field === "instagram"
+    ) {
+      setTab(account.provider);
+      setTabAccount(
+        issue.field === "copy" && picked.filter((item) => item.provider === account.provider).length > 1
+          ? account.id
+          : null,
+      );
+      target = issue.field === "copy" ? "studio-words" : "studio-network-options";
+    } else {
+      setTab("all");
+      if (issue.field === "media") target = "studio-media-tools";
+    }
     requestAnimationFrame(() => {
       const element = document.getElementById(target);
-      element?.scrollIntoView({ behavior: "smooth", block: "start" });
-      element?.querySelector<HTMLElement>("textarea, input, select, button")?.focus({ preventScroll: true });
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+      (element?.matches("textarea, input, select, button")
+        ? element
+        : element?.querySelector<HTMLElement>("textarea, input, select, button")
+      )?.focus({ preventScroll: true });
     });
   }
 
@@ -736,7 +869,6 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
 
   /** Starts the post from the product: its tagline, its Slopper page and its screenshots. */
   function startFromProduct() {
-    const product = products.find((item) => item.id === productId);
     if (!product) return;
     setText(`${product.name}: ${product.tagline}${signature ? `\n\n${signature.text}` : ""}`);
     setLink(product.url);
@@ -759,17 +891,17 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     setText((current) => (current.trim() ? `${current.trimEnd()}\n\n${words}` : words));
   }
 
-  async function runAssist(action: AssistAction) {
-    setAssisting(action);
+  async function runAssist(name: AssistAction) {
+    setAssisting(name);
     setAssistError(null);
     try {
       const response = await fetch("/api/studio/assist", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          action,
+          action: name,
           text: editingOverrideTarget ? overrides[editingOverrideTarget] || text : text,
-          network: action === "adapt" ? editingNetwork : null,
+          network: name === "adapt" ? editingNetwork : null,
           brand: editingAccount?.brand ?? brand,
         }),
       });
@@ -779,7 +911,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
         setText(body.posts[0]);
         setThread(body.posts.slice(1));
       } else if (body.hashtags) setHashtags(body.hashtags);
-      else if (body.text && action === "adapt" && editingOverrideTarget)
+      else if (body.text && name === "adapt" && editingOverrideTarget)
         setOverrides({ ...overrides, [editingOverrideTarget]: body.text });
       else if (body.text) setText(body.text);
     } catch (error) {
@@ -871,7 +1003,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
         const words = personalize(source, account.id, {
           at,
           timeZone,
-          product: products.find((product) => product.id === productId)?.name ?? null,
+          product: product?.name ?? null,
           link: postLink,
           network: NETWORKS[provider].label,
         });
@@ -887,7 +1019,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
             personalize(part, account.id, {
               at,
               timeZone,
-              product: products.find((product) => product.id === productId)?.name ?? null,
+              product: product?.name ?? null,
               link: null,
               network: NETWORKS[provider].label,
             }).trim(),
@@ -907,7 +1039,10 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
         };
       }),
   );
-  const activePreview = previews.find(({ account }) => account.id === previewAccountId) ?? previews[0];
+  const activePreview =
+    previews.find(({ account }) => account.id === previewAccountId) ??
+    previews.find(({ account }) => account.provider === editingNetwork) ??
+    previews[0];
   const filter = params.get("show") ?? "all";
   const listed = posts.filter((post) => {
     const scheduled = post.scheduledAt !== null && !post.released && !post.cancelled && !post.draft;
@@ -917,6 +1052,17 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     return true;
   });
   const broken = accounts.filter((account) => account.broken);
+  const clock = (at: number) =>
+    new Date(at).toLocaleString("en-GB", {
+      timeZone,
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  const count = `${picked.length} account${picked.length === 1 ? "" : "s"}`;
+  const verb = when === "later" ? "Schedule for" : when === "queue" ? "Queue for" : "Post to";
 
   return (
     <section className="mx-auto max-w-6xl px-4 pt-10 pb-16">
@@ -924,7 +1070,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
         <div>
           <h1 className="title-1">Studio</h1>
           <p className="lede mt-3 max-w-2xl">
-            Write it once. Pick the accounts, and each network gets a copy that fits it, as whichever brand it’s for.
+            Write it once and send it everywhere you post: launches, updates or whatever’s on your mind.
           </p>
         </div>
       </div>
@@ -933,7 +1079,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
       </div>
 
       {paused && (
-        <p className="mt-6 rounded-2xl border-2 border-hot p-4" role="status">
+        <p className="mt-6 rounded-2xl bg-hot/10 p-4" role="status">
           <strong>Posting is paused.</strong> Nothing scheduled goes out until you{" "}
           <Link to="/studio/settings" className="underline">
             resume
@@ -960,701 +1106,884 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
         </ul>
       )}
 
-      {accounts.length === 0 ? (
-        <div className="panel mt-8 max-w-2xl">
-          <h2 className="title-3">Connect an account first</h2>
-          <p className="mt-2 text-muted">
-            Connect X, LinkedIn, Bluesky, Threads, Facebook Pages, Instagram, TikTok or YouTube. You can connect as many
-            brands as you like.
-          </p>
-          <Link to="/settings/autopost" className="btn btn-slop mt-4">
-            Connect accounts
-          </Link>
-        </div>
-      ) : (
-        <Form
-          method="post"
-          onSubmit={() => {
-            // A post handed to the server is saved there; an error keeps it on screen, and autosave picks it up again.
-            if (autosaveKey) window.localStorage.removeItem(autosaveKey);
-          }}
-          className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(380px,460px)]"
-        >
-          <input type="hidden" name="payload" value={payload} />
-          <div className="grid gap-5">
-            {restorable && (
-              <div
-                className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-ink p-3 text-sm"
-                role="status"
-              >
-                <span className="flex-1">
-                  You have an unsaved post from{" "}
-                  {new Date(restorable.savedAt).toLocaleString("en-GB", {
-                    timeZone,
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                  .
-                </span>
-                <button type="button" className="btn btn-ink btn-sm" onClick={() => restore(restorable.state)}>
-                  Restore it
-                </button>
-                <button type="button" className="btn btn-quiet btn-sm" onClick={forgetAutosave}>
-                  Discard
-                </button>
+      {accounts.length === 0 && <GetStarted />}
+
+      <Form
+        method="post"
+        onSubmit={() => {
+          // A post handed to the server is saved there; an error keeps it on screen, and autosave picks it up again.
+          if (autosaveKey) window.localStorage.removeItem(autosaveKey);
+        }}
+        onKeyDown={(event) => {
+          // ⌘/Ctrl + Enter sends (or schedules) from anywhere in the composer.
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && ready && !sending) {
+            event.preventDefault();
+            submitButton.current?.click();
+          }
+        }}
+        className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]"
+      >
+        <input type="hidden" name="payload" value={payload} />
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
+          {restorable && (
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-slop-tint p-3 text-sm" role="status">
+              <span className="flex-1">
+                You have an unsaved post from{" "}
+                {new Date(restorable.savedAt).toLocaleString("en-GB", {
+                  timeZone,
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+                .
+              </span>
+              <button type="button" className="btn btn-ink btn-sm" onClick={() => restore(restorable.state)}>
+                Restore it
+              </button>
+              <button type="button" className="btn btn-quiet btn-sm" onClick={forgetAutosave}>
+                Discard
+              </button>
+            </div>
+          )}
+          {editing && (
+            <p className="rounded-2xl bg-sunk p-3 text-sm">
+              Editing {editing.draft ? "a draft" : "a scheduled post"}.{" "}
+              <Link to="/studio" className="underline">
+                Start a new one instead
+              </Link>
+            </p>
+          )}
+
+          {/* The writing card: where it goes, what it's about, the words, the media, the tools. */}
+          <div
+            className={`relative rounded-3xl bg-raised ring-1 transition-shadow ${dropping ? "ring-4 ring-slop" : "ring-line"}`}
+            onDragOver={(event) => {
+              if (!event.dataTransfer.types.includes("Files")) return;
+              event.preventDefault();
+              setDropping(true);
+            }}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropping(false);
+            }}
+            onDrop={(event) => {
+              if (!event.dataTransfer.files.length) return;
+              event.preventDefault();
+              setDropping(false);
+              uploads.addFiles([...event.dataTransfer.files]);
+            }}
+          >
+            {dropping && (
+              <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-3xl bg-slop-tint/90 font-display text-2xl font-extrabold">
+                Drop it in
               </div>
             )}
-            {editing && (
-              <p className="rounded-2xl bg-raised p-3 text-sm">
-                Editing {editing.draft ? "a draft" : "a scheduled post"}.{" "}
-                <Link to="/studio" className="underline">
-                  Start a new one instead
-                </Link>
-              </p>
-            )}
-            {/* 1. Who it's from */}
-            <fieldset className="panel scroll-mt-24" id="section-accounts">
+
+            {/* 1. Where it goes */}
+            <fieldset className="min-w-0 scroll-mt-24 border-b border-line p-4 sm:p-5" id="section-accounts">
               <legend className="sr-only">Post as</legend>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="font-display text-[1.6rem] leading-none font-extrabold">Post as</h2>
-                {products.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="flex items-center gap-2 text-sm font-bold">
-                      For
-                      <select
-                        className="input min-h-10 py-1"
-                        value={productId}
-                        onChange={(event) => pickProduct(event.target.value)}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-sm font-bold text-muted">To</span>
+                {picked.length === 0 && (
+                  <span className="text-sm text-muted">
+                    {accounts.length === 0
+                      ? "Connect an account to post. You can still save ideas."
+                      : "Nobody yet: pick accounts below."}
+                  </span>
+                )}
+                <ul className="contents" aria-label="Posting as">
+                  {picked.map((account) => {
+                    const status = checklist.find((entry) => entry.account.id === account.id)?.label;
+                    return (
+                      <li
+                        key={account.id}
+                        className={`flex min-h-10 items-center gap-2 rounded-full py-1 pr-1 pl-1 text-sm font-bold ${
+                          status?.tone === "block" ? "bg-hot/12 text-hot" : "bg-sunk"
+                        }`}
+                        title={
+                          status && status.tone !== "ready"
+                            ? status.text
+                            : `${NETWORKS[account.provider].label} · ${account.handle}`
+                        }
                       >
-                        <option value="">No product</option>
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    {productId && (
-                      <button type="button" className="btn btn-quiet btn-sm" onClick={startFromProduct}>
-                        Start from it
-                      </button>
-                    )}
-                  </div>
+                        <AccountAvatar account={account} size={28} />
+                        <span className="max-w-40 truncate">{account.displayName || account.handle}</span>
+                        <button
+                          type="button"
+                          className="grid size-7 place-items-center rounded-full text-muted hover:bg-ground hover:text-ink"
+                          aria-label={`Leave out ${account.displayName || account.handle} on ${NETWORKS[account.provider].label}`}
+                          onClick={() => toggle(account.id)}
+                        >
+                          <Icon name="close" className="size-3.5" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {accounts.length > 0 ? (
+                  <button
+                    type="button"
+                    className="flex min-h-10 items-center gap-1.5 rounded-full px-3 text-sm font-bold text-ink hover:bg-sunk"
+                    aria-expanded={picking}
+                    onClick={() => setPicking(!picking)}
+                  >
+                    <Icon name={picking ? "chevron" : "plus"} className="size-4" />
+                    {picking ? "Done" : picked.length ? "Add or remove" : "Choose accounts"}
+                  </button>
+                ) : (
+                  <Link to="/settings/autopost" className="btn btn-slop btn-sm">
+                    <Icon name="plus" className="size-4" /> Connect an account
+                  </Link>
                 )}
               </div>
-              {(lastAccountIds.length > 0 || products.some((product) => product.accountIds.length > 0)) && (
-                <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Quick picks">
-                  <span className="text-sm font-bold text-muted">One tap:</span>
-                  {lastAccountIds.length > 0 && (
-                    <button
-                      type="button"
-                      className="min-h-9 rounded-full border border-line px-3 text-sm font-bold hover:border-ink"
-                      onClick={() => pickSet(lastAccountIds)}
-                    >
-                      Last used ({lastAccountIds.filter((id) => accounts.some((account) => account.id === id)).length})
-                    </button>
-                  )}
-                  {products
-                    .filter((product) => product.accountIds.length > 0)
-                    .map((product) => (
-                      <button
-                        key={product.id}
-                        type="button"
-                        className={`min-h-9 rounded-full border px-3 text-sm font-bold ${productId === product.id ? "border-ink bg-raised" : "border-line hover:border-ink"}`}
-                        onClick={() => pickProduct(product.id)}
-                      >
-                        Post as {product.name} ({product.accountIds.length})
-                      </button>
-                    ))}
-                </div>
-              )}
-              <div className="mt-4 grid gap-4">
-                {brands.map(([brandName, list]) => {
-                  const all = list.every((account) => selected.has(account.id));
-                  return (
-                    <div key={brandName} role="group" aria-label={brandName}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-bold text-muted">{brandName}</p>
-                        <button type="button" className="text-sm font-bold underline" onClick={() => toggleBrand(list)}>
-                          {all ? "None" : "All"}
-                        </button>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {list.map((account) => {
-                          const on = selected.has(account.id);
-                          const status = on
-                            ? checklist.find((entry) => entry.account.id === account.id)?.label
-                            : undefined;
-                          const reason = status && status.tone !== "ready" ? status.text : null;
-                          return (
-                            <button
-                              key={account.id}
-                              type="button"
-                              aria-pressed={on}
-                              onClick={() => toggle(account.id)}
-                              className={`flex min-h-12 items-center gap-2 rounded-2xl border-2 py-1.5 pr-3 pl-1.5 text-left transition ${
-                                on
-                                  ? status?.tone === "block"
-                                    ? "border-hot bg-hot/10"
-                                    : status?.tone === "warn"
-                                      ? "border-ink bg-sunk"
-                                      : "border-ink bg-raised"
-                                  : "border-line opacity-70 hover:opacity-100"
-                              }`}
-                              title={reason ?? account.broken ?? undefined}
-                            >
-                              <AccountAvatar account={account} size={34} />
-                              <span className="leading-tight">
-                                <span className="flex items-center gap-1.5 text-sm font-bold">
-                                  <span>{account.displayName}</span>
-                                  {account.organizationName && (
-                                    <span className="rounded-full bg-sunk px-1.5 py-0.5 text-[0.65rem] font-bold text-muted">
-                                      {account.organizationName}
-                                    </span>
-                                  )}
-                                </span>
-                                <span className={`block text-xs ${account.broken ? "text-hot" : "text-muted"}`}>
-                                  {reason ??
-                                    (account.broken
-                                      ? "Needs reconnecting"
-                                      : `${NETWORKS[account.provider].label} · ${account.handle}`)}
-                                </span>
-                              </span>
-                              {on && status?.tone === "ready" && <Icon name="check" className="size-4" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {organizations.length > 0 && (
-                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-xs">
-                  <span className="font-bold text-muted">Shared organisations:</span>
-                  {organizations.map((org) => {
-                    const orgAccounts = accounts.filter((acc) => acc.organizationId === org.id);
-                    if (orgAccounts.length === 0) return null;
-                    const allSelected = orgAccounts.every((acc) => selected.has(acc.id));
+
+              {sets.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Workflows">
+                  {sets.map((set) => {
+                    const on = same(set.ids);
                     return (
                       <button
-                        key={org.id}
+                        key={set.key}
                         type="button"
-                        onClick={() => toggleBrand(orgAccounts)}
-                        className={`rounded-full border px-2.5 py-1 font-bold transition ${
-                          allSelected ? "border-ink bg-raised text-ink" : "border-line text-muted hover:text-ink"
+                        aria-pressed={on}
+                        onClick={set.apply}
+                        className={`flex min-h-8 items-center gap-1.5 rounded-full px-3 text-[0.8125rem] font-bold transition ${
+                          on ? "bg-ink text-ground" : "bg-sunk text-ink hover:bg-line"
                         }`}
                       >
-                        {org.name} ({orgAccounts.length})
+                        {set.starred && <Icon name="star" filled className="size-3.5 text-gold" />}
+                        {set.label}
+                        <span className={on ? "text-ground/70" : "text-muted"}>{live(set.ids).length}</span>
                       </button>
                     );
                   })}
+                  {picked.length > 0 && !savedAlready && !naming && (
+                    <button
+                      type="button"
+                      className="min-h-8 rounded-full px-2 text-[0.8125rem] font-bold text-muted underline decoration-dotted underline-offset-4 hover:text-ink"
+                      onClick={() => setNaming({ name: "", makeDefault: workflows.length === 0 })}
+                    >
+                      Save as a workflow
+                    </button>
+                  )}
                 </div>
               )}
-              {repostCandidates.length > 0 && (
-                <div className="mt-4 border-t border-line pt-3">
-                  <p className="text-sm font-bold">Repost it with</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {repostCandidates.map((account) => (
-                      <label
-                        key={account.id}
-                        className="flex min-h-9 cursor-pointer items-center gap-2 rounded-xl border border-line px-2 text-sm has-checked:border-ink has-checked:bg-raised"
-                      >
-                        <input
-                          type="checkbox"
-                          className="sr-only"
-                          checked={reposters.has(account.id)}
-                          onChange={(event) =>
-                            setReposters((current) => {
-                              const next = new Set(current);
-                              if (event.target.checked) next.add(account.id);
-                              else next.delete(account.id);
-                              return next;
-                            })
-                          }
-                        />
-                        <AccountAvatar account={account} size={22} />
-                        {account.displayName} · {NETWORKS[account.provider].label}
-                      </label>
-                    ))}
+              {naming && (
+                <div className="mt-3 grid gap-3 rounded-2xl bg-sunk p-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <label className="grid gap-1 text-sm font-bold">
+                    Name this workflow
+                    <input
+                      className="input font-normal"
+                      autoFocus
+                      maxLength={60}
+                      placeholder={
+                        picked.length === 2
+                          ? `${NETWORKS[picked[0].provider].label} and ${NETWORKS[picked[1].provider].label}`
+                          : "Everyday posts"
+                      }
+                      value={naming.name}
+                      onChange={(event) => setNaming({ ...naming, name: event.target.value })}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          saveWorkflow();
+                        }
+                      }}
+                    />
+                    <span className="font-normal text-muted">
+                      Keeps these {picked.length} accounts,{" "}
+                      {when === "queue" ? "adding to the queue" : "posting straight away"}
+                      {product ? `, about ${product.name}` : ""}
+                      {trackLinks ? ", with tracked links" : ""}.
+                    </span>
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="flex items-center gap-2 text-sm font-bold">
+                      <input
+                        type="checkbox"
+                        checked={naming.makeDefault}
+                        onChange={(event) => setNaming({ ...naming, makeDefault: event.target.checked })}
+                      />
+                      Start new posts with it
+                    </label>
+                    <button
+                      type="button"
+                      className="btn btn-ink btn-sm"
+                      disabled={!naming.name.trim() || saver.state !== "idle"}
+                      onClick={saveWorkflow}
+                    >
+                      {saver.state !== "idle" ? "Saving…" : "Save"}
+                    </button>
+                    <button type="button" className="btn btn-quiet btn-sm" onClick={() => setNaming(null)}>
+                      Cancel
+                    </button>
                   </div>
+                  {saver.data && "workflowError" in saver.data && (
+                    <p className="text-sm font-bold text-hot sm:col-span-2">{saver.data.workflowError}</p>
+                  )}
+                </div>
+              )}
+
+              {picking && accounts.length > 0 && (
+                <div className="mt-4 grid gap-4 rounded-2xl bg-sunk p-3 sm:p-4">
+                  {brands.map(([brandName, list]) => {
+                    const all = list.every((account) => selected.has(account.id));
+                    return (
+                      <div key={brandName} role="group" aria-label={brandName}>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-bold text-muted">{brandName}</p>
+                          <button
+                            type="button"
+                            className="text-sm font-bold underline"
+                            onClick={() => toggleBrand(list)}
+                          >
+                            {all ? "None" : "All"}
+                          </button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {list.map((account) => {
+                            const on = selected.has(account.id);
+                            const status = on
+                              ? checklist.find((entry) => entry.account.id === account.id)?.label
+                              : undefined;
+                            const reason = status && status.tone !== "ready" ? status.text : null;
+                            return (
+                              <button
+                                key={account.id}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => toggle(account.id)}
+                                className={`flex min-h-12 items-center gap-2 rounded-2xl py-1.5 pr-3 pl-1.5 text-left transition ${
+                                  on
+                                    ? status?.tone === "block"
+                                      ? "bg-hot/12 ring-2 ring-hot"
+                                      : "bg-raised ring-2 ring-ink"
+                                    : "bg-ground opacity-80 hover:opacity-100"
+                                }`}
+                                title={reason ?? account.broken ?? undefined}
+                              >
+                                <AccountAvatar account={account} size={34} />
+                                <span className="leading-tight">
+                                  <span className="flex items-center gap-1.5 text-sm font-bold">
+                                    <span>{account.displayName}</span>
+                                    {account.organizationName && (
+                                      <span className="rounded-full bg-sunk px-1.5 py-0.5 text-[0.65rem] font-bold text-muted">
+                                        {account.organizationName}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span
+                                    className={`block text-xs ${account.broken || status?.tone === "block" ? "text-hot" : "text-muted"}`}
+                                  >
+                                    {reason ??
+                                      (account.broken
+                                        ? "Needs reconnecting"
+                                        : `${NETWORKS[account.provider].label} · ${account.handle}`)}
+                                  </span>
+                                </span>
+                                {on && status?.tone === "ready" && <Icon name="check" className="size-4" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {organizations.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3 text-xs">
+                      <span className="font-bold text-muted">Shared organisations:</span>
+                      {organizations.map((org) => {
+                        const orgAccounts = accounts.filter((acc) => acc.organizationId === org.id);
+                        if (orgAccounts.length === 0) return null;
+                        const allSelected = orgAccounts.every((acc) => selected.has(acc.id));
+                        return (
+                          <button
+                            key={org.id}
+                            type="button"
+                            onClick={() => toggleBrand(orgAccounts)}
+                            className={`rounded-full px-2.5 py-1 font-bold transition ${
+                              allSelected ? "bg-ink text-ground" : "bg-ground text-muted hover:text-ink"
+                            }`}
+                          >
+                            {org.name} ({orgAccounts.length})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {repostCandidates.length > 0 && (
+                    <div className="border-t border-line pt-3">
+                      <p className="text-sm font-bold">Repost it with</p>
+                      <p className="text-xs text-muted">These share the post instead of writing their own.</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {repostCandidates.map((account) => (
+                          <label
+                            key={account.id}
+                            className="flex min-h-9 cursor-pointer items-center gap-2 rounded-xl bg-ground px-2 text-sm has-checked:bg-ink has-checked:text-ground"
+                          >
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={reposters.has(account.id)}
+                              onChange={(event) =>
+                                setReposters((current) => {
+                                  const next = new Set(current);
+                                  if (event.target.checked) next.add(account.id);
+                                  else next.delete(account.id);
+                                  return next;
+                                })
+                              }
+                            />
+                            <AccountAvatar account={account} size={22} />
+                            {account.displayName} · {NETWORKS[account.provider].label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted">
+                    Missing one?{" "}
+                    <Link to="/settings/autopost" className="font-bold underline">
+                      Connect another account
+                    </Link>
+                    .
+                  </p>
                 </div>
               )}
             </fieldset>
 
-            {/* 2. What it says */}
-            <div className="panel scroll-mt-24" id="section-post">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="font-display text-[1.6rem] leading-none font-extrabold" htmlFor="studio-text">
-                  Post
-                </label>
-                {snippets.length > 0 && (
-                  <select
-                    className="input min-h-9 w-auto py-1 text-sm"
-                    value=""
-                    aria-label="Insert a snippet"
-                    onChange={(event) => {
-                      const snippet = snippets.find((item) => item.id === event.target.value);
-                      if (!snippet) return;
-                      if (snippet.kind === "template") setText(snippet.text);
-                      else insert(snippet.text);
-                    }}
+            {/* 2. What it's about: nothing in particular, or one of your slops. */}
+            {products.length > 0 && (
+              <div
+                className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3 sm:px-5"
+                role="group"
+                aria-label="About"
+              >
+                <span className="mr-1 text-sm font-bold text-muted">About</span>
+                {[{ id: "", name: "Anything" }, ...products].map((item) => (
+                  <button
+                    key={item.id || "general"}
+                    type="button"
+                    aria-pressed={productId === item.id}
+                    title={
+                      item.id ? `Counted with ${item.name} in your analytics` : "A post that isn't about any one slop"
+                    }
+                    onClick={() => setProductId(item.id)}
+                    className={`min-h-8 rounded-full px-3 text-[0.8125rem] font-bold transition ${
+                      productId === item.id ? "bg-ink text-ground" : "bg-sunk text-ink hover:bg-line"
+                    }`}
                   >
-                    <option value="">Insert a snippet…</option>
-                    {snippets
-                      .filter((snippet) => snippet.kind !== "reply")
-                      .map((snippet) => (
-                        <option key={snippet.id} value={snippet.id}>
-                          {snippet.kind === "hashtags" ? "#" : snippet.kind === "template" ? "▤" : "✎"} {snippet.name}
-                        </option>
-                      ))}
-                  </select>
+                    {item.name}
+                  </button>
+                ))}
+                {product && !text.trim() && (
+                  <button type="button" className="btn btn-slop btn-sm min-h-8" onClick={startFromProduct}>
+                    <Icon name="spark" className="size-4" /> Start from {product.name}
+                  </button>
+                )}
+                {product && product.accountIds.length > 0 && !same(product.accountIds) && (
+                  <button
+                    type="button"
+                    className="min-h-8 rounded-full px-2 text-[0.8125rem] font-bold text-muted underline decoration-dotted underline-offset-4 hover:text-ink"
+                    onClick={() => pickProduct(product.id)}
+                  >
+                    Post as {product.name}’s accounts
+                  </button>
                 )}
               </div>
-              <textarea
-                id="studio-text"
-                className="input mt-3 min-h-40 text-[1.0625rem]"
-                placeholder="What did you ship? Too much slop? Not enough yet!"
-                value={text}
-                onChange={(event) => setText(event.target.value)}
-                maxLength={5000}
-              />
-              <Counters providers={providers} text={text} link={link} overrides={overrides} limits={limits} />
-              {canAssist && (
-                <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Writing assistant">
-                  <span className="text-sm font-bold">
-                    <Icon name="spark" className="inline size-4" /> Assistant{brand ? ` (${brand} voice)` : ""}
-                  </span>
-                  {(["shorten", "expand", "rephrase", "punchier", "hashtags", "thread"] as const).map((name) => (
-                    <button
-                      key={name}
-                      type="button"
-                      className="min-h-8 rounded-full border border-line px-3 text-sm font-bold hover:border-ink disabled:opacity-50"
-                      disabled={!text.trim() || assisting !== null}
-                      onClick={() => void runAssist(name)}
-                    >
-                      {assisting === name ? "…" : ASSIST_ACTIONS[name]}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {assistError && <p className="mt-2 text-sm text-hot">{assistError}</p>}
-              {hashtags.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {hashtags.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      className="rounded-full bg-sunk px-2 py-0.5 text-sm font-bold"
-                      onClick={() => insert(tag)}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <details className="mt-2 text-sm text-muted">
-                <summary className="cursor-pointer">Variables and spintax</summary>
-                <p className="mt-1">
-                  {Object.entries(VARIABLES)
-                    .map(([name, meaning]) => `{${name}} is ${meaning}`)
-                    .join("; ")}
-                  . Write {"{Hi|Hello|Hey}"} and each account gets one of them, so no two copies are the same.
-                </p>
-              </details>
-              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
-                <input
-                  className="input"
-                  type="url"
-                  placeholder="Link (optional) · https://…"
-                  aria-label="Link"
-                  value={link}
-                  onChange={(event) => setLink(event.target.value)}
-                />
-                <label
-                  className="flex items-center gap-2 text-sm font-bold"
-                  title="Each network gets its own short link with UTM tags, and the post page counts the clicks."
-                >
-                  <input
-                    type="checkbox"
-                    checked={trackLinks}
-                    onChange={(event) => setTrackLinks(event.target.checked)}
-                  />
-                  Track clicks
-                </label>
-              </div>
-              {picked.length > 1 && (
-                <div className="mt-4">
-                  <p className="text-sm font-bold">Say it differently on one network or account</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {SOCIAL_ORDER.filter((provider) => providers.has(provider)).flatMap((provider) => {
-                      const onNetwork = picked.filter((acc) => acc.provider === provider);
-                      const networkBtn = (
-                        <button
-                          key={provider}
-                          type="button"
-                          aria-pressed={editingOverrideTarget === provider}
-                          onClick={() => setEditingOverrideTarget(editingOverrideTarget === provider ? null : provider)}
-                          className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-bold ${
-                            editingOverrideTarget === provider ? "border-ink bg-raised" : "border-line"
-                          }`}
-                        >
-                          <NetworkBadge provider={provider} size="sm" />
-                          {NETWORKS[provider].label}
-                          {overrides[provider]?.trim() && <span className="text-slop-text">· own words</span>}
-                        </button>
-                      );
-                      if (onNetwork.length <= 1) return [networkBtn];
-                      return [
-                        networkBtn,
-                        ...onNetwork.map((acc) => (
-                          <button
-                            key={acc.id}
-                            type="button"
-                            aria-pressed={editingOverrideTarget === acc.id}
-                            onClick={() => setEditingOverrideTarget(editingOverrideTarget === acc.id ? null : acc.id)}
-                            className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-bold ${
-                              editingOverrideTarget === acc.id ? "border-ink bg-raised" : "border-line"
-                            }`}
-                          >
-                            <NetworkBadge provider={provider} size="sm" />
-                            {acc.displayName || acc.handle}
-                            {overrides[acc.id]?.trim() && <span className="text-slop-text">· own words</span>}
-                          </button>
-                        )),
-                      ];
-                    })}
-                  </div>
-                  {editingOverrideTarget && editingNetwork && (
-                    <div className="mt-3">
-                      <textarea
-                        className="input min-h-28"
-                        aria-label={`Words for ${
-                          editingAccount
-                            ? editingAccount.displayName || editingAccount.handle
-                            : NETWORKS[editingNetwork].label
-                        }`}
-                        placeholder={`Leave empty to use the post above on ${
-                          editingAccount
-                            ? editingAccount.displayName || editingAccount.handle
-                            : NETWORKS[editingNetwork].label
-                        }.`}
-                        value={overrides[editingOverrideTarget] ?? ""}
-                        maxLength={
-                          editingAccount
-                            ? textLimitFor(editingNetwork, editingAccount)
-                            : (limits[editingNetwork] ?? NETWORKS[editingNetwork].textLimit)
-                        }
-                        onChange={(event) =>
-                          setOverrides({ ...overrides, [editingOverrideTarget]: event.target.value })
-                        }
-                      />
-                      {canAssist && (
-                        <button
-                          type="button"
-                          className="mt-1 text-sm font-bold underline"
-                          disabled={assisting !== null}
-                          onClick={() => void runAssist("adapt")}
-                        >
-                          {assisting === "adapt"
-                            ? "Writing…"
-                            : `Write it for ${
-                                editingAccount
-                                  ? editingAccount.displayName || editingAccount.handle
-                                  : NETWORKS[editingNetwork].label
-                              }`}
-                        </button>
-                      )}
-                      <VariantFields
-                        target={editingOverrideTarget}
-                        label={
-                          editingAccount
-                            ? editingAccount.displayName || editingAccount.handle
-                            : NETWORKS[editingNetwork].label
-                        }
-                        variant={variants[editingOverrideTarget]}
-                        sharedLink={link}
-                        sharedComment={firstComment}
-                        comments={NETWORKS[editingNetwork].firstComment}
-                        media={media}
-                        onChange={(change) => setVariant(editingOverrideTarget, change)}
-                        onReset={() => {
-                          setVariant(editingOverrideTarget, null);
-                          setOverrides({ ...overrides, [editingOverrideTarget]: undefined });
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            )}
 
-            {/* 3. Thread and first comment */}
-            {(threadNetworks.length > 0 || commentNetworks.length > 0) && (
-              <div className="panel grid gap-4">
-                {threadNetworks.length > 0 && (
-                  <div>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h2 className="font-display text-[1.6rem] leading-none font-extrabold">Thread</h2>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-quiet btn-sm"
-                          onClick={autoSplit}
-                          disabled={!text.trim()}
-                        >
-                          Split to fit
-                        </button>
-                        <button type="button" className="btn btn-ink btn-sm" onClick={() => setThread([...thread, ""])}>
-                          <Icon name="plus" className="size-4" /> Add a post
-                        </button>
-                      </div>
-                    </div>
-                    <p className="mt-1 text-sm text-muted">
-                      On {threadNetworks.map((provider) => NETWORKS[provider].label).join(", ")}, these follow the post
-                      as replies. Other networks get the post alone. A line with only --- splits a post.
-                    </p>
-                    <ol className="mt-3 grid gap-2">
-                      {thread.map((part, index) => {
-                        const used = measureFor(threadNetworks[0])(part);
-                        return (
-                          <li key={index} className="grid gap-1">
-                            <div className="flex items-center justify-between text-xs text-muted">
-                              <span className="font-bold">Post {index + 2}</span>
-                              <span className={used > threadLimit ? "font-bold text-hot" : ""}>
+            {/* 3. The words: everywhere, or one network's own version. */}
+            {providers.size > 0 && (
+              <div
+                className="scrollbar-none flex gap-1 overflow-x-auto px-3 pt-3 sm:px-4"
+                role="group"
+                aria-label="Words for"
+              >
+                {(["all", ...SOCIAL_ORDER.filter((provider) => providers.has(provider))] as const).map((key) => {
+                  const on = activeTab === key;
+                  const own =
+                    key !== "all" &&
+                    (Boolean(overrides[key]?.trim()) ||
+                      picked.some((account) => account.provider === key && overrides[account.id]?.trim()) ||
+                      Boolean(variants[key]));
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => {
+                        setTab(key);
+                        setTabAccount(null);
+                        if (key !== "all")
+                          setPreviewAccountId(picked.find((account) => account.provider === key)?.id ?? null);
+                      }}
+                      className={`relative flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-bold transition ${
+                        on ? "bg-ink text-ground" : "text-muted hover:bg-sunk hover:text-ink"
+                      }`}
+                    >
+                      {key === "all" ? (
+                        "Everywhere"
+                      ) : (
+                        <>
+                          <NetworkBadge provider={key} size="sm" />
+                          {NETWORKS[key].label}
+                        </>
+                      )}
+                      {own && <span className="size-1.5 rounded-full bg-slop" aria-label="has its own version" />}
+                      {key !== "all" && blockedNetworks.has(key) && (
+                        <span className="size-1.5 rounded-full bg-hot" aria-label="needs something" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {activeTab === "all" ? (
+              <div className="grid gap-3 p-4 sm:p-5" id="section-post">
+                <label htmlFor="studio-text" className="sr-only">
+                  Post
+                </label>
+                <textarea
+                  id="studio-text"
+                  ref={textArea}
+                  className="min-h-40 w-full resize-none bg-transparent text-[1.1875rem] leading-relaxed outline-none placeholder:text-faint [field-sizing:content]"
+                  placeholder={
+                    product ? `What’s new with ${product.name}?` : "What’s on your mind? Too much slop? Not enough yet!"
+                  }
+                  value={text}
+                  onChange={(event) => setText(event.target.value)}
+                  onPaste={(event) => {
+                    const files = [...event.clipboardData.files];
+                    if (files.length === 0) return;
+                    event.preventDefault();
+                    uploads.addFiles(files);
+                  }}
+                  maxLength={5000}
+                />
+
+                {thread.length > 0 && (
+                  <ol className="grid gap-3" aria-label="Thread">
+                    {thread.map((part, index) => {
+                      const used = measureFor(threadNetworks[0] ?? "x")(part);
+                      return (
+                        <li key={index} className="relative grid gap-1 border-l-2 border-line pl-4">
+                          <div className="flex items-center justify-between text-xs text-muted">
+                            <span className="font-bold">{index + 2}</span>
+                            <span className="flex items-center gap-2">
+                              <span className={used > threadLimit ? "font-bold text-hot" : "tabular-nums"}>
                                 {used}/{threadLimit}
                               </span>
-                            </div>
-                            <div className="flex gap-2">
-                              <textarea
-                                className="input min-h-20 flex-1"
-                                aria-label={`Thread post ${index + 2}`}
-                                value={part}
-                                onChange={(event) =>
-                                  setThread(thread.map((other, at) => (at === index ? event.target.value : other)))
-                                }
-                              />
                               <button
                                 type="button"
-                                className="btn btn-quiet btn-sm self-start"
+                                className="grid size-6 place-items-center rounded-full hover:bg-sunk hover:text-ink"
                                 aria-label={`Remove post ${index + 2}`}
                                 onClick={() => setThread(thread.filter((_, at) => at !== index))}
                               >
-                                <Icon name="close" className="size-4" />
+                                <Icon name="close" className="size-3.5" />
                               </button>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  </div>
+                            </span>
+                          </div>
+                          <textarea
+                            className="min-h-16 w-full resize-none bg-transparent leading-relaxed outline-none placeholder:text-faint [field-sizing:content]"
+                            aria-label={`Thread post ${index + 2}`}
+                            placeholder="And then…"
+                            autoFocus={index === thread.length - 1 && !part}
+                            value={part}
+                            onChange={(event) =>
+                              setThread(thread.map((other, at) => (at === index ? event.target.value : other)))
+                            }
+                          />
+                        </li>
+                      );
+                    })}
+                  </ol>
                 )}
-                {commentNetworks.length > 0 && (
-                  <label className="grid gap-1">
-                    <span className="font-bold">First comment</span>
-                    <span className="text-sm text-muted">
-                      Posted under it right away on{" "}
-                      {commentNetworks.map((provider) => NETWORKS[provider].label).join(", ")}: hashtags, a link, a call
-                      to action.
+                {thread.length > 0 && threadNetworks.length === 0 && providers.size > 0 && (
+                  <p className="text-xs text-muted">
+                    None of these networks takes threads: they get the first post alone.
+                  </p>
+                )}
+
+                <MediaTray
+                  media={media}
+                  setMedia={setMedia}
+                  patch={uploads.patch}
+                  setError={setUploadError}
+                  altText={[...providers].some((provider) => NETWORKS[provider].altText) || providers.size === 0}
+                  thumbnail={providers.has("youtube") ? cover : null}
+                  onThumbnail={(frame) => void makeThumbnail(frame)}
+                />
+                {uploadError && <p className="text-sm font-bold text-hot">{uploadError}</p>}
+
+                <div className="flex flex-wrap items-center gap-2 rounded-xl bg-sunk px-3 py-1.5">
+                  <Icon name="link" className="size-4 text-muted" />
+                  <input
+                    className="min-h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-faint"
+                    type="url"
+                    placeholder="Add a link (optional)"
+                    aria-label="Link"
+                    value={link}
+                    onChange={(event) => setLink(event.target.value)}
+                  />
+                  {link.trim() && (
+                    <label
+                      className="flex items-center gap-1.5 text-xs font-bold"
+                      title="Each network gets its own short link with UTM tags, and the post page counts the clicks."
+                    >
+                      <input
+                        type="checkbox"
+                        checked={trackLinks}
+                        onChange={(event) => setTrackLinks(event.target.checked)}
+                      />
+                      Track clicks
+                    </label>
+                  )}
+                </div>
+
+                {commenting && (
+                  <label className="grid gap-1 rounded-xl bg-sunk p-3">
+                    <span className="flex items-center justify-between gap-2 text-sm font-bold">
+                      <span className="flex items-center gap-1.5">
+                        <Icon name="chat" className="size-4" /> First comment
+                      </span>
+                      <button
+                        type="button"
+                        className="text-xs text-muted underline"
+                        onClick={() => {
+                          setFirstComment("");
+                          setCommenting(false);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </span>
+                    <span className="text-xs text-muted">
+                      {commentNetworks.length
+                        ? `Posted under it straight away on ${commentNetworks.map((provider) => NETWORKS[provider].label).join(", ")}. Good for hashtags, a link or a call to action.`
+                        : "None of these networks takes a first comment."}
                     </span>
                     <textarea
-                      className="input min-h-20"
+                      className="min-h-12 w-full resize-none bg-transparent leading-relaxed outline-none placeholder:text-faint [field-sizing:content]"
                       value={firstComment}
+                      autoFocus={!firstComment}
+                      placeholder="#buildinpublic, or where to find it"
                       onChange={(event) => setFirstComment(event.target.value)}
                       maxLength={2000}
                       aria-label="First comment"
                     />
                   </label>
                 )}
-              </div>
-            )}
 
-            {/* 4. Pictures, a video or a PDF */}
-            <div id="section-media" className="scroll-mt-24">
-              <MediaPicker
-                media={media}
-                setMedia={setMedia}
-                error={uploadError}
-                setError={setUploadError}
-                altText={[...providers].some((provider) => NETWORKS[provider].altText) || providers.size === 0}
-                documents={providers.has("linkedin")}
-                thumbnail={providers.has("youtube") ? cover : null}
-                onThumbnail={(frame) => void makeThumbnail(frame)}
-              />
-            </div>
-
-            {/* 5. What only some networks ask */}
-            {(providers.has("youtube") ||
-              providers.has("tiktok") ||
-              providers.has("instagram") ||
-              (providers.has("linkedin") && shape.documents)) && (
-              <div className="panel grid scroll-mt-24 gap-5" id="section-network-details">
-                <h2 className="font-display text-[1.6rem] leading-none font-extrabold">Network details</h2>
-                {providers.has("youtube") && <YouTubeFields value={youtube} onChange={setYouTube} />}
-                {providers.has("tiktok") && (
-                  <TikTokFields
-                    value={tiktokOptions}
-                    onChange={setTikTok}
-                    accounts={picked.filter((account) => account.provider === "tiktok")}
-                    info={tiktok}
-                  />
+                {hashtags.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs font-bold text-muted">Tap to add:</span>
+                    {hashtags.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className="rounded-full bg-slop-tint px-2 py-0.5 text-sm font-bold"
+                        onClick={() => insert(tag)}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
                 )}
-                {providers.has("instagram") && (
-                  <fieldset className="grid gap-2">
-                    <legend className="flex items-center gap-2 font-bold">
-                      <NetworkBadge provider="instagram" size="sm" /> Instagram
-                    </legend>
-                    <Segmented
-                      name="instagram-format"
-                      value={instagramFormat}
-                      onChange={setInstagramFormat}
-                      options={[
-                        { value: "feed", label: video ? "Reel" : "Feed post" },
-                        { value: "story", label: "Story" },
-                      ]}
-                    />
-                    {instagramFormat === "feed" && (
+                {assistError && <p className="text-sm text-hot">{assistError}</p>}
+              </div>
+            ) : (
+              <div className="grid gap-3 p-4 sm:p-5" id="section-post">
+                {tabAccounts.length > 1 && (
+                  <div
+                    className="flex flex-wrap gap-1.5"
+                    role="group"
+                    aria-label={`Which ${NETWORKS[activeTab].label} accounts`}
+                  >
+                    {[null, ...tabAccounts.map((account) => account.id)].map((id) => {
+                      const account = tabAccounts.find((item) => item.id === id);
+                      const on = (editingAccount?.id ?? null) === id;
+                      return (
+                        <button
+                          key={id ?? "network"}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => {
+                            setTabAccount(id);
+                            if (id) setPreviewAccountId(id);
+                          }}
+                          className={`flex min-h-8 items-center gap-1.5 rounded-full px-3 text-[0.8125rem] font-bold ${
+                            on ? "bg-ink text-ground" : "bg-sunk"
+                          }`}
+                        >
+                          {account ? (
+                            <>
+                              {account.displayName || account.handle}
+                              {overrides[account.id]?.trim() && <span className="size-1.5 rounded-full bg-slop" />}
+                            </>
+                          ) : (
+                            `Every ${NETWORKS[activeTab].label} account`
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <textarea
+                  id="studio-words"
+                  className="min-h-36 w-full resize-none bg-transparent text-[1.1875rem] leading-relaxed outline-none placeholder:text-faint [field-sizing:content]"
+                  aria-label={`Words for ${targetLabel}`}
+                  placeholder={text.trim() ? text : `What ${targetLabel} should say`}
+                  value={overrides[editingOverrideTarget!] ?? ""}
+                  maxLength={
+                    editingAccount
+                      ? textLimitFor(activeTab, editingAccount)
+                      : (limits[activeTab] ?? NETWORKS[activeTab].textLimit)
+                  }
+                  onChange={(event) => setOverrides({ ...overrides, [editingOverrideTarget!]: event.target.value })}
+                />
+                <p className="text-xs text-muted">
+                  {overrides[editingOverrideTarget!]?.trim()
+                    ? `${targetLabel} says this instead of what’s written for everywhere.`
+                    : `Empty means ${targetLabel} posts what’s written for everywhere (shown faintly). Type to say it differently here.`}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {!overrides[editingOverrideTarget!]?.trim() && text.trim() && (
+                    <button
+                      type="button"
+                      className="min-h-8 rounded-full bg-sunk px-3 text-[0.8125rem] font-bold hover:bg-line"
+                      onClick={() => setOverrides({ ...overrides, [editingOverrideTarget!]: text })}
+                    >
+                      Start from everywhere’s words
+                    </button>
+                  )}
+                  {canAssist && (
+                    <button
+                      type="button"
+                      className="flex min-h-8 items-center gap-1.5 rounded-full bg-sunk px-3 text-[0.8125rem] font-bold hover:bg-line disabled:opacity-50"
+                      disabled={assisting !== null || !text.trim()}
+                      onClick={() => void runAssist("adapt")}
+                    >
+                      <Icon name="spark" className="size-3.5" />
+                      {assisting === "adapt" ? "Writing…" : `Write it for ${targetLabel}`}
+                    </button>
+                  )}
+                </div>
+                {assistError && <p className="text-sm text-hot">{assistError}</p>}
+                <VariantFields
+                  target={editingOverrideTarget!}
+                  label={targetLabel}
+                  variant={variants[editingOverrideTarget!]}
+                  sharedLink={link}
+                  sharedComment={firstComment}
+                  comments={NETWORKS[activeTab].firstComment}
+                  media={media}
+                  onChange={(change) => setVariant(editingOverrideTarget!, change)}
+                  onReset={() => {
+                    setVariant(editingOverrideTarget!, null);
+                    setOverrides({ ...overrides, [editingOverrideTarget!]: undefined });
+                  }}
+                />
+                {(activeTab === "youtube" ||
+                  activeTab === "tiktok" ||
+                  activeTab === "instagram" ||
+                  (activeTab === "linkedin" && !!shape.documents)) && (
+                  <div className="grid gap-4 rounded-2xl bg-sunk p-4" id="studio-network-options">
+                    {activeTab === "youtube" && <YouTubeFields value={youtube} onChange={setYouTube} />}
+                    {activeTab === "tiktok" && (
+                      <TikTokFields
+                        value={tiktokOptions}
+                        onChange={setTikTok}
+                        accounts={picked.filter((account) => account.provider === "tiktok")}
+                        info={tiktok}
+                      />
+                    )}
+                    {activeTab === "instagram" && (
+                      <fieldset className="grid gap-2">
+                        <legend className="font-bold">Post it as</legend>
+                        <Segmented
+                          name="instagram-format"
+                          value={instagramFormat}
+                          onChange={setInstagramFormat}
+                          options={[
+                            { value: "feed", label: video ? "Reel" : "Feed post" },
+                            { value: "story", label: "Story" },
+                          ]}
+                        />
+                        {instagramFormat === "feed" && (
+                          <label className="grid gap-1 text-sm font-bold">
+                            Collaborators (up to 3)
+                            <input
+                              className="input font-normal"
+                              placeholder="tiltmaze.app, slopperday"
+                              value={collaborators}
+                              onChange={(event) => setCollaborators(event.target.value)}
+                            />
+                          </label>
+                        )}
+                      </fieldset>
+                    )}
+                    {activeTab === "linkedin" && !!shape.documents && (
                       <label className="grid gap-1 text-sm font-bold">
-                        Collaborators (up to 3)
+                        Document title on LinkedIn
                         <input
                           className="input font-normal"
-                          placeholder="tiltmaze.app, slopperday"
-                          value={collaborators}
-                          onChange={(event) => setCollaborators(event.target.value)}
+                          maxLength={200}
+                          value={documentTitle}
+                          onChange={(event) => setDocumentTitle(event.target.value)}
                         />
                       </label>
-                    )}
-                  </fieldset>
-                )}
-                {providers.has("linkedin") && shape.documents ? (
-                  <label className="grid gap-1 text-sm font-bold">
-                    <span className="flex items-center gap-2">
-                      <NetworkBadge provider="linkedin" size="sm" /> Document title on LinkedIn
-                    </span>
-                    <input
-                      className="input font-normal"
-                      maxLength={200}
-                      value={documentTitle}
-                      onChange={(event) => setDocumentTitle(event.target.value)}
-                    />
-                  </label>
-                ) : null}
-              </div>
-            )}
-
-            {/* 6. Extras: tags, notes, repeating, the auto-plug */}
-            <details className="panel" open={extras} onToggle={(event) => setExtras(event.currentTarget.open)}>
-              <summary className="cursor-pointer font-display text-[1.6rem] leading-none font-extrabold">
-                More options
-              </summary>
-              <div className="mt-4 grid gap-4">
-                <label className="grid gap-1 text-sm font-bold">
-                  Tags
-                  <input
-                    className="input font-normal"
-                    placeholder="launch, tiltmaze"
-                    value={tags}
-                    onChange={(event) => setTags(event.target.value)}
-                  />
-                  <span className="font-normal text-muted">
-                    For the calendar’s filters and the analytics. The first one names the UTM campaign.
-                  </span>
-                </label>
-                <label className="grid gap-1 text-sm font-bold">
-                  Note to self
-                  <textarea
-                    className="input min-h-16 font-normal"
-                    placeholder="Only you see this."
-                    value={note}
-                    onChange={(event) => setNote(event.target.value)}
-                    maxLength={2000}
-                  />
-                </label>
-                {picked.length > 1 && (
-                  <label className="grid gap-1 text-sm font-bold">
-                    Space the accounts out
-                    <select
-                      className="input font-normal"
-                      value={stagger}
-                      onChange={(event) => setStagger(Number(event.target.value))}
-                    >
-                      {[0, 5, 15, 30, 60, 120].map((minutes) => (
-                        <option key={minutes} value={minutes}>
-                          {minutes === 0 ? "All at once" : `${minutes} minutes apart`}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                {threadNetworks.length > 0 && (
-                  <div className="grid gap-2">
-                    <label className="flex items-center gap-2 text-sm font-bold">
-                      <input type="checkbox" checked={plugOn} onChange={(event) => setPlugOn(event.target.checked)} />
-                      Auto-plug: reply when it takes off
-                    </label>
-                    {plugOn && (
-                      <div className="grid gap-2 sm:grid-cols-[8rem_1fr]">
-                        <label className="grid gap-1 text-xs font-bold">
-                          At likes
-                          <input
-                            type="number"
-                            min={1}
-                            className="input"
-                            value={plugLikes}
-                            onChange={(event) => setPlugLikes(Number(event.target.value))}
-                          />
-                        </label>
-                        <label className="grid gap-1 text-xs font-bold">
-                          Reply with
-                          <input
-                            className="input"
-                            placeholder="If you liked this, Tiltmaze is free on iOS →"
-                            value={plugText}
-                            onChange={(event) => setPlugText(event.target.value)}
-                          />
-                        </label>
-                      </div>
                     )}
                   </div>
                 )}
               </div>
-            </details>
+            )}
 
-            {/* 7. When */}
-            <div className="panel">
-              <Segmented
-                name="when"
-                value={when}
-                onChange={setWhen}
-                options={[
-                  { value: "now", label: "Post now" },
-                  { value: "queue", label: "Add to queue" },
-                  { value: "later", label: "Pick a time" },
-                ]}
+            {/* 4. The tools */}
+            <div
+              className="flex flex-wrap items-center gap-1 border-t border-line px-2 py-2 sm:px-3"
+              id="studio-media-tools"
+              role="toolbar"
+              aria-label="Add to the post"
+            >
+              <input
+                ref={pictureInput}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                multiple
+                hidden
+                onChange={(event) => {
+                  void uploads.addPictures([...(event.target.files ?? [])]);
+                  event.target.value = "";
+                }}
               />
-              {when === "queue" && (
-                <p className="mt-2 text-sm text-muted">
-                  It takes the next free time in your queue.{" "}
-                  <Link to="/studio/settings" className="underline">
-                    Queue times
-                  </Link>
-                </p>
+              <input
+                ref={videoInput}
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm"
+                hidden
+                onChange={(event) => {
+                  void uploads.addVideo(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
+              <input
+                ref={pdfInput}
+                type="file"
+                accept="application/pdf"
+                hidden
+                onChange={(event) => {
+                  void uploads.addDocument(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
+              <ToolButton
+                icon="image"
+                label="Pictures"
+                disabled={!uploads.canAddPictures}
+                onClick={() => pictureInput.current?.click()}
+              />
+              <ToolButton
+                icon="play"
+                label="Video"
+                disabled={!uploads.canAddOne}
+                onClick={() => videoInput.current?.click()}
+              />
+              {providers.has("linkedin") && (
+                <ToolButton
+                  icon="page"
+                  label="PDF"
+                  disabled={!uploads.canAddOne}
+                  onClick={() => pdfInput.current?.click()}
+                />
               )}
-              {when === "later" && picked.length > 1 && (
-                <div className="mt-3">
-                  <Segmented
-                    name="time-mode"
-                    value={timeMode}
-                    onChange={setTimeMode}
-                    options={[
-                      { value: "same", label: "Same time for all" },
-                      { value: "each", label: "Choose per account" },
-                    ]}
-                  />
-                </div>
+              <ToolButton
+                icon="thread"
+                label="Add to thread"
+                onClick={() => {
+                  setTab("all");
+                  setThread([...thread, ""]);
+                }}
+              />
+              {!commenting && (
+                <ToolButton
+                  icon="chat"
+                  label="First comment"
+                  onClick={() => {
+                    setTab("all");
+                    setCommenting(true);
+                  }}
+                />
               )}
-              {when === "later" && timeMode === "each" && picked.length > 1 && (
-                <ul className="mt-3 grid gap-2" aria-label="Time for each account">
+              {snippets.some((snippet) => snippet.kind !== "reply") && (
+                <Menu icon="hash" label="Snippets">
+                  {snippets
+                    .filter((snippet) => snippet.kind !== "reply")
+                    .map((snippet) => (
+                      <MenuItem
+                        key={snippet.id}
+                        onClick={() => {
+                          setTab("all");
+                          if (snippet.kind === "template") setText(snippet.text);
+                          else insert(snippet.text);
+                        }}
+                      >
+                        <span className="font-bold">{snippet.name}</span>
+                        <span className="block truncate text-xs text-muted">{snippet.text}</span>
+                      </MenuItem>
+                    ))}
+                  <p className="border-t border-line px-3 pt-2 pb-1 text-xs text-muted">
+                    Variables:{" "}
+                    {Object.keys(VARIABLES)
+                      .map((name) => `{${name}}`)
+                      .join(" ")}
+                    . Spintax: {"{Hi|Hello}"} gives each account one.{" "}
+                    <Link to="/studio/settings" className="underline">
+                      Manage
+                    </Link>
+                  </p>
+                </Menu>
+              )}
+              {canAssist && (
+                <Menu
+                  icon="spark"
+                  label={assisting ? "Writing…" : "Assist"}
+                  disabled={!text.trim() || assisting !== null}
+                >
+                  {(["shorten", "expand", "rephrase", "punchier", "hashtags", "thread"] as const).map((name) => (
+                    <MenuItem key={name} onClick={() => void runAssist(name)}>
+                      {ASSIST_ACTIONS[name]}
+                    </MenuItem>
+                  ))}
+                  {brand && (
+                    <p className="border-t border-line px-3 pt-2 pb-1 text-xs text-muted">In {brand}’s voice.</p>
+                  )}
+                </Menu>
+              )}
+              {threadNetworks.length > 0 && text.trim() && (
+                <ToolButton icon="sync" label="Split to fit" onClick={autoSplit} />
+              )}
+              <div className="ml-auto">
+                <Counters providers={providers} text={text} link={link} overrides={overrides} limits={limits} />
+              </div>
+            </div>
+          </div>
+
+          {/* 5. When, and send. */}
+          {when === "later" && (
+            <div className="grid gap-3 rounded-2xl bg-sunk p-4">
+              {picked.length > 1 && (
+                <Segmented
+                  name="time-mode"
+                  value={timeMode}
+                  onChange={setTimeMode}
+                  options={[
+                    { value: "same", label: "Same time for all" },
+                    { value: "each", label: "Choose per account" },
+                  ]}
+                />
+              )}
+              {timeMode === "each" && picked.length > 1 ? (
+                <ul className="grid gap-2" aria-label="Time for each account">
                   {picked.map((account) => (
                     <li key={account.id} className="flex flex-wrap items-center gap-2 text-sm">
                       <AccountAvatar account={account} size={26} />
@@ -1670,7 +1999,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                         <button
                           key={`${slot.day}-${slot.minute}`}
                           type="button"
-                          className="rounded-full border border-line px-2 py-0.5 text-xs font-bold hover:border-ink"
+                          className="rounded-full bg-ground px-2 py-0.5 text-xs font-bold hover:bg-line"
                           title={
                             slot.reason === "yours"
                               ? "From this account's own results: an estimate."
@@ -1678,227 +2007,353 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                           }
                           onClick={() => setTimes({ ...times, [account.id]: localInput(slot.at, timeZone) })}
                         >
-                          {DAYS[slot.day]} {String(Math.floor(slot.minute / 60)).padStart(2, "0")}:
-                          {String(slot.minute % 60).padStart(2, "0")}
+                          {DAYS[slot.day]} {hhmm(slot.minute)}
                         </button>
                       ))}
                     </li>
                   ))}
                 </ul>
-              )}
-              {when !== "now" && (
-                <p className="mt-2 text-xs text-muted">
-                  Times are in your time zone, {timeZone}.{" "}
-                  <Link to="/settings" className="underline">
-                    Change it
-                  </Link>
-                </p>
-              )}
-              {when === "later" && (timeMode === "same" || picked.length <= 1) && (
-                <div className="mt-3 grid gap-2">
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="datetime-local"
-                    className="input w-auto justify-self-start"
+                    className="input w-auto"
                     aria-label="When it goes out"
                     value={scheduledAt}
                     onChange={(event) => setScheduledAt(event.target.value)}
                   />
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="font-bold">
-                      {best[0]?.reason === "yours" ? "Your best times (estimates):" : "Typical good times (estimates):"}
-                    </span>
-                    {best.map((slot) => (
-                      <button
-                        key={`${slot.day}-${slot.minute}`}
-                        type="button"
-                        className="rounded-full border border-line px-2.5 py-0.5 font-bold hover:border-ink"
-                        onClick={() => setScheduledAt(localInput(slot.at, timeZone))}
-                      >
-                        {DAYS[slot.day]} {String(Math.floor(slot.minute / 60)).padStart(2, "0")}:
-                        {String(slot.minute % 60).padStart(2, "0")}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {when !== "now" && (
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-                  <label className="flex items-center gap-2 font-bold">
-                    Repeat
-                    <select
-                      className="input min-h-9 py-1 font-normal"
-                      value={repeatDays}
-                      onChange={(event) => setRepeatDays(Number(event.target.value))}
+                  <span className="text-sm font-bold text-muted">
+                    {best[0]?.reason === "yours" ? "Your best times:" : "Good times:"}
+                  </span>
+                  {best.map((slot) => (
+                    <button
+                      key={`${slot.day}-${slot.minute}`}
+                      type="button"
+                      className="rounded-full bg-ground px-2.5 py-1 text-sm font-bold hover:bg-line"
+                      title="An estimate"
+                      onClick={() => setScheduledAt(localInput(slot.at, timeZone))}
                     >
-                      {REPEATS.map((option) => (
-                        <option key={option.days} value={option.days}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {repeatDays > 0 && (
-                    <label className="flex items-center gap-2 font-bold">
-                      times
-                      <input
-                        type="number"
-                        min={1}
-                        max={52}
-                        className="input min-h-9 w-20 py-1"
-                        value={repeatTimes}
-                        onChange={(event) => setRepeatTimes(Number(event.target.value))}
-                      />
-                    </label>
-                  )}
-                </div>
-              )}
-              {checklist.length > 0 && (
-                <div className="mt-4">
-                  <h3 className="text-sm font-bold">Checklist</h3>
-                  <ul className="mt-2 grid gap-1.5" aria-label="Checklist">
-                    {checklist.map(({ account, issues, label }) => {
-                      const firstFix = issues.find((issue) => issue.level !== "info");
-                      return (
-                        <li key={account.id} className="flex flex-wrap items-center gap-2 text-sm">
-                          <NetworkBadge provider={account.provider} size="sm" />
-                          <span className="font-bold">{account.handle}</span>
-                          <span
-                            className={
-                              label.tone === "ready"
-                                ? "font-bold text-slop-text"
-                                : label.tone === "block"
-                                  ? "text-hot"
-                                  : "text-ink"
-                            }
-                          >
-                            · {label.text}
-                          </span>
-                          {firstFix && (
-                            <button
-                              type="button"
-                              className="text-xs font-bold underline"
-                              onClick={() => fix(account, firstFix)}
-                            >
-                              Fix
-                            </button>
-                          )}
-                          {issues
-                            .filter((issue) => issue.level === "info")
-                            .map((issue) => (
-                              <span key={issue.message} className="basis-full pl-7 text-xs text-muted">
-                                {issue.message}
-                              </span>
-                            ))}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
-              {(problems.length > 0 || actionData?.error || !canPost) && (
-                <ul className="mt-4 grid gap-1 text-sm text-hot" role="status">
-                  {!canPost && <li>Posting needs the content check, and it isn’t set up on this server.</li>}
-                  {actionData?.error && <li>{actionData.error}</li>}
-                  {problems.map((problem) => (
-                    <li key={problem}>{problem}</li>
+                      {DAYS[slot.day]} {hhmm(slot.minute)}
+                    </button>
                   ))}
-                </ul>
+                </div>
               )}
-              <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <label className="flex items-center gap-2 font-bold">
+                  Repeat
+                  <select
+                    className="input min-h-9 py-1 font-normal"
+                    value={repeatDays}
+                    onChange={(event) => setRepeatDays(Number(event.target.value))}
+                  >
+                    {REPEATS.map((option) => (
+                      <option key={option.days} value={option.days}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {repeatDays > 0 && (
+                  <label className="flex items-center gap-2 font-bold">
+                    times
+                    <input
+                      type="number"
+                      min={1}
+                      max={52}
+                      className="input min-h-9 w-20 py-1"
+                      value={repeatTimes}
+                      onChange={(event) => setRepeatTimes(Number(event.target.value))}
+                    />
+                  </label>
+                )}
+                <span className="text-xs text-muted">
+                  Times are in {timeZone}.{" "}
+                  <Link to="/settings" className="underline">
+                    Change
+                  </Link>
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="sticky bottom-3 z-20 grid gap-3 rounded-2xl bg-ink p-3 text-ground shadow-lg sm:p-4 lg:static lg:shadow-none">
+            {(problems.length > 0 || actionData?.error || !canPost) && picked.length > 0 && (
+              <ul className="grid gap-0.5 text-sm text-ground/80" role="status">
+                {!canPost && <li>Posting needs the content check, and it isn’t set up on this server.</li>}
+                {actionData && "error" in actionData && actionData.error && (
+                  <li className="font-bold text-hot">{actionData.error}</li>
+                )}
+                {problems.map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+            )}
+            <p className="text-sm text-ground/75 max-sm:hidden">
+              {when === "queue"
+                ? nextQueueAt
+                  ? `Next free time: ${clock(nextQueueAt)}.`
+                  : "Your queue is full for four weeks."
+                : when === "later"
+                  ? scheduledAt
+                    ? `Goes out ${clock(wallTime(scheduledAt, timeZone) ?? previewTime)}.`
+                    : "Pick a time above."
+                  : picked.length === 0
+                    ? "Pick who it’s from, or save it as an idea."
+                    : blocked.length
+                      ? `${blocked.length} account${blocked.length === 1 ? " needs" : "s need"} something first.`
+                      : "Checked before anything goes out."}
+              {when === "queue" && (
+                <>
+                  {" "}
+                  <Link to="/studio/settings" className="underline">
+                    Queue times
+                  </Link>
+                </>
+              )}
+            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="inline-flex rounded-xl bg-ground/10 p-1" role="radiogroup" aria-label="When">
+                {(
+                  [
+                    { value: "now", label: "Now" },
+                    { value: "queue", label: "Queue" },
+                    { value: "later", label: "Pick a time" },
+                  ] as const
+                ).map((option) => (
+                  <label key={option.value} className="cursor-pointer">
+                    <input
+                      type="radio"
+                      name="ui-when"
+                      value={option.value}
+                      checked={when === option.value}
+                      onChange={() => setWhen(option.value)}
+                      className="peer sr-only"
+                    />
+                    <span className="flex min-h-9 items-center rounded-lg px-3 text-sm font-bold text-ground/70 peer-checked:bg-ground peer-checked:text-ink peer-focus-visible:outline-2 peer-focus-visible:outline-(--focus)">
+                      {option.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
                 <button
+                  type="submit"
+                  name="submit"
+                  value="draft"
+                  className="btn btn-sm bg-ground/10 text-ground hover:bg-ground/20"
+                  disabled={!canDraft || sending}
+                >
+                  {picked.length === 0 ? "Save as an idea" : "Save draft"}
+                </button>
+                <button
+                  ref={submitButton}
                   type="submit"
                   name="submit"
                   value={when === "now" ? "now" : when === "queue" ? "queue" : "schedule"}
                   className="btn btn-slop"
                   disabled={!ready || sending}
+                  title="⌘ Enter"
                 >
-                  {sending
-                    ? "Checking…"
-                    : when === "later"
-                      ? `Schedule for ${picked.length} account${picked.length === 1 ? "" : "s"}`
-                      : when === "queue"
-                        ? `Queue for ${picked.length} account${picked.length === 1 ? "" : "s"}`
-                        : `Post to ${picked.length} account${picked.length === 1 ? "" : "s"}`}
+                  <Icon name={when === "now" ? "send" : "calendar"} className="size-4" />
+                  {sending ? "Checking…" : picked.length === 0 ? "Pick accounts" : `${verb} ${count}`}
                 </button>
-                <button
-                  type="submit"
-                  name="submit"
-                  value="draft"
-                  className="btn btn-ink"
-                  disabled={!canDraft || sending}
-                >
-                  {picked.length === 0 ? "Save as an idea" : "Save draft"}
-                </button>
-                <p className="text-sm text-muted">
-                  {picked.length === 0
-                    ? "Pick accounts above, or save it as an idea for later."
-                    : `${providers.size} network${providers.size === 1 ? "" : "s"}. Checked before anything goes out.`}
-                </p>
               </div>
             </div>
           </div>
-
-          {/* Pick one account at a time so every preview has room to read. */}
-          <aside className="min-w-0 lg:sticky lg:top-20" aria-label="Previews">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="font-display text-[1.6rem] leading-none font-extrabold">Preview</h2>
-              <span className="text-xs text-muted">Approximate · layouts can change</span>
-            </div>
-            {previews.length === 0 ? (
-              <p className="mt-4 rounded-2xl border border-dashed border-line p-6 text-center text-muted">
-                Pick accounts to see how the post looks on each network.
-              </p>
-            ) : (
-              <>
-                <div
-                  className="mt-4 flex gap-2 overflow-x-auto pb-2"
-                  role="group"
-                  aria-label="Choose account to preview"
-                >
-                  {previews.map(({ account }) => (
-                    <button
-                      type="button"
-                      key={account.id}
-                      onClick={() => setPreviewAccountId(account.id)}
-                      aria-pressed={activePreview?.account.id === account.id}
-                      aria-label={`${NETWORKS[account.provider].label}: ${account.handle}`}
-                      className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-bold ${activePreview?.account.id === account.id ? "border-ink bg-ink text-ground" : "border-line bg-ground text-ink hover:bg-raised"}`}
-                    >
-                      <NetworkBadge provider={account.provider} size="sm" />
-                      <span>{account.handle}</span>
-                    </button>
-                  ))}
+          {/* 6. The rarely needed */}
+          <details
+            className="rounded-2xl bg-sunk px-4 py-3"
+            open={extras}
+            onToggle={(event) => setExtras(event.currentTarget.open)}
+          >
+            <summary className="cursor-pointer text-sm font-bold">More options</summary>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm font-bold">
+                Tags
+                <input
+                  className="input font-normal"
+                  placeholder="launch, tiltmaze"
+                  value={tags}
+                  onChange={(event) => setTags(event.target.value)}
+                />
+                <span className="font-normal text-muted">
+                  For filters and analytics. The first names the UTM campaign.
+                </span>
+              </label>
+              <label className="grid gap-1 text-sm font-bold">
+                Note to self
+                <textarea
+                  className="input min-h-16 font-normal"
+                  placeholder="Only you see this."
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  maxLength={2000}
+                />
+              </label>
+              {picked.length > 1 && (
+                <label className="grid gap-1 text-sm font-bold">
+                  Space the accounts out
+                  <select
+                    className="input font-normal"
+                    value={stagger}
+                    onChange={(event) => setStagger(Number(event.target.value))}
+                  >
+                    {[0, 5, 15, 30, 60, 120].map((minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {minutes === 0 ? "All at once" : `${minutes} minutes apart`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {threadNetworks.length > 0 && (
+                <div className="grid content-start gap-2">
+                  <label className="flex items-center gap-2 text-sm font-bold">
+                    <input type="checkbox" checked={plugOn} onChange={(event) => setPlugOn(event.target.checked)} />
+                    Auto-plug: reply when it takes off
+                  </label>
+                  {plugOn && (
+                    <div className="grid gap-2 sm:grid-cols-[6rem_1fr]">
+                      <label className="grid gap-1 text-xs font-bold">
+                        At likes
+                        <input
+                          type="number"
+                          min={1}
+                          className="input"
+                          value={plugLikes}
+                          onChange={(event) => setPlugLikes(Number(event.target.value))}
+                        />
+                      </label>
+                      <label className="grid gap-1 text-xs font-bold">
+                        Reply with
+                        <input
+                          className="input"
+                          placeholder="If you liked this, Tiltmaze is free on iOS →"
+                          value={plugText}
+                          onChange={(event) => setPlugText(event.target.value)}
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
-                {activePreview && (
-                  <div className="mx-auto mt-2 w-full max-w-[460px]">
-                    <PostPreview
-                      key={activePreview.account.id}
-                      account={activePreview.account}
-                      text={activePreview.fitted}
-                      title={
-                        activePreview.account.provider === "youtube" ? youtube.title || "Untitled video" : undefined
-                      }
-                      media={activePreview.media}
-                      over={activePreview.over}
-                      instagramFormat={instagramFormat}
-                      replies={activePreview.replies}
-                      firstComment={activePreview.firstComment}
-                    />
-                  </div>
-                )}
-              </>
-            )}
-            {thread.length > 0 && threadNetworks.length > 0 && (
-              <p className="mt-3 text-sm text-muted">
-                + {thread.length} more post{thread.length === 1 ? "" : "s"} in the thread
-              </p>
-            )}
-          </aside>
-        </Form>
-      )}
+              )}
+            </div>
+          </details>
+        </div>
+
+        {/* Where it's going and how it looks there. */}
+        <aside className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 lg:sticky lg:top-20" aria-label="Previews">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="font-display text-[1.6rem] leading-none font-extrabold">Preview</h2>
+            <span className="text-xs text-muted">Close to how each network shows it</span>
+          </div>
+          {previews.length === 0 ? (
+            <div className="grid place-items-center gap-2 rounded-3xl bg-sunk p-8 text-center text-muted">
+              <Icon name="eye" className="size-8" />
+              <p>Choose who it’s from, and you’ll see it here as each network shows it.</p>
+            </div>
+          ) : (
+            <>
+              <ul className="grid gap-1 rounded-2xl bg-sunk p-1.5" aria-label="Checklist">
+                {checklist.map(({ account, issues, label }) => {
+                  const firstFix = issues.find((issue) => issue.level !== "info");
+                  const on = activePreview?.account.id === account.id;
+                  return (
+                    <li
+                      key={account.id}
+                      className={`grid gap-0.5 rounded-xl px-2 py-1.5 text-sm ${on ? "bg-raised" : ""}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                          aria-pressed={on}
+                          aria-label={`${NETWORKS[account.provider].label}: ${account.handle}`}
+                          onClick={() => setPreviewAccountId(account.id)}
+                        >
+                          <AccountAvatar account={account} size={26} />
+                          <span className="min-w-0 truncate font-bold">{account.handle}</span>
+                        </button>
+                        <span
+                          className={`flex shrink-0 items-center gap-1 text-xs font-bold ${
+                            label.tone === "ready"
+                              ? empty
+                                ? "text-muted"
+                                : "text-slop-text"
+                              : label.tone === "block"
+                                ? "text-hot"
+                                : "text-ink"
+                          }`}
+                        >
+                          {label.tone === "ready" && !empty ? <Icon name="check" className="size-3.5" /> : null}
+                          {label.tone === "ready"
+                            ? empty
+                              ? "Waiting for words"
+                              : "Ready"
+                            : label.tone === "block"
+                              ? "Needs a fix"
+                              : "Check"}
+                        </span>
+                      </div>
+                      {label.tone !== "ready" && (
+                        <p className="flex flex-wrap items-center gap-x-2 pl-8 text-xs">
+                          <span className={label.tone === "block" ? "text-hot" : "text-muted"}>{label.text}</span>
+                          {firstFix && firstFix.field !== "link" && (
+                            <button
+                              type="button"
+                              className="font-bold underline"
+                              onClick={() => fix(account, firstFix)}
+                            >
+                              {firstFix.field === "account" ? "Reconnect" : "Fix"}
+                            </button>
+                          )}
+                          {label.tone === "block" && (
+                            <button
+                              type="button"
+                              className="font-bold text-muted underline"
+                              onClick={() => toggle(account.id)}
+                            >
+                              Leave it out
+                            </button>
+                          )}
+                        </p>
+                      )}
+                      {issues
+                        .filter((issue) => issue.level === "info")
+                        .map((issue) => (
+                          <span key={issue.message} className="pl-8 text-xs text-muted">
+                            {issue.message}
+                          </span>
+                        ))}
+                    </li>
+                  );
+                })}
+              </ul>
+              {activePreview && (
+                <div className="mx-auto w-full max-w-[460px]">
+                  <PostPreview
+                    key={activePreview.account.id}
+                    account={activePreview.account}
+                    text={activePreview.fitted}
+                    title={activePreview.account.provider === "youtube" ? youtube.title || "Untitled video" : undefined}
+                    media={activePreview.media}
+                    over={activePreview.over}
+                    instagramFormat={instagramFormat}
+                    replies={activePreview.replies}
+                    firstComment={activePreview.firstComment}
+                  />
+                </div>
+              )}
+            </>
+          )}
+          <p className="text-xs text-muted">
+            Tip: drop or paste pictures into the post, and press <kbd className="font-bold">⌘ Enter</kbd> to send.
+          </p>
+        </aside>
+      </Form>
 
       <div className="mt-16 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="title-2">Posts</h2>
+        <h2 className="title-2">Your posts</h2>
         <nav className="inline-flex rounded-xl bg-sunk p-1" aria-label="Show">
           {(["all", "drafts", "scheduled", "failed"] as const).map((name) => (
             <Link
@@ -1913,9 +2368,13 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
         </nav>
       </div>
       {listed.length === 0 ? (
-        <p className="mt-4 text-muted">Nothing here yet.</p>
+        <p className="mt-4 rounded-2xl bg-sunk p-6 text-center text-muted">
+          {filter === "all"
+            ? "Nothing yet. Your first post will show up here, with how it did on each network."
+            : "Nothing here."}
+        </p>
       ) : (
-        <ul className="mt-5 grid gap-3">
+        <ul className="mt-5 grid gap-2">
           {listed.map((post) => {
             const totals = sumMetrics(post.deliveries.map((row) => row.metrics));
             const scheduled = post.scheduledAt !== null && !post.released && !post.cancelled;
@@ -1923,7 +2382,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
               <li key={post.id}>
                 <Link
                   to={`/studio/posts/${post.id}`}
-                  className="panel flex flex-wrap items-center gap-4 p-4 hover:bg-raised"
+                  className="flex flex-wrap items-center gap-4 rounded-2xl bg-sunk p-4 transition hover:bg-line"
                 >
                   {post.media[0]?.url &&
                     (post.media[0].kind === "video" ? (
@@ -1938,7 +2397,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                     ) : null)}
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-2 font-bold">
-                      {post.draft && <span className="mr-2 rounded-full bg-sunk px-2 py-0.5 text-xs">Draft</span>}
+                      {post.draft && <span className="mr-2 rounded-full bg-ground px-2 py-0.5 text-xs">Draft</span>}
                       {post.text || post.options.youtube?.title || "Untitled"}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -1949,7 +2408,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                         </span>
                       ))}
                       {post.tags.map((tag) => (
-                        <span key={tag} className="rounded-full bg-sunk px-2 text-xs font-bold text-muted">
+                        <span key={tag} className="rounded-full bg-ground px-2 text-xs font-bold text-muted">
                           #{tag}
                         </span>
                       ))}
@@ -1975,6 +2434,150 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
         </ul>
       )}
     </section>
+  );
+}
+
+interface QuickSet {
+  key: string;
+  label: string;
+  ids: readonly string[];
+  /** New posts start with it. */
+  starred: boolean;
+  apply: () => void;
+}
+
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id) => b.includes(id));
+}
+
+function hhmm(minute: number): string {
+  return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+}
+
+function ToolButton({
+  icon,
+  label,
+  onClick,
+  disabled = false,
+}: {
+  icon: IconName;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-bold text-muted transition hover:bg-sunk hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <Icon name={icon} className="size-4.5" />
+      <span className="max-sm:sr-only">{label}</span>
+    </button>
+  );
+}
+
+/** A small menu off the toolbar. Picking an item closes it. */
+function Menu({
+  icon,
+  label,
+  disabled = false,
+  children,
+}: {
+  icon: IconName;
+  label: string;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const close = (event: MouseEvent) => {
+      if (ref.current?.open && !ref.current.contains(event.target as Node)) ref.current.open = false;
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, []);
+  return (
+    <details
+      ref={ref}
+      className="relative"
+      onClick={(event) => {
+        if ((event.target as HTMLElement).closest("[data-menu-item]") && ref.current) ref.current.open = false;
+      }}
+    >
+      <summary
+        className={`flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-lg px-2.5 text-sm font-bold text-muted transition hover:bg-sunk hover:text-ink [&::-webkit-details-marker]:hidden ${disabled ? "pointer-events-none opacity-40" : ""}`}
+        aria-disabled={disabled}
+      >
+        <Icon name={icon} className="size-4.5" />
+        <span className="max-sm:sr-only">{label}</span>
+        <Icon name="chevron" className="size-3.5" />
+      </summary>
+      <div className="absolute bottom-full left-0 z-30 mb-2 grid w-72 gap-0.5 rounded-2xl bg-raised p-1.5 shadow-xl ring-1 ring-line">
+        {children}
+      </div>
+    </details>
+  );
+}
+
+function MenuItem({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      data-menu-item
+      className="rounded-xl px-3 py-2 text-left text-sm font-bold hover:bg-sunk"
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** The first visit: what the studio does, and the one step before it can post. */
+function GetStarted() {
+  const networks: SocialProvider[] = [
+    "x",
+    "linkedin",
+    "bluesky",
+    "threads",
+    "instagram",
+    "facebook",
+    "tiktok",
+    "youtube",
+    "mastodon",
+    "reddit",
+  ];
+  return (
+    <div className="mt-8 grid gap-6 rounded-3xl bg-slop-tint p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
+      <div>
+        <h2 className="title-3">Post everywhere from one place</h2>
+        <ol className="mt-4 grid gap-2 text-[1.0625rem]">
+          <li>
+            <strong>1. Connect where you post.</strong> As many accounts and brands as you like.
+          </li>
+          <li>
+            <strong>2. Write it once.</strong> Each network gets a copy that fits, and you can tweak any of them.
+          </li>
+          <li>
+            <strong>3. Send it now, queue it or pick a time.</strong> Next time, your usual accounts are already picked.
+          </li>
+        </ol>
+        <p className="mt-4 text-sm text-muted">
+          Free on every network. X charges for its API, so X posts use your own X developer credits.
+        </p>
+        <Link to="/settings/autopost" className="btn btn-ink mt-5">
+          <Icon name="plus" className="size-4" /> Connect your first account
+        </Link>
+      </div>
+      <ul className="grid grid-cols-5 gap-3" aria-label="Networks you can post to">
+        {networks.map((provider) => (
+          <li key={provider} title={NETWORKS[provider].label}>
+            <NetworkBadge provider={provider} />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

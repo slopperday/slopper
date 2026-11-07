@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { measureFor } from "~/lib/compose";
 import { LIMITS } from "~/lib/model";
 import {
@@ -424,38 +423,24 @@ export async function uploadDocument(file: File): Promise<{ id: string; url: str
   return { id: body.id, url: body.url };
 }
 
-export function MediaPicker({
-  media,
-  setMedia,
-  error,
-  setError,
-  altText,
-  documents,
-  thumbnail,
-  onThumbnail,
-}: {
-  media: Attachment[];
-  setMedia: React.Dispatch<React.SetStateAction<Attachment[]>>;
-  error: string | null;
-  setError: (error: string | null) => void;
-  /** Some picked network shows alt text. */
-  altText: boolean;
-  /** LinkedIn is picked, so a PDF can go. */
-  documents: boolean;
-  /** YouTube is picked: a custom thumbnail can be made from the cover frame. */
-  thumbnail: { id: string | null; busy: boolean } | null;
-  onThumbnail: (frame: Blob) => void;
-}) {
-  const pictures = useRef<HTMLInputElement>(null);
-  const videos = useRef<HTMLInputElement>(null);
-  const pdfs = useRef<HTMLInputElement>(null);
-  const hasVideo = media.some((item) => item.kind === "video");
+/** Adds pictures, a video or a PDF to the post, uploading each as it's added. */
+export function useMediaUploads(
+  media: readonly Attachment[],
+  setMedia: React.Dispatch<React.SetStateAction<Attachment[]>>,
+  setError: (error: string | null) => void,
+) {
   const patch = (key: string, next: Partial<Attachment>) =>
     setMedia((list) => list.map((item) => (item.key === key ? { ...item, ...next } : item)));
+  const hasVideo = media.some((item) => item.kind === "video");
+  const hasDocument = media.some((item) => item.kind === "document");
 
-  async function addPictures(files: FileList | null) {
+  async function addPictures(files: readonly File[]) {
     setError(null);
-    for (const file of Array.from(files ?? []).slice(0, 10 - media.length)) {
+    if (hasVideo || hasDocument) {
+      setError("A post takes pictures, one video or one PDF: remove what's there first.");
+      return;
+    }
+    for (const file of files.slice(0, 10 - media.length)) {
       const key = crypto.randomUUID();
       setMedia((list) => [
         ...list,
@@ -474,6 +459,10 @@ export function MediaPicker({
   async function addVideo(file: File | undefined) {
     if (!file) return;
     setError(null);
+    if (media.length > 0) {
+      setError("A video goes on its own: remove the other media first.");
+      return;
+    }
     const key = crypto.randomUUID();
     setMedia((list) => [
       ...list,
@@ -496,6 +485,10 @@ export function MediaPicker({
   async function addDocument(file: File | undefined) {
     if (!file) return;
     setError(null);
+    if (media.length > 0) {
+      setError("A PDF goes on its own: remove the other media first.");
+      return;
+    }
     const key = crypto.randomUUID();
     setMedia((list) => [
       ...list,
@@ -509,154 +502,138 @@ export function MediaPicker({
     }
   }
 
+  /** Whatever was dropped or pasted: pictures, else the first video or PDF. */
+  function addFiles(files: readonly File[]) {
+    const pictures = files.filter((file) => file.type.startsWith("image/"));
+    if (pictures.length) return void addPictures(pictures);
+    const video = files.find((file) => file.type.startsWith("video/"));
+    if (video) return void addVideo(video);
+    const pdf = files.find((file) => file.type === "application/pdf");
+    if (pdf) return void addDocument(pdf);
+    setError("Pictures, a video or a PDF only.");
+  }
+
+  return {
+    addPictures,
+    addVideo,
+    addDocument,
+    addFiles,
+    patch,
+    canAddPictures: !hasVideo && !hasDocument && media.length < 10,
+    canAddOne: media.length === 0,
+  };
+}
+
+/** The post's pictures, video or PDF: each with its upload bar, alt text and, for a video, its cover. */
+export function MediaTray({
+  media,
+  setMedia,
+  patch,
+  setError,
+  altText,
+  thumbnail,
+  onThumbnail,
+}: {
+  media: Attachment[];
+  setMedia: React.Dispatch<React.SetStateAction<Attachment[]>>;
+  patch: (key: string, next: Partial<Attachment>) => void;
+  setError: (error: string | null) => void;
+  /** Some picked network shows alt text. */
+  altText: boolean;
+  /** YouTube is picked: a custom thumbnail can be made from the cover frame. */
+  thumbnail: { id: string | null; busy: boolean } | null;
+  onThumbnail: (frame: Blob) => void;
+}) {
+  if (media.length === 0) return null;
   return (
-    <div className="panel">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-[1.6rem] leading-none font-extrabold">Pictures, video or a PDF</h2>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="btn btn-ink btn-sm"
-            disabled={hasVideo || media.length >= 10 || media.some((item) => item.kind === "document")}
-            onClick={() => pictures.current?.click()}
-          >
-            <Icon name="plus" className="size-4" /> Pictures
-          </button>
-          <button
-            type="button"
-            className="btn btn-ink btn-sm"
-            disabled={media.length > 0}
-            onClick={() => videos.current?.click()}
-          >
-            <Icon name="play" className="size-4" /> Video
-          </button>
-          {documents && (
+    <ul className="grid gap-3 sm:grid-cols-2" aria-label="Media">
+      {media.map((item) => (
+        <li key={item.key} className="relative flex gap-3 rounded-2xl bg-raised p-2">
+          <div className="relative size-24 shrink-0 overflow-hidden rounded-xl bg-sunk">
+            {item.kind === "video" ? (
+              <video src={item.url} className="size-full object-cover" muted playsInline preload="metadata" />
+            ) : item.kind === "document" ? (
+              <span className="grid size-full place-items-center p-1 text-center text-xs font-bold">
+                <Icon name="page" className="size-6" />
+                PDF
+              </span>
+            ) : (
+              <img src={item.url} alt={item.alt ?? ""} className="size-full object-cover" />
+            )}
             <button
               type="button"
-              className="btn btn-ink btn-sm"
-              disabled={media.length > 0}
-              onClick={() => pdfs.current?.click()}
+              className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-ink/75 text-ground"
+              aria-label="Remove"
+              onClick={() => setMedia((list) => list.filter((other) => other.key !== item.key))}
             >
-              <Icon name="page" className="size-4" /> PDF
+              <Icon name="close" className="size-3.5" />
             </button>
-          )}
-        </div>
-      </div>
-      <p className="mt-2 text-sm text-muted">
-        Instagram needs one or the other; TikTok and YouTube need a video; a PDF goes to LinkedIn as a swipeable
-        document. Videos up to {LIMITS.socialVideoBytes / 1024 / 1024} MB.
-      </p>
-      <input
-        ref={pictures}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        multiple
-        hidden
-        onChange={(event) => void addPictures(event.target.files)}
-      />
-      <input
-        ref={videos}
-        type="file"
-        accept="video/mp4,video/quicktime,video/webm"
-        hidden
-        onChange={(event) => void addVideo(event.target.files?.[0])}
-      />
-      <input
-        ref={pdfs}
-        type="file"
-        accept="application/pdf"
-        hidden
-        onChange={(event) => void addDocument(event.target.files?.[0])}
-      />
-      {media.length > 0 && (
-        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          {media.map((item) => (
-            <li key={item.key} className="relative flex gap-3 rounded-xl bg-raised p-2">
-              <div className="relative size-24 shrink-0 overflow-hidden rounded-lg bg-sunk">
-                {item.kind === "video" ? (
-                  <video src={item.url} className="size-full object-cover" muted playsInline preload="metadata" />
-                ) : item.kind === "document" ? (
-                  <span className="grid size-full place-items-center p-1 text-center text-xs font-bold">
-                    <Icon name="page" className="size-6" />
-                    PDF
-                  </span>
-                ) : (
-                  <img src={item.url} alt={item.alt ?? ""} className="size-full object-cover" />
-                )}
-                <button
-                  type="button"
-                  className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-ink/75 text-ground"
-                  aria-label="Remove"
-                  onClick={() => setMedia((list) => list.filter((other) => other.key !== item.key))}
-                >
-                  <Icon name="close" className="size-3.5" />
-                </button>
+          </div>
+          <div className="min-w-0 flex-1 text-sm">
+            {item.id === null && !item.error && (
+              <div className="h-1.5 overflow-hidden rounded-full bg-sunk" aria-label="Uploading">
+                <div
+                  className="h-full bg-slop transition-[width]"
+                  style={{ width: `${Math.round(item.progress * 100)}%` }}
+                />
               </div>
-              <div className="min-w-0 flex-1 text-sm">
-                {item.id === null && !item.error && (
-                  <div className="h-1.5 overflow-hidden rounded-full bg-sunk" aria-label="Uploading">
-                    <div className="h-full bg-slop" style={{ width: `${Math.round(item.progress * 100)}%` }} />
-                  </div>
-                )}
-                {item.error && <p className="text-xs text-hot">{item.error}</p>}
-                {item.kind === "document" && <p className="truncate font-bold">{item.fileName}</p>}
-                {item.kind === "image" && altText && (
-                  <label className="grid gap-1 text-xs font-bold">
-                    Alt text
-                    <textarea
-                      className="input min-h-14 text-sm font-normal"
-                      maxLength={1000}
-                      placeholder="What's in the picture, for people who can't see it"
-                      value={item.alt ?? ""}
-                      onChange={(event) => patch(item.key, { alt: event.target.value })}
-                    />
-                  </label>
-                )}
-                {item.kind === "video" && item.duration !== undefined && (
-                  <div className="grid gap-1">
-                    <p className="text-xs text-muted">
-                      {Math.floor(item.duration / 60)}:{String(Math.round(item.duration % 60)).padStart(2, "0")} ·{" "}
-                      {item.width && item.height && item.height > item.width ? "vertical" : "landscape"}
-                    </p>
-                    <label className="grid gap-1 text-xs font-bold">
-                      Cover at {Math.round(item.coverAt ?? 0)}s
-                      <input
-                        type="range"
-                        min={0}
-                        max={Math.max(Math.floor(item.duration), 0)}
-                        value={item.coverAt ?? 0}
-                        onChange={(event) => patch(item.key, { coverAt: Number(event.target.value) })}
-                      />
-                    </label>
-                    {thumbnail && (
-                      <button
-                        type="button"
-                        className="justify-self-start text-xs font-bold underline"
-                        disabled={thumbnail.busy}
-                        onClick={async () => {
-                          try {
-                            onThumbnail(await captureFrame(item.url, item.coverAt ?? 0));
-                          } catch (problem) {
-                            setError(problem instanceof Error ? problem.message : "Couldn't take that frame.");
-                          }
-                        }}
-                      >
-                        {thumbnail.busy
-                          ? "Saving thumbnail…"
-                          : thumbnail.id
-                            ? "YouTube thumbnail set · use this frame instead"
-                            : "Use this frame as the YouTube thumbnail"}
-                      </button>
-                    )}
-                  </div>
+            )}
+            {item.error && <p className="text-xs text-hot">{item.error}</p>}
+            {item.kind === "document" && <p className="truncate font-bold">{item.fileName}</p>}
+            {item.kind === "image" && altText && (
+              <label className="grid gap-1 text-xs font-bold">
+                Alt text
+                <textarea
+                  className="input min-h-14 text-sm font-normal"
+                  maxLength={1000}
+                  placeholder="What's in the picture, for people who can't see it"
+                  value={item.alt ?? ""}
+                  onChange={(event) => patch(item.key, { alt: event.target.value })}
+                />
+              </label>
+            )}
+            {item.kind === "video" && item.duration !== undefined && (
+              <div className="grid gap-1">
+                <p className="text-xs text-muted">
+                  {Math.floor(item.duration / 60)}:{String(Math.round(item.duration % 60)).padStart(2, "0")} ·{" "}
+                  {item.width && item.height && item.height > item.width ? "vertical" : "landscape"}
+                </p>
+                <label className="grid gap-1 text-xs font-bold">
+                  Cover at {Math.round(item.coverAt ?? 0)}s
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(Math.floor(item.duration), 0)}
+                    value={item.coverAt ?? 0}
+                    onChange={(event) => patch(item.key, { coverAt: Number(event.target.value) })}
+                  />
+                </label>
+                {thumbnail && (
+                  <button
+                    type="button"
+                    className="justify-self-start text-xs font-bold underline"
+                    disabled={thumbnail.busy}
+                    onClick={async () => {
+                      try {
+                        onThumbnail(await captureFrame(item.url, item.coverAt ?? 0));
+                      } catch (problem) {
+                        setError(problem instanceof Error ? problem.message : "Couldn't take that frame.");
+                      }
+                    }}
+                  >
+                    {thumbnail.busy
+                      ? "Saving thumbnail…"
+                      : thumbnail.id
+                        ? "YouTube thumbnail set · use this frame instead"
+                        : "Use this frame as the YouTube thumbnail"}
+                  </button>
                 )}
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      {error && <p className="mt-2 text-sm text-hot">{error}</p>}
-    </div>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 

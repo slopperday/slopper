@@ -442,6 +442,66 @@ describe("studio posts in Convex: the new parts", () => {
     ).rejects.toThrow("expired");
   });
 
+  it("keeps workflows of the person's own accounts, and the one new posts start with", async () => {
+    const { server } = setup();
+    const userId = await makeUser(server, "maker");
+    const other = await makeUser(server, "someone-else");
+    const x = await connect(server, userId, "x", "mine-x");
+    const bluesky = await connect(server, userId, "bluesky", "mine-bsky");
+    const theirs = await connect(server, other, "x", "theirs");
+    const id = await server.mutation(api.studio.saveWorkflow, {
+      userId,
+      name: "  Everyday  ",
+      accountIds: [x._id, bluesky._id, theirs._id, x._id, "not-an-id"],
+      when: "queue",
+      productId: null,
+      trackLinks: true,
+      makeDefault: true,
+    });
+    let settings = await server.query(api.studio.settings, { userId });
+    expect(settings.workflows).toEqual([
+      { id, name: "Everyday", accountIds: [x._id, bluesky._id], when: "queue", productId: null, trackLinks: true },
+    ]);
+    expect(settings.defaultWorkflowId).toBe(id);
+    await expect(
+      server.mutation(api.studio.saveWorkflow, {
+        userId,
+        name: "Theirs",
+        accountIds: [theirs._id],
+        when: "now",
+        productId: null,
+        trackLinks: false,
+        makeDefault: false,
+      }),
+    ).rejects.toThrow("Pick the accounts");
+
+    // Saving it again without the default stops new posts starting with it; choosing brings it back.
+    await server.mutation(api.studio.saveWorkflow, {
+      userId,
+      id,
+      name: "Everyday",
+      accountIds: [x._id],
+      when: "now",
+      productId: null,
+      trackLinks: false,
+      makeDefault: false,
+    });
+    settings = await server.query(api.studio.settings, { userId });
+    expect(settings.workflows).toHaveLength(1);
+    expect(settings.workflows[0].accountIds).toEqual([x._id]);
+    expect(settings.defaultWorkflowId).toBeNull();
+    await server.mutation(api.studio.chooseDefaultWorkflow, { userId, id });
+    expect((await server.query(api.studio.settings, { userId })).defaultWorkflowId).toBe(id);
+    await server.mutation(api.studio.chooseDefaultWorkflow, { userId, id: "unknown" });
+    expect((await server.query(api.studio.settings, { userId })).defaultWorkflowId).toBeNull();
+
+    await server.mutation(api.studio.chooseDefaultWorkflow, { userId, id });
+    await server.mutation(api.studio.removeWorkflow, { userId, id });
+    settings = await server.query(api.studio.settings, { userId });
+    expect(settings.workflows).toEqual([]);
+    expect(settings.defaultWorkflowId).toBeNull();
+  });
+
   it("serves a calendar feed only at its secret address", async () => {
     const { server } = setup();
     const userId = await makeUser(server, "maker");

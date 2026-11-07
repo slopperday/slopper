@@ -212,6 +212,8 @@ release. Add a tool name to select part of the graph. For example, run
   `times`) and whether it's ready come from `app/lib/destinations.ts` (`destinationFor`, `readiness`), shared by the
   composer, `saveStudioPost` and the agents; a `block` issue is refused on save. Two X accounts never post the same
   words (X's automation rules). Uncertain deliveries wait for the person to resolve them (`social.resolveUncertain`).
+  New posts start with the person's starred workflow (`socialSettings.workflows`: accounts, now or queue, product,
+  tracked links) or else their last post's accounts; a product is optional, never required.
   Setup steps per network are `app/lib/setupGuides.ts`, mirrored in docs/social-setup.md. Reddit connects by OAuth
   (`REDDIT_CLIENT_*`, refreshed in `redditCredentials`); LinkedIn Pages need `LINKEDIN_PAGES=true` after LinkedIn
   approves the Community Management API.

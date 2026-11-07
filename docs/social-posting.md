@@ -1,8 +1,9 @@
 # The studio: post once, as any brand, everywhere
 
-`/studio` is a composer for social posts. Pick accounts (grouped by the brand each
-speaks for), write once, add pictures or one video, and each network gets a copy
-that fits it. Sent posts read their stats back for a month. Screenshots are in
+`/studio` is a composer for social posts. Write once, about one of your slops or
+nothing in particular, send it as any of your accounts (a new post starts with
+the ones you usually use), add pictures or one video, and each network gets a
+copy that fits it. Sent posts read their stats back for a month. Screenshots are in
 `docs/studio/` (made by `STUDIO_SCREENSHOTS=1 vp exec playwright test e2e/studio.spec.ts`).
 How to set up each network, step by step, is in [social-setup.md](social-setup.md).
 
@@ -181,8 +182,22 @@ What we took from studying how the leading schedulers stay easy (November 2026):
   accounts, so two X accounts with the same words (spintax aside) are refused.
   Each X destination says what X bills its developer app: about $0.015 a post,
   $0.20 with a link.
-- **Account sets.** "Last used" and "Post as <product>" pick a set in one tap
-  (`socialSettings.lastAccountIds`).
+- **Defaults and workflows.** A new post starts with the starred workflow, or
+  else with the accounts the last post went to (`socialSettings.lastAccountIds`).
+  A workflow (`socialSettings.workflows`) is a named set of accounts with when it
+  goes (now or the queue), what it's about and whether links are tracked; one
+  tap applies it, "Save as a workflow" makes one from what's picked, and Studio
+  settings stars or deletes them (`studio.saveWorkflow`, `chooseDefaultWorkflow`,
+  `removeWorkflow`). "Last used", each product's accounts and "Everywhere" sit
+  beside them.
+- **General posts.** "About" defaults to Anything: a post needs no product. Picking
+  a slop only counts the post with it and offers "Start from" its page.
+- **One writing card.** Recipients, About, then tabs: "Everywhere" for the shared
+  words, thread, media, link and first comment, and one tab per network for its
+  own words, link, media, first comment and that network's settings (YouTube
+  title, TikTok privacy, Instagram format). Pictures can be dropped or pasted in;
+  ⌘/Ctrl+Enter sends. The checklist beside the preview picks which account to
+  preview, and each blocked account has "Fix" and "Leave it out".
 - **Ideas and autosave.** A draft needs no accounts. The composer keeps what
   you're writing in the browser and offers it back.
 - **Uncertain sends.** A send lost mid-way is never resent on its own. Its row
@@ -196,8 +211,8 @@ What we took from studying how the leading schedulers stay easy (November 2026):
 ## How it fits together
 
 - **Brands.** `accounts.brand` names who an account speaks for. The composer's
-  "All" picks a brand on every network; "For <product>" picks the accounts that
-  product posts as. Accounts connected through Facebook are grouped under their
+  "All" picks a brand on every network; "<product>'s accounts" picks the accounts
+  that product posts as. Accounts connected through Facebook are grouped under their
   Page's name. New Pages, channels and TikToks start Off for launch auto-posts.
 - **One post, many deliveries.** `socialPosts` holds what was written;
   `socialDeliveries` one row per account (`convex/social.ts`). The app server

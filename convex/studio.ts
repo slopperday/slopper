@@ -40,6 +40,8 @@ export const settings = query({
       slots: row?.slots ?? DEFAULT_SLOTS,
       calendarToken: row?.calendarToken ?? null,
       lastAccountIds: row?.lastAccountIds ?? [],
+      workflows: row?.workflows ?? [],
+      defaultWorkflowId: row?.defaultWorkflowId ?? null,
       webhook: row?.webhook ?? null,
     };
   },
@@ -76,6 +78,86 @@ export const saveSettings = mutation({
     else await ctx.db.insert("socialSettings", { userId, slots: DEFAULT_SLOTS, ...patch });
     // Resuming sends what came due while paused.
     if (paused === false && row?.paused) await wakeDuePosts(ctx, userId);
+  },
+});
+
+const WORKFLOWS = 20;
+
+/** Saves a workflow (a new one without `id`), and makes it the one new posts start with when `makeDefault`. */
+export const saveWorkflow = mutation({
+  args: {
+    userId: v.id("users"),
+    id: v.optional(v.string()),
+    name: v.string(),
+    accountIds: v.array(v.string()),
+    when: v.union(v.literal("now"), v.literal("queue")),
+    productId: v.union(v.string(), v.null()),
+    trackLinks: v.boolean(),
+    makeDefault: v.boolean(),
+  },
+  handler: async (ctx, { userId, id, name, accountIds, when, productId, trackLinks, makeDefault }) => {
+    await requireServer(ctx);
+    const title = name.trim().slice(0, 60);
+    if (!title) throw new ConvexError("Give the workflow a name.");
+    const accounts: Id<"accounts">[] = [];
+    for (const raw of accountIds.slice(0, 50)) {
+      const accountId = ctx.db.normalizeId("accounts", raw);
+      const account = accountId ? await ctx.db.get(accountId) : null;
+      if (account && (await canAccessAccount(ctx, userId, account)) && !accounts.includes(account._id)) {
+        accounts.push(account._id);
+      }
+    }
+    if (accounts.length === 0) throw new ConvexError("Pick the accounts it posts as.");
+    const row = await settingsRow(ctx, userId);
+    const list = row?.workflows ?? [];
+    const existing = id ? list.find((workflow) => workflow.id === id) : undefined;
+    if (!existing && list.length >= WORKFLOWS) throw new ConvexError(`${WORKFLOWS} workflows at most.`);
+    const workflow = {
+      id: existing?.id ?? token(8),
+      name: title,
+      accountIds: accounts,
+      when,
+      productId: productId ? productId.slice(0, 64) : null,
+      trackLinks,
+    };
+    const workflows = existing ? list.map((item) => (item.id === existing.id ? workflow : item)) : [...list, workflow];
+    const patch = {
+      workflows,
+      ...(makeDefault
+        ? { defaultWorkflowId: workflow.id }
+        : row?.defaultWorkflowId === workflow.id
+          ? { defaultWorkflowId: undefined }
+          : {}),
+    };
+    if (row) await ctx.db.patch(row._id, patch);
+    else await ctx.db.insert("socialSettings", { userId, slots: DEFAULT_SLOTS, ...patch });
+    return workflow.id;
+  },
+});
+
+/** Deletes a workflow. */
+export const removeWorkflow = mutation({
+  args: { userId: v.id("users"), id: v.string() },
+  handler: async (ctx, { userId, id }) => {
+    await requireServer(ctx);
+    const row = await settingsRow(ctx, userId);
+    if (!row) return;
+    await ctx.db.patch(row._id, {
+      workflows: (row.workflows ?? []).filter((workflow) => workflow.id !== id),
+      ...(row.defaultWorkflowId === id ? { defaultWorkflowId: undefined } : {}),
+    });
+  },
+});
+
+/** Which workflow new posts start with; null goes back to the last post's accounts. */
+export const chooseDefaultWorkflow = mutation({
+  args: { userId: v.id("users"), id: v.union(v.string(), v.null()) },
+  handler: async (ctx, { userId, id }) => {
+    await requireServer(ctx);
+    const row = await settingsRow(ctx, userId);
+    if (!row) return;
+    const known = id !== null && (row.workflows ?? []).some((workflow) => workflow.id === id);
+    await ctx.db.patch(row._id, { defaultWorkflowId: known ? id! : undefined });
   },
 });
 
