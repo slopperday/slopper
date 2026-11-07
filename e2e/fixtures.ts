@@ -119,6 +119,40 @@ export async function choose(page: Page, name: string | RegExp): Promise<void> {
   await expect(radio).toBeChecked();
 }
 
+/**
+ * A Markdown field: once the page has loaded the canvist editor, its canvas carries the field's label, and the
+ * hidden textarea beside it holds the Markdown the form sends.
+ */
+export function markdownField(page: Page, label: string) {
+  const editor = page.locator(`canvas[role="textbox"][aria-label="${label}"]`);
+  return { editor, value: page.locator(".markdown-editor", { has: editor }).locator("textarea") };
+}
+
+/**
+ * Writes into a Markdown field the way people do, a key at a time, so Markdown formats as it's typed. Whatever the
+ * field held is replaced.
+ */
+export async function write(page: Page, label: string, text: string): Promise<void> {
+  const { editor, value } = markdownField(page, label);
+  await editor.click();
+  await page.keyboard.press(`${await modKey(page)}+a`);
+  await page.keyboard.press("Backspace");
+  await editor.pressSequentially(text);
+  await expect(value).not.toHaveValue("");
+}
+
+/**
+ * The key canvist reads as `Mod`, decided as it decides it: from `navigator.userAgentData`, which Playwright's
+ * Chromium reports as Windows even on a Mac, so `ControlOrMeta` would press the wrong one there.
+ */
+export async function modKey(page: Page): Promise<"Meta" | "Control"> {
+  const apple = await page.evaluate(() => {
+    const data = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+    return /Mac|iPhone|iPad|iPod/i.test(data?.platform ?? navigator.platform);
+  });
+  return apple ? "Meta" : "Control";
+}
+
 export function runInternal(stack: Stack, name: string, args: Record<string, unknown>): void {
   convexCli(stack, ["run", name, JSON.stringify(args)]);
 }

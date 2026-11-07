@@ -57,6 +57,11 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  // canvist finds its WebAssembly next to its own files (`new URL(…, import.meta.url)`), which
+  // dependency pre-bundling would move away from it.
+  optimizeDeps: {
+    exclude: ["@canvist/web", "@canvist/headless"],
+  },
   fmt: {
     printWidth: 120,
     ignorePatterns: IGNORED,

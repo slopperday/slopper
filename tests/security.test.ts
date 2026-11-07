@@ -64,9 +64,12 @@ describe("the Content-Security-Policy keeps scripts on a nonce", () => {
 
   it("allows scripts only from Slopper and the response's nonce", () => {
     expect(policy).toContain("script-src 'self' 'nonce-thenonce'");
-    const scriptSrc = policy.split("; ").find((directive) => directive.startsWith("script-src"));
-    expect(scriptSrc).not.toContain("unsafe-inline");
-    expect(scriptSrc).not.toContain("unsafe-eval");
+    const scriptSrc = policy.split("; ").find((directive) => directive.startsWith("script-src"))!;
+    const sources = scriptSrc.split(" ").slice(1);
+    expect(sources).not.toContain("'unsafe-inline'");
+    expect(sources).not.toContain("'unsafe-eval'");
+    // WebAssembly for the Markdown editor compiles; JavaScript eval stays off.
+    expect(sources).toContain("'wasm-unsafe-eval'");
   });
 
   it("keeps the doors closed that should stay closed", () => {

@@ -241,6 +241,12 @@ release. Add a tool name to select part of the graph. For example, run
   turned down: `useReducedMotion` (`app/lib/motion.ts`) follows Settings → Motion (the `slopper_motion` cookie, rendered
   as `<html data-motion>`) or the device's `prefers-reduced-motion`; app.css stills everything else the same way.
   Lines compare with the period before (trends `compare`, web and slop reports' `previousSeries`).
+- **Markdown fields** (description, launch note, updates, reviews, comments) are `MarkdownEditor`
+  (`app/components/MarkdownEditor.tsx`): the server renders a plain textarea, and the browser swaps in a canvist editor
+  (`@canvist/web`, loaded lazily from `app/lib/canvist.client.ts`) that formats Markdown as it's typed. The hidden
+  textarea keeps the Markdown the form sends, tidied by `tidyEscapes` (`app/lib/editorMarkdown.ts`); a field whose
+  content the editor would change (`readsTheSame`) stays a textarea. The CSP allows `'wasm-unsafe-eval'` for it. E2E
+  types into them with `write()` from `e2e/fixtures.ts`, never `fill()`. New Markdown fields use `MarkdownEditor`.
 - **Comments are on** (`COMMENTS_ENABLED`, `config.commentsEnabled`, set in `monosecret.toml` and on Convex). Keep
   anything that shows or writes comments behind the switch. A new comment runs the content check in `postComment`
   (`app/.server/comments.ts`): blocked is refused and never saved, only `ok` shows at once, and `mature`/`unchecked`

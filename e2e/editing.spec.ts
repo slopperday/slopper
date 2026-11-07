@@ -1,5 +1,5 @@
 import { EDITING_CLOSED } from "../app/lib/editing.ts";
-import { expect, test } from "./fixtures.ts";
+import { expect, test, write } from "./fixtures.ts";
 
 test.describe("the edit window", () => {
   test("tells the maker how long a new launch stays editable", async ({ seed }) => {
@@ -30,7 +30,7 @@ test.describe("the edit window", () => {
 
     await page.getByRole("link", { name: "Post an update" }).click();
     await expect(page).toHaveURL(`${slop.path}#updates`);
-    await page.getByRole("textbox", { name: "Update" }).fill("Fixed the wall on level 3.");
+    await write(page, "Update", "Fixed the wall on level 3.");
     await page.getByRole("button", { name: "Post update" }).click();
     await expect(page.getByRole("status")).toHaveText("Update posted.");
     await expect(page.getByText("Fixed the wall on level 3.")).toBeVisible();
