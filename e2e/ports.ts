@@ -38,6 +38,8 @@ export const PORTS = {
   convexSite: base + 2,
   check: base + 3,
   s3: base + 4,
+  /** The walkthrough's stand-in networks (e2e/demo/fake-networks.ts) list what they were sent here. */
+  demoNetworks: base + 5,
 } as const;
 
 /** Written by `e2e/stack.ts`, read by the fixtures. */

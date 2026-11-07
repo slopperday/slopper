@@ -362,13 +362,16 @@ async function main(): Promise<void> {
 
   // 4. The production build, as Netlify runs it. Only this environment
   //    reaches it: never a checkout's .env.local.
-  const app = spawn(process.execPath, ["scripts/serve.ts"], {
+  // The walkthrough video (e2e/demo) swaps the social networks for stand-ins.
+  const preload = process.env.E2E_APP_IMPORT ? ["--import", resolve(ROOT, process.env.E2E_APP_IMPORT)] : [];
+  const app = spawn(process.execPath, [...preload, "scripts/serve.ts"], {
     cwd: ROOT,
     stdio: ["ignore", "inherit", "inherit"],
     env: {
       PATH: process.env.PATH ?? "",
       HOME: process.env.HOME ?? "",
       PORT: String(PORTS.app),
+      DEMO_NETWORK_PORT: String(PORTS.demoNetworks),
       APP_URL,
       CONVEX_URL,
       // Analytics posts to the backend's HTTP actions, which a self-hosted backend serves on its own port.

@@ -14,6 +14,7 @@ import { VARIABLES } from "~/lib/variables";
 import { NETWORK_LABELS } from "~/lib/networks";
 import { seo } from "~/lib/seo";
 import { CopyButton } from "~/components/Shared";
+import { Icon } from "~/components/Icon";
 import { AccountAvatar, type StudioAccount, StudioNav } from "~/components/Studio";
 
 const HERE = "/studio/settings";
@@ -46,6 +47,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       calendarUrl: settings.calendarToken ? absoluteUrl(`/api/studio/calendar/${settings.calendarToken}.ics`) : null,
       webhook: settings.webhook,
     },
+    workflows: settings.workflows.map((workflow) => ({ ...workflow, accountIds: workflow.accountIds.map(String) })),
+    defaultWorkflowId: settings.defaultWorkflowId,
     snippets,
     brands: brandNames.map((name) => ({ name, voice: brands.find((brand) => brand.name === name)?.voice ?? "" })),
     feeds,
@@ -117,6 +120,17 @@ export async function action({ request, context }: Route.ActionArgs) {
         });
         return redirectWithFlash(HERE, { tone: "success", message: "Saved." });
       }
+      case "workflow-default":
+        await convex.mutation(api.studio.chooseDefaultWorkflow, { userId, id: formText(form, "id") || null });
+        return redirectWithFlash(HERE, {
+          tone: "success",
+          message: formText(form, "id")
+            ? "New posts start with that workflow."
+            : "New posts start with the accounts you used last.",
+        });
+      case "workflow-delete":
+        await convex.mutation(api.studio.removeWorkflow, { userId, id: formText(form, "id") });
+        return redirectWithFlash(HERE, { tone: "info", message: "Workflow deleted." });
       case "snippet-delete":
         await convex.mutation(api.studio.deleteSnippet, { userId, id: formText(form, "id") });
         return redirectWithFlash(HERE, { tone: "info", message: "Deleted." });
@@ -214,7 +228,8 @@ function AccountPicker({ accounts, name }: { accounts: readonly StudioAccount[];
 }
 
 export default function StudioSettings({ loaderData, actionData }: Route.ComponentProps) {
-  const { settings, snippets, brands, feeds, accounts, timeZone, bookmarklet } = loaderData;
+  const { settings, snippets, brands, feeds, accounts, timeZone, bookmarklet, workflows, defaultWorkflowId } =
+    loaderData;
   const byDay = DAYS.map((_, day) =>
     settings.slots
       .filter((slot) => slot.day === day)
@@ -245,6 +260,64 @@ export default function StudioSettings({ loaderData, actionData }: Route.Compone
             {settings.paused ? "Resume posting" : "Pause all posts"}
           </button>
         </Form>
+      </div>
+
+      <div className="panel mt-6">
+        <h2 className="title-3">Workflows</h2>
+        <p className="mt-1 text-muted">
+          The ways you usually post: which accounts, now or the queue, and what it’s about. New posts start with the
+          starred one, or with the accounts you used last.
+        </p>
+        {workflows.length === 0 ? (
+          <p className="mt-4 rounded-xl bg-ground p-4 text-sm">
+            None yet. In the{" "}
+            <Link to="/studio" className="font-bold underline">
+              composer
+            </Link>
+            , pick the accounts and choose “Save as a workflow”.
+          </p>
+        ) : (
+          <ul className="mt-4 grid gap-2" aria-label="Workflows">
+            {workflows.map((workflow) => {
+              const starred = workflow.id === defaultWorkflowId;
+              const members = accounts.filter((account) => workflow.accountIds.includes(account.id));
+              return (
+                <li key={workflow.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-ground p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-1.5 font-bold">
+                      {starred && <Icon name="star" filled className="size-4 text-gold" />}
+                      {workflow.name}
+                    </p>
+                    <p className="text-sm text-muted">
+                      {members.length} account{members.length === 1 ? "" : "s"} ·{" "}
+                      {workflow.when === "queue" ? "adds to the queue" : "posts straight away"}
+                      {workflow.trackLinks ? " · tracks clicks" : ""}
+                    </p>
+                  </div>
+                  <span className="flex -space-x-1.5">
+                    {members.slice(0, 8).map((account) => (
+                      <AccountAvatar key={account.id} account={account} size={26} />
+                    ))}
+                  </span>
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="workflow-default" />
+                    <input type="hidden" name="id" value={starred ? "" : workflow.id} />
+                    <button type="submit" className="btn btn-quiet btn-sm">
+                      {starred ? "Don’t start with it" : "Start new posts with it"}
+                    </button>
+                  </Form>
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="workflow-delete" />
+                    <input type="hidden" name="id" value={workflow.id} />
+                    <button type="submit" className="btn btn-quiet btn-sm" aria-label={`Delete ${workflow.name}`}>
+                      Delete
+                    </button>
+                  </Form>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       <Form method="post" className="panel mt-6">

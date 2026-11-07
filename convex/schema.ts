@@ -1056,6 +1056,24 @@ export default defineSchema({
     slots: v.array(v.object({ day: v.number(), minute: v.number() })),
     /** The accounts the last post went out as: the composer's "Last used" set. */
     lastAccountIds: v.optional(v.array(v.id("accounts"))),
+    /**
+     * Saved ways of posting: a name, the accounts, when it goes (now or the queue), what it's about
+     * (a product, or nothing) and whether links are tracked. One tap in the composer sets them all.
+     */
+    workflows: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          accountIds: v.array(v.id("accounts")),
+          when: v.union(v.literal("now"), v.literal("queue")),
+          productId: v.union(v.string(), v.null()),
+          trackLinks: v.boolean(),
+        }),
+      ),
+    ),
+    /** The workflow new posts start with; without one they start with the last post's accounts. */
+    defaultWorkflowId: v.optional(v.string()),
     /** The secret in the calendar feed's address. */
     calendarToken: v.optional(v.string()),
     /** Where post events are sent, signed with `secret`. */
