@@ -14,10 +14,10 @@
 # commit (gitHead) that install pinning needs.
 #
 # Every other push to main skips this publishing job. CI defaults to the local
-# pre-push hook; authorized security repairs opt into ci.yml. Run this workflow
-# by hand on chore/release with "dry run" to
-# rehearse a release before merging. To retry a publish, run it on main without
-# "dry run", naming the release commit when it's no longer the newest one.
+# pre-push hook; authorized security repairs opt into ci.yml.
+# Manual runs must use main, including dry runs.
+# To retry a publish, name the full release commit SHA when it's no longer the
+# newest one; only release commits already merged into main can run.
 name: release
 
 on:
@@ -30,7 +30,7 @@ on:
         type: boolean
         default: true
       commit:
-        description: "Release commit to publish (a retry, once newer commits are on main). Empty: the commit this runs on."
+        description: "Full SHA of a release commit on main to retry. Empty: the commit this runs on."
         type: string
         default: ""
       npm_only:
@@ -47,18 +47,44 @@ permissions: {}
 
 jobs:
   publish:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'chore(release):')
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'chore(release):'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: production
     permissions:
       contents: write # push the release tags
       id-token: write # npm trusted publishing
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.commit || github.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
           fetch-tags: true
+
+      # Keep this guard in the running main workflow: a caller-selected checkout
+      # must never supply the code that decides whether it may publish.
+      - name: Verify release revision
+        shell: bash
+        env:
+          RELEASE_COMMIT: ${{ inputs.commit || github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Release commit must be a full SHA."
+            exit 1
+          fi
+          git cat-file -e "$RELEASE_COMMIT^{commit}"
+          if ! git merge-base --is-ancestor "$RELEASE_COMMIT" origin/main; then
+            echo "::error::Release commit must already be merged into main."
+            exit 1
+          fi
+          if [[ "$(git show -s --format=%s "$RELEASE_COMMIT")" != chore\(release\):* ]]; then
+            echo "::error::Only release commits may publish."
+            exit 1
+          fi
+          git checkout --detach "$RELEASE_COMMIT"
 
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:

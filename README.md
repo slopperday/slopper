@@ -260,10 +260,21 @@ Merging it runs [`.github/workflows/release.yml`](.github/workflows/release.yml)
 it tags the release (`v1.2.3` for the site, `cli/v1.2.3` for the npm packages), deploys Convex and then Netlify when the
 site is in the release, waits until slopper.day answers with the new `x-slopper-version` header, and publishes the
 released npm packages with [npm trusted publishing](https://docs.npmjs.com/trusted-publishers), so there's no npm
-token anywhere. Every other push to main skips it. To rehearse a release, run the workflow by hand on `chore/release`
-with "dry run" ticked; to retry a failed publish, run it on `main` with it unticked. A new npm package needs
+token anywhere. Every other push to main skips it. Manual runs, including dry runs, must use `main` and a release
+commit already merged there. To retry a failed publish, untick "dry run" and supply the full release commit SHA
+if it is no longer the newest commit on `main`. A new npm package needs
 `vp exec monochange publish placeholder` once and `npm trust github <package> --file release.yml --repository
-slopperday/slopper` before its first release.
+slopperday/slopper --environment production --allow-publish` before its first release.
+
+Publishing also depends on server-side policy: the GitHub `production` environment allows only the `main` branch,
+and holds `CONVEX_DEPLOY_KEY` and `NETLIFY_AUTH_TOKEN`. Neither secret may remain at repository scope. Every npm
+trusted publisher must require the `production` environment; remove older connections without that requirement.
+These controls also constrain historical workflow versions on other branches, which cannot be secured by editing
+today's workflow alone. The release guard validates the requested commit before any dependency install.
+Main's source policy is defined in `.github/release-authority.json`: updates require pull requests, and deletion
+and force pushes are blocked. `.github/release-validation.json` independently requires GitHub Actions' `ci` check.
+Neither ruleset has bypass actors. Merge through the normal organization pull request path after the exact head's
+full CI, review and required approvals pass; do not use administrative overrides or alter protections.
 
 ## For agents
 
