@@ -65,7 +65,7 @@ release. Add a tool name to select part of the graph. For example, run
   monochange group `cli` (tags `cli/v1.2.3`) and only the release workflow publishes them, with npm trusted publishing.
   That runs plain `npm publish`, which ships `workspace:` ranges as they are, so a published package never depends on
   another workspace package. A new package needs `vp exec monochange publish placeholder` once (with `npm login`), then
-  `npm trust github <package> --file release.yml --repository ifiokjr/slopper`. Run monochange from the main checkout:
+  `npm trust github <package> --file release.yml --repository slopperday/slopper`. Run monochange from the main checkout:
   in a worktree under `.claude/`, it discovers no packages.
 - **Scheduled launches** wait in `scheduledLaunches` (`convex/schedule.ts`), never in `slops`, so no public query
   needs to hide them. At `releaseAt` Convex puts one out with `insertLaunch` (shared with `slops.create`) and calls

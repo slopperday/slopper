@@ -263,7 +263,7 @@ released npm packages with [npm trusted publishing](https://docs.npmjs.com/trust
 token anywhere. Every other push to main skips it. To rehearse a release, run the workflow by hand on `chore/release`
 with "dry run" ticked; to retry a failed publish, run it on `main` with it unticked. A new npm package needs
 `vp exec monochange publish placeholder` once and `npm trust github <package> --file release.yml --repository
-ifiokjr/slopper` before its first release.
+slopperday/slopper` before its first release.
 
 ## For agents
 
