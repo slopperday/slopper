@@ -1,0 +1,54 @@
+{
+  "title": "1.14.0 (2026-11-07)",
+  "summary": [],
+  "sections": [
+    {
+      "title": "Changed",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "The Studio is in the header",
+          "details_markdown": "Studio now sits beside Today, The wall, Slopcessful and Streaks at the top of every page, so posting to your social accounts is one click away. On tablets it's in your account menu.",
+          "change_type": "user_change",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/studio-in-header.md",
+            "changeset_path": ".changeset/studio-in-header.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "c3234ad"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "New",
+      "collapsed": false,
+      "entries": [
+        {
+          "summary": "A simpler, friendlier Studio",
+          "details_markdown": "Writing a post now happens in one card: who it's from at the top, then the words, pictures, link and first comment, with a tab for each network when you want to say something differently there. New posts start with the accounts you usually use, and you can save the way you post as a workflow (the accounts, now or the queue, what it's about) and start every new post with it. Posts don't need to be about one of your slops: About starts at Anything. Drop or paste pictures straight in, press ⌘/Ctrl+Enter to send, and the checklist beside the preview says what each account needs, with Fix and Leave it out.",
+          "change_type": "user_feat",
+          "bump": "minor",
+          "stream": "user",
+          "style": "compact",
+          "provenance": {
+            "source_path": ".changeset/studio-composer.md",
+            "changeset_path": ".changeset/studio-composer.md",
+            "change_owner": {
+              "label": "Ifiok Jr."
+            },
+            "introduced_commit": {
+              "label": "6138210"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
