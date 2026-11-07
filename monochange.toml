@@ -29,7 +29,7 @@
 # publishing. Merging a release pull request by hand publishes the same way.
 # A new npm package needs `vp exec monochange publish placeholder` once, from
 # this machine, and then `npm trust github <package> --file release.yml
-# --repository ifiokjr/slopper` before its first release.
+# --repository slopperday/slopper` before its first release.
 
 [defaults]
 # The app is a private package; release it anyway.
@@ -75,7 +75,7 @@ lockfile_commands = [{ command = "pnpm install --lockfile-only" }]
 
 [ecosystems.npm.publish]
 # Only the release workflow publishes, with npm trusted publishing (OIDC); a
-# local publish fails. The repo is private, so npm adds no provenance. Both
+# local publish fails. The repo is public, so npm records provenance. Both
 # npm packages above publish externally (see the gitHead note there), so this
 # section stays the ecosystem default for any future built-in package, which
 # must not depend on a `workspace:` range: pnpm's publisher rewrites those and
@@ -85,7 +85,7 @@ mode = "builtin"
 registry = "npm"
 
 [ecosystems.npm.publish.trusted_publishing]
-repository = "ifiokjr/slopper"
+repository = "slopperday/slopper"
 workflow = "release.yml"
 
 [changelog.streams.user]

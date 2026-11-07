@@ -14,9 +14,11 @@ build/
 
 # Local agent tooling
 .claude/
+.video_agent/
 
 # Convex local backend
 .convex/
+.data/
 .e2e/
 test-results/
 playwright-report/
