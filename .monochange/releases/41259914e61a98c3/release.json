@@ -1,0 +1,308 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-11-07T12:11:06Z",
+  "command": "release",
+  "version": "1.14.0",
+  "versions": {
+    "slopper": "1.14.0"
+  },
+  "release_targets": [
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.14.0",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.14.0",
+      "rendered_title": "v1.14.0 (2026-11-07)",
+      "rendered_changelog_title": "1.14.0 (2026-11-07)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["slopper"],
+  "changed_files": ["CHANGELOG.md", "app/changelog/1.14.0.json", "package.json"],
+  "package_publications": [],
+  "updated_changelogs": ["CHANGELOG.md", "app/changelog/1.14.0.json"],
+  "deleted_changesets": [
+    ".changeset/studio-composer-internals.md",
+    ".changeset/studio-composer.md",
+    ".changeset/studio-in-header.md"
+  ],
+  "changesets": [
+    {
+      "path": ".changeset/studio-composer-internals.md",
+      "summary": "Studio workflows and a rebuilt composer",
+      "details": "socialSettings gains workflows and defaultWorkflowId (studio.saveWorkflow, removeWorkflow, chooseDefaultWorkflow). The composer starts from the default workflow or lastAccountIds, the media picker is split into useMediaUploads and MediaTray, and the loader reports the next free queue time.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "6138210d59142628194b036c31603e7147c5daa0",
+            "short_sha": "6138210",
+            "url": null,
+            "authored_at": "2026-11-07T12:10:50Z",
+            "committed_at": "2026-11-07T12:10:50Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "6138210d59142628194b036c31603e7147c5daa0",
+            "short_sha": "6138210",
+            "url": null,
+            "authored_at": "2026-11-07T12:10:50Z",
+            "committed_at": "2026-11-07T12:10:50Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/studio-composer.md",
+      "summary": "A simpler, friendlier Studio",
+      "details": "Writing a post now happens in one card: who it's from at the top, then the words, pictures, link and first comment, with a tab for each network when you want to say something differently there. New posts start with the accounts you usually use, and you can save the way you post as a workflow (the accounts, now or the queue, what it's about) and start every new post with it. Posts don't need to be about one of your slops: About starts at Anything. Drop or paste pictures straight in, press ⌘/Ctrl+Enter to send, and the checklist beside the preview says what each account needs, with Fix and Leave it out.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "6138210d59142628194b036c31603e7147c5daa0",
+            "short_sha": "6138210",
+            "url": null,
+            "authored_at": "2026-11-07T12:10:50Z",
+            "committed_at": "2026-11-07T12:10:50Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "6138210d59142628194b036c31603e7147c5daa0",
+            "short_sha": "6138210",
+            "url": null,
+            "authored_at": "2026-11-07T12:10:50Z",
+            "committed_at": "2026-11-07T12:10:50Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/studio-in-header.md",
+      "summary": "The Studio is in the header",
+      "details": "Studio now sits beside Today, The wall, Slopcessful and Streaks at the top of every page, so posting to your social accounts is one click away. On tablets it's in your account menu.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_change"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "c3234ad62970ea81b56ca5b4a7ec005cfae4c530",
+            "short_sha": "c3234ad",
+            "url": null,
+            "authored_at": "2026-11-07T08:07:42Z",
+            "committed_at": "2026-11-07T08:07:42Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "c3234ad62970ea81b56ca5b4a7ec005cfae4c530",
+            "short_sha": "c3234ad",
+            "url": null,
+            "authored_at": "2026-11-07T08:07:42Z",
+            "committed_at": "2026-11-07T08:07:42Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.14.0 (2026-11-07)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "- **Studio workflows and a rebuilt composer.** socialSettings gains workflows and defaultWorkflowId (studio.saveWorkflow, removeWorkflow, chooseDefaultWorkflow). The composer starts from the default workflow or lastAccountIds, the media picker is split into useMediaUploads and MediaTray, and the loader reports the next free queue time.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 6138210"
+            ]
+          }
+        ]
+      },
+      "rendered": "## 1.14.0 (2026-11-07)\n\n### Features\n\n- **Studio workflows and a rebuilt composer.** socialSettings gains workflows and defaultWorkflowId (studio.saveWorkflow, removeWorkflow, chooseDefaultWorkflow). The composer starts from the default workflow or lastAccountIds, the media picker is split into useMediaUploads and MediaTray, and the loader reports the next free queue time.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 6138210"
+    },
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "user",
+      "stream": "user",
+      "path": "app/changelog/1.14.0.json",
+      "format": "json",
+      "notes": {
+        "title": "1.14.0 (2026-11-07)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Changed",
+            "collapsed": false,
+            "entries": [
+              "- **The Studio is in the header.** Studio now sits beside Today, The wall, Slopcessful and Streaks at the top of every page, so posting to your social accounts is one click away. On tablets it's in your account menu.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ c3234ad"
+            ]
+          },
+          {
+            "title": "New",
+            "collapsed": false,
+            "entries": [
+              "- **A simpler, friendlier Studio.** Writing a post now happens in one card: who it's from at the top, then the words, pictures, link and first comment, with a tab for each network when you want to say something differently there. New posts start with the accounts you usually use, and you can save the way you post as a workflow (the accounts, now or the queue, what it's about) and start every new post with it. Posts don't need to be about one of your slops: About starts at Anything. Drop or paste pictures straight in, press ⌘/Ctrl+Enter to send, and the checklist beside the preview says what each account needs, with Fix and Leave it out.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 6138210"
+            ]
+          }
+        ]
+      },
+      "rendered": "{\n  \"title\": \"1.14.0 (2026-11-07)\",\n  \"summary\": [],\n  \"sections\": [\n    {\n      \"title\": \"Changed\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"The Studio is in the header\",\n          \"details_markdown\": \"Studio now sits beside Today, The wall, Slopcessful and Streaks at the top of every page, so posting to your social accounts is one click away. On tablets it's in your account menu.\",\n          \"change_type\": \"user_change\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/studio-in-header.md\",\n            \"changeset_path\": \".changeset/studio-in-header.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"c3234ad\"\n            }\n          }\n        }\n      ]\n    },\n    {\n      \"title\": \"New\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"A simpler, friendlier Studio\",\n          \"details_markdown\": \"Writing a post now happens in one card: who it's from at the top, then the words, pictures, link and first comment, with a tab for each network when you want to say something differently there. New posts start with the accounts you usually use, and you can save the way you post as a workflow (the accounts, now or the queue, what it's about) and start every new post with it. Posts don't need to be about one of your slops: About starts at Anything. Drop or paste pictures straight in, press ⌘/Ctrl+Enter to send, and the checklist beside the preview says what each account needs, with Fix and Leave it out.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/studio-composer.md\",\n            \"changeset_path\": \".changeset/studio-composer.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"6138210\"\n            }\n          }\n        }\n      ]\n    }\n  ]\n}"
+    }
+  ],
+  "provider": null
+}

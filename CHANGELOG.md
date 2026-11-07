@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.14.0 (2026-11-07)
+
+### Features
+
+- **Studio workflows and a rebuilt composer.** socialSettings gains workflows and defaultWorkflowId (studio.saveWorkflow, removeWorkflow, chooseDefaultWorkflow). The composer starts from the default workflow or lastAccountIds, the media picker is split into useMediaUploads and MediaTray, and the loader reports the next free queue time.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 6138210
+
 ## 1.13.0 (2026-11-06)
 
 ### Changed
