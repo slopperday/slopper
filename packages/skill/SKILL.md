@@ -148,7 +148,9 @@ the selected accounts. Times without offsets use the user's time zone; include `
 Each `--copy` changes only that network or account; account-specific text takes precedence over network text, and
 `--copy x=` removes that override. `--link-for`, `--comment-for` and `--media-for` give a network or account its own
 link, first comment or subset of the post's media the same way (an empty value means none there), and `--time-for`
-gives one account its own time. Two X accounts can't post the same words (X's automation rules): give each its own
+gives one account its own time. In any text, `{{only instagram threads}}…{{/only}}` keeps words for those networks
+only, and `{{@key}}` tags someone from the user's Studio people (Studio settings) with their handle on each network, or
+their name where they have none. Two X accounts can't post the same words (X's automation rules): give each its own
 `--copy`. A draft with no accounts is an idea; pick accounts before scheduling. `social status` gives each fitted preview and warnings about missing media,
 network options, unavailable accounts or text that would be shortened. Discuss useful improvements with the user;
 preflight does not predict content-check or network acceptance. Set network-specific formats through `--options`

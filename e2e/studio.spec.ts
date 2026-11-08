@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import type { Id } from "../convex/_generated/dataModel.js";
 import { api } from "../convex/_generated/api.js";
-import { expect, test } from "./fixtures.ts";
+import { expect, test, writePost } from "./fixtures.ts";
 
 /**
  * The studio: write once, post as several brands on several networks, and
@@ -144,11 +144,10 @@ test("one post goes to each brand's accounts, fitted per network, and its stats 
   await page.getByRole("button", { name: "Done" }).click();
   await expect(postingAs.getByRole("listitem")).toHaveCount(5);
   await page.getByRole("group", { name: "About" }).getByRole("button", { name: "Tiltmaze", exact: true }).click();
-  await page
-    .getByLabel("Post", { exact: true })
-    .fill(
-      "Tiltmaze 2.0 is out: 40 new levels, a level editor, and daily challenges. Built in a weekend, polished for a month. Tilt your phone to roll the ball home, and share your own mazes with friends. Free on iOS and Android.",
-    );
+  await writePost(
+    page,
+    "Tiltmaze 2.0 is out: 40 new levels, a level editor, and daily challenges. Built in a weekend, polished for a month. Tilt your phone to roll the ball home, and share your own mazes with friends. Free on iOS and Android.",
+  );
   await page.getByLabel("Link").fill("https://tiltmaze.app/");
   // Without media, the checklist says which accounts can't take it, before anything is sent.
   const checklist = page.getByRole("list", { name: "Checklist" });
@@ -338,7 +337,85 @@ test("the first visit says how the studio works and where to start", async ({ se
     "/settings/autopost",
   );
   // An idea can be written down before any account is connected.
-  await page.getByLabel("Post", { exact: true }).fill("Maybe a level editor next?");
+  await writePost(page, "Maybe a level editor next?");
   await expect(page.getByRole("button", { name: "Save as an idea" })).toBeEnabled();
   await shoot(page, "0-get-started");
+});
+
+test("one post tags someone their way on each network, with words for one network only", async ({ seed, convex }) => {
+  const owner = await seed.user("studio-people");
+  const connect = async (provider: "x" | "instagram" | "bluesky", handle: string) =>
+    (
+      await convex.mutation(api.accounts.connect, {
+        userId: owner.id,
+        provider,
+        remoteId: `${provider}-${handle}-${owner.username}`,
+        handle,
+        displayName: handle,
+        avatarUrl: null,
+        sealedCredentials: "not-a-real-credential",
+        expiresAt: null,
+        initialMode: "off",
+      })
+    )._id;
+  const ids = [
+    await connect("x", "ada_ships"),
+    await connect("bluesky", "ships.bsky.social"),
+    await connect("instagram", "ships"),
+  ];
+  // An earlier draft to these accounts, so a new post starts with them.
+  await convex.mutation(api.social.create, {
+    userId: owner.id,
+    productId: null,
+    text: "Earlier idea",
+    link: null,
+    media: [],
+    overrides: {},
+    options: {},
+    scheduledAt: null,
+    accountIds: ids,
+    draft: true,
+  });
+
+  const page = await seed.pageAs(owner);
+  await page.goto("/studio/settings#people");
+  await page.getByLabel("Name of new person").fill("Grace Hopper");
+  await page.getByLabel("X handle for new person").fill("grace_x");
+  await page.getByLabel("Bluesky handle for new person").fill("@grace.bsky.social");
+  await page.getByRole("button", { name: "Add person" }).click();
+  await expect(page.getByRole("status")).toContainText("{{@grace-hopper}}");
+
+  await page.goto("/studio");
+  await expect(page.getByRole("list", { name: "Posting as" }).getByRole("listitem")).toHaveCount(3);
+  await writePost(page, "Thanks @Gra");
+  await expect(page.getByRole("listbox", { name: "People to tag" })).toContainText("Grace Hopper");
+  // Picking someone puts their chip and a space in, so the words carry on after it.
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("for the review.");
+  await page.getByRole("button", { name: "Add words for some networks" }).click();
+  await page.getByRole("checkbox", { name: "Instagram" }).check();
+  await page.getByLabel("Words for those networks").fill(" Link in bio.");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+
+  const previews = page.getByRole("complementary", { name: "Previews" });
+  await expect(previews.getByRole("article", { name: "X preview" })).toContainText("Thanks @grace_x for the review.");
+  await expect(previews.getByRole("article", { name: "X preview" })).not.toContainText("Link in bio");
+  await previews.getByRole("button", { name: "Bluesky: ships.bsky.social" }).click();
+  await expect(previews.getByRole("article", { name: "Bluesky preview" })).toContainText(
+    "Thanks @grace.bsky.social for the review.",
+  );
+  await previews.getByRole("button", { name: "Instagram: ships" }).click();
+  await expect(previews.getByRole("article", { name: "Instagram preview" })).toContainText(
+    "Thanks Grace Hopper for the review. Link in bio.",
+  );
+  await expect(page.getByText("Grace Hopper has no Instagram handle in your people")).toBeVisible();
+
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await page.waitForURL(/\/studio\/posts\//);
+  const postId = page.url().split("/").at(-1)!;
+  const saved = await convex.query(api.social.get, { userId: owner.id, postId });
+  expect(saved?.text).toBe("Thanks {{@grace-hopper}} for the review.{{only instagram}} Link in bio.{{/only}}");
+  expect(saved?.people).toEqual([
+    { key: "grace-hopper", name: "Grace Hopper", handles: { x: "grace_x", bluesky: "@grace.bsky.social" } },
+  ]);
 });

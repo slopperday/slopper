@@ -1,4 +1,5 @@
 import { measureFor } from "./compose";
+import { type Person, resolveFor, unhandled } from "./dynamicText";
 import {
   NETWORKS,
   type NetworkOptions,
@@ -14,9 +15,10 @@ import { hasSpintax } from "./variables";
  * One idea, many destinations. A studio post has shared words, a link, media
  * and a first comment; each network, or one account, can have its own version
  * of any of them (`overrides` for words, `variants` for the rest), falling
- * back to the network's version and then the shared one. The composer, the
- * server's save and the agents all read a destination's copy and its
- * readiness through this file, so they never disagree.
+ * back to the network's version and then the shared one. Words for some
+ * networks only and tagged people (`./dynamicText`) are resolved here too.
+ * The composer, the server's save and the agents all read a destination's
+ * copy and its readiness through this file, so they never disagree.
  */
 
 /** What one network or account gets instead of the shared version. Absent fields use the shared one. */
@@ -37,6 +39,8 @@ export interface DestinationPost {
   options: NetworkOptions;
   thread?: readonly string[];
   firstComment?: string;
+  /** The people `{{@key}}` tags, as they were when the post was saved. */
+  people?: readonly Person[];
 }
 
 export interface DestinationAccount {
@@ -75,11 +79,12 @@ export function destinationFor(post: DestinationPost, account: DestinationAccoun
   const link = pick(post, account, "link");
   const mediaIds = pick(post, account, "media");
   const comment = pick(post, account, "firstComment");
+  const resolve = (words: string) => resolveFor(words, account.provider, post.people);
   return {
-    text: ownText || post.text,
+    text: resolve(ownText || post.text),
     link: link === undefined ? post.link : link,
     media: mediaIds === undefined ? post.media : mediaIds.flatMap((id) => post.media.filter((item) => item.id === id)),
-    firstComment: comment === undefined ? (post.firstComment ?? "") : comment,
+    firstComment: resolve(comment === undefined ? (post.firstComment ?? "") : comment),
     own: {
       text: !!ownText,
       link: link !== undefined,
@@ -196,6 +201,14 @@ export function readiness(
       level: "info",
       message: `X bills the developer app about $${price.toFixed(3).replace(/0$/, "")} for this post${copy.link ? " (posts with a link cost more)" : ""}.`,
       field: "link",
+    });
+  }
+  const words = post.overrides[account.id]?.trim() || post.overrides[account.provider]?.trim() || post.text;
+  for (const person of unhandled(words, account.provider, post.people ?? [])) {
+    issues.push({
+      level: "info",
+      message: `${person.name} has no ${spec.label} handle in your people, so their name goes in instead.`,
+      field: "text",
     });
   }
   if (account.provider === "tiktok" && post.options.tiktok?.privacy === "SELF_ONLY") {

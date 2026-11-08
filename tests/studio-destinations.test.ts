@@ -262,3 +262,66 @@ describe("destinations in Convex", () => {
     ).toBe(false);
   });
 });
+
+describe("people and words for some networks", () => {
+  const ada = { key: "ada", name: "Ada", handles: { bluesky: "ada.bsky.social", x: "ada_x" } };
+
+  it("gives each destination its own words and handles", () => {
+    const post = base({
+      text: "Thanks {{@ada}}!{{only linkedin}} Glad to have worked with you.{{/only}}",
+      firstComment: "{{only x}}More soon, {{@ada}}{{/only}}",
+      people: [ada],
+    });
+    expect(destinationFor(post, x1)).toMatchObject({ text: "Thanks @ada_x!", firstComment: "More soon, @ada_x" });
+    expect(destinationFor(post, linkedin)).toMatchObject({
+      text: "Thanks Ada! Glad to have worked with you.",
+      firstComment: "",
+    });
+    expect(readiness(post, linkedin, [linkedin])).toContainEqual({
+      level: "info",
+      message: "Ada has no LinkedIn handle in your people, so their name goes in instead.",
+      field: "text",
+    });
+    expect(readiness(post, x1, [x1]).some((issue) => issue.message.includes("handle"))).toBe(false);
+  });
+
+  it("tells two X accounts apart only by their own words", () => {
+    const post = base({ text: "{{only x}}Same{{/only}} words", people: [] });
+    expect(xTwins(post, x1, [x1, x2])).toEqual(["slopper"]);
+  });
+
+  it("keeps the people a post tags with the post, as they were", async () => {
+    const server = setup();
+    const userId = await makeUser(server, "maker");
+    const account = await connect(server, userId, "x", "tiltmaze");
+    const saved = await server.mutation(api.studio.savePerson, {
+      userId,
+      name: "Ada Lovelace",
+      handles: { x: " ada_x ", myspace: "nope", bluesky: "" },
+    });
+    expect(saved.key).toBe("ada-lovelace");
+    await expect(server.mutation(api.studio.savePerson, { userId, name: "Ada Lovelace", handles: {} })).rejects.toThrow(
+      "already have",
+    );
+    await expect(
+      server.mutation(api.studio.savePerson, { userId, key: "Not ok!", name: "Zed", handles: {} }),
+    ).rejects.toThrow("Keys take");
+    expect(await server.query(api.studio.people, { userId })).toEqual([
+      { id: saved.id, key: "ada-lovelace", name: "Ada Lovelace", handles: { x: "ada_x" } },
+    ]);
+
+    const postId = await server.mutation(api.social.create, {
+      ...post,
+      text: "Thanks {{@ada-lovelace}} and {{@nobody}}",
+      userId,
+      accountIds: [account._id],
+      draft: true,
+    });
+    await server.mutation(api.studio.savePerson, { userId, id: saved.id, name: "Ada L.", handles: {} });
+    await server.mutation(api.studio.deletePerson, { userId, id: saved.id });
+    expect((await server.query(api.social.get, { userId, postId }))?.people).toEqual([
+      { key: "ada-lovelace", name: "Ada Lovelace", handles: { x: "ada_x" } },
+    ]);
+    expect(await server.query(api.studio.people, { userId })).toEqual([]);
+  });
+});

@@ -28,6 +28,8 @@ import {
 } from "~/lib/networks";
 import { splitThread } from "~/lib/thread";
 import { personalize, VARIABLES } from "~/lib/variables";
+import { resolveFor } from "~/lib/dynamicText";
+import { PostEditor, type PostEditorHandle } from "~/components/PostEditor";
 import {
   destinationFor,
   type DestinationPost,
@@ -82,7 +84,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const search = new URL(request.url).searchParams;
   const editId = search.get("edit");
   const copyId = search.get("copy");
-  const [accounts, organizations, slops, posts, snippets, settings, sent, taken, editing] = await Promise.all([
+  const [accounts, organizations, slops, posts, snippets, settings, sent, taken, editing, people] = await Promise.all([
     convex.query(api.accounts.list, { userId: user._id }),
     convex.query(api.organizations.list, { userId: user._id }),
     convex.query(api.slops.listForServer, { userId: user._id }),
@@ -92,6 +94,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     convex.query(api.social.sent, { userId: user._id, since: Date.now() - 90 * DAY }),
     convex.query(api.social.scheduledTimes, { userId: user._id }),
     editId ? convex.query(api.social.get, { userId: user._id, postId: editId }) : null,
+    convex.query(api.studio.people, { userId: user._id }),
   ]);
   const copy = copyId ? await convex.query(api.social.get, { userId: user._id, postId: copyId }) : null;
   const orgById = new Map(organizations.map((org) => [String(org.id), org.name]));
@@ -166,6 +169,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     tiktok,
     posts,
     snippets,
+    people: people.map(({ key, name, handles }) => ({ key, name, handles })),
     paused: settings.paused,
     best: bestTimes(sent, user.timeZone).map((slot) => ({ ...slot, at: nextAt(slot.day, slot.minute, user.timeZone) })),
     // Each account's own best times, from its own results: estimates, labelled as such.
@@ -410,6 +414,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     canPost,
     canAssist,
     snippets,
+    people,
     best,
     editing,
     prefill,
@@ -521,8 +526,8 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
   const pictureInput = useRef<HTMLInputElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
   const pdfInput = useRef<HTMLInputElement>(null);
-  const textArea = useRef<HTMLTextAreaElement>(null);
   const submitButton = useRef<HTMLButtonElement>(null);
+  const postEditor = useRef<PostEditorHandle>(null);
   const uploads = useMediaUploads(media, setMedia, setUploadError);
 
   // Autosave: an unfinished post survives a refresh or a closed tab, in this browser.
@@ -683,6 +688,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     options,
     thread,
     firstComment,
+    people,
   };
   const destinations = picked.map((account) => ({ ...account, broken: account.broken }));
   // Before a word is written, an empty post isn't a problem to flag on every account.
@@ -850,6 +856,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
     requestAnimationFrame(() => {
       const element = document.getElementById(target);
       element?.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (target === "studio-text") return postEditor.current?.focus();
       (element?.matches("textarea, input, select, button")
         ? element
         : element?.querySelector<HTMLElement>("textarea, input, select, button")
@@ -1016,7 +1023,7 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
         const fitted = fitText(words.trim(), limit - measure(suffix), measure) + suffix;
         const followUp = (part: string) =>
           fitText(
-            personalize(part, account.id, {
+            personalize(resolveFor(part, provider, people), account.id, {
               at,
               timeZone,
               product: product?.name ?? null,
@@ -1543,21 +1550,19 @@ export default function Studio({ loaderData, actionData }: Route.ComponentProps)
                 <label htmlFor="studio-text" className="sr-only">
                   Post
                 </label>
-                <textarea
+                <PostEditor
+                  ref={postEditor}
                   id="studio-text"
-                  ref={textArea}
+                  label="Post"
                   className="min-h-40 w-full resize-none bg-transparent text-[1.1875rem] leading-relaxed outline-none placeholder:text-faint [field-sizing:content]"
                   placeholder={
                     product ? `What’s new with ${product.name}?` : "What’s on your mind? Too much slop? Not enough yet!"
                   }
                   value={text}
-                  onChange={(event) => setText(event.target.value)}
-                  onPaste={(event) => {
-                    const files = [...event.clipboardData.files];
-                    if (files.length === 0) return;
-                    event.preventDefault();
-                    uploads.addFiles(files);
-                  }}
+                  onChange={setText}
+                  people={people}
+                  networks={SOCIAL_ORDER.filter((provider) => providers.has(provider))}
+                  onPasteFiles={(files) => uploads.addFiles(files)}
                   maxLength={5000}
                 />
 

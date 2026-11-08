@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { postField } from "../fixtures.ts";
 import { PORTS } from "../ports.ts";
 
 /**
@@ -140,7 +141,7 @@ test("the Studio, start to finish", async ({ page }) => {
     await say(page, "4 · Write", "Tap X and LinkedIn. They show up under “To”.");
     await page.getByRole("button", { name: "Done" }).click();
     await say(page, "4 · Write", "It's about anything: no product needed.");
-    const post = page.getByLabel("Post", { exact: true });
+    const post = postField(page);
     await post.click();
     await post.pressSequentially(
       "Week 12 of building in public: shipped dark mode, cut the load time in half, and finally wrote the docs. What should I build next?",

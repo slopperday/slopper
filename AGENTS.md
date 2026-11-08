@@ -212,7 +212,11 @@ release. Add a tool name to select part of the graph. For example, run
   by people, so they go through the pinned transport. Agents use `create_social_post` (with idempotency keys).
   What each account posts (its words in `overrides`, link, media and first comment in `variants`, its time in
   `times`) and whether it's ready come from `app/lib/destinations.ts` (`destinationFor`, `readiness`), shared by the
-  composer, `saveStudioPost` and the agents; a `block` issue is refused on save. Two X accounts never post the same
+  composer, `saveStudioPost` and the agents; a `block` issue is refused on save. Post text can hold
+  `{{only <networks>}}…{{/only}}` and `{{@key}}` (a person in `socialPeople`, with a handle per network), resolved per
+  network by `resolveFor` (`app/lib/dynamicText.ts`) inside `destinationFor` and `wordsFor`, before spintax and
+  variables. A post keeps a copy of the people it tags (`socialPosts.people`). The composer edits that text with
+  canvist (`PostEditor`: `mention` chips and `conditional` marks, `@canvist/web/full`). Two X accounts never post the same
   words (X's automation rules). Uncertain deliveries wait for the person to resolve them (`social.resolveUncertain`).
   New posts start with the person's starred workflow (`socialSettings.workflows`: accounts, now or queue, product,
   tracked links) or else their last post's accounts; a product is optional, never required.

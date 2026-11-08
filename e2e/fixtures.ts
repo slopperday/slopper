@@ -119,6 +119,35 @@ export async function choose(page: Page, name: string | RegExp): Promise<void> {
   await expect(radio).toBeChecked();
 }
 
+/** The Studio's post field once the canvist editor is up: its canvas carries the label. */
+export function postField(page: Page) {
+  return page.locator('canvas[role="textbox"][aria-label="Post"]');
+}
+
+/**
+ * Writes the Studio post the way people do, a key at a time, replacing what it held. `fill()` can't type into a
+ * canvas.
+ */
+export async function writePost(page: Page, text: string): Promise<void> {
+  const editor = postField(page);
+  await editor.click();
+  await page.keyboard.press(`${await modKey(page)}+a`);
+  await page.keyboard.press("Backspace");
+  await editor.pressSequentially(text);
+}
+
+/**
+ * The key canvist reads as `Mod`, decided as it decides it: from `navigator.userAgentData`, which Playwright's
+ * Chromium reports as Windows even on a Mac, so `ControlOrMeta` would press the wrong one there.
+ */
+export async function modKey(page: Page): Promise<"Meta" | "Control"> {
+  const apple = await page.evaluate(() => {
+    const data = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+    return /Mac|iPhone|iPad|iPod/i.test(data?.platform ?? navigator.platform);
+  });
+  return apple ? "Meta" : "Control";
+}
+
 export function runInternal(stack: Stack, name: string, args: Record<string, unknown>): void {
   convexCli(stack, ["run", name, JSON.stringify(args)]);
 }

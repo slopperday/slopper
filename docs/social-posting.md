@@ -49,6 +49,8 @@ took from them. The "Seen in" column names a few of the products that have it.
 | 12  | Templates                                                                             | Loomly, Mixpost              | Snippets                            |
 | 13  | Variables: {date} {day} {time} {product} {link} {network}                             | Mixpost, Sendible            | `app/lib/variables.ts`              |
 | 14  | Spintax, one variation per account                                                    | Publer                       | `{Hi                                | Hello}` |
+| 14b | Words for some networks only, in the shared text                                      | —                            | "Only on…" in the post field        |
+| 14c | Tag people: each network gets their handle there                                      | —                            | Studio settings → People            |
 | 15  | AI assistant: shorter, longer, rephrase, punchier, hashtags, thread, fit to a network | all suites                   | Assistant buttons                   |
 | 16  | Brand voice the assistant follows                                                     | Typefully, Mixpost, Loomly   | Studio settings                     |
 | 17  | Hashtag suggestions                                                                   | Hootsuite, Later, Metricool  | Assistant                           |
