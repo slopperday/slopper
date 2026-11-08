@@ -44,8 +44,11 @@ export const PostEditor = forwardRef<
   const textarea = useRef<HTMLTextAreaElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<Editor | null>(null);
-  // The words the editor last reported, so a change from outside (a template, the assistant) can be told apart.
+  // The words the editor last reported, and those the parent hasn't handed back as `value` yet: a render still
+  // holding older words isn't a change from outside (a template, the assistant) and mustn't replace the document.
   const emitted = useRef(value);
+  const unseen = useRef<string[]>([]);
+  const lastValue = useRef(value);
   const latest = useRef({ value, onChange, people, onPasteFiles });
   latest.current = { value, onChange, people, onPasteFiles };
   const analytics = useAnalytics();
@@ -103,6 +106,7 @@ export const PostEditor = forwardRef<
         const next = fromEditorDoc(made.toJson() as never).replace(/\n+$/, "");
         if (next !== emitted.current) {
           emitted.current = next;
+          unseen.current.push(next);
           latest.current.onChange(next);
         }
         const found = made.query.mentionSuggestion();
@@ -159,8 +163,16 @@ export const PostEditor = forwardRef<
 
   // Words set from outside the editor (a template, the writing assistant, a saved post) replace its document.
   useEffect(() => {
+    if (value === lastValue.current) return;
+    lastValue.current = value;
+    const caughtUp = unseen.current.indexOf(value);
+    if (caughtUp >= 0) {
+      unseen.current.splice(0, caughtUp + 1);
+      return;
+    }
     if (!editor.current || value === emitted.current) return;
     emitted.current = value;
+    unseen.current = [];
     editor.current.setContent(toEditorDoc(value, people) as never);
   }, [value, people]);
 
