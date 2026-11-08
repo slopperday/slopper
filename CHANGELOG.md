@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.15.0 (2026-11-08)
+
+### Features
+
+- **Dynamic post text: socialPeople and the {{only}} and {{@key}} syntax.** Post text stores `{{only <networks>}}…{{/only}}` and `{{@key}}` (`app/lib/dynamicText.ts`). `destinationFor`, `readiness` and `wordsFor` resolve them per network before spintax and variables, so the composer, the server's save, deliveries, thread parts and first comments agree. The new `socialPeople` table is the address book (studio.people, savePerson, deletePerson). Each post keeps a copy of the people it tags in `socialPosts.people`, so it posts what was checked. The composer edits the text with `@canvist/web/full` (`PostEditor`, `mention` and `conditional`), and its CSP allows `wasm-unsafe-eval`.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ be8ab10
+
 ## 1.14.0 (2026-11-07)
 
 ### Features
