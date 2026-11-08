@@ -166,6 +166,21 @@ describe("fitting words to an account", () => {
     ).toBe("for account a");
   });
 
+  it("resolves people and words for some networks before spintax and the fit", () => {
+    const post = {
+      text: "{Thanks|Cheers} {{@ada}}{{only bluesky}} 🦋{{/only}}",
+      link: null,
+      overrides: {},
+      people: [{ key: "ada", name: "Ada", handles: { bluesky: "ada.bsky.social" } }],
+    };
+    expect(wordsFor("bluesky", post, { context: { timeZone: "UTC", product: null } })).toMatch(
+      /^(Thanks|Cheers) @ada\.bsky\.social 🦋$/,
+    );
+    expect(wordsFor("linkedin", post, { context: { timeZone: "UTC", product: null } })).toMatch(
+      /^(Thanks|Cheers) Ada$/,
+    );
+  });
+
   it("tells documents apart: LinkedIn only, and on their own", () => {
     expect(unsupportedReason("linkedin", { images: 0, video: null, documents: 1 })).toBeNull();
     expect(unsupportedReason("x", { images: 0, video: null, documents: 1 })).toMatch(/Only LinkedIn/);

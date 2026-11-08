@@ -15,6 +15,7 @@ import { consume } from "./lib/rate";
 import { canAccessAccount, userOrganizationIds } from "./organizations";
 import { networkOptionsValidator, socialMetricsValidator, socialVariantValidator } from "./schema";
 import { xTwins } from "../app/lib/destinations";
+import { taggedKeys } from "../app/lib/dynamicText";
 import { NETWORKS } from "../app/lib/networks";
 import { hasSpintax } from "../app/lib/variables";
 
@@ -118,6 +119,7 @@ async function shapePost(ctx: QueryCtx, post: Doc<"socialPosts">) {
     released: post.released ?? false,
     thread: post.thread ?? [],
     firstComment: post.firstComment ?? "",
+    people: post.people ?? [],
     note: post.note ?? "",
     tags: post.tags ?? [],
     repeat: post.repeat ?? null,
@@ -209,6 +211,26 @@ async function ownedAccounts(ctx: MutationCtx, userId: Id<"users">, ids: readonl
   return accounts;
 }
 
+/** The address book's entries for everyone the post's words tag, to keep with the post. */
+async function taggedPeople(ctx: MutationCtx, args: PostInput) {
+  const words = [
+    args.text,
+    ...Object.values(args.overrides),
+    ...(args.thread ?? []),
+    args.firstComment ?? "",
+    ...Object.values(args.variants ?? {}).map((variant) => variant.firstComment ?? ""),
+  ].join("\n");
+  const people = [];
+  for (const key of taggedKeys(words).slice(0, 50)) {
+    const row = await ctx.db
+      .query("socialPeople")
+      .withIndex("by_user_key", (q) => q.eq("userId", args.userId).eq("key", key))
+      .unique();
+    if (row) people.push({ key: row.key, name: row.name, handles: row.handles });
+  }
+  return people;
+}
+
 /** Checks what a post is made of, and turns the input into what's stored (without deliveries). */
 async function preparePost(ctx: MutationCtx, args: PostInput) {
   const accounts = await ownedAccounts(ctx, args.userId, args.accountIds);
@@ -288,9 +310,12 @@ async function preparePost(ctx: MutationCtx, args: PostInput) {
     times[id] = at;
   }
 
+  const people = await taggedPeople(ctx, args);
+
   // X forbids the same automated post from several accounts one person runs.
   if (!args.draft) {
     const destinationPost = {
+      people,
       text: args.text,
       link: args.link,
       media: [],
@@ -354,6 +379,7 @@ async function preparePost(ctx: MutationCtx, args: PostInput) {
     draft: args.draft || undefined,
     thread: args.thread?.length ? args.thread.slice(0, 25) : undefined,
     firstComment: args.firstComment?.trim() || undefined,
+    people: people.length ? people : undefined,
     note: args.note?.trim() || undefined,
     tags: args.tags?.length
       ? [...new Set(args.tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean))].slice(0, 10)

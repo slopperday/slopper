@@ -121,6 +121,13 @@ export const socialDeliveryStatusValidator = v.union(
 
 export const socialActivityValidator = v.object({ at: v.number(), kind: v.string(), detail: v.string() });
 
+/** Someone posts tag as `{{@key}}` (app/lib/dynamicText.ts): their name, and their handle on each network. */
+export const socialPersonValidator = v.object({
+  key: v.string(),
+  name: v.string(),
+  handles: v.record(v.string(), v.string()),
+});
+
 const linkKindValidator = v.union(
   v.literal("website"),
   v.literal("app_store"),
@@ -979,6 +986,8 @@ export default defineSchema({
     thread: v.optional(v.array(v.string())),
     /** A comment posted under it right after, where the network takes comments. */
     firstComment: v.optional(v.string()),
+    /** The people its words tag (`{{@key}}`), as they were when it was saved, so it posts what was checked. */
+    people: v.optional(v.array(socialPersonValidator)),
     /** For its owner only. */
     note: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
@@ -1097,6 +1106,12 @@ export default defineSchema({
     text: v.string(),
     autoAdd: v.optional(v.boolean()),
   }).index("by_user", ["userId"]),
+
+  /** The studio's address book: people posts tag, with their handle on each network. */
+  socialPeople: defineTable({
+    userId: v.id("users"),
+    ...socialPersonValidator.fields,
+  }).index("by_user_key", ["userId", "key"]),
 
   /** How a brand sounds, for the writing assistant. Brands themselves are names on accounts. */
   socialBrands: defineTable({

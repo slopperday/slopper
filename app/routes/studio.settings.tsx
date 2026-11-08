@@ -11,7 +11,7 @@ import { addFeed, importCsv, type ImportResult } from "~/.server/social/automati
 import { CSV_ROWS } from "~/lib/csv";
 import { allowAction } from "~/.server/tokens";
 import { VARIABLES } from "~/lib/variables";
-import { NETWORK_LABELS } from "~/lib/networks";
+import { NETWORK_LABELS, SOCIAL_PROVIDERS, type SocialProvider } from "~/lib/networks";
 import { seo } from "~/lib/seo";
 import { CopyButton } from "~/components/Shared";
 import { Icon } from "~/components/Icon";
@@ -32,9 +32,10 @@ function clock(minute: number): string {
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const user = requireUser(context.get(viewerContext), request);
-  const [settings, snippets, brands, feeds, accounts] = await Promise.all([
+  const [settings, snippets, people, brands, feeds, accounts] = await Promise.all([
     convex.query(api.studio.settings, { userId: user._id }),
     convex.query(api.studio.snippets, { userId: user._id }),
+    convex.query(api.studio.people, { userId: user._id }),
     convex.query(api.studio.brands, { userId: user._id }),
     convex.query(api.studio.feeds, { userId: user._id }),
     convex.query(api.accounts.list, { userId: user._id }),
@@ -50,6 +51,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     workflows: settings.workflows.map((workflow) => ({ ...workflow, accountIds: workflow.accountIds.map(String) })),
     defaultWorkflowId: settings.defaultWorkflowId,
     snippets,
+    people,
     brands: brandNames.map((name) => ({ name, voice: brands.find((brand) => brand.name === name)?.voice ?? "" })),
     feeds,
     accounts: accounts.map(({ _id, provider, handle, displayName, avatarUrl, brand }): StudioAccount => ({
@@ -131,6 +133,24 @@ export async function action({ request, context }: Route.ActionArgs) {
       case "workflow-delete":
         await convex.mutation(api.studio.removeWorkflow, { userId, id: formText(form, "id") });
         return redirectWithFlash(HERE, { tone: "info", message: "Workflow deleted." });
+      case "person": {
+        const handles: Record<string, string> = {};
+        for (const provider of SOCIAL_PROVIDERS) {
+          const handle = form.get(`handle-${provider}`);
+          if (typeof handle === "string") handles[provider] = handle;
+        }
+        const saved = await convex.mutation(api.studio.savePerson, {
+          userId,
+          id: formText(form, "id") || undefined,
+          key: formText(form, "key") || undefined,
+          name: formText(form, "name"),
+          handles,
+        });
+        return redirectWithFlash(HERE, { tone: "success", message: `Saved. Tag them with {{@${saved.key}}}.` });
+      }
+      case "person-delete":
+        await convex.mutation(api.studio.deletePerson, { userId, id: formText(form, "id") });
+        return redirectWithFlash(HERE, { tone: "info", message: "Removed." });
       case "snippet-delete":
         await convex.mutation(api.studio.deleteSnippet, { userId, id: formText(form, "id") });
         return redirectWithFlash(HERE, { tone: "info", message: "Deleted." });
@@ -227,9 +247,75 @@ function AccountPicker({ accounts, name }: { accounts: readonly StudioAccount[];
   );
 }
 
+/** Where people go by a handle: the networks connected, or the usual ones before any are. */
+function handleNetworks(accounts: readonly StudioAccount[]): SocialProvider[] {
+  const connected = new Set(accounts.map((account) => account.provider));
+  const usual: SocialProvider[] = ["x", "bluesky", "threads", "instagram", "linkedin"];
+  return SOCIAL_PROVIDERS.filter((provider) => (connected.size ? connected.has(provider) : usual.includes(provider)));
+}
+
+function PersonForm({
+  person,
+  networks,
+}: {
+  person?: { id: string; key: string; name: string; handles: Record<string, string> };
+  networks: readonly SocialProvider[];
+}) {
+  const label = person ? person.name : "new person";
+  return (
+    <Form method="post" className="grid gap-2 sm:grid-cols-2">
+      <input type="hidden" name="intent" value="person" />
+      {person && <input type="hidden" name="id" value={person.id} />}
+      <input
+        name="name"
+        className="input"
+        placeholder="Name, like Ada Lovelace"
+        defaultValue={person?.name}
+        maxLength={80}
+        aria-label={`Name of ${label}`}
+        required
+      />
+      {person ? (
+        <p className="self-center font-mono text-sm text-muted">{`{{@${person.key}}}`}</p>
+      ) : (
+        <input
+          name="key"
+          className="input font-mono"
+          placeholder="Key (made from the name)"
+          pattern="[a-z0-9_\-]{1,40}"
+          maxLength={40}
+          aria-label="Key"
+        />
+      )}
+      {networks.map((provider) => (
+        <input
+          key={provider}
+          name={`handle-${provider}`}
+          className="input"
+          placeholder={`${NETWORK_LABELS[provider]} handle`}
+          defaultValue={person?.handles[provider] ?? ""}
+          maxLength={100}
+          aria-label={`${NETWORK_LABELS[provider]} handle for ${label}`}
+        />
+      ))}
+      {/* Handles for networks not shown stay as they were. */}
+      {person &&
+        Object.entries(person.handles)
+          .filter(([provider]) => !networks.includes(provider as SocialProvider))
+          .map(([provider, handle]) => (
+            <input key={provider} type="hidden" name={`handle-${provider}`} value={handle} />
+          ))}
+      <button type="submit" className="btn btn-ink btn-sm justify-self-start sm:col-span-2">
+        {person ? "Save" : "Add person"}
+      </button>
+    </Form>
+  );
+}
+
 export default function StudioSettings({ loaderData, actionData }: Route.ComponentProps) {
-  const { settings, snippets, brands, feeds, accounts, timeZone, bookmarklet, workflows, defaultWorkflowId } =
+  const { settings, snippets, people, brands, feeds, accounts, timeZone, bookmarklet, workflows, defaultWorkflowId } =
     loaderData;
+  const networks = handleNetworks(accounts);
   const byDay = DAYS.map((_, day) =>
     settings.slots
       .filter((slot) => slot.day === day)
@@ -404,6 +490,47 @@ export default function StudioSettings({ loaderData, actionData }: Route.Compone
             Save snippet
           </button>
         </Form>
+      </div>
+
+      <div className="panel mt-6" id="people">
+        <h2 className="title-3">People</h2>
+        <p className="mt-1 text-muted">
+          People you tag, with their handle on each network. Type @ in a post to tag one: each network gets their handle
+          there, or their name where they have none.
+        </p>
+        {people.length > 0 && (
+          <ul className="mt-4 grid gap-2">
+            {people.map((person) => (
+              <li key={person.id} className="rounded-xl bg-raised p-3">
+                <details>
+                  <summary className="flex cursor-pointer items-center gap-3">
+                    <span className="min-w-0 flex-1">
+                      <span className="font-bold">{person.name}</span>{" "}
+                      <span className="text-sm text-muted">
+                        {Object.entries(person.handles)
+                          .map(([provider, handle]) => `${NETWORK_LABELS[provider as SocialProvider]} ${handle}`)
+                          .join(" · ") || "No handles yet"}
+                      </span>
+                    </span>
+                  </summary>
+                  <div className="mt-3 grid gap-2">
+                    <PersonForm person={person} networks={networks} />
+                    <Form method="post">
+                      <input type="hidden" name="intent" value="person-delete" />
+                      <input type="hidden" name="id" value={person.id} />
+                      <button type="submit" className="btn btn-quiet btn-sm">
+                        Remove {person.name}
+                      </button>
+                    </Form>
+                  </div>
+                </details>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-4">
+          <PersonForm networks={networks} />
+        </div>
       </div>
 
       {brands.length > 0 && (

@@ -5,11 +5,14 @@ import { requireServer } from "./lib/auth";
 import { consume } from "./lib/rate";
 import { canAccessAccount, userOrganizationIds } from "./organizations";
 import { DEFAULT_SLOTS, wakeDuePosts } from "./social";
+import { PERSON_KEY, personKey } from "../app/lib/dynamicText";
+import { isSocialProvider } from "../app/lib/networks";
 
 /**
  * The studio's supporting records: the posting queue and pause switch, the
  * calendar feed and webhook (`socialSettings`), saved words (`socialSnippets`),
- * brand voices, tracked links, preview links and RSS feeds. Every function is
+ * the people posts tag (`socialPeople`), brand voices, tracked links, preview
+ * links and RSS feeds. Every function is
  * for the app server, which says whose they are.
  */
 
@@ -277,6 +280,85 @@ export const deleteSnippet = mutation({
     await requireServer(ctx);
     const snippetId = ctx.db.normalizeId("socialSnippets", id);
     const row = snippetId ? await ctx.db.get(snippetId) : null;
+    if (row && row.userId === userId) await ctx.db.delete(row._id);
+  },
+});
+
+// ---------------------------------------------------------------------------
+// People: who posts tag as {{@key}}, with their handle on each network.
+
+const PEOPLE_CAP = 500;
+
+export const people = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    await requireServer(ctx);
+    const rows = await ctx.db
+      .query("socialPeople")
+      .withIndex("by_user_key", (q) => q.eq("userId", userId))
+      .take(PEOPLE_CAP);
+    return rows.map((row) => ({ id: row._id, key: row.key, name: row.name, handles: row.handles }));
+  },
+});
+
+/**
+ * Adds someone, or changes their name and handles. A person's key never
+ * changes once made: posts already name them by it.
+ */
+export const savePerson = mutation({
+  args: {
+    userId: v.id("users"),
+    id: v.optional(v.string()),
+    key: v.optional(v.string()),
+    name: v.string(),
+    handles: v.record(v.string(), v.string()),
+  },
+  handler: async (ctx, { userId, id, key, name, handles }) => {
+    await requireServer(ctx);
+    const cleanName = name.trim().replace(/\s+/g, " ").slice(0, 80);
+    if (!cleanName) throw new ConvexError("Give them a name.");
+    const cleanHandles: Record<string, string> = {};
+    for (const [provider, handle] of Object.entries(handles)) {
+      const clean = handle.trim().slice(0, 100);
+      if (isSocialProvider(provider) && clean) cleanHandles[provider] = clean;
+    }
+    const personId = id ? ctx.db.normalizeId("socialPeople", id) : null;
+    const row = personId ? await ctx.db.get(personId) : null;
+    if (row && row.userId === userId) {
+      await ctx.db.patch(row._id, { name: cleanName, handles: cleanHandles });
+      return { id: row._id, key: row.key };
+    }
+    const cleanKey = (key?.trim().toLowerCase() || personKey(cleanName)).slice(0, 40);
+    if (!PERSON_KEY.test(cleanKey)) throw new ConvexError("Keys take lowercase letters, numbers, - and _.");
+    const taken = await ctx.db
+      .query("socialPeople")
+      .withIndex("by_user_key", (q) => q.eq("userId", userId).eq("key", cleanKey))
+      .unique();
+    if (taken) throw new ConvexError(`You already have {{@${cleanKey}}}. Pick another key.`);
+    const count = (
+      await ctx.db
+        .query("socialPeople")
+        .withIndex("by_user_key", (q) => q.eq("userId", userId))
+        .take(PEOPLE_CAP + 1)
+    ).length;
+    if (count >= PEOPLE_CAP) throw new ConvexError(`That's ${PEOPLE_CAP} people already. Remove some first.`);
+    const newId = await ctx.db.insert("socialPeople", {
+      userId,
+      key: cleanKey,
+      name: cleanName,
+      handles: cleanHandles,
+    });
+    return { id: newId, key: cleanKey };
+  },
+});
+
+/** Removes someone. Posts that already tag them keep the copy they were saved with. */
+export const deletePerson = mutation({
+  args: { userId: v.id("users"), id: v.string() },
+  handler: async (ctx, { userId, id }) => {
+    await requireServer(ctx);
+    const personId = ctx.db.normalizeId("socialPeople", id);
+    const row = personId ? await ctx.db.get(personId) : null;
     if (row && row.userId === userId) await ctx.db.delete(row._id);
   },
 });

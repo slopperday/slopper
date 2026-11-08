@@ -5,7 +5,9 @@
  * `<ServerRouter>` to them — so a nonce policy costs nothing and keeps any
  * injected inline script inert: without the nonce it renders as text. Styles
  * stay inline (`style-src 'unsafe-inline'`): cards set CSS variables inline,
- * and style attributes cannot execute script.
+ * and style attributes cannot execute script. `'wasm-unsafe-eval'` lets the
+ * page compile WebAssembly (the canvist editor behind the Studio's post
+ * field) and nothing else: it never allows `eval` or `new Function`.
  */
 export function contentSecurityPolicy(
   nonce: string,
@@ -13,7 +15,7 @@ export function contentSecurityPolicy(
 ): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'`,
+    `script-src 'self' 'nonce-${nonce}' 'wasm-unsafe-eval'`,
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
     "img-src 'self' data: blob: https:",

@@ -1208,7 +1208,11 @@ export const OPERATIONS: Operation[] = [
       type: "object",
       properties: {
         accounts: { type: "array", items: { type: "string" }, description: "Account ids from list_social_accounts." },
-        text: { type: "string", description: "The post. Each network gets it cut to fit, link last." },
+        text: {
+          type: "string",
+          description:
+            "The post. Each network gets it cut to fit, link last. {{only instagram threads}}words{{/only}} go to those networks only; {{@key}} tags someone from the user's Studio people with their handle on each network (their name where they have none).",
+        },
         link: { type: "string" },
         media: { type: "array", items: { type: "string" }, description: "Uploaded picture ids (upload_screenshot)." },
         thread: {

@@ -5,6 +5,7 @@ import type { ClaimedPost } from "@convex/social";
 import { fitText, measureFor } from "~/lib/compose";
 import { isSocialProvider, NETWORKS, type NetworkOptions, type SocialProvider, textLimitFor } from "~/lib/networks";
 import { destinationFor, type DestinationPost, readiness, type Variant } from "~/lib/destinations";
+import { resolveFor } from "~/lib/dynamicText";
 import { personalize } from "~/lib/variables";
 import { absoluteUrl, config, type ContentCheckConfig } from "../config";
 import { convex, convexMessage } from "../convex";
@@ -220,9 +221,10 @@ export async function saveStudioPost(
     if (scheduledAt > Date.now() + 365 * DAY) return fail("Schedule up to a year ahead.");
   }
 
-  const [accounts, media] = await Promise.all([
+  const [accounts, media, people] = await Promise.all([
     convex.query(api.accounts.list, { userId: user._id }),
     convex.query(api.social.mediaForOwner, { ownerId: user._id, mediaIds: input.media.map((item) => item.id) }),
+    convex.query(api.studio.people, { userId: user._id }),
   ]);
   if (media.length !== input.media.length) return fail("One of your uploads is gone. Add it again.");
   const picked = accounts.filter((account) => input.accountIds.includes(account._id));
@@ -283,6 +285,7 @@ export async function saveStudioPost(
       options: input.options,
       thread,
       firstComment: input.firstComment ?? "",
+      people,
     };
     const destinations = picked.map((account) => ({
       id: String(account._id),
@@ -516,13 +519,18 @@ function destinationPostOf(claimed: ClaimedPost): DestinationPost {
     options: claimed.post.options,
     thread: claimed.post.thread,
     firstComment: claimed.post.firstComment,
+    people: claimed.post.people,
   };
 }
 
-/** Fits words to one account: its limit, its link (where links work), its spintax and variables filled in. */
+/**
+ * Fits words to one account: its limit, its link (where links work), its own
+ * words for this network and its tagged people (`resolveFor`), then its
+ * spintax and variables filled in.
+ */
 export function wordsFor(
   provider: SocialProvider,
-  post: Pick<Doc<"socialPosts">, "text" | "link" | "overrides">,
+  post: Pick<Doc<"socialPosts">, "text" | "link" | "overrides" | "people">,
   options: {
     account?: Pick<ConnectedAccount, "_id" | "longPosts">;
     link?: string | null;
@@ -531,10 +539,13 @@ export function wordsFor(
   } = {},
 ): string {
   const link = options.link === undefined ? post.link : options.link;
-  const raw =
+  const raw = resolveFor(
     (options.account ? post.overrides[options.account._id]?.trim() : undefined) ||
-    post.overrides[provider]?.trim() ||
-    post.text;
+      post.overrides[provider]?.trim() ||
+      post.text,
+    provider,
+    post.people,
+  );
   const words = options.context
     ? personalize(raw, options.account?._id ?? provider, {
         at: options.at ?? Date.now(),
@@ -625,7 +636,7 @@ export async function followUps(
   adapter: SocialAdapter,
   account: ConnectedAccount,
   root: { remoteId: string; cid?: string },
-  post: Pick<Doc<"socialPosts">, "thread" | "firstComment">,
+  post: Pick<Doc<"socialPosts">, "thread" | "firstComment" | "people">,
   context: DraftContext,
   existingParts: readonly string[] = [],
 ): Promise<{ parts: string[]; warning: string | null }> {
@@ -644,7 +655,7 @@ export async function followUps(
     const raw = texts[index];
     const words = wordsFor(
       account.provider,
-      { text: raw, link: null, overrides: {} },
+      { text: raw, link: null, overrides: {}, people: post.people },
       { account, link: null, context },
     );
     try {
@@ -724,6 +735,7 @@ async function deliverPass(
           { remoteId: result.remoteId, cid: result.cid },
           {
             thread: claimed.post.thread,
+            people: claimed.post.people,
             // This account's own first comment, or its network's, or the shared one.
             firstComment: destinationFor(destinationPostOf(claimed), {
               id: account._id,
