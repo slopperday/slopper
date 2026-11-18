@@ -87,6 +87,7 @@ registry = "npm"
 [ecosystems.npm.publish.trusted_publishing]
 repository = "slopperday/slopper"
 workflow = "release.yml"
+environment = "production"
 
 [changelog.streams.user]
 description = "What people using slopper.day notice: new things to do, fixes they'd feel, changes they need to act on. Deployment, CI, tooling, tests and refactors stay in the default stream."
