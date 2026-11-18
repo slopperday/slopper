@@ -68,7 +68,7 @@ describe("the Content-Security-Policy keeps scripts on a nonce", () => {
     const sources = scriptSrc.split(" ").slice(1);
     expect(sources).not.toContain("'unsafe-inline'");
     expect(sources).not.toContain("'unsafe-eval'");
-    // WebAssembly for the Studio's editor compiles; JavaScript eval stays off.
+    // WebAssembly for the canvist editors compiles; JavaScript eval stays off.
     expect(sources).toContain("'wasm-unsafe-eval'");
   });
 

@@ -6,8 +6,9 @@
  * injected inline script inert: without the nonce it renders as text. Styles
  * stay inline (`style-src 'unsafe-inline'`): cards set CSS variables inline,
  * and style attributes cannot execute script. `'wasm-unsafe-eval'` lets the
- * page compile WebAssembly (the canvist editor behind the Studio's post
- * field) and nothing else: it never allows `eval` or `new Function`.
+ * page compile WebAssembly (the canvist editors behind Markdown fields and
+ * the Studio's post field) and nothing else: it never allows `eval` or
+ * `new Function`.
  */
 export function contentSecurityPolicy(
   nonce: string,

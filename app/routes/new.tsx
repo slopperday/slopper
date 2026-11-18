@@ -1,3 +1,4 @@
+import { MarkdownEditor } from "~/components/MarkdownEditor";
 import { useState } from "react";
 import { data, Form, Link, useNavigation } from "react-router";
 import type { Route } from "./+types/new";
@@ -267,10 +268,11 @@ export default function NewSlop({ loaderData, actionData }: Route.ComponentProps
             error={errors.launchNote}
             hint="Optional. The first update, and what gets auto-posted."
           >
-            <textarea
+            <MarkdownEditor
               id="launchNote"
               name="launchNote"
-              className="input min-h-24"
+              label="Launch note"
+              className="min-h-24"
               maxLength={LIMITS.updateLength}
               placeholder="Day 3. Tilt your phone to roll the marble. Sound on."
               defaultValue={actionData?.values.launchNote ?? ""}

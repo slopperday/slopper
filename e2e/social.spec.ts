@@ -1,4 +1,4 @@
-import { expect, runInternal, test } from "./fixtures.ts";
+import { expect, test, runInternal, write } from "./fixtures.ts";
 
 test.describe("people reacting, live", () => {
   test("an upvote reaches the maker's open page and bell without a reload", async ({ seed }) => {
@@ -55,7 +55,7 @@ test.describe("people reacting, live", () => {
 
     const page = await seed.pageAs(fan);
     await page.goto(`${slop.path}#feedback`);
-    await page.getByLabel("Your feedback").fill("The **tilt** is smooth.");
+    await write(page, "Your feedback", "The **tilt** is smooth.");
     await page.getByRole("button", { name: "Leave feedback" }).click();
     await expect(page.getByRole("status")).toHaveText("Feedback posted.");
     await expect(page.locator("#feedback")).toContainText("The tilt is smooth.");
@@ -73,7 +73,7 @@ test.describe("people reacting, live", () => {
     // Blocked words are refused and never saved.
     const rudePage = await seed.pageAs(await seed.user("rude"));
     await rudePage.goto(`${slop.path}#feedback`);
-    await rudePage.getByLabel("Your feedback").fill("Not fit to print [e2e:blocked]");
+    await write(rudePage, "Your feedback", "Not fit to print [e2e:blocked]");
     await rudePage.getByRole("button", { name: "Leave feedback" }).click();
     await expect(rudePage.getByRole("alert")).toHaveText(
       "This comment can't go on Slopper. Keep it about the slop, and keep it civil.",
@@ -84,7 +84,7 @@ test.describe("people reacting, live", () => {
     const spicy = await seed.user("spicy");
     const spicyPage = await seed.pageAs(spicy);
     await spicyPage.goto(`${slop.path}#feedback`);
-    await spicyPage.getByLabel("Your feedback").fill("Too spicy [e2e:mature]");
+    await write(spicyPage, "Your feedback", "Too spicy [e2e:mature]");
     await spicyPage.getByRole("button", { name: "Leave feedback" }).click();
     await expect(spicyPage.getByRole("status")).toHaveText("Sent. A moderator will check it before it appears.");
     await expect(page.locator("#feedback")).not.toContainText("Too spicy");
@@ -100,7 +100,7 @@ test.describe("people reacting, live", () => {
 
     // Trusted now: their next comment skips the check, even with a mature marker.
     await spicyPage.goto(`${slop.path}#feedback`);
-    await spicyPage.getByLabel("Your feedback").fill("Still spicy [e2e:mature]");
+    await write(spicyPage, "Your feedback", "Still spicy [e2e:mature]");
     await spicyPage.getByRole("button", { name: "Leave feedback" }).click();
     await expect(spicyPage.getByRole("status")).toHaveText("Feedback posted.");
     await expect(page.locator("#feedback")).toContainText("Still spicy");

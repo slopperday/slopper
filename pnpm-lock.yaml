@@ -182,6 +182,9 @@ importers:
       '@block65/webcrypto-web-push':
         specifier: ^2.0.0
         version: 2.0.0
+      '@canvist/headless':
+        specifier: 0.2.1
+        version: 0.2.1
       '@canvist/web':
         specifier: ^0.2.1
         version: 0.2.1
