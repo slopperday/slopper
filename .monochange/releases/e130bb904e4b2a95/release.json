@@ -1,0 +1,683 @@
+{
+  "schema_version": "0.10",
+  "kind": "monochange.releaseRecord",
+  "created_at": "2026-11-24T08:42:46Z",
+  "command": "release",
+  "version": "1.16.0",
+  "versions": {
+    "slopper": "1.16.0"
+  },
+  "release_targets": [
+    {
+      "id": "slopper",
+      "kind": "package",
+      "version": "1.16.0",
+      "version_format": "primary",
+      "tag": true,
+      "release": false,
+      "tag_name": "v1.16.0",
+      "rendered_title": "v1.16.0 (2026-11-24)",
+      "rendered_changelog_title": "1.16.0 (2026-11-24)",
+      "members": ["slopper"]
+    }
+  ],
+  "released_packages": ["slopper"],
+  "changed_files": ["CHANGELOG.md", "app/changelog/1.16.0.json", "package.json"],
+  "package_publications": [],
+  "updated_changelogs": ["CHANGELOG.md", "app/changelog/1.16.0.json"],
+  "deleted_changesets": [
+    ".changeset/display-font-weights.md",
+    ".changeset/faster-pages-internals.md",
+    ".changeset/faster-pages.md",
+    ".changeset/markdown-editor-internals.md",
+    ".changeset/markdown-editor.md",
+    ".changeset/resized-images-internals.md",
+    ".changeset/resized-images.md",
+    ".changeset/server-timing.md"
+  ],
+  "changesets": [
+    {
+      "path": ".changeset/display-font-weights.md",
+      "summary": "Ship Big Shoulders cut to weights 700 to 900",
+      "details": "app/fonts holds Big Shoulders' three subsets instanced to wght 700:900 with fontTools (opsz kept, since its optical size follows the font size). The site never sets it lighter than 700; the one exception, the product page fields' '+' toggle, now draws at 700. Latin drops from 58 KB to 37 KB, and it's preloaded on every page.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d68d9a09477398ac3d706247d9de3aaac03bb49d",
+            "short_sha": "d68d9a0",
+            "url": null,
+            "authored_at": "2026-11-24T08:42:28Z",
+            "committed_at": "2026-11-24T08:42:28Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d68d9a09477398ac3d706247d9de3aaac03bb49d",
+            "short_sha": "d68d9a0",
+            "url": null,
+            "authored_at": "2026-11-24T08:42:28Z",
+            "committed_at": "2026-11-24T08:42:28Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/faster-pages-internals.md",
+      "summary": "Lighter first load: Convex client after hydration, intent prefetch, fixed video box",
+      "details": "LiveProvider imports convex/react in its effect, so the Convex client (59 KB, 14 KB brotli) leaves every page's first load; useLive already shows loader data until the subscription answers. The header's links, slop rows and maker links prefetch on intent (loaders have no side effects). The slop page's promo video gets aspect-video, which removes its layout shift (CLS 0.185 on desktop Lighthouse), and its poster is the cover resized to 1280px instead of the full upload.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a604bf9fd76319ef4cb15894326644dfee0c9120",
+            "short_sha": "a604bf9",
+            "url": null,
+            "authored_at": "2026-11-24T08:37:13Z",
+            "committed_at": "2026-11-24T08:37:13Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a604bf9fd76319ef4cb15894326644dfee0c9120",
+            "short_sha": "a604bf9",
+            "url": null,
+            "authored_at": "2026-11-24T08:37:13Z",
+            "committed_at": "2026-11-24T08:37:13Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/faster-pages.md",
+      "summary": "Pages open faster",
+      "details": "Pointing at a slop, a maker or a link in the header starts loading that page, so it's often ready by the time you click. Every page also starts with less script, and the promo video keeps its place instead of pushing the screenshots down as it loads.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_change"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a604bf9fd76319ef4cb15894326644dfee0c9120",
+            "short_sha": "a604bf9",
+            "url": null,
+            "authored_at": "2026-11-24T08:37:13Z",
+            "committed_at": "2026-11-24T08:37:13Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a604bf9fd76319ef4cb15894326644dfee0c9120",
+            "short_sha": "a604bf9",
+            "url": null,
+            "authored_at": "2026-11-24T08:37:13Z",
+            "committed_at": "2026-11-24T08:37:13Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/markdown-editor-internals.md",
+      "summary": "Markdown fields are canvist editors",
+      "details": "MarkdownEditor upgrades the server-rendered textarea to a lazily loaded @canvist/web editor (348 KB gzipped WebAssembly, only on pages with a field), keeping the hidden textarea as the form value. Exports are tidied of needless escapes (tidyEscapes), single new lines become hard breaks on the way in (toEditorMarkdown), and a field the editor can't show faithfully (readsTheSame) stays a textarea. Its WebAssembly compiles under the CSP's 'wasm-unsafe-eval'. The promo video's fallback link to its raw file is gone.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a2faaa7898d14ffbd93e535bc16bfb5de52aa83c",
+            "short_sha": "a2faaa7",
+            "url": null,
+            "authored_at": "2026-11-18T10:36:22Z",
+            "committed_at": "2026-11-18T10:36:22Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a2faaa7898d14ffbd93e535bc16bfb5de52aa83c",
+            "short_sha": "a2faaa7",
+            "url": null,
+            "authored_at": "2026-11-18T10:36:22Z",
+            "committed_at": "2026-11-18T10:36:22Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/markdown-editor.md",
+      "summary": "Markdown formats itself as you type",
+      "details": "Descriptions, launch notes, updates, reviews and feedback now format Markdown as you type: asterisks around a word make it bold, a `#` starts a heading and a dash starts a list. Backspace straight after puts the Markdown back, and what you write is saved as you typed it.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a2faaa7898d14ffbd93e535bc16bfb5de52aa83c",
+            "short_sha": "a2faaa7",
+            "url": null,
+            "authored_at": "2026-11-18T10:36:22Z",
+            "committed_at": "2026-11-18T10:36:22Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "a2faaa7898d14ffbd93e535bc16bfb5de52aa83c",
+            "short_sha": "a2faaa7",
+            "url": null,
+            "authored_at": "2026-11-18T10:36:22Z",
+            "committed_at": "2026-11-18T10:36:22Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/resized-images-internals.md",
+      "summary": "Resize pictures through Netlify's Image CDN",
+      "details": "On Netlify (a Netlify global, or IMAGE_CDN=netlify), app/lib/images.ts sends B2 screenshots and sign-in providers' profile pictures through /.netlify/images at the size each component shows them, with 2x sources (or width sets for fluid ones) and AVIF/WebP picked by the browser. netlify.toml allows those hosts in [images] remote_images, and tests/images.test.ts keeps that list and RESIZABLE_IMAGES in step. Blurred NSFW covers fetch a 48px thumbnail. Elsewhere (dev, e2e) pictures are left as they are.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "56043cd1279f9fff52bd2f275af261952dee5255",
+            "short_sha": "56043cd",
+            "url": null,
+            "authored_at": "2026-11-24T08:23:14Z",
+            "committed_at": "2026-11-24T08:23:14Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "56043cd1279f9fff52bd2f275af261952dee5255",
+            "short_sha": "56043cd",
+            "url": null,
+            "authored_at": "2026-11-24T08:23:14Z",
+            "committed_at": "2026-11-24T08:23:14Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/resized-images.md",
+      "summary": "Screenshots and profile pictures load at the size they're shown",
+      "details": "Covers on the wall, the home page and profiles, screenshots on a slop's page, update images and profile pictures now download resized for the screen, as WebP or AVIF. The wall used to fetch about 4 MB of full-size screenshots for its small covers; now it fetches a small fraction of that.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "user_change"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "56043cd1279f9fff52bd2f275af261952dee5255",
+            "short_sha": "56043cd",
+            "url": null,
+            "authored_at": "2026-11-24T08:23:14Z",
+            "committed_at": "2026-11-24T08:23:14Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "56043cd1279f9fff52bd2f275af261952dee5255",
+            "short_sha": "56043cd",
+            "url": null,
+            "authored_at": "2026-11-24T08:23:14Z",
+            "committed_at": "2026-11-24T08:23:14Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    },
+    {
+      "path": ".changeset/server-timing.md",
+      "summary": "Server-Timing on every response, and quicker cold starts",
+      "details": "app/.server/timing.ts (first in the root middleware) adds Server-Timing to every response: app (the whole request), convex (time waiting on Convex, with its round trips and calls; calls that overlap are one round trip) and, on a server's first request, cold (process start to that request). The card renderer (satori, resvg and the fonts inlined as base64, 3.4 MB) and @simplewebauthn/server (about 190 ms to load) are now imported when first used, so the server entry is 1.6 MB instead of 5.1 MB.",
+      "targets": [
+        {
+          "id": "slopper",
+          "kind": "package",
+          "bump": "minor",
+          "origin": "direct-change",
+          "evidence_refs": [],
+          "change_type": "feat"
+        }
+      ],
+      "context": {
+        "provider": "generic_git",
+        "host": null,
+        "capabilities": {
+          "commit_web_urls": false,
+          "actor_profiles": false,
+          "review_request_lookup": false,
+          "related_issues": false,
+          "issue_comments": false
+        },
+        "introduced": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d62ddc965ef0e45205f248342af14a38d979578f",
+            "short_sha": "d62ddc9",
+            "url": null,
+            "authored_at": "2026-11-24T08:34:09Z",
+            "committed_at": "2026-11-24T08:34:09Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "last_updated": {
+          "actor": {
+            "provider": "generic_git",
+            "host": null,
+            "id": null,
+            "login": null,
+            "display_name": "Ifiok Jr.",
+            "url": null,
+            "source": "commit_author"
+          },
+          "commit": {
+            "provider": "generic_git",
+            "host": null,
+            "sha": "d62ddc965ef0e45205f248342af14a38d979578f",
+            "short_sha": "d62ddc9",
+            "url": null,
+            "authored_at": "2026-11-24T08:34:09Z",
+            "committed_at": "2026-11-24T08:34:09Z",
+            "author_name": "Ifiok Jr.",
+            "author_email": "1160934+ifiokjr@users.noreply.github.com"
+          },
+          "review_request": null
+        },
+        "related_issues": []
+      }
+    }
+  ],
+  "changelogs": [
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "default",
+      "stream": "default",
+      "path": "CHANGELOG.md",
+      "format": "keep_a_changelog",
+      "notes": {
+        "title": "1.16.0 (2026-11-24)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Features",
+            "collapsed": false,
+            "entries": [
+              "- **Ship Big Shoulders cut to weights 700 to 900.** app/fonts holds Big Shoulders' three subsets instanced to wght 700:900 with fontTools (opsz kept, since its optical size follows the font size). The site never sets it lighter than 700; the one exception, the product page fields' '+' toggle, now draws at 700. Latin drops from 58 KB to 37 KB, and it's preloaded on every page.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d68d9a0",
+              "- **Lighter first load: Convex client after hydration, intent prefetch, fixed video box.** LiveProvider imports convex/react in its effect, so the Convex client (59 KB, 14 KB brotli) leaves every page's first load; useLive already shows loader data until the subscription answers. The header's links, slop rows and maker links prefetch on intent (loaders have no side effects). The slop page's promo video gets aspect-video, which removes its layout shift (CLS 0.185 on desktop Lighthouse), and its poster is the cover resized to 1280px instead of the full upload.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ a604bf9",
+              "- **Markdown fields are canvist editors.** MarkdownEditor upgrades the server-rendered textarea to a lazily loaded @canvist/web editor (348 KB gzipped WebAssembly, only on pages with a field), keeping the hidden textarea as the form value. Exports are tidied of needless escapes (tidyEscapes), single new lines become hard breaks on the way in (toEditorMarkdown), and a field the editor can't show faithfully (readsTheSame) stays a textarea. Its WebAssembly compiles under the CSP's 'wasm-unsafe-eval'. The promo video's fallback link to its raw file is gone.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ a2faaa7",
+              "- **Resize pictures through Netlify's Image CDN.** On Netlify (a Netlify global, or IMAGE_CDN=netlify), app/lib/images.ts sends B2 screenshots and sign-in providers' profile pictures through /.netlify/images at the size each component shows them, with 2x sources (or width sets for fluid ones) and AVIF/WebP picked by the browser. netlify.toml allows those hosts in [images] remote_images, and tests/images.test.ts keeps that list and RESIZABLE_IMAGES in step. Blurred NSFW covers fetch a 48px thumbnail. Elsewhere (dev, e2e) pictures are left as they are.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 56043cd",
+              "- **Server-Timing on every response, and quicker cold starts.** app/.server/timing.ts (first in the root middleware) adds Server-Timing to every response: app (the whole request), convex (time waiting on Convex, with its round trips and calls; calls that overlap are one round trip) and, on a server's first request, cold (process start to that request). The card renderer (satori, resvg and the fonts inlined as base64, 3.4 MB) and @simplewebauthn/server (about 190 ms to load) are now imported when first used, so the server entry is 1.6 MB instead of 5.1 MB.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d62ddc9"
+            ]
+          }
+        ]
+      },
+      "rendered": "## 1.16.0 (2026-11-24)\n\n### Features\n\n- **Ship Big Shoulders cut to weights 700 to 900.** app/fonts holds Big Shoulders' three subsets instanced to wght 700:900 with fontTools (opsz kept, since its optical size follows the font size). The site never sets it lighter than 700; the one exception, the product page fields' '+' toggle, now draws at 700. Latin drops from 58 KB to 37 KB, and it's preloaded on every page.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d68d9a0\n- **Lighter first load: Convex client after hydration, intent prefetch, fixed video box.** LiveProvider imports convex/react in its effect, so the Convex client (59 KB, 14 KB brotli) leaves every page's first load; useLive already shows loader data until the subscription answers. The header's links, slop rows and maker links prefetch on intent (loaders have no side effects). The slop page's promo video gets aspect-video, which removes its layout shift (CLS 0.185 on desktop Lighthouse), and its poster is the cover resized to 1280px instead of the full upload.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ a604bf9\n- **Markdown fields are canvist editors.** MarkdownEditor upgrades the server-rendered textarea to a lazily loaded @canvist/web editor (348 KB gzipped WebAssembly, only on pages with a field), keeping the hidden textarea as the form value. Exports are tidied of needless escapes (tidyEscapes), single new lines become hard breaks on the way in (toEditorMarkdown), and a field the editor can't show faithfully (readsTheSame) stays a textarea. Its WebAssembly compiles under the CSP's 'wasm-unsafe-eval'. The promo video's fallback link to its raw file is gone.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ a2faaa7\n- **Resize pictures through Netlify's Image CDN.** On Netlify (a Netlify global, or IMAGE_CDN=netlify), app/lib/images.ts sends B2 screenshots and sign-in providers' profile pictures through /.netlify/images at the size each component shows them, with 2x sources (or width sets for fluid ones) and AVIF/WebP picked by the browser. netlify.toml allows those hosts in [images] remote_images, and tests/images.test.ts keeps that list and RESIZABLE_IMAGES in step. Blurred NSFW covers fetch a 48px thumbnail. Elsewhere (dev, e2e) pictures are left as they are.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 56043cd\n- **Server-Timing on every response, and quicker cold starts.** app/.server/timing.ts (first in the root middleware) adds Server-Timing to every response: app (the whole request), convex (time waiting on Convex, with its round trips and calls; calls that overlap are one round trip) and, on a server's first request, cold (process start to that request). The card renderer (satori, resvg and the fonts inlined as base64, 3.4 MB) and @simplewebauthn/server (about 190 ms to load) are now imported when first used, so the server entry is 1.6 MB instead of 5.1 MB.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ d62ddc9"
+    },
+    {
+      "owner_id": "slopper",
+      "owner_kind": "package",
+      "output": "user",
+      "stream": "user",
+      "path": "app/changelog/1.16.0.json",
+      "format": "json",
+      "notes": {
+        "title": "1.16.0 (2026-11-24)",
+        "summary": [],
+        "sections": [
+          {
+            "title": "Changed",
+            "collapsed": false,
+            "entries": [
+              "- **Pages open faster.** Pointing at a slop, a maker or a link in the header starts loading that page, so it's often ready by the time you click. Every page also starts with less script, and the promo video keeps its place instead of pushing the screenshots down as it loads.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ a604bf9",
+              "- **Screenshots and profile pictures load at the size they're shown.** Covers on the wall, the home page and profiles, screenshots on a slop's page, update images and profile pictures now download resized for the screen, as WebP or AVIF. The wall used to fetch about 4 MB of full-size screenshots for its small covers; now it fetches a small fraction of that.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ 56043cd"
+            ]
+          },
+          {
+            "title": "New",
+            "collapsed": false,
+            "entries": [
+              "- **Markdown formats itself as you type.** Descriptions, launch notes, updates, reviews and feedback now format Markdown as you type: asterisks around a word make it bold, a `#` starts a heading and a dash starts a list. Backspace straight after puts the Markdown back, and what you write is saved as you typed it.\n  _Owner:_ Ifiok Jr. · _Introduced in:_ a2faaa7"
+            ]
+          }
+        ]
+      },
+      "rendered": "{\n  \"title\": \"1.16.0 (2026-11-24)\",\n  \"summary\": [],\n  \"sections\": [\n    {\n      \"title\": \"Changed\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Pages open faster\",\n          \"details_markdown\": \"Pointing at a slop, a maker or a link in the header starts loading that page, so it's often ready by the time you click. Every page also starts with less script, and the promo video keeps its place instead of pushing the screenshots down as it loads.\",\n          \"change_type\": \"user_change\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/faster-pages.md\",\n            \"changeset_path\": \".changeset/faster-pages.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"a604bf9\"\n            }\n          }\n        },\n        {\n          \"summary\": \"Screenshots and profile pictures load at the size they're shown\",\n          \"details_markdown\": \"Covers on the wall, the home page and profiles, screenshots on a slop's page, update images and profile pictures now download resized for the screen, as WebP or AVIF. The wall used to fetch about 4 MB of full-size screenshots for its small covers; now it fetches a small fraction of that.\",\n          \"change_type\": \"user_change\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/resized-images.md\",\n            \"changeset_path\": \".changeset/resized-images.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"56043cd\"\n            }\n          }\n        }\n      ]\n    },\n    {\n      \"title\": \"New\",\n      \"collapsed\": false,\n      \"entries\": [\n        {\n          \"summary\": \"Markdown formats itself as you type\",\n          \"details_markdown\": \"Descriptions, launch notes, updates, reviews and feedback now format Markdown as you type: asterisks around a word make it bold, a `#` starts a heading and a dash starts a list. Backspace straight after puts the Markdown back, and what you write is saved as you typed it.\",\n          \"change_type\": \"user_feat\",\n          \"bump\": \"minor\",\n          \"stream\": \"user\",\n          \"style\": \"compact\",\n          \"provenance\": {\n            \"source_path\": \".changeset/markdown-editor.md\",\n            \"changeset_path\": \".changeset/markdown-editor.md\",\n            \"change_owner\": {\n              \"label\": \"Ifiok Jr.\"\n            },\n            \"introduced_commit\": {\n              \"label\": \"a2faaa7\"\n            }\n          }\n        }\n      ]\n    }\n  ]\n}"
+    }
+  ],
+  "provider": null
+}

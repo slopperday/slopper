@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.16.0 (2026-11-24)
+
+### Features
+
+- **Ship Big Shoulders cut to weights 700 to 900.** app/fonts holds Big Shoulders' three subsets instanced to wght 700:900 with fontTools (opsz kept, since its optical size follows the font size). The site never sets it lighter than 700; the one exception, the product page fields' '+' toggle, now draws at 700. Latin drops from 58 KB to 37 KB, and it's preloaded on every page.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ d68d9a0
+- **Lighter first load: Convex client after hydration, intent prefetch, fixed video box.** LiveProvider imports convex/react in its effect, so the Convex client (59 KB, 14 KB brotli) leaves every page's first load; useLive already shows loader data until the subscription answers. The header's links, slop rows and maker links prefetch on intent (loaders have no side effects). The slop page's promo video gets aspect-video, which removes its layout shift (CLS 0.185 on desktop Lighthouse), and its poster is the cover resized to 1280px instead of the full upload.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ a604bf9
+- **Markdown fields are canvist editors.** MarkdownEditor upgrades the server-rendered textarea to a lazily loaded @canvist/web editor (348 KB gzipped WebAssembly, only on pages with a field), keeping the hidden textarea as the form value. Exports are tidied of needless escapes (tidyEscapes), single new lines become hard breaks on the way in (toEditorMarkdown), and a field the editor can't show faithfully (readsTheSame) stays a textarea. Its WebAssembly compiles under the CSP's 'wasm-unsafe-eval'. The promo video's fallback link to its raw file is gone.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ a2faaa7
+- **Resize pictures through Netlify's Image CDN.** On Netlify (a Netlify global, or IMAGE_CDN=netlify), app/lib/images.ts sends B2 screenshots and sign-in providers' profile pictures through /.netlify/images at the size each component shows them, with 2x sources (or width sets for fluid ones) and AVIF/WebP picked by the browser. netlify.toml allows those hosts in [images] remote_images, and tests/images.test.ts keeps that list and RESIZABLE_IMAGES in step. Blurred NSFW covers fetch a 48px thumbnail. Elsewhere (dev, e2e) pictures are left as they are.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ 56043cd
+- **Server-Timing on every response, and quicker cold starts.** app/.server/timing.ts (first in the root middleware) adds Server-Timing to every response: app (the whole request), convex (time waiting on Convex, with its round trips and calls; calls that overlap are one round trip) and, on a server's first request, cold (process start to that request). The card renderer (satori, resvg and the fonts inlined as base64, 3.4 MB) and @simplewebauthn/server (about 190 ms to load) are now imported when first used, so the server entry is 1.6 MB instead of 5.1 MB.
+  _Owner:_ Ifiok Jr. · _Introduced in:_ d62ddc9
+
 ## 1.15.0 (2026-11-08)
 
 ### Features
