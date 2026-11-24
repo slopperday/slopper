@@ -41,7 +41,7 @@ export function Header({
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-ground/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:gap-6">
-        <Link to="/" className="-my-1 shrink-0 py-1" aria-label="Slopper home">
+        <Link to="/" prefetch="intent" className="-my-1 shrink-0 py-1" aria-label="Slopper home">
           <Wordmark />
         </Link>
         <nav className="hidden h-full items-stretch md:flex" aria-label="Main">
@@ -49,6 +49,8 @@ export function Header({
             <NavLink
               key={item.to}
               to={item.to}
+              // Pointing at a link loads its page's code and data, so the click has less to wait for.
+              prefetch="intent"
               className={(state) => `${navClass(state)} ${"wide" in item ? "max-lg:hidden" : ""}`}
             >
               {item.label}

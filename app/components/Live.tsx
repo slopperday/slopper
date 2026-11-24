@@ -1,4 +1,4 @@
-import { ConvexReactClient } from "convex/react";
+import type { ConvexReactClient } from "convex/react";
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import { createContext, useContext, useEffect, useState } from "react";
 
@@ -6,6 +6,9 @@ import { createContext, useContext, useEffect, useState } from "react";
  * Live data. Pages render from loader data on the server, then subscribe to
  * the same Convex query in the browser, so votes, races, feedback and
  * notifications update in place for everyone.
+ *
+ * The Convex client (about 60 KB of script) loads after the page is up: the
+ * loader's data is already on screen, so nothing waits for it.
  */
 
 const LiveContext = createContext<ConvexReactClient | null>(null);
@@ -31,9 +34,18 @@ export function LiveProvider({
   // Browser only: the client opens a websocket.
   useEffect(() => {
     if (!url) return;
-    const instance = new ConvexReactClient(url);
-    setClient(instance);
-    return () => void instance.close();
+    let instance: ConvexReactClient | null = null;
+    let closed = false;
+    void import("convex/react").then(({ ConvexReactClient }) => {
+      if (closed) return;
+      instance = new ConvexReactClient(url);
+      setClient(instance);
+    });
+    return () => {
+      closed = true;
+      void instance?.close();
+      setClient(null);
+    };
   }, [url]);
 
   useEffect(() => {

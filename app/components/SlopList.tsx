@@ -54,6 +54,7 @@ function Maker({ owner }: { owner: CardItem["owner"] }) {
   return (
     <Link
       to={`/@${owner.username}`}
+      prefetch="intent"
       className="relative z-10 -my-2.5 flex items-center gap-1.5 py-2.5 font-bold hover:text-ink"
     >
       <Avatar user={owner} size="xs" />@{owner.username}
@@ -103,6 +104,7 @@ function SlopRow({
         <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
           <Link
             to={href}
+            prefetch="intent"
             className={`min-w-0 truncate font-display leading-[1.05] font-extrabold after:absolute after:inset-0 after:content-[''] group-hover:underline group-hover:decoration-2 ${
               lead ? "text-[1.9rem] sm:text-[2.25rem]" : "text-[1.45rem]"
             }`}
@@ -184,6 +186,7 @@ export function SlopFeature({ item }: { item: CardItem }) {
           <h3 className="font-display text-[2rem] leading-none font-extrabold">
             <Link
               to={href}
+              prefetch="intent"
               className="after:absolute after:inset-0 after:content-[''] group-hover:underline group-hover:decoration-2"
             >
               {slop.name}
