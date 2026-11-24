@@ -135,6 +135,11 @@ export interface Config {
    * for a moderator.
    */
   commentsEnabled: boolean;
+  /**
+   * Resize pictures through Netlify's Image CDN (`app/lib/images.ts`). On by
+   * itself in Netlify Functions; `IMAGE_CDN=netlify` or `off` decides elsewhere.
+   */
+  imageCdn: boolean;
   /** Screenshot storage. Without it, screenshots go to Convex file storage. */
   b2: B2Config | null;
   /**
@@ -251,6 +256,13 @@ function googleServiceAccount(env: Env): GoogleServiceAccount | null {
   return { clientEmail, privateKey };
 }
 
+/** Netlify Functions have a `Netlify` global; a local server, tests and e2e don't. */
+function imageCdn(env: Env): boolean {
+  const setting = env.IMAGE_CDN?.trim();
+  if (setting) return setting === "netlify";
+  return typeof (globalThis as { Netlify?: unknown }).Netlify === "object";
+}
+
 export function loadConfig(env: Env = process.env): Config {
   const convexUrl = env.CONVEX_URL?.trim() || env.VITE_CONVEX_URL?.trim() || null;
   return {
@@ -290,6 +302,7 @@ export function loadConfig(env: Env = process.env): Config {
         }
       : null,
     commentsEnabled: env.COMMENTS_ENABLED?.trim() === "true",
+    imageCdn: imageCdn(env),
     b2: b2Storage(env),
     vapidPublicKey: env.VAPID_PUBLIC_KEY?.trim() || null,
     googleAnalytics: googleServiceAccount(env),

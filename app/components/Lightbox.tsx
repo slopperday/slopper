@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./Icon";
+import { fluidImage } from "~/lib/images";
+import { useImageCdn } from "./useImageCdn";
 
 export interface LightboxItem {
   url: string;
@@ -28,6 +30,7 @@ export function Lightbox({
   /** Walking a gallery with the arrows or the buttons. Omitted for a single picture. */
   onIndex?: (index: number) => void;
 }) {
+  const cdn = useImageCdn();
   const dialog = useRef<HTMLDivElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const returnTo = useRef<Element | null>(null);
@@ -118,7 +121,7 @@ export function Lightbox({
         />
       ) : (
         <img
-          src={item.url}
+          {...fluidImage(item.url, "100vw", cdn)}
           alt={item.alt}
           draggable={false}
           className="relative max-h-full max-w-full rounded-xl object-contain"

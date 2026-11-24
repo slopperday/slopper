@@ -169,7 +169,15 @@ export function SlopFeature({ item }: { item: CardItem }) {
   const screenshot = slop.screenshots.length > 0;
   return (
     <article className="group relative">
-      {screenshot && <SlopCover slop={slop} blur={item.blur} className="mb-4 aspect-[16/10] w-full rounded-2xl" />}
+      {screenshot && (
+        <SlopCover
+          slop={slop}
+          blur={item.blur}
+          // Home's side column on wide screens, the page's width below that.
+          size="(min-width: 1024px) 21rem, min(calc(100vw - 2rem), 70rem)"
+          className="mb-4 aspect-[16/10] w-full rounded-2xl"
+        />
+      )}
       <div className="flex items-start justify-between gap-3">
         {!screenshot && <SlopCover slop={slop} className="size-14 shrink-0 rounded-xl" />}
         <div className="min-w-0 flex-1">

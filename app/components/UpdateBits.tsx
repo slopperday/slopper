@@ -4,6 +4,8 @@ import type { PublicUpdateLink } from "@convex/lib/shape";
 import { FIELD_OUTCOMES, type FieldOutcome, LINK_KINDS, type UpdateDetails } from "~/lib/model";
 import { Icon } from "./Icon";
 import { Lightbox } from "./Lightbox";
+import { fixedImage } from "~/lib/images";
+import { useImageCdn } from "./useImageCdn";
 
 /** Small pieces of an update: its version, details, images and links. */
 
@@ -36,6 +38,7 @@ export function UpdateDetailsLine({ details }: { details: UpdateDetails }) {
 
 /** An update's images, blurred like the slop's screenshots until revealed. Opened full screen, never linked. */
 export function UpdateImages({ images, name, reveal }: { images: readonly string[]; name: string; reveal: boolean }) {
+  const cdn = useImageCdn();
   const [open, setOpen] = useState<number | null>(null);
   const frame = "relative shrink-0 snap-start overflow-hidden rounded-xl bg-sunk";
   const items = images.map((url, index) => ({ url, alt: `${name} update image ${index + 1}` }));
@@ -45,7 +48,7 @@ export function UpdateImages({ images, name, reveal }: { images: readonly string
         {images.map((url, index) => {
           const image = (
             <img
-              src={url}
+              {...fixedImage(url, reveal ? { h: 192 } : { h: 48 }, cdn)}
               alt={`${name} update image ${index + 1}`}
               loading="lazy"
               className={`h-40 w-auto max-w-[75vw] object-contain sm:h-48 ${reveal ? "" : "scale-110 blur-2xl"}`}

@@ -1,3 +1,9 @@
+import { fixedImage } from "~/lib/images";
+import { useImageCdn } from "./useImageCdn";
+
+/** Each size's width in CSS pixels, for the picture to be fetched at. */
+const PIXELS = { xs: 24, sm: 32, md: 44, lg: 96 } as const;
+
 const SIZES = {
   xs: "size-6 text-[0.7rem]",
   sm: "size-8 text-sm",
@@ -13,10 +19,19 @@ export function Avatar({
   user: { username: string; displayName: string; avatarUrl: string | null };
   size?: keyof typeof SIZES;
 }) {
+  const cdn = useImageCdn();
   const base = `${SIZES[size]} shrink-0 rounded-full object-cover`;
   if (user.avatarUrl) {
+    const px = PIXELS[size];
     return (
-      <img src={user.avatarUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className={`${base} bg-sunk`} />
+      <img
+        {...fixedImage(user.avatarUrl, { w: px, h: px, fit: "cover" }, cdn)}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        className={`${base} bg-sunk`}
+      />
     );
   }
   let hue = 0;
