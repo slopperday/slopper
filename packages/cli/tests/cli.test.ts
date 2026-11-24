@@ -999,11 +999,12 @@ describe("which token and site", () => {
   it("reports a config it can't read instead of crashing", async () => {
     const cli = await harness(ME, TOKEN);
     await mkdir(cli.configFile, { recursive: true });
-    expect(await cli.run("whoami")).toEqual({
-      code: 1,
-      stdout: "",
-      stderr: `slopper: Couldn't read ${cli.configFile}: EISDIR: illegal operation on a directory, read\n`,
-    });
+    const result = await cli.run("whoami");
+    expect(result).toMatchObject({ code: 1, stdout: "" });
+    // Node 26 names the path after "read"; earlier versions stop there.
+    expect(result.stderr).toMatch(
+      `slopper: Couldn't read ${cli.configFile}: EISDIR: illegal operation on a directory, read`,
+    );
   });
 });
 
