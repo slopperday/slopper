@@ -66,7 +66,7 @@ import { DemoVideo } from "~/components/DemoVideo";
 import { LiveTeaser, TractionSection } from "~/components/Traction";
 import { Lightbox } from "~/components/Lightbox";
 import { useImageCdn } from "~/components/useImageCdn";
-import { fixedImage } from "~/lib/images";
+import { fixedImage, resized } from "~/lib/images";
 
 function parseHandle(handle: string): string {
   if (!handle.startsWith("@")) notFound();
@@ -563,11 +563,13 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
             <video
               ref={inlineVideo}
               src={slop.video}
-              poster={slop.screenshots[0]}
+              // The cover screenshot at the player's size; the full upload is often megabytes.
+              poster={slop.screenshots[0] && resized(slop.screenshots[0], { w: 1280 }, cdn)}
               controls
               playsInline
               preload="metadata"
-              className="max-h-[75vh] w-full rounded-2xl bg-board object-contain"
+              // A 16:9 box from the start, so the page doesn't move when the video's size arrives.
+              className="aspect-video max-h-[75vh] w-full rounded-2xl bg-board object-contain"
             />
             <button
               type="button"
