@@ -3,6 +3,7 @@ import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from "co
 import { ConvexError } from "convex/values";
 import { importJWK, type JWK, SignJWT } from "jose";
 import { config } from "./config";
+import { timed } from "./timing";
 
 /**
  * The app server's line to Convex. It signs short-lived ES256 JWTs that
@@ -63,19 +64,22 @@ export const convex = {
     query: Query,
     ...args: OptionalRestArgs<Query>
   ): Promise<FunctionReturnType<Query>> {
-    return await (await client()).query(query, ...args);
+    const caller = await client();
+    return await timed(() => caller.query(query, ...args));
   },
   async mutation<Mutation extends FunctionReference<"mutation">>(
     mutation: Mutation,
     ...args: OptionalRestArgs<Mutation>
   ): Promise<FunctionReturnType<Mutation>> {
-    return await (await client()).mutation(mutation, ...args);
+    const caller = await client();
+    return await timed(() => caller.mutation(mutation, ...args));
   },
   async action<Action extends FunctionReference<"action">>(
     action: Action,
     ...args: OptionalRestArgs<Action>
   ): Promise<FunctionReturnType<Action>> {
-    return await (await client()).action(action, ...args);
+    const caller = await client();
+    return await timed(() => caller.action(action, ...args));
   },
 };
 
@@ -97,5 +101,5 @@ export async function queryAsUser<Query extends FunctionReference<"query">>(
   if (!config.convexUrl) throw new MissingConvexConfigError("CONVEX_URL");
   const client = new ConvexHttpClient(config.convexUrl);
   client.setAuth(await mintToken(userId));
-  return await client.query(query, ...args);
+  return await timed(() => client.query(query, ...args));
 }

@@ -1,10 +1,4 @@
 import { redirect } from "react-router";
-import {
-  generateAuthenticationOptions,
-  generateRegistrationOptions,
-  verifyAuthenticationResponse,
-  verifyRegistrationResponse,
-} from "@simplewebauthn/server";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 import { renderSVG } from "uqr";
 import { api } from "@convex/_generated/api";
@@ -17,6 +11,12 @@ import { clearCookie, readCookie, SESSION_COOKIE, setCookie, TWO_FACTOR_COOKIE }
 import { startSession, type User, type Viewer } from "../session";
 import { safeReturnTo } from "./oauth";
 import { matchTotp, newRecoveryCodes, newTotpSecret, normalizeRecoveryCode, otpauthUrl } from "./totp";
+
+/**
+ * The passkey library, loaded the first time someone uses a passkey: it
+ * takes about 190 ms to load, which every cold start would pay otherwise.
+ */
+const webauthn = () => import("@simplewebauthn/server");
 
 /**
  * Two-step sign-in. Slopper has no passwords: people sign in with GitHub,
@@ -189,6 +189,7 @@ export async function checkCode(step: PendingStep, typed: string): Promise<CodeR
 
 export async function passkeyOptionsForStep(step: PendingStep) {
   const keys = await convex.query(api.security.passkeysFor, { userId: step.userId });
+  const { generateAuthenticationOptions } = await webauthn();
   const options = await generateAuthenticationOptions({
     rpID: rp().rpID,
     userVerification: "preferred",
@@ -210,6 +211,7 @@ export async function checkPasskey(step: PendingStep, response: AuthenticationRe
     return { ok: false, error: "That passkey isn't one of this account's." };
   }
   try {
+    const { verifyAuthenticationResponse } = await webauthn();
     const { verified, authenticationInfo } = await verifyAuthenticationResponse({
       response,
       expectedChallenge: fresh.challenge,
@@ -295,6 +297,7 @@ export async function markThisSessionVerified(request: Request): Promise<void> {
 /** Options for adding a passkey, with a token the browser sends back with its answer. */
 export async function passkeyRegistrationOptions(user: Pick<User, "_id" | "username" | "displayName">) {
   const keys = await convex.query(api.security.passkeysFor, { userId: user._id });
+  const { generateRegistrationOptions } = await webauthn();
   const options = await generateRegistrationOptions({
     rpName: rp().rpName,
     rpID: rp().rpID,
@@ -336,6 +339,7 @@ export async function addPasskey(
   }
   const firstFactor = !(await secondFactorRequired(user._id));
   try {
+    const { verifyRegistrationResponse } = await webauthn();
     const { verified, registrationInfo } = await verifyRegistrationResponse({
       response,
       expectedChallenge: step.challenge,
