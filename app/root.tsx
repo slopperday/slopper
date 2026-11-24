@@ -36,7 +36,7 @@ import { Tiles } from "./components/Tiles";
 import { analyticsTokenSource, mayRecordPath, sanitizeAnalyticsPath } from "./lib/analytics";
 import { withoutRedirectMarker } from "./lib/redirect";
 import "./app.css";
-import bigShouldersLatin from "@fontsource-variable/big-shoulders/files/big-shoulders-latin-standard-normal.woff2?url";
+import bigShouldersLatin from "./fonts/big-shoulders-latin-700-900.woff2?url";
 import schibstedGroteskLatin from "@fontsource-variable/schibsted-grotesk/files/schibsted-grotesk-latin-wght-normal.woff2?url";
 
 // timingMiddleware goes first so the time it reports covers everything else; then
