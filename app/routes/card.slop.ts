@@ -5,7 +5,6 @@ import { api } from "@convex/_generated/api";
 import { convex } from "~/.server/convex";
 import { notFound } from "~/.server/http";
 import { allowAction, callerAddress } from "~/.server/tokens";
-import { cardImage, cardResponse, renderCard, SlopCard } from "~/.server/cards";
 import { slopCardPath, slopCardScreenshot } from "~/lib/cards";
 
 /**
@@ -29,6 +28,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (`${asked.pathname}${asked.search}` !== canonical) {
     return redirect(canonical, 301);
   }
+  // The renderer and its fonts are megabytes: loaded on the first card, not on every cold start.
+  const { cardImage, cardResponse, renderCard, SlopCard } = await import("~/.server/cards");
   const cover = slopCardScreenshot(page.slop);
   const screenshot = cover ? await cardImage(cover) : null;
   return cardResponse(

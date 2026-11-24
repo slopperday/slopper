@@ -22,6 +22,7 @@ import { autopostNetworks, config } from "./.server/config";
 import { flagProperties, flagsFor } from "./.server/flags";
 import { runningSurveys } from "./.server/surveys";
 import { readCookie, redirectQueryMiddleware } from "./.server/http";
+import { timingMiddleware } from "./.server/timing";
 import { MOTION_COOKIE, parseMotion } from "./lib/motion";
 import { csrfMiddleware, flashRenderedContext, viewerContext, viewerMiddleware } from "./.server/session";
 import { permissionsOf } from "@convex/lib/permissions";
@@ -38,8 +39,10 @@ import "./app.css";
 import bigShouldersLatin from "@fontsource-variable/big-shoulders/files/big-shoulders-latin-standard-normal.woff2?url";
 import schibstedGroteskLatin from "@fontsource-variable/schibsted-grotesk/files/schibsted-grotesk-latin-wght-normal.woff2?url";
 
-// redirectQueryMiddleware goes first so it sees every redirect, the others' included.
+// timingMiddleware goes first so the time it reports covers everything else; then
+// redirectQueryMiddleware, so it sees every redirect, the others' included.
 export const middleware: Route.MiddlewareFunction[] = [
+  timingMiddleware,
   redirectQueryMiddleware,
   csrfMiddleware,
   viewerMiddleware,
