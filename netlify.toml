@@ -13,6 +13,17 @@ publish = "build/client"
 [build.environment]
 NODE_VERSION = "24"
 
+# Pictures the Image CDN (/.netlify/images) may fetch and resize: screenshots
+# in the B2 bucket and sign-in providers' profile pictures. Keep in step with
+# RESIZABLE_IMAGES in app/lib/images.ts (tests/images.test.ts checks).
+[images]
+remote_images = [
+  'https://f[0-9]{3}\.backblazeb2\.com/file/slopper-media/.*',
+  'https://avatars\.githubusercontent\.com/.*',
+  'https://lh3\.googleusercontent\.com/.*',
+  'https://pbs\.twimg\.com/.*',
+]
+
 # Hashed file names: a new build never reuses one.
 [[headers]]
 for = "/assets/*"

@@ -69,6 +69,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     origin: config.appUrl.origin,
     convexUrl: config.convexUrl,
     commentsEnabled: config.commentsEnabled,
+    imageCdn: config.imageCdn,
     autopostNetworks: autopostNetworks(),
     analytics,
     analyticsOptedOut: optedOut,

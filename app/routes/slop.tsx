@@ -65,6 +65,8 @@ import { updatePrompt } from "~/lib/prompts";
 import { DemoVideo } from "~/components/DemoVideo";
 import { LiveTeaser, TractionSection } from "~/components/Traction";
 import { Lightbox } from "~/components/Lightbox";
+import { useImageCdn } from "~/components/useImageCdn";
+import { fixedImage } from "~/lib/images";
 
 function parseHandle(handle: string): string {
   if (!handle.startsWith("@")) notFound();
@@ -422,6 +424,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
   const { owner, slop, isOwner, intents } = loaderData;
   const [search] = useSearchParams();
   const reveal = loaderData.reveal || search.get("reveal") === "1";
+  const cdn = useImageCdn();
   const path = slopPath(owner.username, slop.slug);
   const day = dayLabel(slop);
   const primary = slop.links.find((link) => link.kind === "website") ?? slop.links[0];
@@ -588,7 +591,7 @@ export default function SlopPage({ loaderData: data }: Route.ComponentProps) {
                 const frame = "relative shrink-0 snap-start overflow-hidden rounded-2xl bg-sunk";
                 const image = (
                   <img
-                    src={url}
+                    {...fixedImage(url, reveal ? { h: 384 } : { h: 48 }, cdn)}
                     alt={`${slop.name} screenshot ${index + 1}`}
                     loading={index === 0 ? "eager" : "lazy"}
                     className={`h-64 w-auto max-w-[85vw] object-contain sm:h-96 ${reveal ? "" : "scale-110 blur-2xl"}`}
